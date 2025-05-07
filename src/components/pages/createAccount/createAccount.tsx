@@ -1,0 +1,148 @@
+import React, { useState } from "react";
+import { IoCallOutline, IoMailOutline, IoPersonOutline } from "react-icons/io5";
+import { PiEye, PiEyeClosed } from "react-icons/pi";
+import { Link } from "react-router-dom";
+import { SlLock } from "react-icons/sl";
+
+const CreateAccount: React.FC = () => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6">
+        {/* Left Section (Image) */}
+        <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
+          <div className="lg:w-10/12 py-8">
+            <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Account</h1>
+            <p className="text-lg lg:text-xl text-gray-300">
+              Kindly create an account to set up your church
+            </p>
+          </div>
+        </div>
+
+        {/* Right Section (Form) */}
+        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col">
+          <form className="flex flex-col">
+            {/* Full Name */}
+            <div className="mb-6">
+              <label htmlFor="full-name" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Full Name
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
+                <IoPersonOutline className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type="text"
+                  id="full-name"
+                  className="w-full text-base text-gray-800 focus:outline-none"
+                  placeholder="Enter your full name"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="mb-6">
+              <label htmlFor="email" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Email
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
+                <IoMailOutline className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type="email"
+                  id="email"
+                  className="w-full text-base text-gray-800 focus:outline-none"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Phone Number */}
+            <div className="mb-6">
+              <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Phone Number
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
+                <IoCallOutline className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type="tel"
+                  id="phone"
+                  className="w-full text-base text-gray-800 focus:outline-none"
+                  placeholder="Enter your phone number"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="mb-6">
+              <label htmlFor="password" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Password
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow relative">
+                <SlLock className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  className="w-full text-base text-gray-800 focus:outline-none pr-10"
+                  placeholder="Enter your password"
+                  required
+                />
+                <div
+                  className="absolute right-4 cursor-pointer text-gray-400 text-xl"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <PiEye /> : <PiEyeClosed />}
+                </div>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div className="mb-6">
+              <label htmlFor="confirm-password" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Confirm Password
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow relative">
+                <SlLock className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  id="confirm-password"
+                  className="w-full text-base text-gray-800 focus:outline-none pr-10"
+                  placeholder="Confirm your password"
+                  required
+                />
+                <div
+                  className="absolute right-4 cursor-pointer text-gray-400 text-xl"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <PiEye /> : <PiEyeClosed />}
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="w-full gap-3 pt-5">
+              <Link to={"/setup-church"}>
+                <button
+                  type="submit"
+                  className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center"
+                >
+                  Continue
+                </button>
+              </Link>
+            </div>
+            <div className="mt-5 text-center">
+              <span>Already have an account?</span>{" "}
+              <Link to={"/"} className="underline">
+                Log in
+              </Link>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CreateAccount;
