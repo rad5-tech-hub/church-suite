@@ -1,6 +1,9 @@
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const Loading: React.FC = () => {
+  const navigate = useNavigate(); // Initialize useNavigate
+
   useEffect(() => {
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -10,13 +13,13 @@ const Loading: React.FC = () => {
         if (spinner) {
           spinner.classList.remove("animate-spin");
         }
-        // Optional: Add a completion action (e.g., redirect or show message)
+        // Redirect to the dashboard after loading
         setTimeout(() => {
-          window.location.href = "/dashboard"; // Redirect to the dashboard after loading
+          navigate("/dashboard"); // Use navigate instead of window.location.href
         }, 1000);
       });
     }
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
