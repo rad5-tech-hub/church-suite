@@ -6,6 +6,8 @@ import Loading from "./createAccount/loading";
 const SetupChurch = React.lazy(() => import("./setupAccount/setupstep1"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
+const ViewAdmin = React.lazy(() => import("./manage/viewAdmins"));
+const Admin = React.lazy(() => import("./manage/admin"));
 const Login = React.lazy(() => import("./login/login"));
 
 const AppRoutes: React.FC = () => {
@@ -18,6 +20,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/setting-up" element={<Loading />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/manage-church/admin" element={<Admin />} />
+          <Route path="/manage-church/view-admin" element={<ViewAdmin/>} />
 
           {/* Dashboard */}
           <Route path="/" element={<Login />} />
