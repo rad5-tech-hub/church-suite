@@ -28,7 +28,7 @@ const SetupStep2: React.FC = () => {
         {/* Left Section (Image) */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-9/12 py-8">
-            <p className="mb-2 text-sm text-gray-200">Step 2 of 2</p>
+            <p className="mb-2 text-sm text-gray-200">Step 2 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Image Uploads</h1>
             <p className="text-lg lg:text-xl text-gray-300">
               Upload your logo and background image to complete the setup.
