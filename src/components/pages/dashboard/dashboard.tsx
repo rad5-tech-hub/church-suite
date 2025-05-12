@@ -30,4 +30,45 @@ const Dashboard: React.FC = () => {
   );
 };
 
+// Test Code (Only runs when in test environment)
+if (process.env.NODE_ENV === 'test') {
+  const { render, screen } = require('@testing-library/react');
+  const { MemoryRouter } = require('react-router-dom');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
+  describe('Dashboard Component', () => {
+    test('renders dashboard content', () => {
+      render(
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to the dashboard! Here you can manage your church activities, view reports, and more.')).toBeInTheDocument();
+      expect(screen.getByText('Members')).toBeInTheDocument();
+      expect(screen.getByText('Manage church members and their details.')).toBeInTheDocument();
+      expect(screen.getByText('Events')).toBeInTheDocument();
+      expect(screen.getByText('Plan and manage church events.')).toBeInTheDocument();
+      expect(screen.getByText('Donations')).toBeInTheDocument();
+      expect(screen.getByText('Track and manage donations.')).toBeInTheDocument();
+    });
+
+    test('renders within DashboardManager', () => {
+      render(
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('ChurchSuite')).toBeInTheDocument(); // Assuming Sidebar renders 'ChurchSuite'
+      expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument(); // Assuming Header has a menu button
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    });
+  });
+}
+
 export default Dashboard;

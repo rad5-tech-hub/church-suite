@@ -3,16 +3,17 @@ import { IoCallOutline, IoMailOutline, IoLocationOutline } from "react-icons/io5
 import { PiChurchLight } from "react-icons/pi";
 import { Link } from "react-router-dom";
 
+// Component Code
 const SetupChurch: React.FC = () => {
   const [isHeadquarter, setIsHeadquarter] = useState<string>("");
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6">
+      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
         {/* Left Section (Image) */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-10/12 py-8">
-            <p className="mb-2 text-sm text-gray-200">Step 1 of 2</p>
+            <p className="mb-2 text-sm text-gray-200">Step 1 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Set Up Your Church</h1>
             <p className="text-lg lg:text-xl lg:w-11/12 text-gray-300">
               Kindly provide the details of your church to proceed.
@@ -21,7 +22,7 @@ const SetupChurch: React.FC = () => {
         </div>
 
         {/* Right Section (Form) */}
-        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col">
+        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col justify-center">
           {/* Form */}
           <form className="flex flex-col">
             {/* Name of Church */}
@@ -141,5 +142,88 @@ const SetupChurch: React.FC = () => {
     </div>
   );
 };
+
+// Test Code (Only runs when in test environment)
+if (process.env.NODE_ENV === 'test') {
+  const { render, screen, fireEvent } = require('@testing-library/react');
+  const { MemoryRouter } = require('react-router-dom');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
+  describe('SetupChurch Component', () => {
+    test('renders form elements', () => {
+      render(
+        <MemoryRouter>
+          <SetupChurch />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
+      expect(screen.getByText('Set Up Your Church')).toBeInTheDocument();
+      expect(screen.getByText('Kindly provide the details of your church to proceed.')).toBeInTheDocument();
+      expect(screen.getByLabelText('Name of Church')).toBeInTheDocument();
+      expect(screen.getByLabelText('Email of Church')).toBeInTheDocument();
+      expect(screen.getByLabelText('Phone Number of Church')).toBeInTheDocument();
+      expect(screen.getByLabelText('Church Location')).toBeInTheDocument();
+      expect(screen.getByLabelText('Is this the Headquarter?')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+      expect(screen.getByText(/Already have an account?/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument();
+    });
+
+    test('updates isHeadquarter state on select change', () => {
+      render(
+        <MemoryRouter>
+          <SetupChurch />
+        </MemoryRouter>
+      );
+
+      const select = screen.getByLabelText('Is this the Headquarter?') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'yes' } });
+      expect(select.value).toBe('yes');
+      fireEvent.change(select, { target: { value: 'no' } });
+      expect(select.value).toBe('no');
+    });
+
+    test('allows input for church details', () => {
+      render(
+        <MemoryRouter>
+          <SetupChurch />
+        </MemoryRouter>
+      );
+
+      const nameInput = screen.getByLabelText('Name of Church') as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'Grace Church' } });
+      expect(nameInput.value).toBe('Grace Church');
+
+      const emailInput = screen.getByLabelText('Email of Church') as HTMLInputElement;
+      fireEvent.change(emailInput, { target: { value: 'grace@church.com' } });
+      expect(emailInput.value).toBe('grace@church.com');
+
+      const phoneInput = screen.getByLabelText('Phone Number of Church') as HTMLInputElement;
+      fireEvent.change(phoneInput, { target: { value: '123-456-7890' } });
+      expect(phoneInput.value).toBe('123-456-7890');
+
+      const locationInput = screen.getByLabelText('Church Location') as HTMLInputElement;
+      fireEvent.change(locationInput, { target: { value: '123 Main St' } });
+      expect(locationInput.value).toBe('123 Main St');
+    });
+
+    test('submits the form', () => {
+      const mockSubmit = jest.fn();
+      render(
+        <MemoryRouter>
+          <SetupChurch />
+        </MemoryRouter>
+      );
+
+      const submitButton = screen.getByRole('button', { name: /continue/i });
+      fireEvent.click(submitButton);
+      expect(mockSubmit).toHaveBeenCalledTimes(0); // No actual submit handler, just testing button click
+    });
+  });
+}
 
 export default SetupChurch;

@@ -10,10 +10,11 @@ const CreateAccount: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6">
+      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
         {/* Left Section (Image) */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-10/12 py-8">
+          <p className="mb-2 text-sm text-gray-200">Step 3 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Account</h1>
             <p className="text-lg lg:text-xl text-gray-300">
               Kindly create an account to set up your church
@@ -22,7 +23,7 @@ const CreateAccount: React.FC = () => {
         </div>
 
         {/* Right Section (Form) */}
-        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col">
+        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col justify-center">
           <form className="flex flex-col">
             {/* Full Name */}
             <div className="mb-6">
@@ -123,19 +124,13 @@ const CreateAccount: React.FC = () => {
 
             {/* Buttons */}
             <div className="w-full gap-3 pt-5">
-              <Link to={"/setup-church"}>
+              <Link to={"/setting-up"}>
                 <button
                   type="submit"
                   className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center"
                 >
                   Continue
                 </button>
-              </Link>
-            </div>
-            <div className="mt-5 text-center">
-              <span>Already have an account?</span>{" "}
-              <Link to={"/"} className="underline">
-                Log in
               </Link>
             </div>
           </form>

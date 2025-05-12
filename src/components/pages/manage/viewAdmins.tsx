@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardManager from "../../shared/dashboardManager";
 
 const ViewAdmins: React.FC = () => {
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   // Example data for admins
   const admins = [
@@ -14,50 +14,41 @@ const ViewAdmins: React.FC = () => {
 
   return (
     <DashboardManager>
-      <div className="p-6 bg-gray-100 min-h-screen">
-        {/* Page Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-          <div className="mb-4 lg:mb-0">
+      <div className="py-6 px-3 bg-gray-100 min-h-full">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+          <div>
             <h1 className="text-3xl font-bold text-gray-800">All Admins</h1>
-            <p className="mt-4 text-gray-600">View and manage all admin accounts.</p>
+            <p className="mt-2 text-gray-600">View and manage all admin accounts.</p>
           </div>
-          <div className="flex gap-4">
-            {/* Create Admin Button */}
-            <button
-              onClick={() => navigate("/manage-church/admin")}
-              className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
-            >
-              Create Admin
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/manage-church/admin")}
+            className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-md font-semibold text-white"
+          >
+            Create Admin
+          </button>
         </div>
 
-        {/* Admins Table */}
-        <div className="mt-6 rounded-lg shadow-md">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-gray-700">
-                  <th className="px-6 py-3 border-b">Name</th>
-                  <th className="px-6 py-3 border-b">Email</th>
-                  <th className="px-6 py-3 border-b">Phone</th>
-                  <th className="px-6 py-3 border-b">Super Admin</th>
+        <div className="bg-white shadow-md rounded-lg max-w-full">
+          <table className="w-full text-left border-collapse ">
+            <thead className="bg-[#111827] text-white">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Super Admin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {admins.map((admin) => (
+                <tr key={admin.id} className="border-b hover:bg-gray-100">
+                  <td className="px-4 py-3">{admin.name}</td>
+                  <td className="px-4 py-3">{admin.email}</td>
+                  <td className="px-4 py-3">{admin.phone}</td>
+                  <td className="px-4 py-3">{admin.isSuperAdmin ? "Yes" : "No"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {admins.map((admin) => (
-                  <tr key={admin.id} className="hover:bg-gray-100">
-                    <td className="px-6 py-4 border-b">{admin.name}</td>
-                    <td className="px-6 py-4 border-b">{admin.email}</td>
-                    <td className="px-6 py-4 border-b">{admin.phone}</td>
-                    <td className="px-6 py-4 border-b">
-                      {admin.isSuperAdmin ? "Yes" : "No"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </DashboardManager>

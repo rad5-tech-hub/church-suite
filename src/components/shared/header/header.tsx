@@ -36,4 +36,40 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   );
 };
 
+// Test Code (Only runs when in test environment)
+if (process.env.NODE_ENV === 'test') {
+  const { render, screen, fireEvent } = require('@testing-library/react');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
+  describe('Header Component', () => {
+    test('renders header elements', () => {
+      const mockToggleSidebar = jest.fn();
+      render(<Header toggleSidebar={mockToggleSidebar} />);
+
+      expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /notifications/i })).toBeInTheDocument();
+      expect(screen.getByText('3')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: /person/i })).toBeInTheDocument();
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
+    });
+
+    test('calls toggleSidebar on menu button click', () => {
+      const mockToggleSidebar = jest.fn();
+      render(<Header toggleSidebar={mockToggleSidebar} />);
+
+      const menuButton = screen.getByRole('button', { name: /menu/i });
+      fireEvent.click(menuButton);
+      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
+    });
+
+    test('hides John Doe text on small screens', () => {
+      render(<Header toggleSidebar={jest.fn()} />);
+      expect(screen.getByText('John Doe')).not.toBeVisible();
+    });
+  });
+}
+
 export default Header;
