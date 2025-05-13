@@ -5,6 +5,7 @@ import { IoMailOutline, IoCallOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { RiLockPasswordLine } from "react-icons/ri";
 
+// Component Code
 const Admin: React.FC = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +17,7 @@ const Admin: React.FC = () => {
 
   const navigate = useNavigate();
 
+  // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -24,16 +26,17 @@ const Admin: React.FC = () => {
     });
   };
 
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Form Data Submitted:", formData);
-    // Add your form submission logic here
+    // TODO: Implement actual form submission logic (e.g., API call)
   };
 
   return (
     <DashboardManager>
       <div className="lg:p-6 md:p-3 bg-gray-100 min-h-screen">
-        {/* Page Title */}
+        {/* Page Title and Navigation */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="mb-4 lg:mb-0">
             <h1 className="text-3xl font-bold text-gray-800">Manage Admins</h1>
@@ -54,7 +57,7 @@ const Admin: React.FC = () => {
         {/* Admin Form */}
         <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg shadow-md space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Name */}
+            {/* Name Input */}
             <div>
               <label htmlFor="name" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Name
@@ -74,7 +77,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Email
@@ -94,7 +97,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Password */}
+            {/* Password Input */}
             <div>
               <label htmlFor="password" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Password
@@ -114,7 +117,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Phone */}
+            {/* Phone Input */}
             <div>
               <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Phone
@@ -135,7 +138,7 @@ const Admin: React.FC = () => {
             </div>
           </div>
 
-          {/* isSuperAdmin */}
+          {/* Super Admin Checkbox */}
           <div className="mb-6">
             <label htmlFor="isSuperAdmin" className="block text-base text-gray-700 font-medium mb-4 text-left">
               Is Super Admin
@@ -169,113 +172,5 @@ const Admin: React.FC = () => {
     </DashboardManager>
   );
 };
-
-// Test Code (Only runs when in test environment)
-if (process.env.NODE_ENV === 'test') {
-  const { render, screen, fireEvent } = require('@testing-library/react');
-  const { MemoryRouter } = require('react-router-dom');
-  require('@testing-library/jest-dom');
-
-  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
-  const { describe, test, expect, jest } = require('jest');
-
-  describe('Admin Component', () => {
-    test('renders admin form and title', () => {
-      render(
-        <MemoryRouter>
-          <Admin />
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('Manage Admins')).toBeInTheDocument();
-      expect(screen.getByText('Create and manage admin accounts for your church.')).toBeInTheDocument();
-      expect(screen.getByText('View All')).toBeInTheDocument();
-      expect(screen.getByLabelText('Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Email')).toBeInTheDocument();
-      expect(screen.getByLabelText('Password')).toBeInTheDocument();
-      expect(screen.getByLabelText('Phone')).toBeInTheDocument();
-      expect(screen.getByLabelText('Is Super Admin')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /create admin/i })).toBeInTheDocument();
-    });
-
-    test('updates form fields on input change', () => {
-      render(
-        <MemoryRouter>
-          <Admin />
-        </MemoryRouter>
-      );
-
-      const nameInput = screen.getByLabelText('Name') as HTMLInputElement;
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-      expect(nameInput.value).toBe('John Doe');
-
-      const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
-      fireEvent.change(emailInput, { target: { value: 'john@example.com' } });
-      expect(emailInput.value).toBe('john@example.com');
-
-      const passwordInput = screen.getByLabelText('Password') as HTMLInputElement;
-      fireEvent.change(passwordInput, { target: { value: 'password123' } });
-      expect(passwordInput.value).toBe('password123');
-
-      const phoneInput = screen.getByLabelText('Phone') as HTMLInputElement;
-      fireEvent.change(phoneInput, { target: { value: '123-456-7890' } });
-      expect(phoneInput.value).toBe('123-456-7890');
-    });
-
-    test('toggles isSuperAdmin checkbox', () => {
-      render(
-        <MemoryRouter>
-          <Admin />
-        </MemoryRouter>
-      );
-
-      const checkbox = screen.getByLabelText('Is Super Admin') as HTMLInputElement;
-      expect(checkbox.checked).toBe(false);
-      fireEvent.click(checkbox);
-      expect(checkbox.checked).toBe(true);
-      fireEvent.click(checkbox);
-      expect(checkbox.checked).toBe(false);
-    });
-
-    test('submits form and logs data', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      render(
-        <MemoryRouter>
-          <Admin />
-        </MemoryRouter>
-      );
-
-      const nameInput = screen.getByLabelText('Name') as HTMLInputElement;
-      fireEvent.change(nameInput, { target: { value: 'John Doe' } });
-
-      const submitButton = screen.getByRole('button', { name: /create admin/i });
-      fireEvent.click(submitButton);
-
-      expect(consoleSpy).toHaveBeenCalledWith('Form Data Submitted:', expect.objectContaining({
-        name: 'John Doe',
-        email: '',
-        password: '',
-        phone: '',
-        isSuperAdmin: false,
-      }));
-      consoleSpy.mockRestore();
-    });
-
-    test('navigates to view-admin on View All button click', () => {
-      const mockNavigate = jest.fn();
-      jest.spyOn(require('react-router-dom'), 'useNavigate').mockReturnValue(mockNavigate);
-
-      render(
-        <MemoryRouter>
-          <Admin />
-        </MemoryRouter>
-      );
-
-      const viewAllButton = screen.getByText('View Admins');
-      fireEvent.click(viewAllButton);
-      expect(mockNavigate).toHaveBeenCalledWith('/manage-church/view-admin');
-    });
-  });
-}
 
 export default Admin;

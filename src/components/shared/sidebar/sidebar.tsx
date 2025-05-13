@@ -7,20 +7,24 @@ import { LiaDonateSolid } from "react-icons/lia";
 import { BiPencil } from "react-icons/bi";
 import { MdOutlineClose } from "react-icons/md";
 
+// Interface for component props
 interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
 }
 
+// Component Code
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [logo, setLogo] = useState<string>("https://img.freepik.com/free-vector/logo-with-vintage-luxury-style_23-2147839655.jpg");
   const [background, setBackground] = useState<string>("https://img.freepik.com/free-vector/hotel-horizontal-banner-template-with-photo_52683-65998.jpg");
 
+  // Toggle dropdown menu
   const toggleDropdown = (menu: string) => {
     setActiveDropdown(activeDropdown === menu ? null : menu);
   };
 
+  // Handle logo image upload
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -28,6 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     }
   };
 
+  // Handle background image upload
   const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -49,6 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           <button
             className="text-gray-300 hover:text-white lg:hidden"
             onClick={toggleSidebar}
+            aria-label="Close sidebar"
           >
             <MdOutlineClose className="text-2xl" />
           </button>
@@ -73,9 +79,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               <button
                 onClick={() => toggleDropdown("manageChurch")}
                 className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                aria-label="Manage Church"
               >
                 <span className="flex items-center gap-3 font-semibold" title="Manage Church">
-                  <LuChurch className="text-2xl " />
+                  <LuChurch className="text-2xl" />
                   Manage
                 </span>
                 <span>{activeDropdown === "manageChurch" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
@@ -101,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   <li>
                     <Link
                       to="/manage-church/admin"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className="block text-gray-Sent by Adedoyin Oluwakemi Adeyemi at 12:49 PM WAT on Tuesday, May 13, 2025-white hover:bg-gray-700 px-4 py-2 rounded-md"
                     >
                       Admin
                     </Link>
@@ -115,9 +122,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               <button
                 onClick={() => toggleDropdown("members")}
                 className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                aria-label="Members"
               >
                 <span className="flex items-center font-semibold gap-3">
-                  <HiOutlineUsers className="text-2xl " />
+                  <HiOutlineUsers className="text-2xl" />
                   Members
                 </span>
                 <span>{activeDropdown === "members" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
@@ -149,6 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               <button
                 onClick={() => toggleDropdown("autoMessages")}
                 className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                aria-label="Auto Messages"
               >
                 <span className="flex items-center font-semibold gap-3">
                   <LuMail className="text-2xl" />
@@ -191,6 +200,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               <button
                 onClick={() => toggleDropdown("finance")}
                 className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                aria-label="Finance"
               >
                 <span className="flex items-center font-semibold gap-3">
                   <LiaDonateSolid className="text-2xl" />
@@ -243,6 +253,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           <label
             htmlFor="background-upload"
             className="absolute text-center top-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
+            aria-label="Upload Background"
           >
             <BiPencil className="text-lg" />
             <input
@@ -266,6 +277,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <label
               htmlFor="logo-upload"
               className="absolute bottom-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
+              aria-label="Upload Logo"
             >
               <BiPencil className="text-sm" />
               <input
@@ -285,123 +297,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <div
           className="fixed inset-0 bg-gray-50 opacity-50 z-30 lg:hidden"
           onClick={toggleSidebar}
+          data-testid="overlay"
         ></div>
       )}
     </>
   );
 };
-
-// Test Code (Only runs when in test environment)
-if (process.env.NODE_ENV === 'test') {
-  const { render, screen, fireEvent } = require('@testing-library/react');
-  const { MemoryRouter } = require('react-router-dom');
-  require('@testing-library/jest-dom');
-
-  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
-  const { describe, test, expect, jest } = require('jest');
-
-  describe('Sidebar Component', () => {
-    test('renders sidebar elements when open', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('ChurchSuite')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
-      expect(screen.getByText('Manage')).toBeInTheDocument();
-      expect(screen.getByText('Members')).toBeInTheDocument();
-      expect(screen.getByText('Auto Messages')).toBeInTheDocument();
-      expect(screen.getByText('Finance')).toBeInTheDocument();
-      expect(screen.getByAltText('ChurchSuite Logo')).toBeInTheDocument();
-    });
-
-    test('sidebar is hidden when isOpen is false', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={false} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const sidebar = screen.getByText('ChurchSuite').closest('div');
-      expect(sidebar).toHaveClass('-translate-x-full');
-    });
-
-    test('toggles dropdown on click', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const manageButton = screen.getByText('Manage').closest('button');
-      fireEvent.click(manageButton!);
-      expect(screen.getByText('Branch')).toBeInTheDocument();
-      expect(screen.getByText('Department')).toBeInTheDocument();
-      expect(screen.getByText('Admin')).toBeInTheDocument();
-
-      fireEvent.click(manageButton!);
-      expect(screen.queryByText('Branch')).not.toBeInTheDocument();
-    });
-
-    test('calls toggleSidebar on close button click', () => {
-      const mockToggleSidebar = jest.fn();
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
-        </MemoryRouter>
-      );
-
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      fireEvent.click(closeButton);
-      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
-    });
-
-    test('calls toggleSidebar on overlay click', () => {
-      const mockToggleSidebar = jest.fn();
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
-        </MemoryRouter>
-      );
-
-      const overlay = screen.getByTestId('overlay');
-      fireEvent.click(overlay);
-      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
-    });
-
-    test('updates logo on upload', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const logoInput = screen.getByLabelText('Upload Logo') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(logoInput, { target: { files: [file] } });
-
-      const logoImg = screen.getByAltText('ChurchSuite Logo');
-      expect(logoImg).toHaveAttribute('src', expect.stringContaining('blob:'));
-    });
-
-    test('updates background on upload', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const backgroundInput = screen.getByLabelText('Upload Background') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(backgroundInput, { target: { files: [file] } });
-
-      const backgroundDiv = backgroundInput.closest('div');
-      expect(backgroundDiv).toHaveStyle({ backgroundImage: expect.stringContaining('blob:') });
-    });
-  });
-}
 
 export default Sidebar;

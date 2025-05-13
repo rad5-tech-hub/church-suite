@@ -8,6 +8,7 @@ const SetupStep2: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
 
+  // Handle logo file upload
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -15,6 +16,7 @@ const SetupStep2: React.FC = () => {
     }
   };
 
+  // Handle background image file upload
   const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -25,7 +27,7 @@ const SetupStep2: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
-        {/* Left Section (Image) */}
+        {/* Left Section - Welcome Message */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-9/12 py-8">
             <p className="mb-2 text-sm text-gray-200">Step 2 of 3</p>
@@ -36,9 +38,8 @@ const SetupStep2: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Section (Form) */}
-        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10  justify-center flex flex-col">
-          {/* Form */}
+        {/* Right Section - Form */}
+        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 justify-center flex flex-col">
           <form className="flex flex-col">
             {/* Upload Logo */}
             <div className="mb-6">
@@ -124,10 +125,10 @@ const SetupStep2: React.FC = () => {
               </div>
             </div>
 
-            {/* Buttons */}
+            {/* Form Actions */}
             <div className="flex flex-col-reverse lg:flex-row lg:justify-between gap-3 pt-5">
               {/* Skip Button */}
-              <Link to={'/admin-account'} className="flex items-center">
+              <Link to="/admin-account" className="flex items-center">
                 <button
                   type="button"
                   className="flex items-center justify-center mb-5 h-12 gap-3 px-7 w-full lg:w-auto text-gray-600 rounded-full text-base font-semibold border border-gray-300 hover:bg-gray-100"
@@ -138,7 +139,7 @@ const SetupStep2: React.FC = () => {
               </Link>
 
               {/* Continue Button */}
-              <Link to={'/admin-account'} className="flex items-center">
+              <Link to="/admin-account" className="flex items-center">
                 <button
                   type="submit"
                   className="h-12 px-10 mb-5 lg:w-auto w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-[#111827]"
@@ -153,82 +154,5 @@ const SetupStep2: React.FC = () => {
     </div>
   );
 };
-
-// Test Code (Only runs when in test environment)
-if (process.env.NODE_ENV === 'test') {
-  const { render, screen, fireEvent } = require('@testing-library/react');
-  const { MemoryRouter } = require('react-router-dom');
-  require('@testing-library/jest-dom');
-
-  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
-  const { describe, test, expect, jest } = require('jest');
-
-  describe('SetupStep2 Component', () => {
-    test('renders upload form elements', () => {
-      render(
-        <MemoryRouter>
-          <SetupStep2 />
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('Step 2 of 2')).toBeInTheDocument();
-      expect(screen.getByText('Image Uploads')).toBeInTheDocument();
-      expect(screen.getByText('Upload your logo and background image to complete the setup.')).toBeInTheDocument();
-      expect(screen.getByLabelText('Upload Logo')).toBeInTheDocument();
-      expect(screen.getByLabelText('Upload Background Image')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
-    });
-
-    test('updates logo preview and adds green shadow on upload', () => {
-      render(
-        <MemoryRouter>
-          <SetupStep2 />
-        </MemoryRouter>
-      );
-
-      const logoInput = screen.getByLabelText('Upload Logo') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(logoInput, { target: { files: [file] } });
-
-      const logoPreviewImg = screen.getByAltText('Logo Preview');
-      expect(logoPreviewImg).toBeInTheDocument();
-      const logoUploadDiv = logoInput.closest('.file-upload');
-      expect(logoUploadDiv).toHaveClass('border-light-green-500');
-      expect(logoUploadDiv).toHaveClass('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
-    });
-
-    test('updates background preview and adds green shadow on upload', () => {
-      render(
-        <MemoryRouter>
-          <SetupStep2 />
-        </MemoryRouter>
-      );
-
-      const backgroundInput = screen.getByLabelText('Upload Background Image') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(backgroundInput, { target: { files: [file] } });
-
-      const backgroundPreviewImg = screen.getByAltText('Background Preview');
-      expect(backgroundPreviewImg).toBeInTheDocument();
-      const backgroundUploadDiv = backgroundInput.closest('.file-upload');
-      expect(backgroundUploadDiv).toHaveClass('border-light-green-500');
-      expect(backgroundUploadDiv).toHaveClass('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
-    });
-
-    test('submits the form', () => {
-      const mockSubmit = jest.fn();
-      render(
-        <MemoryRouter>
-          <SetupStep2 />
-        </MemoryRouter>
-      );
-
-      const continueButton = screen.getByRole('button', { name: /continue/i });
-      fireEvent.click(continueButton);
-      expect(mockSubmit).toHaveBeenCalledTimes(0); // No actual submit handler, just testing button click
-    });
-  });
-}
 
 export default SetupStep2;
