@@ -1,137 +1,71 @@
-import React, { useState } from "react";
-import { IoMailOutline } from "react-icons/io5";
-import { PiEye, PiEyeClosed } from "react-icons/pi";
-import { SlLock } from "react-icons/sl";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Interfaces
-interface LoginFormProps {}
+// Component Code
+const Loading: React.FC = () => {
+  const navigate = useNavigate();
 
-// Main Component
-const Login: React.FC<LoginFormProps> = () => {
-  const [showPassword, setShowPassword] = useState(false);
+  // Set up animation end listener for progress bar
+  useEffect(() => {
+    const progress = document.getElementById("progress");
+    const spinner = document.getElementById("spinner");
 
-  // Form submission handler
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Implement actual submit logic
-  };
-
-  // Toggle password visibility
-  const togglePasswordVisibility = () => {
-    setShowPassword((prev) => !prev);
-  };
+    if (progress) {
+      progress.addEventListener("animationend", () => {
+        if (spinner) {
+          spinner.classList.remove("animate-spin");
+        }
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 1000);
+      });
+    }
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 h-screen">
-        {/* Left Section - Welcome Message */}
-        <LeftSection />
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div className="flex flex-col items-center gap-6">
+        {/* Circular Loader */}
+        <div
+          id="spinner"
+          className="flex justify-center mb-4 animate-spin [animation-duration:1s]"
+          data-testid="spinner"
+        >
+          <div className="rounded-full h-12 w-12 border-t-4 border-[#111827]"></div>
+        </div>
 
-        {/* Right Section - Login Form */}
-        <RightSection
-          handleSubmit={handleSubmit}
-          showPassword={showPassword}
-          togglePasswordVisibility={togglePasswordVisibility}
-        />
+        {/* Text */}
+        <h3 className="loading text-center text-xl sm:text-xl md:text-2xl lg:text-2xl text-[#1A3C34]">
+          Setting up Church! Please wait...
+        </h3>
+
+        {/* Progress Bar */}
+        <div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg h-2 bg-gray-200 rounded-full overflow-hidden mt-5">
+          <div
+            id="progress"
+            className="h-full bg-[#111827] rounded-full"
+            style={{
+              animation: "fillProgress 5s linear forwards",
+            }}
+          ></div>
+        </div>
+
+        {/* Inline Keyframes */}
+        <style>
+          {`
+            @keyframes fillProgress {
+              from {
+                width: 0%;
+              }
+              to {
+                width: 100%;
+              }
+            }
+          `}
+        </style>
       </div>
     </div>
   );
 };
 
-// Left Section Component
-const LeftSection: React.FC = () => (
-  <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
-    <div className="lg:w-9/12 py-8">
-      <h1 className="text-3xl lg:text-5xl font-bold mb-2">Log in</h1>
-      <p className="text-lg lg:text-xl text-gray-300">
-        Welcome, Kindly login to your account to continue with your church
-      </p>
-    </div>
-  </div>
-);
-
-// Right Section Component
-interface RightSectionProps {
-  handleSubmit: (e: React.FormEvent) => void;
-  showPassword: boolean;
-  togglePasswordVisibility: () => void;
-}
-
-const RightSection: React.FC<RightSectionProps> = ({
-  handleSubmit,
-  showPassword,
-  togglePasswordVisibility,
-}) => (
-  <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 justify-center flex flex-col">
-    <form className="flex flex-col" onSubmit={handleSubmit}>
-      {/* Email Input */}
-      <div className="mb-6">
-        <label
-          htmlFor="email"
-          className="block text-base text-gray-700 font-medium mb-2 text-left"
-        >
-          Email
-        </label>
-        <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-          <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-          <input
-            type="email"
-            id="email"
-            className="w-full text-base text-gray-800 focus:outline-none"
-            placeholder="Enter your email"
-            required
-          />
-        </div>
-      </div>
-
-      {/* Password Input */}
-      <div className="mb-6">
-        <label
-          htmlFor="password"
-          className="block text-base text-gray-700 font-medium mb-2 text-left"
-        >
-          Password
-        </label>
-        <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow relative">
-          <SlLock className="text-gray-400 mr-3 text-xl" />
-          <input
-            type={showPassword ? "text" : "password"}
-            id="password"
-            className="w-full text-base text-gray-800 focus:outline-none pr-10"
-            placeholder="Enter your password"
-            required
-          />
-          <button
-            type="button"
-            aria-label="Toggle password visibility"
-            className="absolute right-4 cursor-pointer text-gray-400 text-xl"
-            onClick={togglePasswordVisibility}
-          >
-            {showPassword ? <PiEye /> : <PiEyeClosed />}
-          </button>
-        </div>
-      </div>
-
-      {/* Form Actions */}
-      <div className="w-full gap-3 pt-5">
-        <button
-          type="submit"
-          className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center"
-        >
-          Continue
-        </button>
-      </div>
-
-      {/* Sign Up Link */}
-      <div className="mt-5 text-center">
-        <span>Don't have account? </span>
-        <Link to="/setup-church" className="underline">
-          Sign Up
-        </Link>
-      </div>
-    </form>
-  </div>
-);
-
-export default Login;
+export default Loading;

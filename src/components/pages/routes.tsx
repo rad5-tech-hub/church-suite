@@ -4,10 +4,10 @@ import Loading from "./createAccount/loading";
 
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/setupstep1"));
+const Branch = React.lazy(() => import("./manage/branch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
-const ViewAdmin = React.lazy(() => import("./manage/viewAdmins"));
-const Admin = React.lazy(() => import("./manage/admin"));
+const ViewBranches = React.lazy(() => import("./manage/viewBranches"));
 const CreateAccount = React.lazy(() => import("./createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 
@@ -22,8 +22,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/manage-church/admin" element={<Admin />} />
-          <Route path="/manage-church/view-admin" element={<ViewAdmin/>} />
+          <Route path="/manage/view-branches" element={<ViewBranches/>} />
+          <Route path="/manage/branch" element={<Branch />} />
 
           {/* Dashboard */}
           <Route path="/" element={<Login />} />

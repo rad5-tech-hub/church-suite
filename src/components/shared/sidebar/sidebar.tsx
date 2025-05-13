@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowUp } from "react-icons/md";
-import { HiOutlineUsers } from "react-icons/hi2";
+import { NavLink } from "react-router-dom";
+import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose } from "react-icons/md";
+import { HiUsers } from "react-icons/hi2";
 import { LuLayoutDashboard, LuMail, LuChurch } from "react-icons/lu";
 import { LiaDonateSolid } from "react-icons/lia";
 import { BiPencil } from "react-icons/bi";
-import { MdOutlineClose } from "react-icons/md";
 
 // Interface for component props
 interface SidebarProps {
@@ -56,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             onClick={toggleSidebar}
             aria-label="Close sidebar"
           >
-            <MdOutlineClose className="text-2xl" />
+            <MdClose className="text-2xl" />
           </button>
         </div>
 
@@ -65,13 +64,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           <ul className="space-y-4">
             {/* Dashboard */}
             <li>
-              <Link
+              <NavLink
                 to="/dashboard"
-                className="flex items-center gap-3 font-semibold text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
+                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`
+                }
               >
                 <LuLayoutDashboard className="text-2xl" />
                 Dashboard
-              </Link>
+              </NavLink>
             </li>
 
             {/* Manage Church */}
@@ -85,34 +88,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   <LuChurch className="text-2xl" />
                   Manage
                 </span>
-                <span>{activeDropdown === "manageChurch" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "manageChurch" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "manageChurch" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
-                      to="/manage-church/branch"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                    <NavLink
+                      to="/manage/branch"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Branch
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/manage-church/department"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Department
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/manage-church/admin"
-                      className="block text-gray-Sent by Adedoyin Oluwakemi Adeyemi at 12:49 PM WAT on Tuesday, May 13, 2025-white hover:bg-gray-700 px-4 py-2 rounded-md"
-                    >
-                      Admin
-                    </Link>
-                  </li>
+                    </NavLink>
+                  </li>                 
                 </ul>
               )}
             </li>
@@ -125,28 +128,36 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 aria-label="Members"
               >
                 <span className="flex items-center font-semibold gap-3">
-                  <HiOutlineUsers className="text-2xl" />
+                  <HiUsers className="text-2xl" />
                   Members
                 </span>
-                <span>{activeDropdown === "members" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "members" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "members" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
+                    <NavLink
                       to="/members/list"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Members
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/members/qr-code"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Generate QR-CODE
-                    </Link>
+                    </NavLink>
                   </li>
                 </ul>
               )}
@@ -163,33 +174,45 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   <LuMail className="text-2xl" />
                   Auto Messages
                 </span>
-                <span>{activeDropdown === "autoMessages" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "autoMessages" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "autoMessages" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/new-month"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       New Month
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/birthday"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Birthday
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/first-timer"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       First/Second Timer
-                    </Link>
+                    </NavLink>
                   </li>
                 </ul>
               )}
@@ -206,33 +229,45 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   <LiaDonateSolid className="text-2xl" />
                   Finance
                 </span>
-                <span>{activeDropdown === "finance" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "finance" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "finance" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/categories"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Finance Categories
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/qr-code"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Generate QR-CODE
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/budget"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
                     >
                       Budget Planning
-                    </Link>
+                    </NavLink>
                   </li>
                 </ul>
               )}
