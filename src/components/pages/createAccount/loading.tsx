@@ -1,11 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Test imports (moved to top level)
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import '@testing-library/jest-dom';
-
 // Component Code
 const Loading: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +25,7 @@ const Loading: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div className="flex flex-col items-center gap-6">
         {/* Circular Loader */}
-        <div id="spinner" data-testid="spinner" className="flex justify-center mb-4 animate-spin [animation-duration:2s]">
+        <div id="spinner" className="flex justify-center mb-4 animate-spin [animation-duration:2s]">
           <div className="rounded-full h-12 w-12 border-t-4 border-[#111827]"></div>
         </div>
 
@@ -70,6 +65,13 @@ const Loading: React.FC = () => {
 
 // Test Code (Only runs when in test environment)
 if (process.env.NODE_ENV === 'test') {
+  const { render, screen, waitFor } = require('@testing-library/react');
+  const { MemoryRouter } = require('react-router-dom');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
   describe('Loading Component', () => {
     test('renders loading elements', () => {
       render(
