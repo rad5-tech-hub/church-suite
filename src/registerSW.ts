@@ -21,7 +21,7 @@ const updateSW = registerSW({
     if (registration) {
       console.log('Service Worker registration successful:', registration);
     } else {
-      console.log('No active Service Worker registration found.');
+      console.log('Service Worker registration is not available.');
     }
   },
 
