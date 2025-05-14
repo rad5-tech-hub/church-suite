@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 
-const ViewBranches: React.FC = () => {
+const ViewDepartment: React.FC = () => {
   const navigate = useNavigate();
 
   // Example data for admins
@@ -46,7 +46,7 @@ const ViewBranches: React.FC = () => {
                 fontSize: { xs: "1.8rem", sm: "2rem" },
               }}
             >
-              All Branches
+              All Departments
             </Typography>
             <Typography
               variant="body1"
@@ -56,12 +56,12 @@ const ViewBranches: React.FC = () => {
                 fontSize: { xs: "1rem", sm: "1rem" },
               }}
             >
-              View and manage all Branches.
+              View all Departments.
             </Typography>
           </Box>
           <Button
             variant="contained"
-            onClick={() => navigate("/manage/branch")}
+            onClick={() => navigate("/manage/department")}
             sx={{
               bgcolor: "#1f2937",              
               px: { xs: 2, sm: 2 },
@@ -72,7 +72,7 @@ const ViewBranches: React.FC = () => {
               fontSize: { xs: "1rem", sm: "1rem" },
             }}
           >
-            Create Branches
+            Create Department
           </Button>
         </Box>
 
@@ -113,7 +113,7 @@ const ViewBranches: React.FC = () => {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Email
+                  Description
                 </TableCell>
                 <TableCell
                   sx={{                    
@@ -124,19 +124,8 @@ const ViewBranches: React.FC = () => {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Phone
-                </TableCell>
-                <TableCell
-                  sx={{                    
-                    fontWeight: "bold",
-                    fontSize: { xs: "0.75rem", sm: "1rem" },
-                    px: { xs: 2, sm: 4 },
-                    py: 2,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Location
-                </TableCell>
+                  True
+                </TableCell>                
               </TableRow>
             </TableHead>
             <TableBody>
@@ -168,18 +157,7 @@ const ViewBranches: React.FC = () => {
                     }}
                   >
                     {admin.email}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontSize: { xs: "0.75rem", sm: "1rem" },
-                      px: { xs: 2, sm: 4 },
-                      py: 2,
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {admin.phone}
-                  </TableCell>
+                  </TableCell>                 
                   <TableCell
                     sx={{
                       fontSize: { xs: "0.75rem", sm: "1rem" },
@@ -201,4 +179,4 @@ const ViewBranches: React.FC = () => {
   );
 };
 
-export default ViewBranches;
+export default ViewDepartment;

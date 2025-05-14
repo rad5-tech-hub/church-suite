@@ -1,27 +1,31 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardManager from "../../shared/dashboardManager";
-import { IoMailOutline, IoCallOutline, IoLocationOutline } from "react-icons/io5";
-import { BsPerson } from "react-icons/bs";
 
-// Component Code
+// Interface for form data
+interface DepartmentFormData {
+  name: string;
+  description: string;
+}
+
 const Department: React.FC = () => {
-  const [formData, setFormData] = useState({
+  // State for form data
+  const [formData, setFormData] = useState<DepartmentFormData>({
     name: "",
-    location: "",
-    email: "",
-    phone: "",
+    description: "",
   });
 
   const navigate = useNavigate();
 
   // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   // Handle form submission
@@ -33,35 +37,40 @@ const Department: React.FC = () => {
 
   return (
     <DashboardManager>
-      <div className="lg:p-6 md:p-3 min-h-screen">
-        {/* Page Title and Navigation */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+      <div className="min-h-screen bg-gray-100 lg:p-6 md:p-3">
+        {/* Header Section */}
+        <div className="flex flex-col justify-between lg:flex-row lg:items-center">
           <div className="mb-4 lg:mb-0">
-            <h1 className="text-3xl font-bold text-gray-800">Department</h1>
+            <h1 className="text-3xl font-bold text-gray-800">Manage Departments</h1>
             <p className="mt-4 text-gray-600">
-              Create and view Department  for your church.
+              Create and manage departments for your church.
             </p>
           </div>
           <div>
             <button
-              onClick={() => navigate("/manage/view-branches")}
-              className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
+                onClick={() => navigate("/manage/view-departments")}
+                className="px-5 py-2 font-semibold text-gray-100 bg-[#111827] rounded-sm border-none cursor-pointer hover:bg-[#232b3e]"
             >
-              View Departments
+                View Departments
             </button>
           </div>
         </div>
 
-        {/* Admin Form */}
-        <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg shadow-md space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Department Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 space-y-6 rounded-lg shadow-md lg:p-6 md:p-2"
+        >
+          <div className="grid grid-cols-1 gap-6">
             {/* Name Input */}
             <div>
-              <label htmlFor="name" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Name of Branch
+              <label
+                htmlFor="name"
+                className="block mb-2 text-base font-medium text-gray-700 text-left"
+              >
+                Department Name
               </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <BsPerson className="text-gray-400 mr-3 text-xl" />
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 shadow-sm">              
                 <input
                   type="text"
                   id="name"
@@ -69,81 +78,42 @@ const Department: React.FC = () => {
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch name"
+                  placeholder="Enter department name"
                   required
                 />
               </div>
             </div>
 
-            {/* location Input */}
+            {/* Description Textarea */}
             <div>
-              <label htmlFor="text" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Branch Location
+              <label
+                htmlFor="description"
+                className="block mb-2 text-base font-medium text-gray-700 text-left"
+              >
+                Description
               </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoLocationOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
+              <div className="flex border border-gray-300 rounded-md px-4 py-3 shadow-sm">                
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
                   onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch location"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* location Input */}
-            <div>
-              <label htmlFor="text" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Branch Email
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch Email"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Phone Input */}
-            <div>
-              <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
-               Branch Phone No
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoCallOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch phone number"
+                  className="w-full text-base text-gray-800 focus:outline-none resize-y"
+                  placeholder="Enter department description"
+                  rows={4}
                   required
                 />
               </div>
             </div>
           </div>
 
-
           {/* Submit Button */}
-          <div>
+          <div className="pt-6">
             <button
               type="submit"
-              className="h-12 w-full bg-[#111827] text-white rounded-md text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center"
+              className="flex items-center justify-center w-full h-12 text-base font-semibold text-white bg-[#111827] rounded-md hover:bg-gray-800 transition duration-200"
             >
-              Create Branch
+              Create Department
             </button>
           </div>
         </form>

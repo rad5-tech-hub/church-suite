@@ -33,7 +33,7 @@ const Branch: React.FC = () => {
 
   return (
     <DashboardManager>
-      <div className="lg:p-6 md:p-3 min-h-screen">
+      <div className="lg:p-6 md:p-3 my-6">
         {/* Page Title and Navigation */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="mb-4 lg:mb-0">
@@ -53,7 +53,7 @@ const Branch: React.FC = () => {
         </div>
 
         {/* Admin Form */}
-        <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg shadow-md space-y-6">
+        <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg lg:shadow-md space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Name Input */}
             <div>
@@ -138,7 +138,7 @@ const Branch: React.FC = () => {
 
 
           {/* Submit Button */}
-          <div>
+          <div className="pt-7">
             <button
               type="submit"
               className="h-12 w-full bg-[#111827] text-white rounded-md text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center"

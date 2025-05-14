@@ -106,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/manage-church/department"
+                      to="/manage/department"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -137,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
                     <NavLink
-                      to="/members/list"
+                      to="/members/member"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
