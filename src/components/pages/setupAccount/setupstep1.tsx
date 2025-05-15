@@ -29,9 +29,9 @@ const SetupChurch: React.FC = () => {
     const payload = {
       name: churchName,
       address: churchLocation,
-      churchPhone: churchPhone,
-      churchEmail: churchEmail,
-      isHeadQuarter: isHeadquarter === "yes",
+      phone: churchPhone,
+      email: churchEmail,
+      isHeadQuarter: isHeadquarter,
     };
 
     try {
