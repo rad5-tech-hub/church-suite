@@ -1,17 +1,17 @@
 import React, { Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Loading from "./createAccount/loading";
+import Loading from "./setupAccount/setting-loader/loading";
 
 // Lazy-loaded components
-const SetupChurch = React.lazy(() => import("./setupAccount/setupstep1"));
-const Branch = React.lazy(() => import("./manage/branch"));
-const SetupStep2 = React.lazy(() => import("./setupAccount/setupstep2"));
+const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
+const Branch = React.lazy(() => import("./manage/branch/branch"));
+const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
-const ViewBranches = React.lazy(() => import("./manage/viewBranches"));
-const Deparment = React.lazy(() => import("./manage/department"));
-const ViewDeparment = React.lazy(() => import("./manage/viewDepartment"));
+const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
+const Deparment = React.lazy(() => import("./manage/department/department"));
+const ViewDeparment = React.lazy(() => import("./manage/department/viewDepartment"));
 const Member = React.lazy(() => import("./members/members"));
-const CreateAccount = React.lazy(() => import("./createAccount/createAccount"));
+const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 
 const AppRoutes: React.FC = () => {

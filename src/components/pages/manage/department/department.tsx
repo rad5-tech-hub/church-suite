@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardManager from "../../shared/dashboardManager";
+import DashboardManager from "../../../shared/dashboardManager";
 
 // Interface for form data
 interface DepartmentFormData {

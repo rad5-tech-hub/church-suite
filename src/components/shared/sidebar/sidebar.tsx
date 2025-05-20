@@ -281,7 +281,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           style={{
             backgroundImage: `url('${background}')`,
             backgroundSize: "cover",
-            backgroundPosition: "center",
+            backgroundPosition: "center",            
           }}
         >
           {/* Pencil Icon for Editing Background */}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import DashboardManager from "../../shared/dashboardManager";
+import DashboardManager from "../../../shared/dashboardManager";
 import { IoMailOutline, IoCallOutline, IoLocationOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 
