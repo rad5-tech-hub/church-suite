@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite-plugin-pwa/client", "node", "jest", "@testing-library/jest-dom" ]
+    "types": ["vite-plugin-pwa/client", "node", "vite/client", "jest", "@testing-library/jest-dom" ]
   },
   "include": ["src", "src/tests/setup.ts"],
   "references": [

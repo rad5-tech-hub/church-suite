@@ -1,28 +1,43 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+// authstore.ts
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+export interface AuthData {
+  backgroundImg: string;
+  churchId: string;
+  church_name: string;
+  email: string;
+  exp: number;
+  iat: number;
+  id: string;
+  isHeadQuarter: boolean;
+  isSuperAdmin: boolean;
+  logo: string;
+  name: string;
+  tenantId: string;
+  token: string;
+}
+
+// Export AuthState interface
 export interface AuthState {
-  authToken: string | null; // Token for authentication
-  authData: Record<string, any> | null; // Decoded token data or other auth-related data
+  authData: AuthData | null;
 }
 
 const initialState: AuthState = {
-  authToken: null,
   authData: null,
 };
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState,
   reducers: {
-    setAuthToken: (state, action: PayloadAction<string>) => {
-      state.authToken = action.payload; // Update the token
+    setAuthData: (state, action: PayloadAction<AuthData>) => {
+      state.authData = action.payload;
     },
-    setAuthData: (state, action: PayloadAction<Record<string, any>>) => {
-      state.authData = action.payload; // Update the decoded token data
+    clearAuth: (state) => {
+      state.authData = null;
     },
-    clearAuth: () => initialState, // Reset the auth state
   },
 });
 
-export const { setAuthToken, setAuthData, clearAuth } = authSlice.actions;
+export const { setAuthData, clearAuth } = authSlice.actions;
 export default authSlice.reducer;

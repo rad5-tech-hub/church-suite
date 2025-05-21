@@ -5,6 +5,8 @@ import { HiUsers } from "react-icons/hi2";
 import { LuLayoutDashboard, LuMail, LuChurch } from "react-icons/lu";
 import { LiaDonateSolid } from "react-icons/lia";
 import { BiPencil } from "react-icons/bi";
+import { useSelector } from "react-redux";
+import { RootState } from "../../reduxstore/redux";
 
 // Interface for component props
 interface SidebarProps {
@@ -12,11 +14,16 @@ interface SidebarProps {
   toggleSidebar: () => void;
 }
 
+
 // Component Code
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [logo, setLogo] = useState<string>("https://img.freepik.com/free-vector/logo-with-vintage-luxury-style_23-2147839655.jpg");
   const [background, setBackground] = useState<string>("https://img.freepik.com/free-vector/hotel-horizontal-banner-template-with-photo_52683-65998.jpg");
+
+
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+  
 
   // Toggle dropdown menu
   const toggleDropdown = (menu: string) => {
@@ -49,7 +56,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
       >
         {/* Name Section */}
         <div className="flex items-center justify-between py-4 px-4 border-b border-gray-700">
-          <h1 className="text-2xl font-bold">ChurchSuite</h1>
+        <h1
+          className="text-2xl font-bold"
+          title={authData?.church_name || ""} // Tooltip for the full text
+        >
+          {(authData?.church_name ?? "").length > 15
+            ? `${authData?.church_name?.slice(0, 15) || ""}...` // Truncate if more than 15 characters
+            : authData?.church_name || ""}
+        </h1>
           <button
             className="text-gray-300 hover:text-white lg:hidden"
             onClick={toggleSidebar}
@@ -92,6 +106,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               </button>
               {activeDropdown === "manageChurch" && (
                 <ul className="mt-2 space-y-1 pl-8">
+                  <li>
+                    <NavLink
+                      to="/manage/admin"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
+                    >
+                      Admin
+                    </NavLink>
+                  </li>
                   <li>
                     <NavLink
                       to="/manage/branch"
@@ -279,7 +305,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <div
           className="relative h-40 rounded-t-xl"
           style={{
-            backgroundImage: `url('${background}')`,
+            backgroundImage: `url('${authData?.backgroundImg || background}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",            
           }}
@@ -303,7 +329,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           {/* Logo */}
           <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
             <img
-              src={logo}
+              src={authData?.logo ||  logo}
               alt="ChurchSuite Logo"
               className="h-16 w-16 object-contain rounded-full border-2 border-white"
             />

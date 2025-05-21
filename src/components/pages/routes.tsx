@@ -11,6 +11,8 @@ const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const Deparment = React.lazy(() => import("./manage/department/department"));
 const ViewDeparment = React.lazy(() => import("./manage/department/viewDepartment"));
 const Member = React.lazy(() => import("./members/members"));
+const Admin = React.lazy(() => import("./manage/admin/admin"));
+const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 
@@ -25,6 +27,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/manage/admin" element={<Admin />} />
+          <Route path="/manage/view-admins" element={<ViewAdmin/>} />
           <Route path="/manage/view-branches" element={<ViewBranches/>} />
           <Route path="/manage/branch" element={<Branch />} />
           <Route path="/manage/department" element={<Deparment/>} />

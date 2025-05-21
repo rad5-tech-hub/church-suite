@@ -89,7 +89,7 @@ const SetupChurch: React.FC = () => {
             {/* Email of Church */}
             <div className="mb-6">
               <label htmlFor="churchEmail" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Email of Church
+                Email of Church (optional)
               </label>
               <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
                 <IoMailOutline className="text-gray-400 mr-3 text-xl" />
@@ -100,8 +100,7 @@ const SetupChurch: React.FC = () => {
                   value={formData.churchEmail}
                   onChange={handleChange}
                   className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter the email of your church"
-                  required
+                  placeholder="Enter the email of your church"                
                 />
               </div>
             </div>

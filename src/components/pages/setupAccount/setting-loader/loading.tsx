@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useDispatch } from 'react-redux';
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { setAuthToken, setAuthData } from '../../../reduxstore/authstore';
+import { persistor } from '../../../reduxstore/redux'; // Adjust the path to your Redux store file
+import { setAuthData } from '../../../reduxstore/authstore';
 
 const Loading: React.FC = () => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const Loading: React.FC = () => {
         setIsLoading(false);
         return;
       }
-
+  
       try {
         const response = await fetch(
           `https://church.bookbank.com.ng/church/verify-admin?token=${token}`,
@@ -36,32 +37,52 @@ const Loading: React.FC = () => {
             },
           }
         );
-
+  
         if (!response.ok) {
-          const errorResponse = await response.json(); // Parse the error response
-          const errorMessage = errorResponse?.message || "Failed to resend verification email"; // Extract the error message
-          throw new Error(errorMessage); // Throw the error with the actual message
+          const errorResponse = await response.json();
+          throw new Error(errorResponse?.message || "Verification failed");
         }
+  
         const responseData = await response.json();
-        const decodedToken = jwtDecode(responseData.accessToken);
-
-        console.log("Response Data:", responseData);
-        console.log("Decoded Token:", decodedToken);
-
-        dispatch(setAuthToken(responseData.accessToken));
-        dispatch(setAuthData(decodedToken)); 
-
-        navigate("/dashboard");
-
+        const decodedToken = jwtDecode(responseData.accessToken) as any;
+  
+        const authPayload = {
+          backgroundImg: decodedToken.backgroundImg || "",
+          churchId: decodedToken.churchId || "",
+          church_name: decodedToken.church_name || "",
+          email: decodedToken.email || "",
+          exp: decodedToken.exp || 0,
+          iat: decodedToken.iat || 0,
+          id: decodedToken.id || "",
+          isHeadQuarter: decodedToken.isHeadQuarter || false,
+          isSuperAdmin: decodedToken.isSuperAdmin || false,
+          logo: decodedToken.logo || "",
+          name: decodedToken.name || "",
+          tenantId: decodedToken.tenantId || "",
+          token: responseData.accessToken || "",
+        };
+  
+        console.log("Dispatching:", authPayload);
+        dispatch(setAuthData(authPayload));
+  
+        // Wait for state to update
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Force persistence
+        persistor.flush().then(() => {
+          console.log("State persisted");
+          navigate("/dashboard");
+        });
+  
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to verify token. Please try again.";
+        const errorMessage = err instanceof Error ? err.message : "Verification failed";
         setError(errorMessage);
-        setNotification({ message: errorMessage, type: "error" }); // Set error notification
+        setNotification({ message: errorMessage, type: "error" });
         setIsLoading(false);
-        console.error("Token verification error:", err);
+        console.error("Error:", err);
       }
     };
-
+  
     verifyToken();
   }, [token]);
 
