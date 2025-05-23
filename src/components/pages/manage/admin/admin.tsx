@@ -55,7 +55,6 @@ const Admin: React.FC = () => {
       navigate("/manage/view-admins");
     } catch (error: any) {
       console.error("Error creating admin:", error.response?.data || error.message);
-      alert("Failed to create admin. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +169,7 @@ const Admin: React.FC = () => {
                 >
                 {showPassword ? <PiEye /> : <PiEyeClosed />}
                 </button>
-                </div>
+            </div>
 
             {/* Super Admin Checkbox */}
             <div className="flex items-center">
@@ -195,7 +194,10 @@ const Admin: React.FC = () => {
               disabled={isLoading}
                className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
             >
-              {isLoading ? "Creating..." : "Create Admin"}
+              {isLoading ? <>
+                  <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Creating Admin...
+                </> : "Create Admin"}
             </button>
           </div>
         </form>

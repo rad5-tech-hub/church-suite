@@ -153,7 +153,11 @@ const Branch: React.FC = () => {
               disabled={isLoading}
               className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
             >
-              {isLoading ? "Creating..." : "Create Branch"}
+              {isLoading ?
+                <>
+                  <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Creating Branch...
+                </> : "Create Branch"}
             </button>
           </div>
         </form>

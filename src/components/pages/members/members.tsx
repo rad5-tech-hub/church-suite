@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BsPerson, BsCalendar, BsGeoAlt, BsCardText } from "react-icons/bs";
+import { BsPerson, BsCalendar, BsGeoAlt} from "react-icons/bs";
 import { IoMailOutline, IoCallOutline } from "react-icons/io5";
 import DashboardManager from "../../shared/dashboardManager";
+import Api from "../../shared/api/api";
+import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "../../reduxstore/redux";
 
-// Interface for form data
 interface MemberFormData {
   memberId: string;
   firstname: string;
@@ -17,7 +20,6 @@ interface MemberFormData {
 }
 
 const Member: React.FC = () => {
-  // State for form data
   const [formData, setFormData] = useState<MemberFormData>({
     memberId: "",
     firstname: "",
@@ -29,9 +31,10 @@ const Member: React.FC = () => {
     category: "",
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const authData = useSelector((state: RootState) => state.auth?.authData);
 
-  // Handle form input changes
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -42,16 +45,60 @@ const Member: React.FC = () => {
     }));
   };
 
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form Data Submitted:", formData);
-    // TODO: Implement actual form submission logic (e.g., API call)
+    setIsLoading(true);
+
+    try {
+      // Validate required fields
+      if (!formData.firstname || !formData.lastname || !formData.category) {
+        throw new Error("Please fill in all required fields");
+      }
+
+      // Prepare the payload
+      const payload = {
+        ...formData,
+        churchId: authData?.churchId, // Add churchId from Redux store
+      };
+
+      // Make API call
+      await Api.post("/members/create", payload);
+
+      // Handle success
+      toast.success("Member created successfully!", { autoClose: 3000 });
+      
+      // Reset form
+      setFormData({
+        memberId: "",
+        firstname: "",
+        lastname: "",
+        dateOfBirth: "",
+        email: "",
+        phone: "",
+        address: "",
+        category: "",
+      });
+
+      // Optionally navigate to view members
+      // navigate("/manage/view-members");
+
+    } catch (error: any) {
+      console.error("Error creating member:", error);
+      
+      // Handle API errors
+      const errorMessage = error.response?.data?.message || 
+                         error.message || 
+                         "Failed to create member. Please try again.";
+      
+      toast.error(errorMessage, { autoClose: 3000 });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <DashboardManager>
-      <div className="min-h-screen bg-gray-100 lg:p-6 md:p-3 my-6">
+      <div className="min-h-screen lg:p-6 md:p-3 my-6">
         {/* Header Section */}
         <div className="flex flex-col justify-between lg:flex-row lg:items-center">
           <div className="mb-4 lg:mb-0">
@@ -62,7 +109,7 @@ const Member: React.FC = () => {
           </div>
           <div>
             <button
-              onClick={() => navigate("/manage/view-members")}
+              onClick={() => navigate("/members/view-members")}
               className="px-5 py-2 font-semibold text-gray-100 bg-[#111827] rounded-sm border-none cursor-pointer hover:bg-[#232b3e]"
             >
               View Members
@@ -73,31 +120,9 @@ const Member: React.FC = () => {
         {/* Member Form */}
         <form
           onSubmit={handleSubmit}
-          className="mt-6 space-y-6 rounded-lg lg:p-6 md:p-2"
+          className="mt-6 space-y-6 rounded-lg lg:p-6 md:p-2 shadow-sm"
         >
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {/* Member ID Input */}
-            <div>
-              <label
-                htmlFor="memberId"
-                className="block mb-2 text-base font-medium text-gray-700 text-left"
-              >
-                Member ID
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3">
-                <BsCardText className="mr-3 text-xl text-gray-400" />
-                <input
-                  type="text"
-                  id="memberId"
-                  name="memberId"
-                  value={formData.memberId}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter member ID"
-                  required
-                />
-              </div>
-            </div>
 
             {/* Firstname Input */}
             <div>
@@ -162,7 +187,6 @@ const Member: React.FC = () => {
                   value={formData.dateOfBirth}
                   onChange={handleChange}
                   className="w-full text-base text-gray-800 focus:outline-none"
-                  required
                 />
               </div>
             </div>
@@ -185,7 +209,6 @@ const Member: React.FC = () => {
                   onChange={handleChange}
                   className="w-full text-base text-gray-800 focus:outline-none"
                   placeholder="Enter email address"
-                  required
                 />
               </div>
             </div>
@@ -208,25 +231,24 @@ const Member: React.FC = () => {
                   onChange={handleChange}
                   className="w-full text-base text-gray-800 focus:outline-none"
                   placeholder="Enter phone number"
-                  required
                 />
               </div>
             </div>
 
             {/* Category Select */}            
-            <div className="lg:col-span-2 mb-6">
-                <label
-                    htmlFor="category"
-                    className="block mb-2 text-base font-medium text-gray-700 text-left"
-                >
-                    Category
-                </label>
+            <div>
+              <label
+                htmlFor="category"
+                className="block mb-2 text-base font-medium text-gray-700 text-left"
+              >
+                Category
+              </label>
               <div className="relative">
                 <select
-                    id="category"
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
+                  id="category"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
                   className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
                   required
                   style={{
@@ -264,7 +286,6 @@ const Member: React.FC = () => {
                   className="w-full text-base text-gray-800 focus:outline-none resize-y"
                   placeholder="Enter address"
                   rows={4}
-                  required
                 />
               </div>
             </div>
@@ -274,9 +295,17 @@ const Member: React.FC = () => {
           <div className="pt-6">
             <button
               type="submit"
-              className="flex items-center justify-center w-full h-12 text-base font-semibold text-white bg-[#111827] rounded-md hover:bg-gray-800 transition duration-200"
+               disabled={isLoading}
+               className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
             >
-              Create Member
+              {isLoading ? (
+                <>
+                  <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Creating Member...
+                </>
+              ) : (
+                "Create Member"
+              )}
             </button>
           </div>
         </form>

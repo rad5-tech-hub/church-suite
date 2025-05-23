@@ -2,68 +2,47 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose } from "react-icons/md";
 import { HiUsers } from "react-icons/hi2";
-import { LuLayoutDashboard, LuMail, LuChurch } from "react-icons/lu";
+import { LuLayoutDashboard, LuMail, LuChurch, LuSettings } from "react-icons/lu";
 import { LiaDonateSolid } from "react-icons/lia";
-import { BiPencil } from "react-icons/bi";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 
-// Interface for component props
 interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
 }
 
-
-// Component Code
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [logo, setLogo] = useState<string>("https://img.freepik.com/free-vector/logo-with-vintage-luxury-style_23-2147839655.jpg");
-  const [background, setBackground] = useState<string>("https://img.freepik.com/free-vector/hotel-horizontal-banner-template-with-photo_52683-65998.jpg");
-
 
   const authData = useSelector((state: RootState) => state.auth?.authData);
-  
 
-  // Toggle dropdown menu
   const toggleDropdown = (menu: string) => {
     setActiveDropdown(activeDropdown === menu ? null : menu);
   };
 
-  // Handle logo image upload
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setLogo(URL.createObjectURL(file));
-    }
-  };
-
-  // Handle background image upload
-  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setBackground(URL.createObjectURL(file));
-    }
-  };
-
   return (
     <>
-      {/* Sidebar */}
       <div
         className={`fixed top-0 left-0 h-screen w-64 bg-[#111827] text-white flex flex-col transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 lg:translate-x-0 lg:static z-40`}
       >
-        {/* Name Section */}
+        {/* Name Section with Logo */}
         <div className="flex items-center justify-between py-4 px-4 border-b border-gray-700">
-        <h1
-          className="text-2xl font-bold"
-          title={authData?.church_name || ""} // Tooltip for the full text
-        >
-          {(authData?.church_name ?? "").length > 15
-            ? `${authData?.church_name?.slice(0, 15) || ""}...` // Truncate if more than 15 characters
-            : authData?.church_name || ""}
-        </h1>
+          <div className="flex items-center gap-3">
+            <img
+              src={authData?.logo}
+              alt={`${authData?.church_name} logos`}
+              className="h-8 w-8 object-contain rounded-full"
+            />
+            <h1
+              className="text-xl font-bold truncate max-w-[120px]"
+              title={authData?.church_name || ""}
+            >
+              {authData?.church_name || ""}
+            </h1>
+          </div>
           <button
             className="text-gray-300 hover:text-white lg:hidden"
             onClick={toggleSidebar}
@@ -298,59 +277,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 </ul>
               )}
             </li>
+
+            {/* setting */}
+            <li>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
+                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`
+                }
+              >
+                <LuSettings className="text-2xl" />
+                Setting
+              </NavLink>
+            </li>
           </ul>
-        </nav>
-
-        {/* Logo and Background Image Section */}
-        <div
-          className="relative h-40 rounded-t-xl"
-          style={{
-            backgroundImage: `url('${authData?.backgroundImg || background}')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",            
-          }}
-        >
-          {/* Pencil Icon for Editing Background */}
-          <label
-            htmlFor="background-upload"
-            className="absolute text-center top-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
-            aria-label="Upload Background"
-          >
-            <BiPencil className="text-lg" />
-            <input
-              type="file"
-              id="background-upload"
-              accept="image/*"
-              className="hidden"
-              onChange={handleBackgroundUpload}
-            />
-          </label>
-
-          {/* Logo */}
-          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
-            <img
-              src={authData?.logo ||  logo}
-              alt="ChurchSuite Logo"
-              className="h-16 w-16 object-contain rounded-full border-2 border-white"
-            />
-
-            {/* Pencil Icon for Editing Logo */}
-            <label
-              htmlFor="logo-upload"
-              className="absolute bottom-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
-              aria-label="Upload Logo"
-            >
-              <BiPencil className="text-sm" />
-              <input
-                type="file"
-                id="logo-upload"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
-            </label>
-          </div>
-        </div>
+        </nav>     
       </div>
 
       {/* Overlay for Off-Canvas Sidebar */}
