@@ -14,6 +14,9 @@ const SetupStep2: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Redux state (only contains serializable data)
+  // Removed unused 'churchData' variable
+
   // Local state for files and previews
   const [files, setFiles] = useState<LocalFileState>({
     logoFile: null,
@@ -22,94 +25,58 @@ const SetupStep2: React.FC = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Load images from storage on component mount
-  useEffect(() => {
-    const loadFromStorage = () => {
-      const storedLogo = localStorage.getItem('churchLogo');
-      const storedBg = localStorage.getItem('churchBackground');
-      
-      if (storedLogo) {
-        setLogoPreview(storedLogo);
-        dispatch(setChurchData({ logoPreview: storedLogo }));
-      }
-      if (storedBg) {
-        setBackgroundPreview(storedBg);
-        dispatch(setChurchData({ backgroundPreview: storedBg }));
-      }
-    };
-
-    loadFromStorage();
-  }, [dispatch]);
+  console.log(files);
+  
 
   // Clean up object URLs when component unmounts
   useEffect(() => {
     return () => {
-      if (logoPreview && logoPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(logoPreview);
-      }
-      if (backgroundPreview && backgroundPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(backgroundPreview);
-      }
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+      if (backgroundPreview) URL.revokeObjectURL(backgroundPreview);
     };
   }, [logoPreview, backgroundPreview]);
 
   const handleFileUpload = useCallback(
-    (type: 'logo' | 'background') => async (event: React.ChangeEvent<HTMLInputElement>) => {
+    (type: 'logo' | 'background') => (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
       // Revoke previous object URL if exists
       if (type === 'logo' && logoPreview) {
-        if (logoPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(logoPreview);
-        }
-      } else if (backgroundPreview && backgroundPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(logoPreview);
+      } else if (backgroundPreview) {
         URL.revokeObjectURL(backgroundPreview);
       }
 
-      try {
-        // Convert file to base64 for storage
-        const preview = await convertToBase64(file);
-        
-        // Update local state
-        if (type === 'logo') {
-          setLogoPreview(preview);
-          setFiles(prev => ({ ...prev, logoFile: file }));
-        } else {
-          setBackgroundPreview(preview);
-          setFiles(prev => ({ ...prev, backgroundFile: file }));
-        }
+      const preview = URL.createObjectURL(file);
+      
+      // Update local file state
+      setFiles(prev => ({
+        ...prev,
+        [`${type}File`]: file
+      }));
 
-        // Store in browser storage
-        localStorage.setItem(`church${type.charAt(0).toUpperCase() + type.slice(1)}`, preview);
+      // Update preview in Redux (serializable)
+      dispatch(setChurchData({
+        [`${type}Preview`]: preview
+      }));
 
-        // Update Redux
-        dispatch(setChurchData({
-          [`${type}Preview`]: preview
-        }));
-
-      } catch (error) {
-        console.error(`Error processing ${type} image:`, error);
+      // Update local preview state
+      if (type === 'logo') {
+        setLogoPreview(preview);
+      } else {
+        setBackgroundPreview(preview);
       }
     },
     [dispatch, logoPreview, backgroundPreview]
   );
-
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
 
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     // Pass files to next step via Redux or context if needed
+    // For now, we'll just navigate to the next step
     setTimeout(() => {
       setLoading(false);
       navigate("/admin-account");
@@ -118,6 +85,7 @@ const SetupStep2: React.FC = () => {
 
   const renderFileUpload = (type: 'logo' | 'background') => {
     const preview = type === 'logo' ? logoPreview : backgroundPreview;
+    // Removed unused 'file' variable
     const label = type === 'logo' ? 'Logo' : 'Background Image';
     const id = `${type}-upload`;
 
@@ -143,7 +111,7 @@ const SetupStep2: React.FC = () => {
               src={preview}
               alt={`${label} Preview`}
               className={`${
-                type === "logo" ? "h-20 w-20 object-cover rounded-full" : "h-60 w-full object-contain rounded-md"
+                type === "logo" ? "h-20 w-20 object-cover rounded-full" : "h-60 w-full object-contain  rounded-md"
               }`}
             />
           ) : (

@@ -23,14 +23,13 @@ const isTokenExpired = (token: string): boolean => {
 const refreshToken = async (): Promise<string> => {
   try {
     const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,null,
+      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,
+      {},
       {
         withCredentials: true,       
       }
     );
     return response.data.accessToken;
-    console.log(response.data.accessToken);
-    
   } catch (error) {
     // Clear auth if refresh fails
     store.dispatch(clearAuth());
@@ -98,7 +97,7 @@ Api.interceptors.request.use(
               hasShownSessionExpiredToast = true;
               toast.error("Your session has expired. Please log in again.", {
                 position: "top-center",
-                autoClose: 5000,               
+                autoClose: 5000,              
               });
             }
             
