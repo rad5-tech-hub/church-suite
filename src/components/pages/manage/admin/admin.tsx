@@ -43,7 +43,7 @@ const Admin: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await Api.post("/church/create-admin", {
+      await Api.post("church/create-admin", {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,

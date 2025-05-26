@@ -31,7 +31,7 @@ const SetupChurch: React.FC = () => {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.churchName || !formData.churchEmail || !formData.churchPhone || !formData.churchLocation || !formData.isHeadquarter) {
+    if (!formData.churchName || !formData.churchPhone || !formData.churchLocation || !formData.isHeadquarter) {
       setError('Please fill all required fields.');
       return;
     }

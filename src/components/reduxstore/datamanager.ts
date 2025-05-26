@@ -1,16 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-// Make sure to export the interface
 export interface ChurchState {
   churchName: string;
   churchEmail: string;
   churchPhone: string;
   churchLocation: string;
   isHeadquarter: string;
-  logoPreview?: string | null; // Optional field for logo preview
+  logoPreview?: string | null;
   backgroundPreview?: string | null;
-  logoFile?: File | null; // For storing the actual file
-  backgroundFile?: File | null; //
+  // Remove File objects from state - we'll store them locally in components
 }
 
 const initialState: ChurchState = {
@@ -19,10 +17,8 @@ const initialState: ChurchState = {
   churchPhone: '',
   churchLocation: '',
   isHeadquarter: '',
-  logoPreview: null, // Default value
-  backgroundPreview: null, // Default value
-  logoFile: null,
-  backgroundFile: null,
+  logoPreview: null,
+  backgroundPreview: null,
 };
 
 const churchSlice = createSlice({
@@ -30,7 +26,7 @@ const churchSlice = createSlice({
   initialState,
   reducers: {
     setChurchData: (state, action: PayloadAction<Partial<ChurchState>>) => {
-      return { ...state, ...action.payload }; // Merge partial updates
+      return { ...state, ...action.payload };
     },
     clearChurchData: () => initialState,
   },

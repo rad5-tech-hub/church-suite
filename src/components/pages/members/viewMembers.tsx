@@ -158,7 +158,7 @@ const ViewMembers: React.FC = () => {
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", lg: "row" },
+            flexDirection: { xs: "column", lg: "row", md: 'row', sm: 'column' },
             justifyContent: "space-between",
             alignItems: { xs: "flex-start", lg: "center" },
             mb: { xs: 4, sm: 6 },
@@ -259,10 +259,10 @@ const ViewMembers: React.FC = () => {
                           px: { xs: 2, sm: 4 },
                           py: 2,
                           display: "flex",
-                          flexDirection: { xs: "column", sm: "row" }, // Stack on small devices, row on larger devices
+                          flexDirection: {sm: "row" }, // Stack on small devices, row on larger devices
                           alignItems: "center",
                           justifyContent: "space-between",
-                          gap: { xs: 1, sm: 0 }, // Add spacing between elements on small devices
+                          gap: { xs: 1, sm: 1 }, // Add spacing between elements on small devices
                           
                         }}                       
                       >                       

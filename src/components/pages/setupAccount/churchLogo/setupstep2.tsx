@@ -1,74 +1,115 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { SlCloudUpload } from "react-icons/sl";
 import { IoArrowForward } from "react-icons/io5";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import { setChurchData } from "../../../reduxstore/datamanager";
-import { RootState } from "../../../reduxstore/redux";
+
+interface LocalFileState {
+  logoFile: File | null;
+  backgroundFile: File | null;
+}
 
 const SetupStep2: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Redux state
-  const churchData = useSelector((state: RootState) => state.church);
-
-  // Local state for previews
+  // Local state for files and previews
+  const [files, setFiles] = useState<LocalFileState>({
+    logoFile: null,
+    backgroundFile: null
+  });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Load images from storage on component mount
+  useEffect(() => {
+    const loadFromStorage = () => {
+      const storedLogo = localStorage.getItem('churchLogo');
+      const storedBg = localStorage.getItem('churchBackground');
+      
+      if (storedLogo) {
+        setLogoPreview(storedLogo);
+        dispatch(setChurchData({ logoPreview: storedLogo }));
+      }
+      if (storedBg) {
+        setBackgroundPreview(storedBg);
+        dispatch(setChurchData({ backgroundPreview: storedBg }));
+      }
+    };
+
+    loadFromStorage();
+  }, [dispatch]);
+
   // Clean up object URLs when component unmounts
   useEffect(() => {
     return () => {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      if (backgroundPreview) URL.revokeObjectURL(backgroundPreview);
+      if (logoPreview && logoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(logoPreview);
+      }
+      if (backgroundPreview && backgroundPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(backgroundPreview);
+      }
     };
   }, [logoPreview, backgroundPreview]);
 
-  // Load previews from Redux state on component mount
-  useEffect(() => {
-    if (churchData.logoFile instanceof Blob) {
-      const preview = URL.createObjectURL(churchData.logoFile);
-      setLogoPreview(preview);
-    }
-    if (churchData.backgroundFile instanceof Blob) {
-      const preview = URL.createObjectURL(churchData.backgroundFile);
-      setBackgroundPreview(preview);
-    }
-  }, [churchData.logoFile, churchData.backgroundFile]);
-
   const handleFileUpload = useCallback(
-    (type: 'logo' | 'background') => (event: React.ChangeEvent<HTMLInputElement>) => {
+    (type: 'logo' | 'background') => async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
       // Revoke previous object URL if exists
       if (type === 'logo' && logoPreview) {
-        URL.revokeObjectURL(logoPreview);
-      } else if (backgroundPreview) {
+        if (logoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(logoPreview);
+        }
+      } else if (backgroundPreview && backgroundPreview.startsWith('blob:')) {
         URL.revokeObjectURL(backgroundPreview);
       }
 
-      const preview = URL.createObjectURL(file);
-      const actionPayload = type === 'logo' 
-        ? { logoFile: file, logoPreview: preview }
-        : { backgroundFile: file, backgroundPreview: preview };
+      try {
+        // Convert file to base64 for storage
+        const preview = await convertToBase64(file);
+        
+        // Update local state
+        if (type === 'logo') {
+          setLogoPreview(preview);
+          setFiles(prev => ({ ...prev, logoFile: file }));
+        } else {
+          setBackgroundPreview(preview);
+          setFiles(prev => ({ ...prev, backgroundFile: file }));
+        }
 
-      dispatch(setChurchData(actionPayload));
-      
-      if (type === 'logo') {
-        setLogoPreview(preview);
-      } else {
-        setBackgroundPreview(preview);
+        // Store in browser storage
+        localStorage.setItem(`church${type.charAt(0).toUpperCase() + type.slice(1)}`, preview);
+
+        // Update Redux
+        dispatch(setChurchData({
+          [`${type}Preview`]: preview
+        }));
+
+      } catch (error) {
+        console.error(`Error processing ${type} image:`, error);
       }
     },
     [dispatch, logoPreview, backgroundPreview]
   );
 
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Pass files to next step via Redux or context if needed
     setTimeout(() => {
       setLoading(false);
       navigate("/admin-account");
@@ -77,7 +118,6 @@ const SetupStep2: React.FC = () => {
 
   const renderFileUpload = (type: 'logo' | 'background') => {
     const preview = type === 'logo' ? logoPreview : backgroundPreview;
-    const file = type === 'logo' ? churchData.logoFile : churchData.backgroundFile;
     const label = type === 'logo' ? 'Logo' : 'Background Image';
     const id = `${type}-upload`;
 
@@ -98,11 +138,13 @@ const SetupStep2: React.FC = () => {
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={handleFileUpload(type)}
           />
-          {preview || (file instanceof Blob) ? (
+          {preview ? (
             <img
-              src={preview || (file instanceof Blob ? URL.createObjectURL(file) : '')}
+              src={preview}
               alt={`${label} Preview`}
-              className="w-14 h-14 object-cover rounded-full"
+              className={`${
+                type === "logo" ? "h-20 w-20 object-cover rounded-full" : "h-60 w-full object-contain rounded-md"
+              }`}
             />
           ) : (
             <div className="w-12 h-12 bg-gradient-to-r from-gray-100 to-gray-100 rounded-full flex items-center justify-center">

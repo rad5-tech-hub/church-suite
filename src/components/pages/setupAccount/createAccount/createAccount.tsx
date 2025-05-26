@@ -5,11 +5,13 @@ import { SlLock } from "react-icons/sl";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import { clearChurchData } from "../../../reduxstore/datamanager";
-import { useDispatch} from 'react-redux';
+import { useDispatch } from 'react-redux';
 
 const CreateAccount: React.FC = () => {
   // State management
   const dispatch = useDispatch();
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -37,65 +39,90 @@ const CreateAccount: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setNotification(null);
-
-    // Get form values
-    const password = (document.getElementById("password") as HTMLInputElement).value;
-    const confirmPassword = (document.getElementById("confirm-password") as HTMLInputElement).value;
-    const email = (document.getElementById("email") as HTMLInputElement).value;
-
-    // Validate form
-    if (!validateForm(password, confirmPassword, email)) {
-      setLoading(false);
-      return;
-    }
-
-    // Prepare form data
-    const formData = new FormData();
-    formData.append("churchName", churchData.churchName || "");
-    formData.append("address", churchData.churchLocation || "");  
-    formData.append("phone", churchData.churchPhone || "");
-    formData.append("email", churchData.churchEmail || "");
-    formData.append("isHeadQuarter", churchData.isHeadquarter || "");    
-    formData.append("name", (document.getElementById("full-name") as HTMLInputElement).value);
-    formData.append("adminEmail", email);
-    formData.append("adminPassword", password);
-    
-     // Use the actual files for logo and background image
-    if (churchData.logoFile) {
-      formData.append("logo", churchData.logoFile || null); // Append the File object
-    }
-    if (churchData.backgroundFile) {
-      formData.append("backgroundImage", churchData.backgroundFile || null); // Append the File object
-    }
-
-
+  
     try {
-      const response = await fetch(`https://church.bookbank.com.ng/church/create-church`, {
+      // 1. Get form values using type-safe approach
+      const form = e.currentTarget as HTMLFormElement;
+      const getInputValue = (id: string) => 
+        (form.querySelector(`#${id}`) as HTMLInputElement)?.value || '';
+  
+      const password = getInputValue('password');
+      const confirmPassword = getInputValue('confirm-password');
+      const email = getInputValue('email');
+      const fullName = getInputValue('full-name');
+      const phone = getInputValue('phone');
+  
+      // 2. Validate form
+      if (!validateForm(password, confirmPassword, email)) {
+        return;
+      }
+  
+      // 3. Prepare form data
+      const formData = new FormData();
+      
+      // Append church data
+      formData.append("churchName", churchData.churchName || "");
+      formData.append("address", churchData.churchLocation || "");
+      formData.append("phone", churchData.churchPhone || phone);
+      
+      // Conditionally append church email
+      if (churchData.churchEmail) {
+        formData.append("email", churchData.churchEmail);
+      }
+      
+      formData.append("isHeadQuarter", churchData.isHeadquarter || "");
+      
+      // Append admin data
+      formData.append("name", fullName);
+      formData.append("adminEmail", email);
+      formData.append("adminPassword", password);
+      
+      // Append files from local state (passed from SetupStep2)
+      if (logoFile) {
+        formData.append("logo", logoFile);
+      }
+      if (backgroundFile) {
+        formData.append("backgroundImage", backgroundFile);
+      }
+  
+      // 4. Submit the form
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/church/create-church`, {
         method: "POST",
         body: formData,
       });
-
+  
       if (!response.ok) {
-        throw new Error(await response.text() || "Failed to create account");
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to create account");
       }
-
+  
       const responseData = await response.json();
+      
+      // 5. Handle success
       showSuccessMessage(responseData.email || email);
-
-      // clear the store data
+  
+      // 6. Clean up
       dispatch(clearChurchData());
-      // 2. Clear uncontrolled inputs (if any)
-      (document.getElementById("full-name") as HTMLInputElement).value = "";
-      (document.getElementById("email") as HTMLInputElement).value = "";
-      (document.getElementById("phone") as HTMLInputElement).value = "";
-      (document.getElementById("password") as HTMLInputElement).value = "";
-      (document.getElementById("confirm-password") as HTMLInputElement).value = "";
+      form.reset();
+      localStorage.removeItem('churchLogo');
+      localStorage.removeItem('churchBackground');
+      
+      // Clear local file state if needed
+      setLogoFile(null);
+      setBackgroundFile(null);
+  
     } catch (error) {
       console.error("Account creation error:", error);
+      
       setNotification({
-        message: error instanceof Error ? error.message : "An error occurred. Please try again.",
+        message: error instanceof Error 
+          ? error.message.includes('<!DOCTYPE html>')
+            ? "Server error occurred. Please try again later."
+            : error.message
+          : "An unexpected error occurred. Please try again.",
         type: 'error'
       });
+  
     } finally {
       setLoading(false);
     }
@@ -253,14 +280,14 @@ const CreateAccount: React.FC = () => {
             {/* Error Notification */}
             {notification?.type === 'error' && (
               <div className="fixed flex top-3 right-3 justify-between items-center bg-red-100 text-red-700 p-4 rounded-md shadow-lg z-50 w-100">
-              <p>{notification.message}</p>
-              <button 
-                className="text-red-700"
-                onClick={() => setNotification(null)}
-              >
-                ×
-              </button>
-            </div>
+                <p>{notification.message}</p>
+                <button 
+                  className="text-red-700"
+                  onClick={() => setNotification(null)}
+                >
+                  ×
+                </button>
+              </div>
             )}
 
             {/* Submit Button */}

@@ -3,7 +3,10 @@ import { jwtDecode } from "jwt-decode";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { store } from "../../reduxstore/redux";
-import { setAuthData } from "../../reduxstore/authstore";
+import { setAuthData, clearAuth } from "../../reduxstore/authstore";
+
+// Track if we've shown a session expired toast
+let hasShownSessionExpiredToast = false;
 
 // Function to check if the token is expired
 const isTokenExpired = (token: string): boolean => {
@@ -17,15 +20,20 @@ const isTokenExpired = (token: string): boolean => {
 };
 
 // Function to refresh the token using HTTP-only cookie
-const refreshToken = async () => {
+const refreshToken = async (): Promise<string> => {
   try {
     const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,
-      {}, // No body needed; refresh token is in HTTP-only cookie
-      { withCredentials: true } // Include cookies in request
+      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,null,
+      {
+        withCredentials: true,       
+      }
     );
     return response.data.accessToken;
+    console.log(response.data.accessToken);
+    
   } catch (error) {
+    // Clear auth if refresh fails
+    store.dispatch(clearAuth());
     throw error;
   }
 };
@@ -35,27 +43,40 @@ const Api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "x-tenant-id": store.getState().auth?.authData?.tenantId || "",
   },
-  withCredentials: true, // Enable sending cookies with all requests
+  withCredentials: true,
 });
 
-// Flag to prevent multiple token refresh attempts
+// Token refresh management
 let isRefreshing = false;
-let failedRequestsQueue: any[] = [];
+let failedRequestsQueue: ((token: string) => void)[] = [];
 
-// Request interceptor to handle token expiration and refresh
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedRequestsQueue.forEach((prom) => {
+    if (error) {
+      prom(error as any);
+    } else {
+      prom(token as string);
+    }
+  });
+  failedRequestsQueue = [];
+};
+
+// Request interceptor
 Api.interceptors.request.use(
   async (config) => {
     const state = store.getState();
     const token = state.auth?.authData?.token;
 
     if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+
       if (isTokenExpired(token)) {
         if (!isRefreshing) {
           isRefreshing = true;
           try {
             const newToken = await refreshToken();
-            const state = store.getState();
             const currentAuthData = state.auth?.authData;
 
             if (currentAuthData) {
@@ -63,40 +84,40 @@ Api.interceptors.request.use(
                 ...currentAuthData,
                 token: newToken,
               };
-              store.dispatch(setAuthData(updatedAuthData)); // Update token in Redux store
+              store.dispatch(setAuthData(updatedAuthData));
             }
 
-            // Update the Authorization header with the new token
             config.headers.Authorization = `Bearer ${newToken}`;
-
-            // Process queued requests with the new token
-            failedRequestsQueue.forEach((cb) => cb(newToken));
-            failedRequestsQueue = [];
-
+            processQueue(null, newToken);
             return config;
           } catch (refreshError) {
-            toast.error("Your session has expired. Please re-login.", {
-              position: "top-center",
-              autoClose: 5000,
-              onClose: () => {
-                window.location.href = "/";
-              },
-            });
+            processQueue(refreshError as Error);
+            
+            // Only show one session expired toast
+            if (!hasShownSessionExpiredToast) {
+              hasShownSessionExpiredToast = true;
+              toast.error("Your session has expired. Please log in again.", {
+                position: "top-center",
+                autoClose: 5000,               
+              });
+            }
+            
             return Promise.reject(refreshError);
           } finally {
             isRefreshing = false;
           }
-        } else {
-          // If token is already being refreshed, queue the request
-          return new Promise((resolve) => {
-            failedRequestsQueue.push((newToken: string) => {
+        }
+
+        return new Promise((resolve, reject) => {
+          failedRequestsQueue.push((newToken: string) => {
+            if (newToken) {
               config.headers.Authorization = `Bearer ${newToken}`;
               resolve(config);
-            });
+            } else {
+              reject(new Error("Token refresh failed"));
+            }
           });
-        }
-      } else {
-        config.headers.Authorization = `Bearer ${token}`;
+        });
       }
     }
     return config;
@@ -106,31 +127,35 @@ Api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle CORS and other errors
+// Response interceptor
 Api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Handle specific HTTP status codes
-      if (error.response.status === 401) {
+      // Don't show duplicate toasts for 401 errors
+      if (error.response.status === 401 && !hasShownSessionExpiredToast) {
+        hasShownSessionExpiredToast = true;
         toast.error("Unauthorized access. Please log in again.", {
           autoClose: 5000,
           onClose: () => {
+            store.dispatch(clearAuth());
             window.location.href = "/";
           },
         });
       } else if (error.response.status === 403) {
-        toast.error("Forbidden: You do not have permission to access this resource.", {          
+        toast.error("Forbidden: You don't have permission to access this resource.", {
+          autoClose: 5000,
+        });
+      } else if (error.response.status !== 401) {
+        // Only show error if it's not 401 (which we already handled)
+        toast.error(error.response.data.message || "An error occurred", {
           autoClose: 5000,
         });
       }
     } else if (error.request) {
-      // Handle CORS errors or network issues
       toast.error(
-        "Failed to connect to the server. This may be due to a CORS issue or network error. Please check your connection or contact support.",
-        {
-          autoClose: 5000,
-        }
+        "Network error: Failed to connect to the server. Please check your connection.",
+        { autoClose: 5000 }
       );
     } else {
       toast.error("An unexpected error occurred. Please try again.", {

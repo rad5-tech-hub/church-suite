@@ -1,8 +1,7 @@
-import AppRoutes from './components/pages/routes'
+import AppRoutes from './components/pages/routes';
 
 
 function App() {
-
   return (
     <>
       <AppRoutes/>

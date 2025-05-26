@@ -33,7 +33,7 @@ const ViewAdmins: React.FC = () => {
     const fetchAdmins = async () => {
       try {
         const response = await Api.get("/church/view-admins");
-        setAdmins(response.data); // Update state with fetched data
+        setAdmins(response.data.admins); // Update state with fetched data
       } catch (error: any) {
         console.error("Error fetching admins:", error.response?.data || error.message);
       } finally {
@@ -46,12 +46,12 @@ const ViewAdmins: React.FC = () => {
 
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, bgcolor: "#f5f5f5", minHeight: "100%" }}>
+      <Box sx={{ py: 4, px: { xs: 1, sm: 1 }, bgcolor: "#f5f5f5", minHeight: "100%" }}>
         {/* Header Section */}
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", lg: "row" },
+            flexDirection: { xs: "column", lg: "row", md: 'row', sm: 'column' },
             justifyContent: "space-between",
             alignItems: { xs: "flex-start", lg: "center" },
             mb: { xs: 4, sm: 6 },
@@ -183,8 +183,7 @@ const ViewAdmins: React.FC = () => {
                         fontSize: { xs: "0.75rem", sm: "1rem" },
                         px: { xs: 2, sm: 4 },
                         py: 2,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
+                        whiteSpace: "normal",                 
                       }}
                     >
                       {admin.name}
@@ -194,8 +193,7 @@ const ViewAdmins: React.FC = () => {
                         fontSize: { xs: "0.75rem", sm: "1rem" },
                         px: { xs: 2, sm: 4 },
                         py: 2,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
+                        whiteSpace: "normal",                 
                       }}
                     >
                       {admin.email}
@@ -205,8 +203,7 @@ const ViewAdmins: React.FC = () => {
                         fontSize: { xs: "0.75rem", sm: "1rem" },
                         px: { xs: 2, sm: 4 },
                         py: 2,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
+                        whiteSpace: "normal",                 
                       }}
                     >
                       {admin.phone}
@@ -216,8 +213,7 @@ const ViewAdmins: React.FC = () => {
                         fontSize: { xs: "0.75rem", sm: "1rem" },
                         px: { xs: 2, sm: 4 },
                         py: 2,
-                        whiteSpace: "normal",
-                        wordBreak: "break-word",
+                        whiteSpace: "normal",                 
                       }}
                     >
                       {admin.isSuperAdmin ? "Yes" : "No"}
