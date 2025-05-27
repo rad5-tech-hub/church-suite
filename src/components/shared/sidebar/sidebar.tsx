@@ -45,13 +45,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
       >
         {/* Name Section */}
         <div className="flex items-center justify-between py-4 px-4 border-b border-gray-700">
-        <h1 className="text-2xl font-bold">ChurchSuite</h1>
-        <button
+          <h1 className="text-2xl font-bold">ChurchSuite</h1>
+          <button
             className="text-gray-300 hover:text-white lg:hidden"
             onClick={toggleSidebar}
-        >
+          >
             <MdOutlineClose className="text-2xl" />
-        </button>
+          </button>
         </div>
 
         {/* Navigation Links */}
@@ -290,5 +290,118 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     </>
   );
 };
+
+// Test Code (Only runs when in test environment)
+if (process.env.NODE_ENV === 'test') {
+  const { render, screen, fireEvent } = require('@testing-library/react');
+  const { MemoryRouter } = require('react-router-dom');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
+  describe('Sidebar Component', () => {
+    test('renders sidebar elements when open', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('ChurchSuite')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+      expect(screen.getByText('Manage')).toBeInTheDocument();
+      expect(screen.getByText('Members')).toBeInTheDocument();
+      expect(screen.getByText('Auto Messages')).toBeInTheDocument();
+      expect(screen.getByText('Finance')).toBeInTheDocument();
+      expect(screen.getByAltText('ChurchSuite Logo')).toBeInTheDocument();
+    });
+
+    test('sidebar is hidden when isOpen is false', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={false} toggleSidebar={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      const sidebar = screen.getByText('ChurchSuite').closest('div');
+      expect(sidebar).toHaveClass('-translate-x-full');
+    });
+
+    test('toggles dropdown on click', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      const manageButton = screen.getByText('Manage').closest('button');
+      fireEvent.click(manageButton!);
+      expect(screen.getByText('Branch')).toBeInTheDocument();
+      expect(screen.getByText('Department')).toBeInTheDocument();
+      expect(screen.getByText('Admin')).toBeInTheDocument();
+
+      fireEvent.click(manageButton!);
+      expect(screen.queryByText('Branch')).not.toBeInTheDocument();
+    });
+
+    test('calls toggleSidebar on close button click', () => {
+      const mockToggleSidebar = jest.fn();
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
+        </MemoryRouter>
+      );
+
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      fireEvent.click(closeButton);
+      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
+    });
+
+    test('calls toggleSidebar on overlay click', () => {
+      const mockToggleSidebar = jest.fn();
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
+        </MemoryRouter>
+      );
+
+      const overlay = screen.getByTestId('overlay');
+      fireEvent.click(overlay);
+      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
+    });
+
+    test('updates logo on upload', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      const logoInput = screen.getByLabelText('Upload Logo') as HTMLInputElement;
+      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
+      fireEvent.change(logoInput, { target: { files: [file] } });
+
+      const logoImg = screen.getByAltText('ChurchSuite Logo');
+      expect(logoImg).toHaveAttribute('src', expect.stringContaining('blob:'));
+    });
+
+    test('updates background on upload', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
+        </MemoryRouter>
+      );
+
+      const backgroundInput = screen.getByLabelText('Upload Background') as HTMLInputElement;
+      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
+      fireEvent.change(backgroundInput, { target: { files: [file] } });
+
+      const backgroundDiv = backgroundInput.closest('div');
+      expect(backgroundDiv).toHaveStyle({ backgroundImage: expect.stringContaining('blob:') });
+    });
+  });
+}
 
 export default Sidebar;

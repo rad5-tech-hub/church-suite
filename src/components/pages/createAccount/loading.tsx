@@ -1,6 +1,10 @@
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
+// Component Code
 const Loading: React.FC = () => {
+  const navigate = useNavigate();
+
   useEffect(() => {
     const progress = document.getElementById("progress");
     const spinner = document.getElementById("spinner");
@@ -10,20 +14,19 @@ const Loading: React.FC = () => {
         if (spinner) {
           spinner.classList.remove("animate-spin");
         }
-        // Optional: Add a completion action (e.g., redirect or show message)
         setTimeout(() => {
-          window.location.href = "/dashboard"; // Redirect to the dashboard after loading
+          navigate("/dashboard");
         }, 1000);
       });
     }
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white px-4">
       <div className="flex flex-col items-center gap-6">
         {/* Circular Loader */}
-        <div className="flex justify-center mb-4 animate-spin">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-[#111827]"></div>
+        <div id="spinner" className="flex justify-center mb-4 animate-spin [animation-duration:2s]">
+          <div className="rounded-full h-12 w-12 border-t-4 border-[#111827]"></div>
         </div>
 
         {/* Text */}
@@ -59,5 +62,61 @@ const Loading: React.FC = () => {
     </div>
   );
 };
+
+// Test Code (Only runs when in test environment)
+if (process.env.NODE_ENV === 'test') {
+  const { render, screen, waitFor } = require('@testing-library/react');
+  const { MemoryRouter } = require('react-router-dom');
+  require('@testing-library/jest-dom');
+
+  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
+  const { describe, test, expect, jest } = require('jest');
+
+  describe('Loading Component', () => {
+    test('renders loading elements', () => {
+      render(
+        <MemoryRouter>
+          <Loading />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText('Setting up Church! Please wait...')).toBeInTheDocument();
+      const spinner = screen.getByTestId('spinner');
+      expect(spinner).toBeInTheDocument();
+      expect(spinner).toHaveClass('animate-spin');
+      const progressBar = document.getElementById('progress');
+      expect(progressBar).toBeInTheDocument();
+    });
+
+    test('spinner has reduced speed', () => {
+      render(
+        <MemoryRouter>
+          <Loading />
+        </MemoryRouter>
+      );
+
+      const spinner = screen.getByTestId('spinner');
+      expect(spinner).toHaveStyle({ 'animation-duration': '1.5s' });
+    });
+
+    test('navigates to dashboard after animation ends', async () => {
+      const mockNavigate = jest.fn();
+      jest.spyOn(require('react-router-dom'), 'useNavigate').mockReturnValue(mockNavigate);
+
+      render(
+        <MemoryRouter>
+          <Loading />
+        </MemoryRouter>
+      );
+
+      const progressBar = document.getElementById('progress');
+      progressBar?.dispatchEvent(new Event('animationend'));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+      }, { timeout: 2000 });
+    });
+  });
+}
 
 export default Loading;
