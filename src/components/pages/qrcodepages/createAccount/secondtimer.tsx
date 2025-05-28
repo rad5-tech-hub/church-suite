@@ -21,13 +21,13 @@ interface Notification {
   message: string;
 }
 
-interface ApiError {
-  error: {
-    message: string;
-    code: number;
-  };
-  stack?: string;
-}
+// interface ApiError {
+//   error: {
+//     message: string;
+//     code: number;
+//   };
+//   stack?: string;
+// }
 
 // Main Component
 const SecondTimerForm: React.FC<SecondTimerFormProps> = () => {

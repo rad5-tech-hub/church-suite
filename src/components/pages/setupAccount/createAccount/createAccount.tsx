@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState} from "react";
 import { IoCallOutline, IoMailOutline, IoPersonOutline } from "react-icons/io5";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
-import { clearChurchData, setChurchData } from "../../../reduxstore/datamanager";
+import { clearChurchData } from "../../../reduxstore/datamanager";
 import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
@@ -389,21 +389,5 @@ const CreateAccount: React.FC = () => {
   );
 };
 
-// function base64ToFile(base64String: string, fileName: string): File {
-//   const byteString = atob(base64String.split(",")[1]);
-//   const mimeString = base64String.split(",")[0].split(":")[1].split(";")[0];
-//   const arrayBuffer = new ArrayBuffer(byteString.length);
-//   const uint8Array = new Uint8Array(arrayBuffer);
-
-//   for (let i = 0; i < byteString.length; i++) {
-//     uint8Array[i] = byteString.charCodeAt(i);
-//   }
-
-//   return new File([arrayBuffer], fileName, { type: mimeString });
-// }
-
 export default CreateAccount;
 
-// function base64ToFile(logoPreview: string, arg1: string) {
-//   throw new Error("Function not implemented.");
-// }
