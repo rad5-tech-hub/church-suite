@@ -48,6 +48,7 @@ const Loading: React.FC = () => {
   
         const authPayload = {
           backgroundImg: decodedToken.backgroundImg || "",
+          branchId: decodedToken.branchId || "",
           churchId: decodedToken.churchId || "",
           church_name: decodedToken.church_name || "",
           email: decodedToken.email || "",

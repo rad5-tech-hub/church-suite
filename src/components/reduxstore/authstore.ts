@@ -15,6 +15,7 @@ export interface AuthData {
   name: string;
   tenantId: string;
   token: string;
+  branchId: string;
 }
 
 // Export AuthState interface

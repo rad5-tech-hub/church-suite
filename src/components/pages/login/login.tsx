@@ -3,6 +3,8 @@ import { IoMailOutline } from "react-icons/io5";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
 import { Link } from "react-router-dom";
+import { store } from "../../reduxstore/redux";
+import { clearChurchData } from "../../reduxstore/datamanager";
 
 // Interfaces
 interface LoginFormProps {}
@@ -34,6 +36,24 @@ const Login: React.FC<LoginFormProps> = () => {
   });
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Reset form data on component mount
+  React.useEffect(() => {
+    const handleRouteCleanup = () => {
+      if (location.pathname === '/') {
+        // Clear church setup data when on home page
+        localStorage.removeItem('churchSetupData');
+        store.dispatch(clearChurchData());
+      }
+    };
+  
+    handleRouteCleanup();
+  
+    // Optional: Add cleanup function if needed
+    return () => {
+      // Any cleanup logic if component unmounts
+    };
+  }, [location.pathname, clearChurchData]); // Include all dependencies
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,12 +116,13 @@ const Login: React.FC<LoginFormProps> = () => {
     setShowPassword((prev) => !prev);
   };
 
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       {/* Success Modal Overlay */}
       {notification?.type === 'success' && (
         <div className="fixed inset-0 bg-black opacity-[0.96] flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-lg max-w-md mx-4 shadow-xl">
+          <div className="bg-white p-8 rounded-lg w-full mx-4 shadow-xl">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Login Successful!</h3>
             <p className="mb-4 text-gray-600">{notification.message}</p>
             <p className="text-sm text-gray-600 mb-6">

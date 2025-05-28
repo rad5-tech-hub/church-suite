@@ -1,17 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoCallOutline, IoMailOutline, IoPersonOutline } from "react-icons/io5";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../reduxstore/redux";
-import { clearChurchData } from "../../../reduxstore/datamanager";
-import { useDispatch } from 'react-redux';
+import { clearChurchData, setChurchData } from "../../../reduxstore/datamanager";
+import { store } from "../../../reduxstore/redux";
+import { RootState } from '../../../reduxstore/redux';
+import { useSelector } from 'react-redux';
+
+
+interface ChurchData {
+  churchName?: string;
+  churchLocation?: string;
+  churchPhone?: string;
+  churchEmail?: string;
+  isHeadquarter?: boolean;
+  logoPreview?: string | null;
+  backgroundPreview?: string | null;
+}
 
 const CreateAccount: React.FC = () => {
-  // State management
-  const dispatch = useDispatch();
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -20,11 +27,8 @@ const CreateAccount: React.FC = () => {
     passwordMismatch: false,
     emailInvalid: false
   });
-
-  // Redux state
   const churchData = useSelector((state: RootState) => state.church);
 
-  // Form validation
   const validateForm = (password: string, confirmPassword: string, email: string): boolean => {
     const errors = {
       passwordMismatch: password !== confirmPassword,
@@ -41,91 +45,165 @@ const CreateAccount: React.FC = () => {
     setNotification(null);
   
     try {
-      // 1. Get form values using type-safe approach
+      // 1. Get form values
       const form = e.currentTarget as HTMLFormElement;
-      const getInputValue = (id: string) => 
-        (form.querySelector(`#${id}`) as HTMLInputElement)?.value || '';
+      const { password, confirmPassword, email, fullName, phone } = getFormValues(form);
   
-      const password = getInputValue('password');
-      const confirmPassword = getInputValue('confirm-password');
-      const email = getInputValue('email');
-      const fullName = getInputValue('full-name');
-      const phone = getInputValue('phone');
-  
-      // 2. Validate form
+      // 2. Validate form inputs
       if (!validateForm(password, confirmPassword, email)) {
         return;
       }
   
       // 3. Prepare form data
-      const formData = new FormData();
-      
-      // Append church data
-      formData.append("churchName", churchData.churchName || "");
-      formData.append("address", churchData.churchLocation || "");
-      formData.append("phone", churchData.churchPhone || phone);
-      
-      // Conditionally append church email
-      if (churchData.churchEmail) {
-        formData.append("email", churchData.churchEmail);
-      }
-      
-      formData.append("isHeadQuarter", churchData.isHeadquarter || "");
-      
-      // Append admin data
-      formData.append("name", fullName);
-      formData.append("adminEmail", email);
-      formData.append("adminPassword", password);
-      
-      // Append files from local state (passed from SetupStep2)
-      if (logoFile) {
-        formData.append("logo", logoFile);
-      }
-      if (backgroundFile) {
-        formData.append("backgroundImage", backgroundFile);
-      }
-  
-      // 4. Submit the form
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/church/create-church`, {
-        method: "POST",
-        body: formData,
+      const formData = prepareFormData({
+        churchData,
+        adminData: { fullName, email, password },
+        phone
       });
   
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Failed to create account");
-      }
   
-      const responseData = await response.json();
-      
-      // 5. Handle success
-      showSuccessMessage(responseData.email || email);
+      // 5. Submit data to API
+      const response = await submitChurchData(formData);
   
-      // 6. Clean up
-      dispatch(clearChurchData());
-      form.reset();
-      localStorage.removeItem('churchLogo');
-      localStorage.removeItem('churchBackground');
-      
-      // Clear local file state if needed
-      setLogoFile(null);
-      setBackgroundFile(null);
+      // 6. Handle successful response
+      handleSuccess(response, email, form);
   
     } catch (error) {
-      console.error("Account creation error:", error);
-      
-      setNotification({
-        message: error instanceof Error 
-          ? error.message.includes('<!DOCTYPE html>')
-            ? "Server error occurred. Please try again later."
-            : error.message
-          : "An unexpected error occurred. Please try again.",
-        type: 'error'
-      });
-  
+      // 7. Handle errors
+      handleSubmissionError(error);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Helper functions
+  const getFormValues = (form: HTMLFormElement) => {
+    const getValue = (id: string) => 
+      (form.querySelector(`#${id}`) as HTMLInputElement)?.value || '';
+  
+    return {
+      password: getValue('password'),
+      confirmPassword: getValue('confirm-password'),
+      email: getValue('email'),
+      fullName: getValue('full-name'),
+      phone: getValue('phone')
+    };
+  };
+  
+  const base64ToFile = (base64String: string, fileName: string): File => {
+    // Extract the content type and base64 data from the string
+    const matches = base64String.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      throw new Error('Invalid base64 string');
+    }
+    
+    const contentType = matches[1];
+    const base64Data = matches[2];
+    const byteCharacters = atob(base64Data);
+    const byteArrays = [];
+    
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    
+    const blob = new Blob(byteArrays, { type: contentType });
+    const fileExtension = contentType.split('/')[1] || 'png';
+    return new File([blob], `${fileName}.${fileExtension}`, { type: contentType });
+  };
+
+  const prepareFormData = ({ churchData, adminData, phone }: {
+    churchData: ChurchData;
+    adminData: { fullName: string; email: string; password: string };
+    phone: string;
+  }) => {
+    const formData = new FormData();
+    
+    // Church data
+    formData.append("churchName", churchData.churchName || "");
+    formData.append("address", churchData.churchLocation || "");
+    formData.append("phone", churchData.churchPhone || phone);
+    
+  // Convert base64 logo to File object if it exists
+  if (churchData.logoPreview) {
+    const logoFile = base64ToFile(churchData.logoPreview, 'logo');
+    formData.append("logo", logoFile);
+  }
+  
+  // Convert base64 background image to File object if it exists
+  if (churchData.backgroundPreview) {
+    const backgroundFile = base64ToFile(churchData.backgroundPreview, 'background');
+    formData.append("backgroundImage", backgroundFile);
+  }
+
+    
+    if (churchData.churchEmail) {
+      formData.append("email", churchData.churchEmail);
+    }
+    
+    formData.append("isHeadQuarter", churchData.isHeadquarter ? "true" : "false");    
+    // Admin data
+    formData.append("name", adminData.fullName);
+    formData.append("adminEmail", adminData.email);
+    formData.append("adminPassword", adminData.password);    
+    return formData;
+  };
+    
+  const submitChurchData = async (formData: FormData) => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/church/create-church`, {
+      method: "POST",
+      body: formData,
+    });
+  
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Failed to create account");
+    }
+  
+    return response.json();
+  };
+  
+  const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
+    showSuccessMessage(responseData.email || email);
+    form.reset();
+     store.dispatch(clearChurchData());
+    };
+  
+  const handleSubmissionError = (error: unknown) => {
+    console.error("Account creation error:", error);
+    
+    let errorMessage = "An unexpected error occurred. Please try again.";
+    
+    if (error instanceof Error) {
+      try {
+        // Try to parse the error message as JSON
+        const errorObj = JSON.parse(error.message);
+        if (errorObj?.error?.message) {
+          errorMessage = errorObj.error.message;
+        } else if (error.message.includes('<!DOCTYPE html>')) {
+          errorMessage = "Server error occurred. Please try again later.";
+        } else {
+          errorMessage = error.message;
+        }
+      } catch {
+        // If not JSON, use the raw message
+        errorMessage = error.message.includes('<!DOCTYPE html>')
+          ? "Server error occurred. Please try again later."
+          : error.message;
+      }
+    }
+  
+    setNotification({
+      message: errorMessage,
+      type: 'error'
+    });
   };
 
   const showSuccessMessage = (email: string) => {
@@ -237,8 +315,7 @@ const CreateAccount: React.FC = () => {
                   id="password"
                   className="w-full text-base text-gray-800 focus:outline-none pr-10"
                   placeholder="Enter your password"
-                  required
-                  minLength={8}
+                  required                
                 />
                 <div
                   className="absolute right-4 cursor-pointer text-gray-400 text-xl"
@@ -312,4 +389,21 @@ const CreateAccount: React.FC = () => {
   );
 };
 
+// function base64ToFile(base64String: string, fileName: string): File {
+//   const byteString = atob(base64String.split(",")[1]);
+//   const mimeString = base64String.split(",")[0].split(":")[1].split(";")[0];
+//   const arrayBuffer = new ArrayBuffer(byteString.length);
+//   const uint8Array = new Uint8Array(arrayBuffer);
+
+//   for (let i = 0; i < byteString.length; i++) {
+//     uint8Array[i] = byteString.charCodeAt(i);
+//   }
+
+//   return new File([arrayBuffer], fileName, { type: mimeString });
+// }
+
 export default CreateAccount;
+
+// function base64ToFile(logoPreview: string, arg1: string) {
+//   throw new Error("Function not implemented.");
+// }
