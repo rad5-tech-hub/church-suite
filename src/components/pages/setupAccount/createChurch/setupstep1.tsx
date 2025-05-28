@@ -6,53 +6,148 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../reduxstore/redux';
 import { setChurchData } from '../../../reduxstore/datamanager';
 
+interface ChurchFormData {
+  churchName: string;
+  churchEmail: string;
+  churchPhone: string;
+  churchLocation: string;
+  isHeadquarter: boolean | string;
+}
+
 const SetupChurch: React.FC = () => {
+  // Hooks and state management
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const churchData = useSelector((state: RootState) => state.church);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ChurchFormData>({
     churchName: churchData.churchName || '',
     churchEmail: churchData.churchEmail || '',
     churchPhone: churchData.churchPhone || '',
     churchLocation: churchData.churchLocation || '',
-    isHeadquarter: churchData.isHeadquarter || '',
+    isHeadquarter: churchData.isHeadquarter || false,
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Event handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const validateForm = (): boolean => {
+    if (!formData.churchName.trim()) {
+      setError('Church name is required');
+      return false;
+    }
+    if (!formData.churchPhone.trim()) {
+      setError('Church phone number is required');
+      return false;
+    }
+    if (!formData.churchLocation.trim()) {
+      setError('Church location is required');
+      return false;
+    }
+    if (formData.isHeadquarter === '') {
+      setError('Please specify if this is the headquarters');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Basic validation
-    if (!formData.churchName || !formData.churchPhone || !formData.churchLocation || !formData.isHeadquarter) {
-      setError('Please fill all required fields.');
-      return;
-    }
-
-    setLoading(true);
     setError(null);
 
-    // Save form data to Redux
-    dispatch(setChurchData(formData));
+    if (!validateForm()) return;
 
-    // Simulate a delay of 2 seconds before navigating
+    setLoading(true);
+
+    // Prepare data for Redux
+    const submissionData = {
+      ...formData,
+      isHeadquarter: formData.isHeadquarter === 'true'
+    };
+
+    dispatch(setChurchData(submissionData));
+
+    // Simulate API call delay
     setTimeout(() => {
       setLoading(false);
       navigate('/setup-logo');
     }, 2000);
   };
 
+  // Form field components
+  const renderInputField = (
+    id: string,
+    label: string,
+    type: string,
+    placeholder: string,
+    required: boolean,
+    icon: React.ReactNode
+  ) => (
+    <div className="mb-6">
+      <label htmlFor={id} className="block text-base text-gray-700 font-medium mb-2 text-left">
+        {label}
+      </label>
+      <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
+        {icon}
+        <input
+          type={type}
+          id={id}
+          name={id}
+          value={formData[id as keyof ChurchFormData] as string}
+          onChange={handleChange}
+          className="w-full text-base text-gray-800 focus:outline-none"
+          placeholder={placeholder}
+          required={required}
+        />
+      </div>
+    </div>
+  );
+
+  const renderSelectField = (
+    id: string,
+    label: string,
+    options: { value: string; label: string }[],
+    required: boolean
+  ) => (
+    <div className="mb-6">
+      <label htmlFor={id} className="block text-base text-gray-700 font-medium mb-2 text-left">
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          id={id}
+          name={id}
+          value={formData[id as keyof ChurchFormData] as string}
+          onChange={handleChange}
+          className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-white"
+          required={required}
+        >
+          <option value="">Select an option</option>
+          {options.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
-        {/* Left Section */}
+        {/* Left Section - Welcome Message */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-10/12 py-8">
             <p className="mb-2 text-sm text-gray-200">Step 1 of 3</p>
@@ -63,108 +158,54 @@ const SetupChurch: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Section */}
+        {/* Right Section - Form */}
         <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col justify-center">
           <form className="flex flex-col" onSubmit={handleSubmit}>
-            {/* Name of Church */}
-            <div className="mb-6">
-              <label htmlFor="churchName" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Name of Church
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <PiChurchLight className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="churchName"
-                  name="churchName"
-                  value={formData.churchName}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter the name of your church"
-                  required
-                />
-              </div>
-            </div>
+            {renderInputField(
+              'churchName',
+              'Name of Church',
+              'text',
+              'Enter the name of your church',
+              true,
+              <PiChurchLight className="text-gray-400 mr-3 text-xl" />
+            )}
 
-            {/* Email of Church */}
-            <div className="mb-6">
-              <label htmlFor="churchEmail" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Email of Church (optional)
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="email"
-                  id="churchEmail"
-                  name="churchEmail"
-                  value={formData.churchEmail}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter the email of your church"                
-                />
-              </div>
-            </div>
+            {renderInputField(
+              'churchEmail',
+              'Email of Church (optional)',
+              'email',
+              'Enter the email of your church',
+              false,
+              <IoMailOutline className="text-gray-400 mr-3 text-xl" />
+            )}
 
-            {/* Phone Number of Church */}
-            <div className="mb-6">
-              <label htmlFor="churchPhone" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Phone Number of Church
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoCallOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="tel"
-                  id="churchPhone"
-                  name="churchPhone"
-                  value={formData.churchPhone}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter the phone number of your church"
-                  required
-                />
-              </div>
-            </div>
+            {renderInputField(
+              'churchPhone',
+              'Phone Number of Church',
+              'tel',
+              'Enter the phone number of your church',
+              true,
+              <IoCallOutline className="text-gray-400 mr-3 text-xl" />
+            )}
 
-            {/* Church Location */}
-            <div className="mb-6">
-              <label htmlFor="churchLocation" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Church Location
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoLocationOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="churchLocation"
-                  name="churchLocation"
-                  value={formData.churchLocation}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter the location of your church"
-                  required
-                />
-              </div>
-            </div>
+            {renderInputField(
+              'churchLocation',
+              'Church Location',
+              'text',
+              'Enter the location of your church',
+              true,
+              <IoLocationOutline className="text-gray-400 mr-3 text-xl" />
+            )}
 
-            {/* Is Headquarter */}
-            <div className="mb-6">
-              <label htmlFor="isHeadquarter" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Is this the Headquarter?
-              </label>
-              <div className="relative">
-                <select
-                  id="isHeadquarter"
-                  name="isHeadquarter"
-                  value={formData.isHeadquarter}
-                  onChange={handleChange}
-                  className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-white"
-                  required
-                >
-                  <option value="">Select an option</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              </div>
-            </div>
+            {renderSelectField(
+              'isHeadquarter',
+              'Is this the Headquarter?',
+              [
+                { value: 'true', label: 'Yes' },
+                { value: 'false', label: 'No' }
+              ],
+              true
+            )}
 
             {error && (
               <div className="relative text-red-500 mb-4 p-5 bg-red-100 rounded">
@@ -175,12 +216,11 @@ const SetupChurch: React.FC = () => {
                   aria-label="Close error message"
                   type="button"
                 >
-                  x
+                  ×
                 </button>
               </div>
             )}
 
-            {/* Form Actions */}
             <div className="w-full gap-3 pt-5">
               <button
                 type="submit"
@@ -191,7 +231,6 @@ const SetupChurch: React.FC = () => {
               </button>
             </div>
 
-            {/* Login Link */}
             <div className="mt-5 text-center">
               <span>Already have an account? </span>
               <Link to="/" className="underline">

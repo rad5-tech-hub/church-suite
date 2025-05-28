@@ -17,6 +17,8 @@ const Admin = React.lazy(() => import("./manage/admin/admin"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
+const FirstTimer = React.lazy(() => import("./qrcodepages/createAccount/firstimer"));
+const SecondTimer = React.lazy(() => import("./qrcodepages/createAccount/secondtimer"));
 
 // Private Route Component
 interface PrivateRouteProps {
@@ -44,6 +46,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
+          <Route path="/first-timer" element={<FirstTimer />} />
+          <Route path="/second-timer" element={<SecondTimer/>} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={

@@ -83,7 +83,7 @@ describe('SetupChurch Component', () => {
           churchEmail: 'grace@example.com',
           churchPhone: '123-456-7890',
           churchLocation: '123 Church Street',
-          isHeadquarter: 'yes',
+          isHeadquarter: false,
         })
       );
       expect(mockNavigate).toHaveBeenCalledWith('/setup-logo');

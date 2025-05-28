@@ -1,72 +1,71 @@
-import churchSlice, { setChurchData, clearChurchData, ChurchState } from './datamanager';
+// reduxstore/__tests__/datamanager.test.ts
+import churchReducer, { setChurchData, clearChurchData, ChurchState } from './datamanager';
 
-describe('churchSlice Reducer', () => {
+describe('churchSlice reducer', () => {
   const initialState: ChurchState = {
     churchName: '',
-    churchEmail: '',
-    churchPhone: '',
     churchLocation: '',
-    isHeadquarter: '',
-    logoPreview: null, // Default value
-    backgroundPreview: null, // Default value
-    logoFile: null,
-    backgroundFile: null,
+    churchPhone: '',
+    churchEmail: '',
+    isHeadquarter: false,
+    logoPreview: null,
+    backgroundPreview: null,
   };
 
-  describe('Initial State', () => {
-    it('should return the initial state when an unknown action is dispatched', () => {
-      const state = churchSlice(undefined, { type: 'UNKNOWN_ACTION' });
-      expect(state).toEqual(initialState);
-    });
+  it('should return the initial state', () => {
+    expect(churchReducer(undefined, { type: 'unknown' })).toEqual(initialState);
   });
 
-  describe('setChurchData Action', () => {
-    it('should update the state with the provided church data', () => {
-      const payload: ChurchState = {
-        churchName: 'Grace Church',
-        churchEmail: 'grace@example.com',
-        churchPhone: '123-456-7890',
-        churchLocation: '123 Church Street',
-        isHeadquarter: 'yes',
-      };
-
-      const nextState = churchSlice(initialState, setChurchData(payload));
-      expect(nextState).toEqual(payload);
+  it('should handle setChurchData', () => {
+    const mockPreview = 'blob:test-preview-url';
+    
+    const action = setChurchData({
+      churchName: 'Test Church',
+      churchLocation: 'Test Location',
+      logoPreview: mockPreview
     });
-
-    it('should overwrite only the provided fields and keep others unchanged', () => {
-      const partialPayload = {
-        churchName: 'New Grace Church',
-      };
-
-      const currentState: ChurchState = {
-        churchName: 'Grace Church',
-        churchEmail: 'grace@example.com',
-        churchPhone: '123-456-7890',
-        churchLocation: '123 Church Street',
-        isHeadquarter: 'yes',
-      };
-
-      const nextState = churchSlice(currentState, setChurchData(partialPayload as ChurchState));
-      expect(nextState).toEqual({
-        ...currentState,
-        churchName: 'New Grace Church',
-      });
-    });
+    
+    const expectedState: ChurchState = {
+      ...initialState,
+      churchName: 'Test Church',
+      churchLocation: 'Test Location',
+      logoPreview: mockPreview
+    };
+    
+    expect(churchReducer(initialState, action)).toEqual(expectedState);
   });
 
-  describe('clearChurchData Action', () => {
-    it('should reset the state to the initial state', () => {
-      const currentState: ChurchState = {
-        churchName: 'Grace Church',
-        churchEmail: 'grace@example.com',
-        churchPhone: '123-456-7890',
-        churchLocation: '123 Church Street',
-        isHeadquarter: 'yes',
-      };
+  it('should handle clearChurchData', () => {
+    const modifiedState: ChurchState = {
+      churchName: 'Test Church',
+      churchLocation: 'Test Location',
+      churchPhone: '1234567890',
+      churchEmail: 'test@example.com',
+      isHeadquarter: true,
+      logoPreview: 'blob:logo',
+      backgroundPreview: 'blob:bg'
+    };
+    
+    expect(churchReducer(modifiedState, clearChurchData())).toEqual(initialState);
+  });
 
-      const nextState = churchSlice(currentState, clearChurchData());
-      expect(nextState).toEqual(initialState);
+  it('should handle partial updates with setChurchData', () => {
+    const firstUpdate = churchReducer(initialState, setChurchData({
+      churchName: 'First Church',
+      churchPhone: '1111111111'
+    }));
+    
+    const secondUpdate = churchReducer(firstUpdate, setChurchData({
+      churchLocation: 'Second Location',
+      churchEmail: 'second@example.com'
+    }));
+    
+    expect(secondUpdate).toEqual({
+      ...initialState,
+      churchName: 'First Church',
+      churchPhone: '1111111111',
+      churchLocation: 'Second Location',
+      churchEmail: 'second@example.com'
     });
   });
 });
