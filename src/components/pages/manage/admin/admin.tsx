@@ -12,15 +12,16 @@ interface FormData {
   email: string;
   phone: string;
   password: string;
+  confirmPassword: string;
   isSuperAdmin: boolean;
-  branchId?: string; // Added branchId to form data
+  branchId?: string;
 }
 
 interface Branch {
   id: string;
   name: string;
   location: string;
-  address: string; // Added address property
+  address: string;
 }
 
 const Admin: React.FC = () => {
@@ -29,18 +30,20 @@ const Admin: React.FC = () => {
     email: "",
     phone: "",
     password: "",
+    confirmPassword: "",
     isSuperAdmin: false,
     branchId: "",
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState("");
   const navigate = useNavigate();
 
-  // Fetch branches on component mount
+  // Fetch branches on mount
   useEffect(() => {
     const fetchBranches = async () => {
       setIsFetchingBranches(true);
@@ -55,35 +58,33 @@ const Admin: React.FC = () => {
         setIsFetchingBranches(false);
       }
     };
-
     fetchBranches();
   }, []);
 
-  // Handle form input changes
+  // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
       await Api.post("church/create-admin", {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
         isSuperAdmin: formData.isSuperAdmin || undefined,
         branchId: formData.branchId || undefined,
       });
-
-      console.log("Admin created successfully");
+      // Success - redirect to view admins
       navigate("/manage/view-admins");
     } catch (error: any) {
       console.error("Error creating admin:", error.response?.data || error.message);
@@ -95,28 +96,27 @@ const Admin: React.FC = () => {
   return (
     <DashboardManager>
       <div className="lg:p-6 md:p-3 my-6">
-        {/* Page Title and Navigation */}
+        {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="mb-4 lg:mb-0">
             <h1 className="text-3xl font-bold text-gray-800">Manage Admins</h1>
-            <p className="mt-4 text-gray-600">
-              Create and manage Admins for your church.
-            </p>
+            <p className="mt-4 text-gray-600">Create and manage Admins for your church.</p>
           </div>
-          <div>
-            <button
-              onClick={() => navigate("/manage/view-admins")}
-              className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
-            >
-              View Admins
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/manage/view-admins")}
+            className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
+          >
+            View Admins
+          </button>
         </div>
 
         {/* Admin Form */}
-        <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg lg:shadow-md space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="mt-6 lg:p-6 md:p-2 rounded-lg lg:shadow-md space-y-6"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Name Input */}
+            {/* Name */}
             <div>
               <label htmlFor="name" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Admin Name
@@ -136,7 +136,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Email Input */}
+            {/* Email */}
             <div>
               <label htmlFor="email" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Admin Email
@@ -156,7 +156,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Phone Input */}
+            {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Admin Phone No
@@ -176,7 +176,7 @@ const Admin: React.FC = () => {
               </div>
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Admin Password
@@ -195,10 +195,39 @@ const Admin: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                   className="ml-3 focus:outline-none"
+                  tabIndex={-1}
                 >
                   {showPassword ? <PiEye /> : <PiEyeClosed />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-base text-gray-700 font-medium mb-2 text-left">
+                Confirm Password
+              </label>
+              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
+                <SlLock className="text-gray-400 mr-3 text-xl" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full text-base text-gray-800 focus:outline-none"
+                  placeholder="Confirm Admin password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="ml-3 focus:outline-none"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <PiEye /> : <PiEyeClosed />}
                 </button>
               </div>
             </div>
@@ -208,7 +237,6 @@ const Admin: React.FC = () => {
               <label htmlFor="branchId" className="block text-base text-gray-700 font-medium mb-2 text-left">
                 Assign to Branch
               </label>
-              
               <div className="relative">
                 {isFetchingBranches ? (
                   <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
@@ -221,7 +249,7 @@ const Admin: React.FC = () => {
                     name="branchId"
                     value={formData.branchId}
                     onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none appearance-none bg-transparent"                   
+                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none appearance-none bg-transparent"
                     style={{
                       backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
                       backgroundRepeat: "no-repeat",
@@ -229,7 +257,9 @@ const Admin: React.FC = () => {
                       backgroundSize: "1.25rem",
                     }}
                   >
-                    <option value="" disabled>Select a branch (optional)</option>
+                    <option value="" disabled>
+                      Select a branch (optional)
+                    </option>
                     {branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
                         {branch.name} - {branch.address}

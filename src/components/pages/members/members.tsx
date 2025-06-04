@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BsPerson, BsCalendar, BsGeoAlt } from "react-icons/bs";
+import { BsPerson, BsCalendar, BsGeoAlt, BsChevronDown } from "react-icons/bs";
 import { IoCallOutline } from "react-icons/io5";
 import DashboardManager from "../../shared/dashboardManager";
 import Api from "../../shared/api/api";
@@ -69,24 +69,18 @@ const MemberForm: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Validate required fields
       if (!formData.name || !formData.address || !formData.phoneNo) {
         throw new Error("Please fill in all required fields");
       }
 
-      // Prepare the payload
       const payload = {
         ...formData,
         churchId: authData?.churchId,
       };
 
-      // Make API call
       await Api.post("/members/create", payload);
-
-      // Handle success
       toast.success("Member created successfully!", { autoClose: 3000 });
       
-      // Reset form
       setFormData({
         name: "",
         address: "",
@@ -105,11 +99,9 @@ const MemberForm: React.FC = () => {
 
     } catch (error: any) {
       console.error("Error creating member:", error);
-      
       const errorMessage = error.response?.data?.message || 
                          error.message || 
                          "Failed to create member. Please try again.";
-      
       toast.error(errorMessage, { autoClose: 3000 });
     } finally {
       setIsLoading(false);
@@ -130,6 +122,8 @@ const MemberForm: React.FC = () => {
     { name: "November", value: "11" },
     { name: "December", value: "12" },
   ];
+
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
   return (
     <DashboardManager>
@@ -157,7 +151,7 @@ const MemberForm: React.FC = () => {
           <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep === 1 ? 'bg-[#111827] text-white' : 'bg-gray-200 text-gray-600'}`}>
             1
           </div>
-          <div className={`w-15 h-1 ${currentStep === 2 ? 'bg-[#111827]' : 'bg-gray-200'}`}></div>
+          <div className={`w-24 h-1 ${currentStep === 2 ? 'bg-[#111827]' : 'bg-gray-200'}`}></div>
           <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep === 2 ? 'bg-[#111827] text-white' : 'bg-gray-200 text-gray-600'}`}>
             2
           </div>
@@ -261,53 +255,67 @@ const MemberForm: React.FC = () => {
                 </div>
               </div>
 
-              {/* Sex Select */}
-              <div>
+              {/* gender Select */}
+              <div className="relative w-full">
                 <label
                   htmlFor="sex"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
-                  Sex
+                  Gender
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center border border-gray-300 rounded-md pl-4">
+                  <BsPerson className="text-xl text-gray-400" />
                   <select
                     id="sex"
                     name="sex"
                     value={formData.sex}
                     onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
+                    className="w-full h-12 px-4 py-3 text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
                     required
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1.25rem",
+                    }}
                   >
-                    <option value="" disabled>Select sex</option>
+                    <option value="" disabled>Select Gender</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
-                  </select>
+                  </select>                
                 </div>
               </div>
 
               {/* Marital Status Select */}
-              <div>
+              <div className="relative w-full">
                 <label
                   htmlFor="maritalStatus"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
                   Marital Status
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center border border-gray-300 rounded-md pl-4 ">
+                  <BsPerson className=" text-xl text-gray-400" />
                   <select
                     id="maritalStatus"
                     name="maritalStatus"
                     value={formData.maritalStatus}
                     onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
+                    className="w-full h-12 px-4 py-3 text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
                     required
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1.25rem",
+                    }}
                   >
                     <option value="" disabled>Select marital status</option>
                     <option value="single">Single</option>
                     <option value="married">Married</option>
                     <option value="divorced">Divorced</option>
                     <option value="widowed">Widowed</option>
-                  </select>
+                  </select>               
                 </div>
               </div>
 
@@ -317,7 +325,7 @@ const MemberForm: React.FC = () => {
                   htmlFor="memberFor"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
-                  Member For (years)
+                  Years Of Membership
                 </label>
                 <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 ">
                   <BsPerson className="mr-3 text-xl text-gray-400" />
@@ -337,21 +345,28 @@ const MemberForm: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* Age Range Select */}
-              <div>
+              <div className="relative w-full">
                 <label
                   htmlFor="ageRange"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
                   Age Range
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center border border-gray-300 rounded-md pl-4">
+                  <BsPerson className="text-xl text-gray-400" />
                   <select
                     id="ageRange"
                     name="ageRange"
                     value={formData.ageRange}
                     onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
+                    className="w-full h-12 px-4 py-3 text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
                     required
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1.25rem",
+                    }}
                   >
                     <option value="" disabled>Select age range</option>
                     <option value="12-17">12-17</option>
@@ -359,26 +374,33 @@ const MemberForm: React.FC = () => {
                     <option value="27-35">27-35</option>
                     <option value="36-45">36-45</option>
                     <option value="46+">46+</option>
-                  </select>
+                  </select>                  
                 </div>
               </div>
 
               {/* Birth Month Select */}
-              <div>
+              <div className="relative w-full">
                 <label
                   htmlFor="birthMonth"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
                   Birth Month
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center border border-gray-300 rounded-md pl-4">
+                  <BsCalendar className="text-xl text-gray-400" />
                   <select
                     id="birthMonth"
                     name="birthMonth"
                     value={formData.birthMonth}
                     onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
+                    className="w-full h-12 px-4 py-3 text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
                     required
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1.25rem",
+                    }}
                   >
                     <option value="" disabled>Select birth month</option>
                     {months.map((month) => (
@@ -386,31 +408,41 @@ const MemberForm: React.FC = () => {
                         {month.name}
                       </option>
                     ))}
-                  </select>
+                  </select>                
                 </div>
               </div>
 
-              {/* Birth Day Input */}
-              <div>
+              {/* Birth Day Select */}
+              <div className="relative w-full">
                 <label
                   htmlFor="birthDay"
                   className="block mb-2 text-base font-medium text-gray-700 text-left"
                 >
                   Birth Day
                 </label>
-                <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 ">
-                  <BsCalendar className="mr-3 text-xl text-gray-400" />
-                  <input
-                    type="text"
+                <div className="relative flex items-center border border-gray-300 rounded-md pl-4">
+                  <BsCalendar className="text-xl text-gray-400" />
+                  <select
                     id="birthDay"
                     name="birthDay"
                     value={formData.birthDay}
                     onChange={handleChange}
-                    className="w-full text-base text-gray-800 focus:outline-none"
-                    placeholder="Enter day (e.g. 15)"
-                    maxLength={2}
-                    pattern="\d*"
-                  />
+                    className="w-full h-12 px-4 py-3 text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
+                    required
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 0.75rem center",
+                      backgroundSize: "1.25rem",
+                    }}
+                  >
+                    <option value="" disabled>Select day</option>
+                    {days.map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>            
                 </div>
               </div>
 
@@ -513,7 +545,7 @@ const MemberForm: React.FC = () => {
               >
                 {isLoading ? (
                   <>
-                    <span className="inline-block h-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
                     Creating Member...
                   </>
                 ) : (

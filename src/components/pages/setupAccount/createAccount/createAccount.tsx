@@ -57,7 +57,7 @@ const CreateAccount: React.FC = () => {
       // 3. Prepare form data
       const formData = prepareFormData({
         churchData,
-        adminData: { fullName, email, password },
+        adminData: { fullName, email, password, confirmPassword },
         phone
       });
   
@@ -121,7 +121,7 @@ const CreateAccount: React.FC = () => {
 
   const prepareFormData = ({ churchData, adminData, phone }: {
     churchData: ChurchData;
-    adminData: { fullName: string; email: string; password: string };
+    adminData: { fullName: string; email: string; password: string; confirmPassword: string };
     phone: string;
   }) => {
     const formData = new FormData();
@@ -152,7 +152,8 @@ const CreateAccount: React.FC = () => {
     // Admin data
     formData.append("name", adminData.fullName);
     formData.append("adminEmail", adminData.email);
-    formData.append("adminPassword", adminData.password);    
+    formData.append("adminPassword", adminData.password);   
+    formData.append("confirmPassword", adminData.confirmPassword || adminData.password); 
     return formData;
   };
     

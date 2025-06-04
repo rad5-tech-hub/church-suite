@@ -111,6 +111,13 @@ const SetupStep2: React.FC = () => {
 
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if logo is uploaded
+    if (!logoPreview) {
+      alert('Please upload a logo before continuing');
+      return;
+    }
+  
     setLoading(true);
     
     setTimeout(() => {

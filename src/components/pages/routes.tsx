@@ -10,13 +10,15 @@ const Branch = React.lazy(() => import("./manage/branch/branch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
-const Deparment = React.lazy(() => import("./manage/department/department"));
+const Department = React.lazy(() => import("./manage/department/department"));
+const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const Member = React.lazy(() => import("./members/members"));
 const ViewMember = React.lazy(() => import("./members/viewMembers"));
 const Admin = React.lazy(() => import("./manage/admin/admin"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
+const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const FirstTimer = React.lazy(() => import("./qrcodepages/createAccount/firstimer"));
 const SecondTimer = React.lazy(() => import("./qrcodepages/createAccount/secondtimer"));
 
@@ -42,6 +44,7 @@ const AppRoutes: React.FC = () => {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-church" element={<SetupChurch />} />
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/admin-account" element={<CreateAccount />} />
@@ -77,7 +80,12 @@ const AppRoutes: React.FC = () => {
           } />
           <Route path="/manage/department" element={
             <PrivateRoute>
-              <Deparment />
+              <Department />
+            </PrivateRoute>
+          } />
+          <Route path="/manage/view-departments" element={
+            <PrivateRoute>
+              <ViewDepartment/>
             </PrivateRoute>
           } />
           <Route path="/members/member" element={

@@ -185,7 +185,7 @@ const SecondTimerForm: React.FC<SecondTimerFormProps> = () => {
 const LeftSection: React.FC = () => (
   <div className="image-section flex-1 relative rounded-lg overflow-hidden min-h-[260px] lg:min-h-full">
     <div 
-      className="absolute inset-0 bg-no-repeat bg-center lg:bg-cover bg-contain"
+      className="absolute inset-0 bg-no-repeat bg-center lg:bg-fit bg-contain"
       style={{
         backgroundImage: "url('https://i.pinimg.com/736x/9c/10/a5/9c10a5de35e8026656533f06bd0dbb72.jpg')"
       }}

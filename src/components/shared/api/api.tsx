@@ -145,11 +145,6 @@ Api.interceptors.response.use(
         toast.error("Forbidden: You don't have permission to access this resource.", {
           autoClose: 5000,
         });
-      } else if (error.response.status !== 401) {
-        // Only show error if it's not 401 (which we already handled)
-        toast.error(error.response.data.message || "An error occurred", {
-          autoClose: 5000,
-        });
       }
     } else if (error.request) {
       toast.error(

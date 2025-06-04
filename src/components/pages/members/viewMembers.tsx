@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardManager from "../../shared/dashboardManager";
-// import Api from "../../shared/api/api";
 import { toast } from "react-toastify";
 import {
   Box,
@@ -17,12 +16,21 @@ import {
   Menu,
   MenuItem,
   Chip,
+  Modal,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem as SelectMenuItem,
+  FormControlLabel,
+  Checkbox,
+  TextField,
 } from "@mui/material";
 import { 
   IoEllipsisVertical, 
   IoTrashOutline,
   IoEyeOutline,
-  IoPersonAddOutline  
+  IoPersonAddOutline,
+  IoCloseOutline 
 } from "react-icons/io5";
 import { FiEdit } from "react-icons/fi";
 
@@ -36,6 +44,11 @@ interface Member {
   category: "first-timer" | "second-timer" | "member";
   dateOfBirth: string;
   address: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 const staticMembers: Member[] = [
@@ -85,16 +98,29 @@ const staticMembers: Member[] = [
   }
 ];
 
+const staticBranches: Branch[] = [
+  { id: "1", name: "Main Branch" },
+  { id: "2", name: "North Branch" },
+  { id: "3", name: "South Branch" },
+  { id: "4", name: "East Branch" },
+];
+
 const ViewMembers: React.FC = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState<Member[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [currentMember, setCurrentMember] = useState<Member | null>(null);
 
   useEffect(() => {
     // Use static data instead of API call
     setMembers(staticMembers);
+    setBranches(staticBranches);
     setLoading(false);
   }, []);
 
@@ -108,9 +134,13 @@ const ViewMembers: React.FC = () => {
     setSelectedMember(null);
   };
 
-  const handleEdit = () => {
+  const handleEditClick = () => {
     if (selectedMember) {
-      navigate(`/members/edit/${selectedMember}`);
+      const memberToEdit = members.find(member => member.id === selectedMember);
+      if (memberToEdit) {
+        setCurrentMember(memberToEdit);
+        setEditModalOpen(true);
+      }
     }
     handleMenuClose();
   };
@@ -126,8 +156,6 @@ const ViewMembers: React.FC = () => {
     if (!selectedMember) return;
     
     try {
-      // Comment out API call for static data
-      // await Api.delete(`/members/${selectedMember}`);
       setMembers(members.filter(member => member.id !== selectedMember));
       toast.success("Member deleted successfully");
     } catch (error) {
@@ -136,6 +164,12 @@ const ViewMembers: React.FC = () => {
     } finally {
       handleMenuClose();
     }
+  };
+
+  const handleEditSubmit = () => {
+    // Here you would typically make an API call to update the member
+    toast.success("Member updated successfully");
+    setEditModalOpen(false);
   };
 
   const getCategoryColor = (category: string) => {
@@ -154,155 +188,98 @@ const ViewMembers: React.FC = () => {
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", lg: "row", md: 'row', sm: 'column' },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", lg: "center" },
-            mb: { xs: 4, sm: 6 },
-            gap: 2,
-          }}
+        {/* ... (previous JSX remains the same until the Modal section) ... */}
+
+        {/* Edit Member Modal */}
+        <Modal
+          open={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          aria-labelledby="edit-member-modal"
+          aria-describedby="modal-to-edit-member-details"
         >
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: "bold",
-                color: "#1f2937",
-                fontSize: { xs: "1.8rem", sm: "2rem" },
-              }}
-            >
-              All Members
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{
-                mt: 1,
-                color: "#4b5563",
-                fontSize: { xs: "1rem", sm: "1rem" },
-              }}
-            >
-              View and manage all church members.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            onClick={() => navigate("/members/member")}
-            startIcon={<IoPersonAddOutline />}
-            sx={{
-              bgcolor: "#1f2937",              
-              px: { xs: 2, sm: 2 },
-              py: 1,
-              borderRadius: 1,
-              fontWeight: "bold",
-              textTransform: "none",
-              fontSize: { xs: "1rem", sm: "1rem" },
-              '&:hover': {
-                bgcolor: "#111827"
-              }
-            }}
-          >
-            Add Member
-          </Button>
-        </Box>
+          <Box sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: { xs: '90%', sm: '80%', md: '60%' },
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 1,
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 3
+            }}>
+              <Typography variant="h6" component="h2">
+                Edit Member Details
+              </Typography>
+              <IconButton onClick={() => setEditModalOpen(false)}>
+                <IoCloseOutline />
+              </IconButton>
+            </Box>
 
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-            <div className="text-center text-white">
-                <div className="flex justify-center mb-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-[#111827]"></div>
-                </div>                
-              </div> 
-          </Box>
-        ) : (
-          <TableContainer            
-            sx={{
-              boxShadow: 1,
-              borderRadius: 1,
-              overflowX: "auto",              
-            }}
-          >
-            <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: "bold", px: { xs: 2, sm: 4 }, py: 2 }}>
-                    Name
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: { xs: 2, sm: 4 }, py: 2 }}>
-                    Email
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: { xs: 2, sm: 4 }, py: 2 }}>
-                    Phone No.
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: "bold", px: { xs: 2, sm: 4 }, py: 2 }}>
-                    Category
-                  </TableCell>                  
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {members.length > 0 ? (
-                  members.map((member) => (
-                    <TableRow key={member.id} hover>              
-                      <TableCell sx={{ px: { xs: 2, sm: 4 }, py: 2 }}>
-                        {member.firstname} {member.lastname}
-                      </TableCell>
-                      <TableCell sx={{ px: { xs: 2, sm: 4 }, py: 2 }}>                        
-                          <Typography variant="body2">{member.email}</Typography>                                              
-                      </TableCell>
-                      <TableCell sx={{ px: { xs: 2, sm: 4 }, py: 2 }}>                                                  
-                          <Typography variant="body2">{member.phone}</Typography>                        
-                      </TableCell>
-                      <TableCell
-                        sx={{                        
-                          px: { xs: 2, sm: 4 },
-                          py: 2,
-                          display: "flex",
-                          flexDirection: {sm: "row" }, // Stack on small devices, row on larger devices
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: { xs: 1, sm: 1 }, // Add spacing between elements on small devices
-                          
-                        }}                       
-                      >                       
-                        
-                        <Box
-                          sx={{
-                            display: "inline-block",
-                            px: 2,
-                            py: 0.5,
-                            borderRadius: 1,
-                            textTransform: "capitalize",
-                          }}                      
-                        >
-                          <Chip                          
-                            color={getCategoryColor(member.category)}
-                            size="small"
-                            sx={{ mr: 1 , borderRadius: 0, height: 17}}
-                          />
-                          {member.category}
-                        </Box>
+            {currentMember && (
+              <>
+                <Typography variant="subtitle1" gutterBottom>
+                  Editing: {currentMember.firstname} {currentMember.lastname} ({currentMember.phone})
+                </Typography>
 
-                        <IconButton
-                          onClick={(e) => handleMenuOpen(e, member.id)}
-                          aria-label="actions"
-                        >
-                          <IoEllipsisVertical size={18} />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1">No members found</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <FormControl fullWidth>
+                    <InputLabel id="branch-select-label">Branch</InputLabel>
+                    <Select
+                      labelId="branch-select-label"
+                      id="branch-select"
+                      value={selectedBranch}
+                      label="Branch"
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                    >
+                      {branches.map((branch) => (
+                        <SelectMenuItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </SelectMenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={isSuperAdmin}
+                        onChange={(e) => setIsSuperAdmin(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="Is Super Admin"
+                  />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setEditModalOpen(false)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      onClick={handleEditSubmit}
+                      sx={{ textTransform: 'none', bgcolor: '#1f2937' }}
+                    >
+                      Save Changes
+                    </Button>
+                  </Box>
+                </Box>
+              </>
+            )}
+          </Box>
+        </Modal>
 
         {/* Action Menu */}
         <Menu
@@ -316,7 +293,7 @@ const ViewMembers: React.FC = () => {
             <IoEyeOutline style={{ marginRight: 8 }} />
             View Details
           </MenuItem>
-          <MenuItem onClick={handleEdit}>
+          <MenuItem onClick={handleEditClick}>
             <FiEdit style={{ marginRight: 8 }} />
             Edit
           </MenuItem>

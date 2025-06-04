@@ -130,10 +130,16 @@ const SetupChurch: React.FC = () => {
           name={id}
           value={formData[id as keyof ChurchFormData] as string}
           onChange={handleChange}
-          className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-white"
+          className="w-full h-12 px-4 py-3  border border-gray-300 rounded-md  text-base text-gray-800 focus:outline-none input-shadow appearance-none bg-transparent"
           required={required}
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 0.75rem center",
+            backgroundSize: "1.25rem",
+          }}
         >
-          <option value="">Select an option</option>
+          <option value="" disabled>Select an option</option>
           {options.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
