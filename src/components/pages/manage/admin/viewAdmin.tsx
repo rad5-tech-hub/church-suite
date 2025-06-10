@@ -5,7 +5,6 @@ import Api from "../../../shared/api/api";
 import {
   Box,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -13,32 +12,34 @@ import {
   TableHead,
   TableRow,
   Typography,
-  TablePagination,
   IconButton,
-  Menu,
-  MenuItem,
-  Modal,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem as SelectMenuItem,
-  FormControlLabel,
-  Checkbox,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
+  TablePagination,
+  Tooltip,
+  Menu,
+  MenuItem,
+  useTheme,
+  useMediaQuery,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  FormControlLabel,
+  Checkbox
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import BlockIcon from "@mui/icons-material/Block";
-import { AiOutlineDelete } from "react-icons/ai";
-import CloseIcon from "@mui/icons-material/Close";
-import { toast } from "react-toastify";
-import { RootState } from "../../../reduxstore/redux";
-import { useSelector } from "react-redux";
-import "react-toastify/dist/ReactToastify.css";
+import {
+  MoreVert as MoreVertIcon,
+  Block as BlockIcon,
+} from "@mui/icons-material";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
+import { AiOutlineDelete } from "react-icons/ai";
+import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
+import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 
 interface Branch {
   id: number | string;
@@ -47,7 +48,6 @@ interface Branch {
 }
 
 interface Admin {
-  [x: string]: any;
   id: number | string;
   name: string;
   email: string;
@@ -55,278 +55,396 @@ interface Admin {
   isSuperAdmin: boolean;
   isSuspended?: boolean;
   branchId?: number | string;
-  isDeleted?: boolean; // Added property
+  isDeleted?: boolean;
 }
 
 const ViewAdmins: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const navigate = useNavigate();
   const [admins, setAdmins] = useState<Admin[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+  const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
+  const [actionType, setActionType] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [selectedBranch, setSelectedBranch] = useState<number | string>("");
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: string; message: string } | null>(null);
+  const [page, setPage] = useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
-  // Fetch admins and branches from the API
+  // Fetch admins and branches with error handling
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [adminsRes, branchesRes] = await Promise.all([
+        Api.get("/church/view-admins"),
+        Api.get("/church/get-branches"),
+      ]);
+      setAdmins(adminsRes.data.admins);
+      setBranches(branchesRes.data.branches || []);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setError("Failed to load admins. Please try again later.");
+      toast.error("Failed to load admins");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [adminsRes, branchesRes] = await Promise.all([
-          Api.get("/church/view-admins"),
-          Api.get("/church/get-branches"),
-        ]);
-        setAdmins(adminsRes.data.admins);
-        setBranches(branchesRes.data.branches || []);       
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Failed to load admins");
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
-  // Handle menu open
+  // // Calculate counts
+  // const superAdminCount = admins.filter(admin => admin.isSuperAdmin).length;
+  // const regularAdminCount = admins.filter(admin => !admin.isSuperAdmin).length;
+  // const suspendedCount = admins.filter(admin => admin.isSuspended).length;
+
+  // Table column widths
+  const columnWidths = {
+    name: "25%",
+    email: "30%",
+    phone: "20%",
+    superAdmin: "15%",
+    actions: "10%"
+  };
+
+  // Action handlers
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, admin: Admin) => {
     setAnchorEl(event.currentTarget);
-    setSelectedAdmin(admin);
+    setCurrentAdmin(admin);
   };
 
-  // Handle menu close
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleMenuClose = () => setAnchorEl(null);
 
-  // Handle page change
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Handle edit modal open
-  const handleEditModalOpen = () => {
-    if (selectedAdmin) {
-      setIsSuperAdmin(selectedAdmin.isSuperAdmin);
-      setSelectedBranch(selectedAdmin.branchId || "");
+  const handleEditOpen = () => {
+    if (currentAdmin) {
+      setIsSuperAdmin(currentAdmin.isSuperAdmin);
+      setSelectedBranch(currentAdmin.branchId || "");
       setEditModalOpen(true);
     }
     handleMenuClose();
   };
 
-  // Handle edit submit
-  const handleEditSubmit = async () => {
-    if (!selectedAdmin) return;
-    try {
-      await Api.patch(`/church/edit-admin?id=${selectedAdmin.id}`, {
-        isSuperAdmin,
-        branchId: selectedBranch,
-      });
-      setAdmins(admins.map(admin =>
-        admin.id === selectedAdmin.id
-          ? { ...admin, isSuperAdmin, branchId: selectedBranch }
-          : admin
-      ));
-      toast.success("Admin updated successfully");
-      setEditModalOpen(false);
-    } catch (error) {
-      console.error("Error updating admin:", error);
-      toast.error("Failed to update admin");
-    }
+  const handleEditClose = () => {
+    setEditModalOpen(false);
+    setCurrentAdmin(null);
   };
 
-  // Show confirmation dialog
   const showConfirmation = (action: string) => {
-    let message = "";
-    if (action === 'suspend') {
-      message = "Are you sure you want to suspend this admin?";
-    } else if (action === 'delete') {
-      message = "Are you sure you want to delete this admin? This action cannot be undone.";
-    }
-    setConfirmAction({ type: action, message });
+    setActionType(action);
     setConfirmModalOpen(true);
     handleMenuClose();
   };
 
-  // Handle confirmed action
-  const handleConfirmedAction = async () => {
-    if (!selectedAdmin || !confirmAction) return;
-    setIsLoading(true);
+  const handleEditSubmit = async () => {
+    if (!currentAdmin?.id) {
+      console.error("Admin ID is undefined");
+      toast.error("Invalid admin data");
+      return;
+    }
+
     try {
-      if (confirmAction.type === 'suspend') {
-        await Api.patch(`/church/suspend-admin/${selectedAdmin.id}`);
-        setAdmins(prev =>
-          prev.map(admin =>
-            admin.id === selectedAdmin.id ? { ...admin, isSuspended: true } : admin
-          )
-        );
-        toast.success("Admin suspended successfully");
-      } else if (confirmAction.type === 'delete') {
-        await Api.delete(`/church/delete-admin/${selectedAdmin.id}`);
-        setAdmins(prev => prev.filter(admin => admin.id !== selectedAdmin.id));
-        toast.success("Admin deleted successfully");
-      }
+      setLoading(true);
+      await Api.patch(`/church/edit-admin?id=${currentAdmin.id}`, {
+        isSuperAdmin,
+        branchId: selectedBranch,
+      });
+      
+      setAdmins(admins.map(admin =>
+        admin.id === currentAdmin.id
+          ? { ...admin, isSuperAdmin, branchId: selectedBranch }
+          : admin
+      ));
+      
+      toast.success("Admin updated successfully!");
+      handleEditClose();
     } catch (error) {
-      console.error(`Error ${confirmAction.type} admin:`, error);
-      toast.error(`Failed to ${confirmAction.type} admin`);
+      console.error("Update error:", error);
+      toast.error("Failed to update admin");
     } finally {
-      setIsLoading(false);
-      setConfirmModalOpen(false);
-      setConfirmAction(null);
+      setLoading(false);
     }
   };
 
+  const handleConfirmedAction = async () => {
+    if (!currentAdmin || !actionType) return;
+
+    try {
+      setLoading(true);
+      if (actionType === "delete") {
+        await Api.delete(`/church/delete-admin/${currentAdmin.id}`);
+        setAdmins(admins.filter(admin => admin.id !== currentAdmin.id));
+        toast.success("Admin deleted successfully!");
+      } else if (actionType === "suspend") {
+        const newStatus = !currentAdmin.isSuspended;
+        await Api.patch(`/church/${newStatus ? 'suspend' : 'activate'}-admin/${currentAdmin.id}`);
+        setAdmins(admins.map(admin => 
+          admin.id === currentAdmin.id ? { ...admin, isSuspended: newStatus } : admin
+        ));
+        toast.success(`Admin ${newStatus ? "suspended" : "activated"} successfully!`);
+      }
+    } catch (error) {
+      console.error("Action error:", error);
+      toast.error(`Failed to ${actionType} admin`);
+    } finally {
+      setLoading(false);
+      setConfirmModalOpen(false);
+      setActionType(null);
+      setCurrentAdmin(null);
+    }
+  };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Helper functions
+  const truncateText = (text: string | null, maxLength = 30) => {
+    if (!text) return "-";
+    return text.length <= maxLength 
+      ? text 
+      : `${text.substring(0, maxLength)}...`;
+  };
+
+  // Empty state component
+  const EmptyState = () => (
+    <Box sx={{ 
+      textAlign: "center", 
+      py: 8,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+      <Typography 
+        variant="h6" 
+        color="textSecondary" 
+        gutterBottom
+        sx={{
+          fontSize: isLargeScreen ? '1.25rem' : undefined
+        }}
+      >
+        No admins found
+      </Typography>
+      {error ? (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      ) : null}
+      <Button
+        variant="contained"
+        onClick={() => navigate("/manage/admin")}       
+        sx={{
+          bgcolor: "#1f2937",
+          px: { xs: 2, sm: 2 }, 
+          mt: 2,
+          fontSize: isLargeScreen ? '0.875rem' : undefined,
+          "&:hover": { bgcolor: "#111827" },
+        }}
+      >
+        Create New Admin
+      </Button>
+    </Box>
+  );
+
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 1, sm: 1 }, bgcolor: "#f5f5f5", minHeight: "100%" }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", md: "center" },
-            mb: { xs: 4, sm: 6 },
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: "bold",
-                color: "#1f2937",
-                fontSize: { xs: "1.8rem", sm: "2rem" },
+        <Grid container spacing={2} sx={{ mb: 5 }}>
+          <Grid  size={{xs:12, md:8}}>
+            <Typography 
+              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+              component="h1" 
+              fontWeight={600}
+              gutterBottom
+              sx={{ 
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? '1.5rem' : undefined
               }}
             >
               All Admins
             </Typography>
-            <Typography
-              variant="body1"
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
               sx={{
-                mt: 1,
-                color: "#4b5563",
-                fontSize: { xs: "1rem", sm: "1rem" },
+                fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
             >
-              View and manage all Admins.
+              View and manage all church admins.
             </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            onClick={() => navigate("/manage/admin")}
-            sx={{
-              bgcolor: "#1f2937",
-              px: { xs: 2, sm: 2 },
-              py: 1,
-              borderRadius: 1,
-              fontWeight: "bold",
-              textTransform: "none",
-              fontSize: { xs: "1rem", sm: "1rem" },
-            }}
-          >
-            Create Admin
-          </Button>
-        </Box>
+          </Grid>
+          <Grid size={{xs:12, md:4}} sx={{ 
+            display: 'flex', 
+            justifyContent: { xs: 'flex-start', md: 'flex-end' },
+            alignItems: 'center'
+          }}>
+            <Button
+              variant="contained"
+              onClick={() => navigate("/manage/admin")}
+              size="medium"
+              sx={{
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                py: 1,
+                borderRadius: 1,
+                fontWeight: 500,
+                textTransform: "none",
+                fontSize: isLargeScreen ? '1rem' : undefined,
+                "&:hover": { bgcolor: "#111827" },
+              }}
+            >
+              Create Admin
+            </Button>
+          </Grid>
+        </Grid>
 
-        {/* Admins Count and Table */}
-        {isLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
-            <div className="text-center text-white">
-              <div className="flex justify-center mb-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
-              </div>
-            </div>
+        {/* Loading State */}
+        {loading && admins.length === 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
           </Box>
-        ) : (
+        )}
+
+        {/* Error State */}
+        {error && !loading && admins.length === 0 && <EmptyState />}
+
+        {/* Empty State */}
+        {!loading && !error && admins.length === 0 && <EmptyState />}
+
+        {/* Data Table */}
+        {admins.length > 0 && (
           <>
-            <Typography variant="subtitle1" sx={{ mb: 2, color: "#4b5563", textAlign: "right" }}>
-              {admins.length ? `${admins.length} Admin${admins.length > 1 ? 's' : ''} created` : "No Admins found"}
+            <Typography variant="subtitle1" sx={{ 
+              mb: 2, 
+              color: "#4b5563", 
+              textAlign: "right",
+              fontSize: isLargeScreen ? '0.875rem' : undefined
+            }}>
+              {admins.length} Admin{admins.length !== 1 ? "s" : ""}  Created
             </Typography>
-            <Paper sx={{ boxShadow: 2, borderRadius: 1 }}>
-              <TableContainer sx={{ overflowX: "auto", bgcolor: "#f5f5f5" }}>
-                <Table sx={{ minWidth: { xs: "auto", sm: 650 }, width: "100%" }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Super Admin</TableCell>
-                      {authData?.isSuperAdmin && <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {admins
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((admin) => (
-                        <TableRow
-                          key={admin.id}
-                          sx={{
-                            borderBottom: "1px solid #e5e7eb",
-                            backgroundColor: admin.isDeleted ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                            '&:hover': {
-                              backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                          }}
-                        >
-                          <TableCell
-                            sx={{
-                              textDecoration: admin.isDeleted ? 'line-through' : 'none',
-                              color: admin.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >
-                            {admin.name}
+            
+            <TableContainer sx={{
+              boxShadow: 2,
+              borderRadius: 1,
+              overflowX: "auto",
+            }}>
+              <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.name,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Name</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.email,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Email</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.phone,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Phone</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.superAdmin,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Super Admin</TableCell>
+                    {authData?.isSuperAdmin && (
+                      <TableCell sx={{ 
+                        fontWeight: 600, 
+                        width: columnWidths.actions,
+                        textAlign: "center",
+                        fontSize: isLargeScreen ? '0.875rem' : undefined
+                      }}>Actions</TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {admins
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((admin) => (
+                      <TableRow key={admin.id} sx={{
+                        borderBottom: "1px solid #e5e7eb",
+                        backgroundColor: admin.isDeleted ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                      }}>
+                        <TableCell sx={{
+                          textDecoration: admin.isDeleted ? 'line-through' : 'none',
+                          color: admin.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.name,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          {admin.name}
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: admin.isDeleted ? 'line-through' : 'none',
+                          color: admin.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.email,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          <Tooltip title={admin.email || "-"} arrow>
+                            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                              {truncateText(admin.email)}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: admin.isDeleted ? 'line-through' : 'none',
+                          color: admin.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.phone,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          {admin.phone || "-"}
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: admin.isDeleted ? 'line-through' : 'none',
+                          color: admin.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.superAdmin,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          {admin.isSuperAdmin ? "Yes" : "No"}
+                        </TableCell>
+                        {authData?.isSuperAdmin && (
+                          <TableCell sx={{
+                            width: columnWidths.actions,
+                            textAlign: "center",
+                            fontSize: isLargeScreen ? '0.875rem' : undefined
+                          }}>
+                            <IconButton
+                              aria-label="more"
+                              onClick={(e) => handleMenuOpen(e, admin)}
+                              disabled={loading}
+                              size="small"
+                              sx={{
+                                borderRadius: 1,
+                                bgcolor: '#E1E1E1',
+                                '&:hover': { backgroundColor:"#111827", color: '#f0f0f0' },
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
                           </TableCell>
-                          <TableCell
-                            sx={{
-                              textDecoration: admin.isDeleted ? 'line-through' : 'none',
-                              color: admin.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >
-                            {admin.email}
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              textDecoration: admin.isDeleted ? 'line-through' : 'none',
-                              color: admin.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >
-                            {admin.phone}
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              textDecoration: admin.isDeleted ? 'line-through' : 'none',
-                              color: admin.isDeleted ? 'gray' : 'inherit',
-                            }}>{admin.isSuperAdmin ? "Yes" : "No"}</TableCell>
-                          {authData?.isSuperAdmin && (
-                            <TableCell>
-                              <IconButton
-                                aria-label="more"
-                                aria-controls="admin-menu"
-                                aria-haspopup="true"
-                                onClick={(e) => handleMenuOpen(e, admin)}
-                              >
-                                <MoreVertIcon />
-                              </IconButton>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                        )}
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+              
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
                 component="div"
@@ -336,69 +454,97 @@ const ViewAdmins: React.FC = () => {
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 sx={{
-                  bgcolor: "#f5f5f5",
-                  borderTop: '1px solid #e0e0e0',
+                  borderTop: "1px solid #e0e0e0",
+                  '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                    fontSize: isLargeScreen ? '0.75rem' : undefined
+                  }
                 }}
               />
-            </Paper>
+            </TableContainer>
           </>
         )}
 
-        {/* Edit Admin Modal */}
-        <Modal
-          open={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          aria-labelledby="edit-admin-modal"
-          aria-describedby="modal-to-edit-admin-details"
+        {/* Action Menu */}
+        <Menu
+          id="admin-menu"
+          anchorEl={anchorEl}
+          keepMounted
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+          PaperProps={{
+            sx: {
+              '& .MuiMenuItem-root': {
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }
+            }
+          }}
         >
-          <Box sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: { xs: '90%', sm: '500px' },
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 1,
-          }}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 3
-            }}>
-              <Box>
-                <Typography variant="h6" component="h2" gutterBottom>
-                  Edit Admin
-                </Typography>
-                {selectedAdmin && (
-                  <Typography variant="subtitle1" color="text.secondary">
-                    <div>{selectedAdmin.name}</div>
-                    <div className="text-xs">{selectedAdmin.email}</div>
-                  </Typography>
-                )}
-              </Box>
-              <IconButton onClick={() => setEditModalOpen(false)}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
+          <MenuItem onClick={handleEditOpen} disabled={currentAdmin?.isDeleted}>
+            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
+            Edit
+          </MenuItem>
+          <MenuItem 
+            onClick={() => showConfirmation("suspend")} 
+            disabled={loading || currentAdmin?.isSuperAdmin}
+          >
+            {!currentAdmin?.isSuspended ? (
+              <>
+                <BlockIcon sx={{ mr: 1, fontSize: '1rem' }} />
+                {loading && actionType === 'suspend' ? 'Suspending...' : 'Suspend'}
+              </>
+            ) : (
+              <>
+                <MdRefresh style={{ marginRight: 8, fontSize: '1rem' }} />              
+                {loading && actionType === 'suspend' ? 'Activating...' : 'Activate'}
+              </>
+            )}
+          </MenuItem>
+          <MenuItem 
+            onClick={() => showConfirmation("delete")} 
+            disabled={loading || currentAdmin?.isSuperAdmin}
+          >
+            <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
+            Delete
+          </MenuItem>
+        </Menu>
 
-            {selectedAdmin && (
-              <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Edit Admin Modal */}
+        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+            Edit Admin
+          </DialogTitle>
+          <DialogContent>
+            {currentAdmin && (
+              <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  {currentAdmin.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {currentAdmin.email}
+                </Typography>
+
                 <FormControl fullWidth>
-                  <InputLabel id="branch-select-label">Branch</InputLabel>
+                  <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                    Branch
+                  </InputLabel>
                   <Select
                     labelId="branch-select-label"
                     id="branch-select"
                     value={selectedBranch}
                     label="Branch"
                     onChange={(e) => setSelectedBranch(e.target.value)}
+                    sx={{
+                      '& .MuiSelect-select': {
+                        fontSize: isLargeScreen ? '0.875rem' : undefined
+                      }
+                    }}
                   >
                     {branches.map((branch) => (
-                      <SelectMenuItem key={branch.id} value={branch.id}>
+                      <MenuItem key={branch.id} value={branch.id}>
                         {`${branch.name} - ${branch.address}`}
-                      </SelectMenuItem>
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -412,107 +558,83 @@ const ViewAdmins: React.FC = () => {
                     />
                   }
                   label="Is Super Admin?"
+                  sx={{
+                    '& .MuiTypography-root': {
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }
+                  }}
                 />
-
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => setEditModalOpen(false)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    disabled={isLoading}
-                    onClick={handleEditSubmit}
-                    sx={{ textTransform: 'none', bgcolor: '#1f2937' }}
-                  >
-                    Save Changes
-                  </Button>
-                </Box>
               </Box>
             )}
-          </Box>
-        </Modal>
-
-        {/* Confirmation Dialog */}
-        <Dialog
-          open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          aria-labelledby="alert-dialog-title"
-          aria-describedby="alert-dialog-description"
-        >
-          <DialogTitle id="alert-dialog-title">
-            {confirmAction?.type === 'suspend' ? 'Suspend Admin' : 'Delete Admin'}
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText id="alert-dialog-description">
-              {confirmAction?.message}
-            </DialogContentText>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmModalOpen(false)} color="primary">
+            <Button 
+              onClick={handleEditClose} 
+              sx={{ 
+                border: 1, 
+                color: "#111827",
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }}
+            >
               Cancel
             </Button>
-            <Button 
-              onClick={handleConfirmedAction} 
-              color={confirmAction?.type === 'delete' ? "error" : "primary"}
-              autoFocus
-              disabled={isLoading}
+            <Button
+              onClick={handleEditSubmit}
+              sx={{ 
+                bgcolor: "#111827", 
+                "&:hover": { bgcolor: "#0f172a" },
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }}
+              variant="contained"
+              disabled={loading}
             >
-              {isLoading ? 'Processing...' : 'Confirm'}
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Action Menu */}
-        <Menu
-          id="admin-menu"
-          anchorEl={anchorEl}
-          keepMounted
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+        {/* Confirmation Modal */}
+        <Dialog 
+          open={confirmModalOpen} 
+          onClose={() => setConfirmModalOpen(false)} 
+          maxWidth="xs"
         >
-          <MenuItem onClick={handleEditModalOpen} disabled={selectedAdmin?.isDeleted }>
-            <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-              <MdOutlineEdit style={{ fontSize: '1rem' }} />
-            </Box>
-            Edit
-          </MenuItem>
-          {selectedAdmin?.isDeleted ? (
-            <MenuItem
-              onClick={() => showConfirmation('activate')}
-              disabled={selectedAdmin?.isSuperAdmin || isLoading}
+          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+            {actionType === "delete"
+              ? "Delete Admin"
+              : actionType === "suspend"
+              ? currentAdmin?.isSuspended
+                ? "Activate Admin"
+                : "Suspend Admin"
+              : ""}
+          </DialogTitle>
+          <DialogContent>
+            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+              {actionType === "delete"
+                ? `Are you sure you want to delete "${currentAdmin?.name}"?`
+                : `Are you sure you want to ${currentAdmin?.isSuspended ? "activate" : "suspend"} "${currentAdmin?.name}"?`}
+              {currentAdmin?.isSuperAdmin && 
+                " Super admin cannot be modified."}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setConfirmModalOpen(false)} 
+              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
             >
-              <MdRefresh style={{ marginRight: 8, fontSize: '1rem' }} />
-              {isLoading ? 'Activating...' : 'Activate'}
-            </MenuItem>
-          ) : (
-            <MenuItem
-              onClick={() => showConfirmation('suspend')}
-              disabled={selectedAdmin?.isSuperAdmin || isLoading}
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmedAction}
+              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+              color={actionType === "delete" ? "error" : "primary"}
+              variant="contained"
+              disabled={loading || currentAdmin?.isSuperAdmin}              
             >
-              <BlockIcon sx={{ mr: 1, fontSize: '1rem' }} />
-              {isLoading ? 'Suspending...' : 'Suspend'}
-            </MenuItem>
-          )}
-          <MenuItem
-            onClick={() => showConfirmation('delete')}
-            disabled={selectedAdmin?.isSuperAdmin}
-          >
-            <AiOutlineDelete style={{ marginRight: '8px', fontSize: '1rem' }} />
-            Delete
-          </MenuItem>
-        </Menu>
+              {loading ? "Processing..." : actionType === "delete" ? "Delete" : "Confirm"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DashboardManager>
   );

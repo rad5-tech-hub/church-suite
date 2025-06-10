@@ -4,7 +4,6 @@ import DashboardManager from "../../../shared/dashboardManager";
 import {
   Box,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -12,27 +11,31 @@ import {
   TableHead,
   TableRow,
   Typography,
-  TextField,
-  TablePagination,
-  IconButton,  
-  Menu,
-  MenuItem,
-  Modal,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
+  TextField,
+  TablePagination,
+  Tooltip,
+  Menu,
+  MenuItem,
+  useTheme,
+  useMediaQuery,
+  Grid
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import {
+  MoreVert as MoreVertIcon,
+  Block as BlockIcon,
+} from "@mui/icons-material";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
-import BlockIcon from "@mui/icons-material/Block";
 import { AiOutlineDelete } from "react-icons/ai";
-import CloseIcon from "@mui/icons-material/Close";
+import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
+import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
-import { toast } from "react-toastify";
 
 interface Branch {
   id: string;
@@ -42,286 +45,420 @@ interface Branch {
   address: string;
   isHeadQuarter: boolean;
   isActive: boolean;
-  isDeleted?: boolean; // Added isDeleted property
+  isDeleted?: boolean;
 }
 
 const ViewBranches: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const navigate = useNavigate();
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: string; message: string } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+  const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
   const [actionType, setActionType] = useState<string | null>(null);
-
-  // Form state for editing
-  const [formData, setFormData] = useState({
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [editFormData, setEditFormData] = useState<Omit<Branch, "id" | "isHeadQuarter" | "isActive">>({
     name: "",
     email: "",
     phone: "",
-    address: ""
+    address: "",
   });
+  const [page, setPage] = useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
-  // Fetch branches from the API
+  // Fetch branches with error handling
+  const fetchBranches = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await Api.get("/church/get-branches");
+      setBranches(response.data.branches || []);
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      setError("Failed to load branches. Please try again later.");
+      toast.error("Failed to load branches");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        setLoading(true);
-        const response = await Api.get(`/church/get-branches`);
-        setBranches(response.data.branches);
-      } catch (err) {
-        console.error("Failed to fetch branches:", err);
-        toast.error("Failed to load branches. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBranches();
   }, []);
 
-  // Handle menu open
+  // Calculate counts
+  const activeCount = branches.filter(branch => branch.isActive && !branch.isDeleted).length;
+  const inactiveCount = branches.filter(branch => !branch.isActive && !branch.isDeleted).length;
+  const hqCount = branches.filter(branch => branch.isHeadQuarter).length;
+
+  // Table column widths
+  const columnWidths = {
+    name: "25%",
+    email: "25%",
+    phone: "15%",
+    address: "25%",
+    actions: "10%"
+  };
+
+  // Action handlers
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, branch: Branch) => {
     setAnchorEl(event.currentTarget);
-    setSelectedBranch(branch);
+    setCurrentBranch(branch);
   };
 
-  // Handle menu close
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleMenuClose = () => setAnchorEl(null);
 
-  // Handle page change
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Handle edit modal open
-  const handleEditModalOpen = () => {
-    if (selectedBranch) {
-      setFormData({
-        name: selectedBranch.name,
-        email: selectedBranch.email,
-        phone: selectedBranch.phone,
-        address: selectedBranch.address,     
+  const handleEditOpen = () => {
+    if (currentBranch) {
+      setEditFormData({
+        name: currentBranch.name,
+        email: currentBranch.email,
+        phone: currentBranch.phone,
+        address: currentBranch.address,
       });
       setEditModalOpen(true);
     }
     handleMenuClose();
   };
 
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value,
-    });
+  const handleEditClose = () => {
+    setEditModalOpen(false);
+    setCurrentBranch(null);
   };
 
-  // Handle edit submit
-  const handleEditSubmit = async () => {
-    if (!selectedBranch) return;
-    try {
-      await Api.patch(`/church/edit-branch/${selectedBranch.id}`, formData);
-      setBranches(branches.map(branch =>
-        branch.id === selectedBranch.id ? { ...branch, ...formData } : branch
-      ));
-      setEditModalOpen(false);
-      toast.success("Branch updated successfully");
-    } catch (error) {
-      console.error("Error updating branch:", error);
-      toast.error("Failed to update branch");
-    }
-  };
-
-  // Show confirmation dialog
   const showConfirmation = (action: string) => {
-    let message = "";
-    if (action === 'delete') {
-      message = "Are you sure you want to delete this branch? This action cannot be undone.";
-    } else if (action === 'suspend') {
-      message = `Are you sure you want to ${selectedBranch?.isActive ? 'suspend' : 'activate'} this branch?`;
-    }
-    setConfirmAction({ type: action, message });
+    setActionType(action);
     setConfirmModalOpen(true);
     handleMenuClose();
   };
 
-  // Handle confirmed action
-  const handleConfirmedAction = async () => {
-    if (!selectedBranch || !confirmAction) return;
-    setLoading(true);
-    setActionType(confirmAction.type);
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async () => {
+    if (!currentBranch?.id) {
+      console.error("Branch ID is undefined");
+      toast.error("Invalid branch data");
+      return;
+    }
+  
     try {
-      if (confirmAction.type === 'delete') {
-        await Api.delete(`/church/delete-branch/${selectedBranch.id}`);
-        setBranches(branches.filter(branch => branch.id !== selectedBranch.id));
-        toast.success("Branch deleted successfully");
-      } else if (confirmAction.type === 'suspend') {
-        const newStatus = !selectedBranch.isActive;
-        await Api.patch(`/church/${newStatus ? 'activate' : 'suspend'}-branch/${selectedBranch.id}`);
-        setBranches(branches.map(branch => 
-          branch.id === selectedBranch.id ? { ...branch, isActive: newStatus } : branch
-        ));
-        toast.success(`Branch ${newStatus ? 'activated' : 'suspended'} successfully`);
-      }
+      setLoading(true);
+      await Api.patch(
+        `/church/edit-branch/${currentBranch.id}`,
+        editFormData
+      );
+      
+      setBranches(branches.map(branch =>
+        branch.id === currentBranch.id ? { ...branch, ...editFormData } : branch
+      ));
+      
+      toast.success("Branch updated successfully!");
+      handleEditClose();
     } catch (error) {
-      console.error(`Error ${confirmAction.type} branch:`, error);
-      toast.error(`Failed to ${confirmAction.type} branch`);
+      console.error("Update error:", error);
+      toast.error("Failed to update branch");
     } finally {
       setLoading(false);
-      setConfirmModalOpen(false);
-      setConfirmAction(null);
-      setActionType(null);
     }
   };
 
+  const handleConfirmedAction = async () => {
+    if (!currentBranch || !actionType) return;
+
+    try {
+      setLoading(true);
+      if (actionType === "delete") {
+        await Api.delete(`/church/delete-branch/${currentBranch.id}`);
+        setBranches(branches.filter(branch => branch.id !== currentBranch.id));
+        toast.success("Branch deleted successfully!");
+      } else if (actionType === "suspend") {
+        const newStatus = !currentBranch.isActive;
+        await Api.patch(`/church/${newStatus ? 'activate' : 'suspend'}-branch/${currentBranch.id}`);
+        setBranches(branches.map(branch => 
+          branch.id === currentBranch.id ? { ...branch, isActive: newStatus } : branch
+        ));
+        toast.success(`Branch ${newStatus ? "activated" : "suspended"} successfully!`);
+      }
+    } catch (error) {
+      console.error("Action error:", error);
+      toast.error(`Failed to ${actionType} branch`);
+    } finally {
+      setLoading(false);
+      setConfirmModalOpen(false);
+      setActionType(null);
+      setCurrentBranch(null);
+    }
+  };
+
+  // Pagination handlers
+  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Helper functions
+  const truncateText = (text: string | null, maxLength = 30) => {
+    if (!text) return "-";
+    return text.length <= maxLength 
+      ? text 
+      : `${text.substring(0, maxLength)}...`;
+  };
+
+  // Empty state component
+  const EmptyState = () => (
+    <Box sx={{ 
+      textAlign: "center", 
+      py: 8,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+      <Typography 
+        variant="h6" 
+        color="textSecondary" 
+        gutterBottom
+        sx={{
+          fontSize: isLargeScreen ? '1.25rem' : undefined
+        }}
+      >
+        No branches found
+      </Typography>
+      {error ? (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      ) : null}
+      <Button
+        variant="contained"
+        onClick={() => navigate("/manage/branch")}       
+        sx={{
+          bgcolor: "#1f2937",
+          px: { xs: 2, sm: 2 }, 
+          mt: 2,
+          fontSize: isLargeScreen ? '0.875rem' : undefined,
+          "&:hover": { bgcolor: "#111827" },
+        }}
+      >
+        Create New Branch
+      </Button>
+    </Box>
+  );
+
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 1, sm: 1 }, bgcolor: "#f5f5f5", minHeight: "100%" }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", md: "center" },
-            mb: { xs: 4, sm: 6 },
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: "bold",
-                color: "#1f2937",
-                fontSize: { xs: "1.8rem", sm: "2rem" },
+        <Grid container spacing={2} sx={{ mb: 5 }}>
+          <Grid size={{xs:12, md:8}}>
+            <Typography 
+              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+              component="h1" 
+              fontWeight={600}
+              gutterBottom
+              sx={{ 
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? '1.5rem' : undefined
               }}
             >
               All Branches
             </Typography>
-            <Typography
-              variant="body1"
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
               sx={{
-                mt: 1,
-                color: "#4b5563",
-                fontSize: { xs: "1rem", sm: "1rem" },
+                fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
             >
-              View and manage all branches
+              View and manage all church branches.
             </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            onClick={() => navigate("/manage/branch")}
-            sx={{
-              bgcolor: "#1f2937",
-              px: { xs: 2, sm: 2 },
-              py: 1,
-              borderRadius: 1,
-              fontWeight: "bold",
-              textTransform: "none",
-              fontSize: { xs: "1rem", sm: "1rem" },
-            }}
-          >
-            Create Branch
-          </Button>
-        </Box>
+          </Grid>
+          <Grid size={{xs:12, md:4}} sx={{ 
+            display: 'flex', 
+            justifyContent: { xs: 'flex-start', md: 'flex-end' },
+            alignItems: 'center'
+          }}>
+            <Button
+              variant="contained"
+              onClick={() => navigate("/manage/branch")}
+              size="medium"
+              sx={{
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                py: 1,
+                borderRadius: 1,
+                fontWeight: 500,
+                textTransform: "none",
+                fontSize: isLargeScreen ? '1rem' : undefined,
+                "&:hover": { bgcolor: "#111827" },
+              }}
+            >
+              Create Branch
+            </Button>
+          </Grid>
+        </Grid>
 
-        {/* Branches Count and Table */}
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px" }}>
-            <div className="text-center text-white">
-              <div className="flex justify-center mb-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
-              </div>
-            </div>
+        {/* Loading State */}
+        {loading && branches.length === 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
           </Box>
-        ) : (
+        )}
+
+        {/* Error State */}
+        {error && !loading && branches.length === 0 && <EmptyState />}
+
+        {/* Empty State */}
+        {!loading && !error && branches.length === 0 && <EmptyState />}
+
+        {/* Data Table */}
+        {branches.length > 0 && (
           <>
-            <Typography variant="subtitle1" sx={{ mb: 2, color: "#4b5563", textAlign: "right" }}>
-              {branches.length ? `${branches.length} Branch${branches.length > 1 ? 'es' : ''}` : "No Branches found"}
+            <Typography variant="subtitle1" sx={{ 
+              mb: 2, 
+              color: "#4b5563", 
+              textAlign: "right",
+              fontSize: isLargeScreen ? '0.875rem' : undefined
+            }}>
+              {branches.length} Branch{branches.length !== 1 ? "es" : ""} • 
+              {` ${activeCount} Active • ${inactiveCount} Inactive • ${hqCount} HQ`}
             </Typography>
-            <Paper sx={{ boxShadow: 2, borderRadius: 1 }}>
-              <TableContainer sx={{ overflowX: "auto", bgcolor: "#f5f5f5" }}>
-                <Table sx={{ minWidth: { xs: "auto", sm: 650 }, width: "100%" }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>Address</TableCell>                                    
-                      {authData?.isSuperAdmin && <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {branches
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((branch) => (
-                        <TableRow
-                          key={branch.id}
-                          sx={{
-                            borderBottom: "1px solid #e5e7eb",
-                            backgroundColor: branch.isDeleted ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                            '&:hover': {
-                              backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                          }}
-                        >
-                          <TableCell
-                            sx={{
-                              textDecoration: branch.isDeleted ? 'line-through' : 'none',
-                              color: branch.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >{branch.name}</TableCell>
-                          <TableCell
-                             sx={{
-                              textDecoration: branch.isDeleted ? 'line-through' : 'none',
-                              color: branch.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >{branch.email || "-"}</TableCell>
-                          <TableCell
-                             sx={{
-                              textDecoration: branch.isDeleted ? 'line-through' : 'none',
-                              color: branch.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >{branch.phone || "-"}</TableCell>
-                          <TableCell
-                             sx={{
-                              textDecoration: branch.isDeleted ? 'line-through' : 'none',
-                              color: branch.isDeleted ? 'gray' : 'inherit',
-                            }}
-                          >{branch.address || "-"}</TableCell>                                              
-                          {authData?.isSuperAdmin && (
-                            <TableCell>
-                              <IconButton
-                                aria-label="more"
-                                aria-controls="branch-menu"
-                                aria-haspopup="true"
-                                onClick={(e) => handleMenuOpen(e, branch)}
-                              >
-                                <MoreVertIcon />
-                              </IconButton>
-                            </TableCell>
+            
+            <TableContainer sx={{
+              boxShadow: 2,
+              borderRadius: 1,
+              overflowX: "auto",
+            }}>
+              <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.name,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Name</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.email,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Email</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.phone,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Phone</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: columnWidths.address,
+                      fontSize: isLargeScreen ? '0.875rem' : undefined
+                    }}>Address</TableCell>
+                    {authData?.isSuperAdmin && (
+                      <TableCell sx={{ 
+                        fontWeight: 600, 
+                        width: columnWidths.actions,
+                        textAlign: "center",
+                        fontSize: isLargeScreen ? '0.875rem' : undefined
+                      }}>Actions</TableCell>
+                    )}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {branches
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((branch) => (
+                      <TableRow key={branch.id} sx={{
+                        borderBottom: "1px solid #e5e7eb",
+                        backgroundColor: branch.isDeleted ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
+                      }}>
+                        <TableCell sx={{
+                          textDecoration: branch.isDeleted ? 'line-through' : 'none',
+                          color: branch.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.name,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          {branch.name}
+                          {branch.isHeadQuarter && (
+                            <Typography 
+                              component="span" 
+                              sx={{ 
+                                ml: 1, 
+                                fontSize: '0.75rem',
+                                color: '#10b981',
+                                fontWeight: 500
+                              }}
+                            >
+                              (HQ)
+                            </Typography>
                           )}
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: branch.isDeleted ? 'line-through' : 'none',
+                          color: branch.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.email,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          <Tooltip title={branch.email || "-"} arrow>
+                            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                              {truncateText(branch.email)}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: branch.isDeleted ? 'line-through' : 'none',
+                          color: branch.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.phone,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          {branch.phone || "-"}
+                        </TableCell>
+                        <TableCell sx={{
+                          textDecoration: branch.isDeleted ? 'line-through' : 'none',
+                          color: branch.isDeleted ? 'gray' : 'inherit',
+                          width: columnWidths.address,
+                          fontSize: isLargeScreen ? '0.875rem' : undefined
+                        }}>
+                          <Tooltip title={branch.address || "-"} arrow>
+                            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                              {truncateText(branch.address)}
+                            </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        {authData?.isSuperAdmin && (
+                          <TableCell sx={{
+                            width: columnWidths.actions,
+                            textAlign: "center",
+                            fontSize: isLargeScreen ? '0.875rem' : undefined
+                          }}>
+                            <IconButton
+                              aria-label="more"
+                              onClick={(e) => handleMenuOpen(e, branch)}
+                              disabled={loading || branch.isHeadQuarter}
+                              size="small"
+                              sx={{
+                                borderRadius: 1,
+                                bgcolor: '#E1E1E1',
+                                '&:hover': { backgroundColor:"#111827", color: '#f0f0f0' },
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+              
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
                 component="div"
@@ -331,133 +468,15 @@ const ViewBranches: React.FC = () => {
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 sx={{
-                  bgcolor: "#f5f5f5",
-                  borderTop: '1px solid #e0e0e0',
+                  borderTop: "1px solid #e0e0e0",
+                  '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                    fontSize: isLargeScreen ? '0.75rem' : undefined
+                  }
                 }}
               />
-            </Paper>
+            </TableContainer>
           </>
         )}
-
-        {/* Edit Branch Modal */}
-        <Modal
-          open={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          aria-labelledby="edit-branch-modal"
-          aria-describedby="modal-to-edit-branch-details"
-        >
-          <Box sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: { xs: '90%', sm: '500px' },
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 1,
-          }}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 3
-            }}>
-              <Typography variant="h6" component="h2" gutterBottom>
-                Edit Branch
-              </Typography>
-              <IconButton onClick={() => setEditModalOpen(false)}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
-
-            <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <TextField
-                label="Name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                fullWidth
-              />
-              <TextField
-                label="Address"
-                name="address"
-                value={formData.address}
-                onChange={handleInputChange}
-                fullWidth
-                multiline
-                rows={3}
-              />             
-
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setEditModalOpen(false)}
-                  sx={{ textTransform: 'none' }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  disabled={loading}
-                  onClick={handleEditSubmit}
-                  sx={{ textTransform: 'none', bgcolor: '#1f2937' }}
-                >
-                  Save Changes
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Modal>
-
-        {/* Confirmation Dialog */}
-        <Dialog
-          open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          aria-labelledby="alert-dialog-title"
-          aria-describedby="alert-dialog-description"
-        >
-          <DialogTitle id="alert-dialog-title">
-            {confirmAction?.type === 'delete' ? 'Delete Branch' : 
-             confirmAction?.type === 'suspend' ? (selectedBranch?.isActive ? 'Suspend Branch' : 'Activate Branch') : ''}
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText id="alert-dialog-description">
-              {confirmAction?.message}
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setConfirmModalOpen(false)} color="primary">
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleConfirmedAction} 
-              color={confirmAction?.type === 'delete' ? 'error' : 'primary'}
-              autoFocus
-              disabled={loading}
-            >
-              {loading && actionType === confirmAction?.type ? 
-                `${confirmAction?.type === 'delete' ? 'Deleting' : 
-                  confirmAction?.type === 'suspend' ? (selectedBranch?.isActive ? 'Suspending' : 'Activating') : ''}...` : 
-                confirmAction?.type === 'delete' ? 'Delete' : 
-                confirmAction?.type === 'suspend' ? (selectedBranch?.isActive ? 'Suspend' : 'Activate') : ''}
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Action Menu */}
         <Menu
@@ -466,24 +485,25 @@ const ViewBranches: React.FC = () => {
           keepMounted
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+          PaperProps={{
+            sx: {
+              '& .MuiMenuItem-root': {
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }
+            }
           }}
         >
-          <MenuItem onClick={handleEditModalOpen} disabled={selectedBranch?.isDeleted }>
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: '1rem' }} />
-             Edit
+          <MenuItem onClick={handleEditOpen} disabled={currentBranch?.isDeleted || currentBranch?.isHeadQuarter}>
+            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
+            Edit
           </MenuItem>
-          <MenuItem
-            onClick={() => showConfirmation('suspend')}
-            disabled={selectedBranch?.isHeadQuarter || loading}
+          <MenuItem 
+            onClick={() => showConfirmation("suspend")} 
+            disabled={loading || currentBranch?.isHeadQuarter}
           >
-            {!selectedBranch?.isDeleted ? (
+             {!currentBranch?.isDeleted ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: '1rem' }} />
                 {loading && actionType === 'suspend' ? 'Suspending...' : 'Suspend'}
@@ -495,18 +515,155 @@ const ViewBranches: React.FC = () => {
               </>
             )}
           </MenuItem>
-          <MenuItem
-            onClick={() => showConfirmation('delete')}
-            disabled={selectedBranch?.isHeadQuarter || loading}
+          <MenuItem 
+            onClick={() => showConfirmation("delete")} 
+            disabled={loading || currentBranch?.isHeadQuarter}
           >
-            <AiOutlineDelete style={{ marginRight: '8px', fontSize: '1rem' }} />
-            {loading && actionType === 'delete' 
-              ? 'Deleting...' 
-              : selectedBranch?.isHeadQuarter
-              ? 'Cannot delete HQ' 
-              : 'Delete'}
+            <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
+            Delete
           </MenuItem>
         </Menu>
+
+        {/* Edit Branch Modal */}
+        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+            Edit Branch
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+              <TextField
+                fullWidth
+                label="Branch Name"
+                name="name"
+                value={editFormData.name}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                name="email"
+                value={editFormData.email}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Phone"
+                name="phone"
+                type="number"
+                value={editFormData.phone}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Address"
+                name="address"
+                value={editFormData.address}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                multiline
+                rows={4}
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={handleEditClose} 
+              sx={{ 
+                border: 1, 
+                color: "#111827",
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditSubmit}
+              sx={{ 
+                bgcolor: "#111827", 
+                "&:hover": { bgcolor: "#0f172a" },
+                fontSize: isLargeScreen ? '0.875rem' : undefined
+              }}
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirmation Modal */}
+        <Dialog 
+          open={confirmModalOpen} 
+          onClose={() => setConfirmModalOpen(false)} 
+          maxWidth="xs"
+        >
+          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+            {actionType === "delete"
+              ? "Delete Branch"
+              : actionType === "suspend"
+              ? currentBranch?.isActive
+                ? "Suspend Branch"
+                : "Activate Branch"
+              : ""}
+          </DialogTitle>
+          <DialogContent>
+            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+              {actionType === "delete"
+                ? `Are you sure you want to delete "${currentBranch?.name}"?`
+                : `Are you sure you want to ${currentBranch?.isActive ? "suspend" : "activate"} "${currentBranch?.name}"?`}
+              {currentBranch?.isHeadQuarter && actionType === "delete" && 
+                " Headquarters branch cannot be deleted."}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => setConfirmModalOpen(false)} 
+              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmedAction}
+              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+              color={actionType === "delete" ? "error" : "primary"}
+              variant="contained"
+              disabled={loading || (actionType === "delete" && currentBranch?.isHeadQuarter)}              
+            >
+              {loading ? "Processing..." : actionType === "delete" ? "Delete" : "Confirm"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DashboardManager>
   );

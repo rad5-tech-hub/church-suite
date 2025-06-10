@@ -11,9 +11,10 @@ interface FileUploadProps {
   type: 'logo' | 'background';
   preview: string | null;
   onFileUpload: (type: 'logo' | 'background', base64String: string) => void;
+  error?: boolean; // Added for error border feedback
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, error }) => {
   const label = type === 'logo' ? 'Logo' : 'Background Image';
   const id = `${type}-upload`;
 
@@ -36,7 +37,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload }) 
       </label>
       <div
         className={`file-upload input-shadow flex flex-col items-center justify-center border border-gray-300 rounded-md py-6 cursor-pointer relative ${
-          preview ? "border-light-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" : ""
+          error
+          ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+          : preview
+          ? "border-light-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+          : "border-gray-300"
         }`}
       >
         <input
@@ -68,7 +73,12 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload }) 
         </span>
         <span className="text-sm text-gray-500">SVG, PNG, JPG or GIF (max. 800x400px)</span>
       </div>
-    </div>
+      {error && (
+        <p className="text-red-500 text-sm mt-1">
+          Please upload a {label.toLowerCase()}.
+        </p>
+      )}
+    </div>    
   );
 };
 
@@ -88,6 +98,7 @@ const SetupStep2: React.FC = () => {
   const navigate = useNavigate();
   const churchData = useSelector((state: RootState) => state.church);
   const [loading, setLoading] = useState(false);
+  const [logoError, setLogoError] = useState<boolean>(false); // New state for logo error
 
   const [logoPreview, setLogoPreview] = useState<string | null>(churchData.logoPreview || null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(churchData.backgroundPreview || null);
@@ -104,6 +115,7 @@ const SetupStep2: React.FC = () => {
 
     if (type === 'logo') {
       setLogoPreview(base64String);
+      setLogoError(false); // Clear error when logo is uploaded
     } else {
       setBackgroundPreview(base64String);
     }
@@ -111,26 +123,27 @@ const SetupStep2: React.FC = () => {
 
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Check if logo is uploaded
-    if (!logoPreview) {
-      alert('Please upload a logo before continuing');
-      return;
-    }
-  
     setLoading(true);
-    
-    setTimeout(() => {
+
+    // Validate logo upload
+    if (!logoPreview) {
+      setLogoError(true); // Show error border
+      setLoading(false);
+      return;
+    }else {
+      setLogoError(false); // Clear error if logo is uploaded
+      setTimeout(() => {
       setLoading(false);
       navigate("/admin-account");
-    }, 2000);
+      }, 2000);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
         {/* Left Section - Welcome Message */}
-        <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
+        <div  className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
           <div className="lg:w-9/12 py-8">
             <p className="mb-2 text-sm text-gray-200">Step 2 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Image Uploads</h1>
@@ -147,6 +160,7 @@ const SetupStep2: React.FC = () => {
               type="logo" 
               preview={logoPreview} 
               onFileUpload={handleFileUpload} 
+              error={logoError} // Pass error state
             />
             <FileUpload 
               type="background" 
@@ -171,7 +185,7 @@ const SetupStep2: React.FC = () => {
                 disabled={loading}
                 className="h-12 px-10 mb-5 lg:w-auto w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-[#111827] disabled:opacity-50"
               >
-                {loading ? "Continuing..." : "Continue"}
+                {logoError ? "Continue" : loading ? "Continuing..." : "Continue"}
               </button>
             </div>
           </form>

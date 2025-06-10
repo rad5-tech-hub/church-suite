@@ -13,6 +13,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import { store } from "../../reduxstore/redux";
 import { clearAuth } from "../../reduxstore/authstore";
+import { useNavigate } from "react-router-dom";
 
 // Interface for component props
 interface HeaderProps {
@@ -24,6 +25,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
+  const navigate = useNavigate();
 
   const handleProfileClick = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
@@ -120,7 +122,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
               <div
                 className="flex items-center gap-2  px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
                 onClick={() => {
-                  console.log("Settings clicked");
+                  navigate('/settings');
                   handleClose();
                 }}
               >

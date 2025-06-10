@@ -295,7 +295,7 @@ const CreateAccount: React.FC = () => {
               <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
                 <IoCallOutline className="text-gray-400 mr-3 text-xl" />
                 <input
-                  type="tel"
+                  type="number"
                   id="phone"
                   className="w-full text-base text-gray-800 focus:outline-none"
                   placeholder="Enter your phone number"

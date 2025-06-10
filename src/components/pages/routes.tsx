@@ -12,15 +12,20 @@ const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const Department = React.lazy(() => import("./manage/department/department"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
-const Member = React.lazy(() => import("./members/members"));
-const ViewMember = React.lazy(() => import("./members/viewMembers"));
+const Member = React.lazy(() => import("./members/allMembers/members"));
+const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
+const EditMember = React.lazy(() => import("./members/singleMember/editmember"));
+const FollowUpRegisterar = React.lazy(() => import("./members/followUp/followUp"));
+const ViewFollowUp = React.lazy(() => import("./members/followUp/viewFollowUp"));
+const ViewSingleFollowUp = React.lazy(() => import("./members/followUp/singlefollowup"));
 const Admin = React.lazy(() => import("./manage/admin/admin"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
-const FirstTimer = React.lazy(() => import("./qrcodepages/createAccount/firstimer"));
-const SecondTimer = React.lazy(() => import("./qrcodepages/createAccount/secondtimer"));
+const SettingProfile = React.lazy(() => import("./settingProfile/settingProfile"));
+const QrcodepagesFollowUp = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
 
 // Private Route Component
 interface PrivateRouteProps {
@@ -49,13 +54,17 @@ const AppRoutes: React.FC = () => {
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
-          <Route path="/first-timer" element={<FirstTimer />} />
-          <Route path="/second-timer" element={<SecondTimer/>} />
+          <Route path="/followups" element={<QrcodepagesFollowUp />} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          } />
+          <Route path="/settings" element={
+            <PrivateRoute>
+              <SettingProfile/>
             </PrivateRoute>
           } />
           <Route path="/manage/admin" element={
@@ -96,6 +105,31 @@ const AppRoutes: React.FC = () => {
           <Route path="/members/view-members" element={
             <PrivateRoute>
               <ViewMember />
+            </PrivateRoute>
+          } />
+          <Route path="/members/view/:memberId" element={
+            <PrivateRoute>
+              <ViewSingleMember />
+            </PrivateRoute>
+          } />
+           <Route path="/members/edit/:memberId" element={
+            <PrivateRoute>
+              <EditMember/>
+            </PrivateRoute>
+          } />
+           <Route path="/register/followup" element={
+            <PrivateRoute>
+              <FollowUpRegisterar/>
+            </PrivateRoute>
+          } />
+            <Route path="/view/followup" element={
+            <PrivateRoute>
+              <ViewFollowUp/>
+            </PrivateRoute>
+          } />
+            <Route path="/view/single-fellower/:followUpId" element={
+            <PrivateRoute>
+              <ViewSingleFollowUp/>
             </PrivateRoute>
           } />
 

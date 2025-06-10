@@ -154,6 +154,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                   <li>
                     <NavLink
+                      to="/register/followup"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md ${
+                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        }`
+                      }
+                    >
+                      Follow Up's
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
                       to="/members/qr-code"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${

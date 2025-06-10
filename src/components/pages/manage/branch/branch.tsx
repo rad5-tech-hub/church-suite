@@ -4,6 +4,19 @@ import { IoMailOutline, IoCallOutline, IoLocationOutline } from "react-icons/io5
 import { BsPerson } from "react-icons/bs";
 import Api from "../../../shared/api/api";
 import DashboardManager from "../../../shared/dashboardManager";
+import { toast } from "react-toastify";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  CircularProgress,
+  Grid,
+  useTheme,
+  useMediaQuery,
+  InputAdornment,
+} from "@mui/material";
 
 interface FormData {
   name: string;
@@ -20,8 +33,11 @@ const Branch: React.FC = () => {
     phone: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -33,7 +49,7 @@ const Branch: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
 
     try {
       await Api.post("/church/create-branch", {
@@ -43,125 +59,247 @@ const Branch: React.FC = () => {
         phone: formData.phone || undefined,
       });
 
-      navigate("/manage/view-branches");
+      toast.success("Branch created successfully!", {
+        autoClose: 3000,
+      });
+      setTimeout(() => {
+        navigate("/manage/view-branches");      
+      }, 1500);
     } catch (error: any) {
-      console.error("Error creating branch:", error.response?.data || error.message);      
+      console.error("Error creating branch:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to create branch. Please try again.", {
+        autoClose: 3000,
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <DashboardManager>
-      <div className="lg:p-6 md:p-3 my-6">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-          <div className="mb-4 lg:mb-0">
-            <h1 className="text-3xl font-bold text-gray-800">Manage Branches</h1>
-            <p className="mt-4 text-gray-600">
-              Create and manage Branches for your church.
-            </p>
-          </div>
-          <div>
-            <button
+      <Container sx={{ py: isMobile ? 2 : 3 }}>
+        {/* Header Section */}
+        <Grid container spacing={2} sx={{ mb: 5 }}>
+          <Grid size={{xs:12, md:9}}>
+            <Typography
+              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+              component="h1"
+              fontWeight={600}
+              gutterBottom
+              sx={{
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
+              }}
+            >
+              Manage Branches
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: isLargeScreen ? "0.8125rem" : undefined,
+              }}
+            >
+              Create and manage branches for your church.
+            </Typography>
+          </Grid>
+          <Grid
+           size={{xs:12, md:3}}
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "flex-start", md: "flex-end" },
+              alignItems: "center",
+            }}
+          >
+            <Button
+              variant="contained"
               onClick={() => navigate("/manage/view-branches")}
-              className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
+              size="medium"
+              sx={{
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                py: 1,
+                borderRadius: 1,
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": { bgcolor: "#111827" },
+              }}
             >
               View Branches
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Grid>
+        </Grid>
 
-        <form onSubmit={handleSubmit} className="mt-6 lg:p-6 md:p-2 rounded-lg lg:shadow-md space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="name" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Name of Branch
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <BsPerson className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch name"
-                  required
-                />
-              </div>
-            </div>
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            mt: 4,            
+            borderRadius: 2,                    
+          }}
+        >
+          <Grid container spacing={4}>
+            {/* Name Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Branch Name *"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter branch name"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BsPerson style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
 
-            <div>
-              <label htmlFor="location" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Branch Location
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoLocationOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch location"
-                />
-              </div>
-            </div>
+            {/* Location Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Branch Location"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter branch location"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IoLocationOutline style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+              />
+            </Grid>
 
-            <div>
-              <label htmlFor="email" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Branch Email
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch Email"
-                />
-              </div>
-            </div>
+            {/* Email Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Branch Email"
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter branch email"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IoMailOutline style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+              />
+            </Grid>
 
-            <div>
-              <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Branch Phone No
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoCallOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Branch phone number"
-                />
-              </div>
-            </div>
-          </div>
+            {/* Phone Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Branch Phone No"
+                id="phone"
+                name="phone"
+                type="number"
+                value={formData.phone}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter branch phone number"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IoCallOutline style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+              />
+            </Grid>
+          </Grid>
 
-          <div className="pt-7">
-            <button
+          {/* Submit Button */}
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
+              variant="contained"
+              disabled={loading}
+              sx={{
+                py: 1,
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                borderRadius: 1,
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": { bgcolor: "#111827" },
+              }}
             >
-              {isLoading ?
+              {loading ? (
                 <>
-                  <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  Creating Branch...
-                </> : "Create Branch"}
-            </button>
-          </div>
-        </form>
-      </div>
+                  <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
+                  Creating...
+                </>
+              ) : (
+                "Create Branch"
+              )}
+            </Button>
+          </Box>
+        </Box>
+      </Container>
     </DashboardManager>
   );
 };

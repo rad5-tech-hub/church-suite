@@ -151,7 +151,8 @@ const SetupChurch: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
         {/* Left Section - Welcome Message */}
         <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
@@ -188,7 +189,7 @@ const SetupChurch: React.FC = () => {
             {renderInputField(
               'churchPhone',
               'Phone Number of Church',
-              'tel',
+              'number',
               'Enter the phone number of your church',
               true,
               <IoCallOutline className="text-gray-400 mr-3 text-xl" />
@@ -247,6 +248,7 @@ const SetupChurch: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

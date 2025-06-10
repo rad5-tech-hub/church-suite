@@ -1,11 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { IoMailOutline, IoCallOutline } from "react-icons/io5";
-import { PiEye, PiEyeClosed } from "react-icons/pi";
-import { SlLock } from "react-icons/sl";
+import { IoMailOutline, IoCallOutline, IoEyeOutline } from "react-icons/io5";
+import { PiEyeClosed } from "react-icons/pi";
 import { BsPerson } from "react-icons/bs";
+import { SlLock } from "react-icons/sl";
 import Api from "../../../shared/api/api";
 import DashboardManager from "../../../shared/dashboardManager";
+import { toast } from "react-toastify";
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  CircularProgress,
+  Grid,
+  useTheme,
+  useMediaQuery,
+  InputAdornment,
+  IconButton,
+  Checkbox,
+  FormControlLabel,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
 
 interface FormData {
   name: string;
@@ -35,13 +55,16 @@ const Admin: React.FC = () => {
     branchId: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState("");
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
   // Fetch branches on mount
   useEffect(() => {
@@ -54,26 +77,38 @@ const Admin: React.FC = () => {
       } catch (error: any) {
         console.error("Error fetching branches:", error);
         setBranchesError("Failed to load branches. Please try again.");
+        toast.error("Failed to load branches", {
+          position: isMobile ? "top-center" : "top-right",
+        });
       } finally {
         setIsFetchingBranches(false);
       }
     };
     fetchBranches();
-  }, []);
+  }, [isMobile]);
 
   // Handle input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target as HTMLInputElement;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
+  // Handle select changes
+  const handleSelectChange = (e: any) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
     try {
       await Api.post("church/create-admin", {
         name: formData.name,
@@ -84,232 +119,366 @@ const Admin: React.FC = () => {
         isSuperAdmin: formData.isSuperAdmin || undefined,
         branchId: formData.branchId || undefined,
       });
-      // Success - redirect to view admins
-      navigate("/manage/view-admins");
+      
+      toast.success("Admin created successfully!", {
+        position: isMobile ? "top-center" : "top-right",
+      });
+      setTimeout(() => {
+        navigate("/manage/view-admins");      
+      }, 1500);
     } catch (error: any) {
       console.error("Error creating admin:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to create admin", {
+        position: isMobile ? "top-center" : "top-right",
+      });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <DashboardManager>
-      <div className="lg:p-6 md:p-3 my-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-          <div className="mb-4 lg:mb-0">
-            <h1 className="text-3xl font-bold text-gray-800">Manage Admins</h1>
-            <p className="mt-4 text-gray-600">Create and manage Admins for your church.</p>
-          </div>
-          <button
-            onClick={() => navigate("/manage/view-admins")}
-            className="hover:bg-[#232b3e] bg-[#111827] border-none cursor-pointer px-5 py-2 rounded-sm font-semibold text-gray-100"
+      <Container sx={{ py: isMobile ? 2 : 3 }}>
+        {/* Header Section */}
+        <Grid container spacing={2} sx={{ mb: 5 }}>
+          <Grid size={{xs:12, md:9}}>
+            <Typography
+              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+              component="h1"
+              fontWeight={600}
+              gutterBottom
+              sx={{
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
+              }}
+            >
+              Manage Admins
+            </Typography>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: isLargeScreen ? "0.8125rem" : undefined,
+              }}
+            >
+              Create and manage Admins for your church.
+            </Typography>
+          </Grid>
+          <Grid
+            size={{xs:12, md:3}}
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "flex-start", md: "flex-end" },
+              alignItems: "center",
+            }}
           >
-            View Admins
-          </button>
-        </div>
+            <Button
+              variant="contained"
+              onClick={() => navigate("/manage/view-admins")}
+              size="medium"
+              sx={{
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                py: 1,
+                borderRadius: 1,
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": { bgcolor: "#111827" },
+              }}
+            >
+              View Admins
+            </Button>
+          </Grid>
+        </Grid>
 
-        {/* Admin Form */}
-        <form
+        <Box
+          component="form"
           onSubmit={handleSubmit}
-          className="mt-6 lg:p-6 md:p-2 rounded-lg lg:shadow-md space-y-6"
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+            mt: 4,
+            borderRadius: 2,
+          }}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Name */}
-            <div>
-              <label htmlFor="name" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Admin Name
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <BsPerson className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Admin name"
-                  required
-                />
-              </div>
-            </div>
+          <Grid container spacing={4}>
+            {/* Name Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Admin Name *"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter Admin name"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <BsPerson style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Admin Email
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Admin email"
-                  required
-                />
-              </div>
-            </div>
+            {/* Email Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Admin Email *"
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter Admin email"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IoMailOutline style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
 
-            {/* Phone */}
-            <div>
-              <label htmlFor="phone" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Admin Phone No
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <IoCallOutline className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Admin phone number"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Admin Password
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <SlLock className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Enter Admin password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="ml-3 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <PiEye /> : <PiEyeClosed />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Confirm Password
-              </label>
-              <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                <SlLock className="text-gray-400 mr-3 text-xl" />
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full text-base text-gray-800 focus:outline-none"
-                  placeholder="Confirm Admin password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  className="ml-3 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showConfirmPassword ? <PiEye /> : <PiEyeClosed />}
-                </button>
-              </div>
-            </div>
-
+            {/* Phone Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Admin Phone No *"
+                id="phone"
+                name="phone"
+                type="number"
+                value={formData.phone}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter Admin phone number"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IoCallOutline style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
+            
             {/* Branch Selection */}
-            <div>
-              <label htmlFor="branchId" className="block text-base text-gray-700 font-medium mb-2 text-left">
-                Assign to Branch
-              </label>
-              <div className="relative">
-                {isFetchingBranches ? (
-                  <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-                    <div className="inline-block h-5 w-5 border-2 mr-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-gray-500">Loading branches...</span>
-                  </div>
-                ) : (
-                  <select
-                    id="branchId"
-                    name="branchId"
-                    value={formData.branchId}
-                    onChange={handleChange}
-                    className="w-full h-12 px-4 py-3 border border-gray-300 rounded-md text-base text-gray-800 focus:outline-none appearance-none bg-transparent"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                      backgroundSize: "1.25rem",
-                    }}
-                  >
-                    <option value="" disabled>
-                      Select a branch (optional)
-                    </option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name} - {branch.address}
-                      </option>
-                    ))}
-                  </select>
+            <Grid size={{xs:12, md:6}}>
+              <FormControl fullWidth>
+                <InputLabel id="branch-label">Assign to Branch</InputLabel>
+                <Select
+                  labelId="branch-label"
+                  id="branchId"
+                  name="branchId"
+                  value={formData.branchId}
+                  onChange={handleSelectChange}
+                  label="Assign to Branch"
+                  disabled={loading || isFetchingBranches}
+                  sx={{
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Select a branch (optional)</em>
+                  </MenuItem>
+                  {branches.map((branch) => (
+                    <MenuItem key={branch.id} value={branch.id}>
+                      {branch.name} - {branch.address}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {isFetchingBranches && (
+                  <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    <Typography variant="body2">Loading branches...</Typography>
+                  </Box>
                 )}
                 {branchesError && (
-                  <p className="mt-1 text-sm text-red-600">{branchesError}</p>
+                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                    {branchesError}
+                  </Typography>
                 )}
-              </div>
-            </div>
+              </FormControl>
+            </Grid>
+
+            {/* Password Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Admin Password *"
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter Admin password"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SlLock style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {!showPassword ? <PiEyeClosed size={20}/> : <IoEyeOutline size={20}/>}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
+
+            {/* Confirm Password Field */}
+            <Grid size={{xs:12, md:6}}>
+              <TextField
+                fullWidth
+                label="Confirm Password *"
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Confirm Admin password"
+                disabled={loading}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SlLock style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                      >
+                        {!showConfirmPassword ? <PiEyeClosed size={20}/> : <IoEyeOutline size={20}/>}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
 
             {/* Super Admin Checkbox */}
-            <div className="col-span-full">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isSuperAdmin"
-                  name="isSuperAdmin"
-                  checked={formData.isSuperAdmin}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                <label htmlFor="isSuperAdmin" className="text-base text-gray-700 font-medium">
-                  Is Super Admin
-                </label>
-              </div>
-            </div>
-          </div>
+            <Grid size={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.isSuperAdmin}
+                    onChange={handleChange}
+                    name="isSuperAdmin"
+                    color="primary"
+                  />
+                }
+                label="Is Super Admin?"
+                sx={{
+                  "& .MuiTypography-root": {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+              />
+            </Grid>
+          </Grid>
 
           {/* Submit Button */}
-          <div className="pt-7">
-            <button
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
+              variant="contained"
+              disabled={loading}
+              sx={{
+                py: 1,
+                bgcolor: "#1f2937",
+                px: { xs: 2, sm: 2 },
+                borderRadius: 1,
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": { bgcolor: "#111827" },
+              }}
             >
-              {isLoading ? (
+              {loading ? (
                 <>
-                  <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  Creating Admin...
+                  <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
+                  Creating...
                 </>
               ) : (
                 "Create Admin"
               )}
-            </button>
-          </div>
-        </form>
-      </div>
+            </Button>
+          </Box>
+        </Box>
+      </Container>
     </DashboardManager>
   );
 };
