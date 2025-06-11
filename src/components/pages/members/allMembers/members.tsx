@@ -32,7 +32,7 @@ interface FormData {
   phoneNo: string;
   sex: string;
   maritalStatus: string;
-  memberFor: number;
+  memberFor: string;
   ageFrom: number | null;
   ageTo: number | null;
   birthMonth: string;
@@ -60,7 +60,7 @@ const MemberForm: React.FC = () => {
     phoneNo: "",
     sex: "",
     maritalStatus: "",
-    memberFor: 0,
+    memberFor: "",
     ageFrom: null,
     ageTo: null,
     birthMonth: "",
@@ -173,7 +173,7 @@ const MemberForm: React.FC = () => {
         phoneNo: "",
         sex: "",
         maritalStatus: "",
-        memberFor: 0,
+        memberFor: "",
         ageFrom: null,
         ageTo: null,
         birthMonth: "",
@@ -515,42 +515,40 @@ const MemberForm: React.FC = () => {
                   <MenuItem value="married">Married</MenuItem>
                   <MenuItem value="divorced">Divorced</MenuItem>
                   <MenuItem value="widowed">Widowed</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
                 </TextField>
               </Grid>
 
-              <Grid size={{xs:12, md:6}}>
+                <Grid size={{xs:12, md:6}}>
                 <TextField
                   fullWidth
-                  label="Years Of Membership"
+                  label="Year Of Membership"
                   id="memberFor"
                   name="memberFor"
-                  type="number"
+                  type="date"
                   value={formData.memberFor}
-                  onChange={handleNumberChange}
+                  onChange={handleChange} // Changed to handleChange to correctly update the state
                   variant="outlined"
-                  placeholder="Enter number of years"
                   disabled={isLoading}
                   size="medium"
                   InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BsPerson style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      fontSize: isLargeScreen ? "1rem" : undefined,
-                    },
-                    inputProps: {
-                      min: 0,
-                    },
+                  startAdornment: (
+                    <InputAdornment position="start">
+                    <BsPerson style={{ color: theme.palette.text.secondary }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                   }}
                   InputLabelProps={{
-                    sx: {
-                      fontSize: isLargeScreen ? "1rem" : undefined,
-                    },
+                  shrink: true, // Ensures the label stays above the input for date fields
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                   }}
                 />
-              </Grid>
+                </Grid>
               <Grid size={{xs:12, md:12}}>
                 <TextField
                   fullWidth

@@ -19,7 +19,7 @@ const qrCodes = [
     id: 2,
     title: "Members Registration",
     description: "Scan to register as a church member",
-    path: "/members/register"
+    path: "/members"
   },
   {
     id: 3,

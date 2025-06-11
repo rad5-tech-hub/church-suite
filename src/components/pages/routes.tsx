@@ -27,6 +27,7 @@ const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./settingProfile/settingProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
+const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 
 // Private Route Component
@@ -57,6 +58,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
           <Route path="/followups" element={<FollowUpQrcodepage />} />
+          <Route path="/members" element={<MemberQrcodepage />} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={
