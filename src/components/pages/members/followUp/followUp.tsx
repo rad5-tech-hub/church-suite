@@ -349,7 +349,7 @@ const RegistrationForm: React.FC = () => {
 
           {/* Submit Button */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-            {/* Form Actions */}
+            {/* Form Actions */}            
             <Button
               type="submit"
               variant="contained"

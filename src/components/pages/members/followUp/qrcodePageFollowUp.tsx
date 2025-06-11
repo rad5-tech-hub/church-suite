@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 
 // Material-UI components
 import {
@@ -13,6 +13,7 @@ import {
   SelectChangeEvent,
   TextField,
   Typography,
+
   useTheme,
 } from "@mui/material";
 
@@ -29,23 +30,36 @@ import Api from "../../../shared/api/api";
 interface FirstTimerFormProps {}
 
 interface FirstTimerData {
-  fullName: string;
-  phoneNo: string;
-  gender: string;
-  address: string;
-  birthDay: string;
-  birthMonth: string;
-  timer?: number | null;
+    name: string;
+    phoneNo: string;
+    sex: string;
+    address: string;
+    birthMonth: string;
+    birthDay: string;
+    timer: null | number;
 }
 
 // Main Component
-const FirstTimerForm: React.FC<FirstTimerFormProps> = () => {
-  const navigate = useNavigate();
+const FirstTimerForm: React.FC<FirstTimerFormProps> = () => {  
+  const [searchParams] = useSearchParams();
+  
+  const [churchId, setChurchId] = useState<string>("");
+  const [branchId, setBranchId] = useState<string>("");
+
+  useEffect(() => {
+    // Extract churchId and branchId from URL parameters
+    const urlChurchId = searchParams.get("churchId");
+    const urlBranchId = searchParams.get("branchId");
+    
+    if (urlChurchId) setChurchId(urlChurchId);
+    if (urlBranchId) setBranchId(urlBranchId);
+  }, [searchParams]);
+
 
   const [formData, setFormData] = useState<FirstTimerData>({
-    fullName: "",
+    name: "",
     phoneNo: "",
-    gender: "",
+    sex: "",
     address: "",
     birthDay: "",
     birthMonth: "",
@@ -74,17 +88,13 @@ const FirstTimerForm: React.FC<FirstTimerFormProps> = () => {
     setIsLoading(true);
 
     try {
-      const authData = { churchId: "dummy-church-id", branchId: "dummy-branch-id" };
-      const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
-      await Api.post(`/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`, formData);
+      const branchIdParam = branchId ? `&branchId=${branchId}` : "";
+      await Api.post(`/member/add-follow-up?churchId=${churchId}${branchIdParam}`, formData);
 
-      toast.success("New Follow Up created successfully!", {
+      toast.success("Submited Info successfully!", {
         autoClose: 3000,
       });
 
-      setTimeout(() => {
-        navigate("/manage/view-branches");
-      }, 1500);
     } catch (error: any) {
       console.error("Error creating follow up:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to create follow up. Please try again.", {
@@ -183,13 +193,14 @@ const RightSection: React.FC<RightSectionProps> = ({
             display: "flex",
             flexDirection: "column",
             gap: 3,
+            mt: 2,
           }}
         >
           <FormControl fullWidth>
             <TextField
               label="Full Name"
-              name="fullName"
-              value={formData.fullName}
+              name="name"
+              value={formData.name}
               onChange={handleInputChange}
               placeholder="Enter full name"
               required
@@ -226,8 +237,8 @@ const RightSection: React.FC<RightSectionProps> = ({
             <InputLabel id="gender-label">Gender</InputLabel>
             <Select
               labelId="gender-label"
-              name="gender"
-              value={formData.gender}
+              name="sex"
+              value={formData.sex}
               label="Gender"
               onChange={handleSelectChange}
               required

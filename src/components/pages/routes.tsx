@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useSelector } from "react-redux";
 import { RootState } from "../reduxstore/redux";
 import Loading from "./setupAccount/setting-loader/loading";
+import NotFoundPage from "./notFound";
 
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
@@ -25,7 +26,8 @@ const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/crea
 const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./settingProfile/settingProfile"));
-const QrcodepagesFollowUp = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
+const FollowUpQrcodepage = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
+const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 
 // Private Route Component
 interface PrivateRouteProps {
@@ -54,7 +56,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/admin-account" element={<CreateAccount />} />
           <Route path="/setting-up" element={<Loading />} />
-          <Route path="/followups" element={<QrcodepagesFollowUp />} />
+          <Route path="/followups" element={<FollowUpQrcodepage />} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={
@@ -132,11 +134,16 @@ const AppRoutes: React.FC = () => {
               <ViewSingleFollowUp/>
             </PrivateRoute>
           } />
+           <Route path="/qrcodes" element={
+            <PrivateRoute>
+              <Qrcode/>
+            </PrivateRoute>
+          } />
 
           {/* Redirect to Dashboard if no match */}
 
           {/* Fallback Route */}
-          {/* <Route path="*" element={<NotFound />} /> */}
+          <Route path="*" element={<NotFoundPage/>} />
         </Routes>
       </Suspense>
     </Router>
@@ -158,3 +165,4 @@ function LoadingSpinner() {
 }
 
 export default AppRoutes;
+

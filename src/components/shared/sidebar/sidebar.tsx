@@ -6,6 +6,7 @@ import { LuLayoutDashboard, LuMail, LuChurch, LuSettings } from "react-icons/lu"
 import { LiaDonateSolid } from "react-icons/lia";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
+import { QrCodeScannerOutlined } from "@mui/icons-material";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
                     <NavLink
-                      to="/manage/admin"
+                      to="/manage/view-admins"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -99,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/manage/branch"
+                      to="/manage/view-branches"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -111,7 +112,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/manage/department"
+                      to="/manage/view-Departments"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -125,7 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               )}
             </li>
 
-            {/* Members */}
+            {/* Members  */}
             <li>
               <button
                 onClick={() => toggleDropdown("members")}
@@ -142,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
                     <NavLink
-                      to="/members/member"
+                      to="/members/view-members"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -154,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                   <li>
                     <NavLink
-                      to="/register/followup"
+                      to="/view/followup"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md ${
                           isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
@@ -162,18 +163,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                       }
                     >
                       Follow Up's
-                    </NavLink>
-                  </li>
-                  <li>
-                    <NavLink
-                      to="/members/qr-code"
-                      className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
-                        }`
-                      }
-                    >
-                      Generate QR-CODE
                     </NavLink>
                   </li>
                 </ul>
@@ -288,6 +277,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                   </li>
                 </ul>
               )}
+            </li>
+
+            {/* QRcode */}
+            <li>
+              <NavLink
+                to="/qrcodes"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
+                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  }`
+                }
+              >
+                <QrCodeScannerOutlined className="text-2xl" />
+                QR-CODES
+              </NavLink>
             </li>
 
             {/* setting */}
