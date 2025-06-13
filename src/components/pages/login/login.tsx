@@ -70,7 +70,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
     try {
       const response = await fetch(
-        "https://church.bookbank.com.ng/church/login",
+       `${import.meta.env.VITE_API_BASE_URL}/church/login`,
         {
           method: "POST",
           headers: {
@@ -114,7 +114,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
     try {
       const response = await fetch(
-        "https://church.bookbank.com.ng/church/forgot-password",
+        `${import.meta.env.VITE_API_BASE_URL}church/forgot-password`,
         {
           method: "POST",
           headers: {

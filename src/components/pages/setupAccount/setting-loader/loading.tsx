@@ -29,7 +29,7 @@ const Loading: React.FC = () => {
   
       try {
         const response = await fetch(
-          `https://church.bookbank.com.ng/church/verify-admin?token=${token}`,
+          `${import.meta.env.VITE_API_BASE_URL}church/verify-admin?token=${token}`,
           {
             method: "GET",
             headers: {
@@ -91,7 +91,7 @@ const Loading: React.FC = () => {
   const handleResendVerification = async () => {
     setIsVerifying(true); // Disable the button and show "Verifying..."
     try {
-      const response = await fetch("https://church.bookbank.com.ng/church/resend-verification-email", {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}church/resend-verification-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
