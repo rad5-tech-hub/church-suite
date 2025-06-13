@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  CircularProgress
 } from "@mui/material";
 import { 
   Phone as PhoneIcon, 
@@ -198,7 +197,7 @@ const ViewAdmin: React.FC = () => {
             minHeight: "100vh",
           }}
         >
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
         </Box>
       </DashboardManager>
     );
@@ -270,12 +269,16 @@ const ViewAdmin: React.FC = () => {
                 onClick={handleEditClick}
                 size="medium"
                 sx={{
-                  bgcolor: "#1f2937",                 
+                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable                
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
                   fontSize: isLargeScreen ? '1rem' : undefined,
-                  "&:hover": { bgcolor: "#111827" },
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                    opacity: 0.9, // Add hover effect
+                  },
                 }}
               >
                 Edit Profile
@@ -378,7 +381,7 @@ const ViewAdmin: React.FC = () => {
                     Phone Number
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <PhoneIcon sx={{ mr: 1, color: "#111827", fontSize: "1rem" }} />
+                    <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)", fontSize: "1rem" }} />
                     <Typography variant="body1">
                       {admin.phoneNo || "not provided"}
                     </Typography>
@@ -496,11 +499,15 @@ const ViewAdmin: React.FC = () => {
             variant="contained"
             disabled={editLoading}
             sx={{
-                bgcolor: "#1f2937",
-                "&:hover": { bgcolor: "#111827" },
+              backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+              color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+              "&:hover": {
+                backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                opacity: 0.9, // Add hover effect
+              },
             }}
             >
-            {editLoading ? <CircularProgress size={24} /> : "Save Changes"}
+            {editLoading ? 'Saving' : "Save Changes"}
             </Button>
         </DialogActions>
         </form>

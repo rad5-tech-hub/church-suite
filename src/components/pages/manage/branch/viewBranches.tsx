@@ -242,11 +242,15 @@ const ViewBranches: React.FC = () => {
         variant="contained"
         onClick={() => navigate("/manage/branch")}       
         sx={{
-          bgcolor: "#1f2937",
+          backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
           px: { xs: 2, sm: 2 }, 
           mt: 2,
           fontSize: isLargeScreen ? '0.875rem' : undefined,
-          "&:hover": { bgcolor: "#111827" },
+          color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+          "&:hover": {
+            backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+            opacity: 0.9, // Add hover effect
+          },
         }}
       >
         Create New Branch
@@ -292,14 +296,18 @@ const ViewBranches: React.FC = () => {
               onClick={() => navigate("/manage/branch")}
               size="medium"
               sx={{
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 1,
                 fontWeight: 500,
                 textTransform: "none",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                "&:hover": { bgcolor: "#111827" },
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}
             >
               Create Branch
@@ -310,7 +318,7 @@ const ViewBranches: React.FC = () => {
         {/* Loading State */}
         {loading && branches.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
           </Box>
         )}
 
@@ -446,8 +454,11 @@ const ViewBranches: React.FC = () => {
                               size="small"
                               sx={{
                                 borderRadius: 1,
-                                bgcolor: '#E1E1E1',
-                                '&:hover': { backgroundColor:"#111827", color: '#f0f0f0' },
+                                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+                                "&:hover": {
+                                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                                  opacity: 0.9, // Add hover effect
+                                },
                               }}
                             >
                               <MoreVertIcon fontSize="small" />
@@ -601,7 +612,7 @@ const ViewBranches: React.FC = () => {
               onClick={handleEditClose} 
               sx={{ 
                 border: 1, 
-                color: "#111827",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
             >
@@ -610,8 +621,12 @@ const ViewBranches: React.FC = () => {
             <Button
               onClick={handleEditSubmit}
               sx={{ 
-                bgcolor: "#111827", 
-                "&:hover": { bgcolor: "#0f172a" },
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
                 fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
               variant="contained"

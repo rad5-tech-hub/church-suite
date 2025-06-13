@@ -25,9 +25,9 @@ import {
 import {
   MoreVert as MoreVertIcon,
   SentimentVeryDissatisfied as EmptyIcon,
+  PersonOutline,
 } from "@mui/icons-material";
 import { AiOutlineDelete } from "react-icons/ai";
-import { FiSettings } from "react-icons/fi";
 import { toast } from "react-toastify";
 
 import DashboardManager from "../../../shared/dashboardManager";
@@ -78,11 +78,15 @@ const EmptyState: React.FC<{ error: string | null; onAddFollowUp: () => void; is
       variant="contained"
       onClick={onAddFollowUp}
       sx={{
-        bgcolor: "#1f2937",
+        backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
         px: { xs: 2, sm: 2 },
         mt: 2,
         fontSize: isLargeScreen ? "0.875rem" : undefined,
-        "&:hover": { bgcolor: "#111827" },
+        color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+        "&:hover": {
+          backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+          opacity: 0.9, // Add hover effect
+        },
       }}
     >
       Add New Follow-Up
@@ -159,8 +163,11 @@ const FollowUpRow: React.FC<{
         disabled={loading}
         sx={{
           borderRadius: 1,
-          bgcolor: "#E1E1E1",
-          "&:hover": { backgroundColor: "#111827", color: "#f0f0f0" },
+          backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+          "&:hover": {
+            backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+            opacity: 0.9, // Add hover effect
+          },
         }}
         size="small"
       >
@@ -191,8 +198,8 @@ const ActionMenu: React.FC<{
     PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
   >
     <MenuItem onClick={onView}>
-      <FiSettings style={{ marginRight: 8, fontSize: "1rem" }} />
-      Settings
+      <PersonOutline style={{ marginRight: 8, fontSize: "1rem" }} />
+      Profile
     </MenuItem>
     <MenuItem onClick={() => onAction("delete")} disabled={loading}>
       <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
@@ -364,14 +371,18 @@ const ViewFollowUp: React.FC = () => {
               onClick={handleAddFollowUp}
               size="medium"
               sx={{
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 1,
                 fontWeight: 500,
                 textTransform: "none",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": { bgcolor: "#111827" },
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}          
             >
               Add Follow-Up
@@ -382,7 +393,7 @@ const ViewFollowUp: React.FC = () => {
         {/* Loading State */}
         {loading && followUps.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
           </Box>
         )}
 

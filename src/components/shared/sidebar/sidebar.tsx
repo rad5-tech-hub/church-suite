@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose } from "react-icons/md";
 import { HiUsers } from "react-icons/hi2";
@@ -7,42 +7,93 @@ import { LiaDonateSolid } from "react-icons/lia";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import { QrCodeScannerOutlined } from "@mui/icons-material";
+import { Tooltip } from "@mui/material";
 
 interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
 }
 
+// Color utility functions
+const isDarkColor = (color: string): boolean => {
+  // Remove any non-hex characters
+  const hex = color.replace(/[^0-9A-F]/gi, '');
+  // Convert to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  // Calculate brightness
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+};
+
+const getActiveBgColor = (color: string) => {
+  return isDarkColor(color)
+    ? "bg-[color-mix(in_srgb,_var(--color-primary),_white_20%)]"
+    : "bg-[color-mix(in_srgb,_var(--color-primary),_black_20%)]";
+};
+
+const getHoverBgColor = (color: string) => {
+  return isDarkColor(color)
+    ? "hover:bg-[color-mix(in_srgb,_var(--color-primary),_white_10%)]"
+    : "hover:bg-[color-mix(in_srgb,_var(--color-primary),_black_10%)]";
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-
   const authData = useSelector((state: RootState) => state.auth?.authData);
+  const [primaryColor, setPrimaryColor] = useState("#111827");
+
+  // Watch for changes in CSS variable
+  useEffect(() => {
+    const updateColor = () => {
+      const color = getComputedStyle(document.documentElement)
+        .getPropertyValue("--color-primary")
+        .trim();
+      setPrimaryColor(color || "#111827");
+    };
+
+    // Initial update
+    updateColor();
+
+    // Watch for changes
+    const observer = new MutationObserver(updateColor);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const toggleDropdown = (menu: string) => {
     setActiveDropdown(activeDropdown === menu ? null : menu);
   };
 
+  // Get dynamic class names based on current primary color
+  const activeBgClass = getActiveBgColor(primaryColor);
+  const hoverBgClass = getHoverBgColor(primaryColor);
+
   return (
     <>
       <div
-        className={`fixed top-0 left-0 h-screen w-64 bg-[#111827] text-white flex flex-col transform ${
+        className={`fixed top-0 left-0 h-screen w-64 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 lg:translate-x-0 lg:static z-40`}
       >
         {/* Name Section with Logo */}
-        <div className="flex items-center justify-between py-4 px-4 border-b border-gray-700">
+        <div className="flex items-center justify-between py-4 px-4 border-b border-[color-mix(in_srgb,_var(--color-primary),_black_30%)]">
           <div className="flex items-center gap-3">
             <img
               src={authData?.logo}
-              alt={`${authData?.church_name} logos`}
+              alt={`${authData?.church_name} logo`}
               className="h-8 w-8 object-contain rounded-full"
             />
-            <h1
-              className="text-xl font-bold truncate max-w-[120px]"
-              title={authData?.church_name || ""}
-            >
-              {authData?.church_name || ""}
-            </h1>
+            <Tooltip title={authData?.church_name || ""} arrow>
+              <h1 className="text-xl font-bold truncate max-w-[120px]">
+                {authData?.church_name || ""}
+              </h1>
+            </Tooltip>
           </div>
           <button
             className="text-gray-300 hover:text-white lg:hidden"
@@ -54,15 +105,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
+        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-[color-mix(in_srgb,_var(--color-primary),_white_50%)] scrollbar-track-transparent">
           <ul className="space-y-4">
             {/* Dashboard */}
             <li>
               <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
-                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
-                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
                   }`
                 }
               >
@@ -75,8 +126,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("manageChurch")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
-                aria-label="Manage Church"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Manage Church"                                
               >
                 <span className="flex items-center gap-3 font-semibold" title="Manage Church">
                   <LuChurch className="text-2xl" />
@@ -88,10 +139,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
                     <NavLink
-                      to="/manage/view-admins"
+                      to="/manage/view-admins"                   
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -102,8 +153,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/manage/view-branches"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -114,8 +165,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/manage/view-Departments"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -126,11 +177,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               )}
             </li>
 
-            {/* Members  */}
+            {/* Members */}
             <li>
               <button
                 onClick={() => toggleDropdown("members")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
                 aria-label="Members"
               >
                 <span className="flex items-center font-semibold gap-3">
@@ -145,8 +196,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/members/view-members"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -157,8 +208,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/view/followup"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -173,7 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("autoMessages")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
                 aria-label="Auto Messages"
               >
                 <span className="flex items-center font-semibold gap-3">
@@ -188,8 +239,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/auto-messages/new-month"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -200,8 +251,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/auto-messages/birthday"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -212,8 +263,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/auto-messages/first-timer"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -228,7 +279,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("finance")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
                 aria-label="Finance"
               >
                 <span className="flex items-center font-semibold gap-3">
@@ -243,8 +294,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/finance/categories"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -255,8 +306,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/finance/qr-code"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -267,8 +318,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     <NavLink
                       to="/finance/budget"
                       className={({ isActive }) =>
-                        `block px-4 py-2 rounded-md ${
-                          isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
                         }`
                       }
                     >
@@ -284,8 +335,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               <NavLink
                 to="/qrcodes"
                 className={({ isActive }) =>
-                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
-                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
                   }`
                 }
               >
@@ -297,15 +348,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             {/* setting */}
             <li>
               <NavLink
-                to="/dashboard"
+                to="/church-settings"
                 className={({ isActive }) =>
-                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md ${
-                    isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:text-white hover:bg-gray-700"
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
                   }`
                 }
               >
                 <LuSettings className="text-2xl" />
-                Setting
+                Settings
               </NavLink>
             </li>
           </ul>

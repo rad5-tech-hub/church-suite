@@ -82,7 +82,7 @@ const ViewSingleMember: React.FC = () => {
             minHeight: "100vh", // Ensure full screen height
           }}
         >
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
         </Box>
       </DashboardManager>
     );
@@ -172,12 +172,16 @@ const ViewSingleMember: React.FC = () => {
                 onClick={() =>{navigate('/members/edit/' + member.id)}}
                 size="medium"
                 sx={{
-                  bgcolor: "#1f2937",                 
+                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable                 
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: isLargeScreen ? '1rem' : undefined,
-                  "&:hover": { bgcolor: "#111827" },
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                    opacity: 0.9, // Add hover effect
+                  },
                 }}
               >
                 Edit Profile
@@ -268,7 +272,7 @@ const ViewSingleMember: React.FC = () => {
                     Phone Number
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <PhoneIcon sx={{ mr: 1, color: "#111827", fontSize: "1rem" }} />
+                    <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)", fontSize: "1rem" }} />
                     <Typography variant="body1">
                       {member.phoneNo || "N/A"}
                     </Typography>

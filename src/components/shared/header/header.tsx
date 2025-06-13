@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const id = open ? "profile-popover" : undefined;
 
   return (
-    <header className="w-full h-16 bg-[#111827] text-white flex items-center justify-between px-6 shadow-md">
+    <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
       {/* Left Section: Menu Button */}
       <div className="flex items-center gap-4">
         <button
@@ -82,12 +82,12 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             className="flex items-center gap-2 cursor-pointer"
             onClick={handleProfileClick}
           >
-            <div className="p-2 border border-gray-400 rounded-full" title={`${authData?.name || ''} ${authData?.email || ''}`}>
+            <div className="p-2 border border-[var(--color-text-on-primary)] rounded-full" title={`${authData?.name || ''} ${authData?.email || ''}`}>
               <BsPerson className="text-xl" aria-label="Person" />
             </div>
             <span className="hidden lg:block text-sm font-medium">
               <span className="block">{authData?.name || ""}</span> {/* Name on one row */}
-              <span className="block text-[10px] text-gray-100">{authData?.email || ""}</span> {/* Email on another row */}
+              <span className="block text-[10px] ">{authData?.email || ""}</span> {/* Email on another row */}
             </span>
           </div>
 

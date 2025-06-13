@@ -70,7 +70,7 @@ const ViewSingleFollowUp: React.FC = () => {
             minHeight: "100vh", // Ensure full screen height
           }}
         >
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
         </Box>
       </DashboardManager>
     );
@@ -106,11 +106,15 @@ const ViewSingleFollowUp: React.FC = () => {
                   variant="contained"
                   onClick={() => navigate("/view/followup")}       
                   sx={{
-                    bgcolor: "#1f2937",
+                    backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                     px: { xs: 2, sm: 2 }, 
                     mt: 2,
                     fontSize: '0.875rem',
-                    "&:hover": { bgcolor: "#111827" },
+                    color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                    "&:hover": {
+                      backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                      opacity: 0.9, // Add hover effect
+                    },
                   }}
                 >
                   View All Follow Ups
@@ -164,12 +168,16 @@ const ViewSingleFollowUp: React.FC = () => {
                 onClick={() =>{navigate('/view/followup')}}
                 size="medium"
                 sx={{
-                  bgcolor: "#1f2937",                 
+                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable               
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: isLargeScreen ? '1rem' : undefined,
-                  "&:hover": { bgcolor: "#111827" },
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                    opacity: 0.9, // Add hover effect
+                  },
                 }}
               >
                 Move To Member
@@ -227,7 +235,7 @@ const ViewSingleFollowUp: React.FC = () => {
                                     : "success.main", // Dynamically set the background color
                             }}
                         />
-                    </Box> {followUp.timer} {followUp.timer > 1 ? 'Days' : 'Day'}
+                    </Box> {followUp.timer} {followUp.timer > 1 ? 'Times' : 'Time'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -266,7 +274,7 @@ const ViewSingleFollowUp: React.FC = () => {
                     Phone Number
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <PhoneIcon sx={{ mr: 1, color: "#111827", fontSize: "1rem" }} />
+                    <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)", fontSize: "1rem" }} />
                     <Typography variant="body1">
                       {followUp.phoneNo || "N/A"}
                     </Typography>

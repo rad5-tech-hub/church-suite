@@ -137,14 +137,18 @@ const Department: React.FC = () => {
               onClick={() => navigate("/manage/view-Departments")}
               size="medium"             
               sx={{
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)", 
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 1,
                 fontWeight: "semibold",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { bgcolor: "#111827" },              
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },            
               }}
             >
               View Departments
@@ -237,13 +241,17 @@ const Department: React.FC = () => {
               disabled={loading}    
               sx={{                
                 py: 1,                  
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable bgcolor: "#1f2937",
                 px: { xs: 2, sm: 2 },                  
                 borderRadius: 1,
                 fontWeight: "semibold",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { bgcolor: "#111827" },
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}
             >
               {loading ? (

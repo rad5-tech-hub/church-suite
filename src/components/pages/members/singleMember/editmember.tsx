@@ -201,7 +201,7 @@ const EditMember: React.FC = () => {
             minHeight: "100vh", // Ensure full screen height
             }}
         >
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
         </Box>
         </DashboardManager>
     );
@@ -237,11 +237,15 @@ const EditMember: React.FC = () => {
                   variant="contained"
                   onClick={() => navigate("/manage/view-members")}       
                   sx={{
-                    bgcolor: "#1f2937",
+                    backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                     px: { xs: 2, sm: 2 }, 
+                    color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                     mt: 2,
                     fontSize: '0.875rem',
-                    "&:hover": { bgcolor: "#111827" },
+                    "&:hover": {
+                      backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                      opacity: 0.9, // Add hover effect
+                    },
                   }}
                 >
                   View All Members
@@ -284,8 +288,8 @@ const EditMember: React.FC = () => {
               startIcon={<ArrowBackIcon />}
               onClick={() => navigate((`/members/view/${member?.id}`))}
               sx={{ textTransform: "none",
-                borderColor: '#1f2937',
-                color: '#1f2937',
+                borderColor: 'var(--color-primary)',
+                color: "var(--color-primary)", // Ensure text color is set correctly
                }}
             >
               Back
@@ -296,9 +300,13 @@ const EditMember: React.FC = () => {
               onClick={handleSubmit}
               disabled={saving}
               sx={{ 
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 textTransform: "none",
-                bgcolor: "#1f2937",
-                "&:hover": { bgcolor: "#111827" },
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}
             >
               {saving ? 'Saving...' : 'Save'}
@@ -418,7 +426,7 @@ const EditMember: React.FC = () => {
                 value={formData.phoneNo || ''}
                 onChange={handleInputChange}
                 InputProps={{
-                  startAdornment: <PhoneIcon sx={{ mr: 1, color: "#111827" }} />
+                  startAdornment: <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)" }} />
                 }}
                 sx={{ mb: 3 }}
               />

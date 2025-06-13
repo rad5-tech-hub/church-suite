@@ -246,11 +246,15 @@ const ViewAdmins: React.FC = () => {
         variant="contained"
         onClick={() => navigate("/manage/admin")}       
         sx={{
-          bgcolor: "#1f2937",
+          backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
           px: { xs: 2, sm: 2 }, 
           mt: 2,
+          color: "var(--color-text-on-primary)", // Ensure text color is set correctly
           fontSize: isLargeScreen ? '0.875rem' : undefined,
-          "&:hover": { bgcolor: "#111827" },
+          "&:hover": {
+            backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+            opacity: 0.9, // Add hover effect
+          },
         }}
       >
         Create New Admin
@@ -296,14 +300,18 @@ const ViewAdmins: React.FC = () => {
               onClick={() => navigate("/manage/admin")}
               size="medium"
               sx={{
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 1,
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 fontWeight: 500,
                 textTransform: "none",
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                "&:hover": { bgcolor: "#111827" },
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}
             >
               Create Admin
@@ -314,7 +322,7 @@ const ViewAdmins: React.FC = () => {
         {/* Loading State */}
         {loading && admins.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#111827]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
           </Box>
         )}
 
@@ -433,7 +441,7 @@ const ViewAdmins: React.FC = () => {
                               sx={{
                                 borderRadius: 1,
                                 bgcolor: '#E1E1E1',
-                                '&:hover': { backgroundColor:"#111827", color: '#f0f0f0' },
+                                '&:hover': { backgroundColor:"var(--color-primary)", color: '#f0f0f0' },
                               }}
                             >
                               <MoreVertIcon fontSize="small" />
@@ -572,7 +580,7 @@ const ViewAdmins: React.FC = () => {
               onClick={handleEditClose} 
               sx={{ 
                 border: 1, 
-                color: "#111827",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
             >
@@ -581,8 +589,12 @@ const ViewAdmins: React.FC = () => {
             <Button
               onClick={handleEditSubmit}
               sx={{ 
-                bgcolor: "#111827", 
-                "&:hover": { bgcolor: "#0f172a" },
+                bgcolor: "var(--color-primary)",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
                 fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
               variant="contained"

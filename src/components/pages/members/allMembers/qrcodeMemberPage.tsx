@@ -213,21 +213,21 @@ const MemberForm: React.FC = () => {
                     fontSize: "0.75rem",
                     color: "#6B7280",
                     "&.Mui-active": {
-                      color: "#111827 !important",
+                      color: "var(--color-primary) !important",
                       fontWeight: "bold",
                     },
                     "&.Mui-completed": {
-                      color: "#111827 !important",
+                      color: "var(--color-primary) !important",
                       fontWeight: "normal",
                     },
                   },
                   "& .MuiStepIcon-root": {
                     color: "#D1D5DB",
                     "&.Mui-active": {
-                      color: "#111827",
+                      color: "var(--color-primary)",
                     },
                     "&.Mui-completed": {
-                      color: "#111827",
+                      color: "var(--color-primary)",
                     },
                   },
                   "& .MuiStepIcon-text": {
@@ -636,13 +636,17 @@ const MemberForm: React.FC = () => {
                     disabled={isLoading}
                     sx={{
                       py: 1,
-                      bgcolor: "#1f2937",
+                      backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                       px: { xs: 3, sm: 3 },
                       borderRadius: 1,
                       fontWeight: "semibold",
                       textTransform: "none",
                       fontSize: { xs: "1rem", sm: "1rem" },
-                      "&:hover": { bgcolor: "#111827" },
+                      color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                      "&:hover": {
+                        backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                        opacity: 0.9, // Add hover effect
+                      },
                       ml: "auto",
                     }}
                   >
@@ -655,13 +659,17 @@ const MemberForm: React.FC = () => {
                     disabled={isLoading}
                     sx={{
                       py: 1,
-                      bgcolor: "#1f2937",
+                      backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                       px: { xs: 2, sm: 2 },
                       borderRadius: 1,
                       fontWeight: "semibold",
                       textTransform: "none",
                       fontSize: { xs: "1rem", sm: "1rem" },
-                      "&:hover": { bgcolor: "#111827" },
+                      color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                      "&:hover": {
+                        backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                        opacity: 0.9, // Add hover effect
+                      },
                       ml: "auto",
                     }}
                   >

@@ -103,11 +103,25 @@ const QrCode: React.FC = () => {
   return (
     <DashboardManager>
       <Box sx={{ p: 3 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography              
+          component="h1"
+          fontWeight={600}
+          gutterBottom
+          sx={{                       
+            fontSize:  "1.5rem",
+          }}
+        >
           QR Code Dashboard
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Manage and track your QR codes for church activities
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{
+            fontSize: "0.8125rem"
+          }}
+          paragraph
+        >
+          Create and manage Admins for your church.
         </Typography>
 
         <Grid container spacing={3}>
@@ -150,13 +164,14 @@ const QrCode: React.FC = () => {
                         variant="contained"
                         onClick={() => downloadQRCode(qr.title, qr.id)}
                         sx={{                        
-                          bgcolor: "#1f2937",              
+                          bgcolor: "var(--color-primary)",              
                           borderRadius: 1,
                           fontWeight: "semibold",
+                          color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                           textTransform: "none",
                           fontSize: { xs: "1rem", sm: "1rem" },
-                          "&:hover": { bgcolor: "#111827" },
-                        }}
+                          "&:hover": { bgcolor: 'var(--color-primary)' },
+                        }}                        
                       >
                         Download
                       </Button>

@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../reduxstore/redux";
 import Loading from "./setupAccount/setting-loader/loading";
 import NotFoundPage from "./notFound";
+import ChangeColorButton from "./settingsChurch/setting";
 
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
@@ -59,6 +60,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/setting-up" element={<Loading />} />
           <Route path="/followups" element={<FollowUpQrcodepage />} />
           <Route path="/members" element={<MemberQrcodepage />} />
+          <Route path="/church-settings" element={<ChangeColorButton />} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={

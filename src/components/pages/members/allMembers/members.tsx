@@ -262,14 +262,18 @@ const MemberForm: React.FC = () => {
               onClick={() => navigate("/members/view-members")}
               size="medium"
               sx={{
-                bgcolor: "#1f2937",
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 1,
                 fontWeight: "semibold",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { bgcolor: "#111827" },
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
               }}
             >
               View Members
@@ -304,12 +308,12 @@ const MemberForm: React.FC = () => {
                 color: "#6B7280", // Gray for inactive steps
                 // Active state
                 "&.Mui-active": {
-                  color: "#111827 !important", // Force color with !important
+                  color: "var(--color-primary) !important", // Force color with !important
                   fontWeight: "bold",
                 },
                 // Completed state
                 "&.Mui-completed": {
-                  color: "#111827 !important", // Force color with !important
+                  color: "var(--color-primary) !important", // Force color with !important
                   fontWeight: "normal",
                 },
               },
@@ -317,10 +321,10 @@ const MemberForm: React.FC = () => {
               "& .MuiStepIcon-root": {
                 color: "#D1D5DB", // Inactive icon color
                 "&.Mui-active": {
-                  color: "#111827", // Active icon color
+                  color: "var(--color-primary)", // Active icon color
                 },
                 "&.Mui-completed": {
-                  color: "#111827", // Completed icon color
+                  color: "var(--color-primary)", // Completed icon color
                 },
               },
               "& .MuiStepIcon-text": {
@@ -880,13 +884,17 @@ const MemberForm: React.FC = () => {
                 disabled={isLoading}
                 sx={{
                   py: 1,
-                  bgcolor: "#1f2937",
+                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                   px: { xs: 3, sm: 3 },
                   borderRadius: 1,
                   fontWeight: "semibold",
                   textTransform: "none",
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { bgcolor: "#111827" },
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                    opacity: 0.9, // Add hover effect
+                  },
                   ml: "auto",
                 }}
               >
@@ -899,13 +907,17 @@ const MemberForm: React.FC = () => {
                 disabled={isLoading}
                 sx={{
                   py: 1,
-                  bgcolor: "#1f2937",
+                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
                   px: { xs: 2, sm: 2 },
                   borderRadius: 1,
                   fontWeight: "semibold",
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   textTransform: "none",
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { bgcolor: "#111827" },
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                    opacity: 0.9, // Add hover effect
+                  },
                   ml: "auto",
                 }}
               >
