@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico',],
+      includeAssets: ['favicon.ico'],
       manifest: {
         name: 'ChurchSuite PWA',
         short_name: 'ChurchSuite',
@@ -19,7 +19,7 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'vite.svg',
+            src: './vite.svg',
             sizes: '192x192',
             type: 'image/svg',
           },         
@@ -33,4 +33,5 @@ export default defineConfig({
       },
     }),
   ],
+ 
 })

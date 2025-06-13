@@ -1,9 +1,7 @@
-import './App.css'
-import AppRoutes from './components/pages/routes'
+import AppRoutes from './components/pages/routes';
 
 
 function App() {
-
   return (
     <>
       <AppRoutes/>
@@ -12,3 +10,4 @@ function App() {
 }
 
 export default App
+

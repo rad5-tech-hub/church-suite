@@ -16,9 +16,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite-plugin-pwa/client"]
+    "types": ["vite-plugin-pwa/client", "node", "vite/client", "jest", "@testing-library/jest-dom"]
   },
-  "include": ["src"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"], // Include only TypeScript files
+  "exclude": ["node_modules", "dist", "src/tests/**/*"], // Exclude unnecessary files and directories
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }

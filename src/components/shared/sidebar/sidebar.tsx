@@ -1,111 +1,178 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { MdOutlineKeyboardArrowDown, MdOutlineKeyboardArrowUp } from "react-icons/md";
-import { HiOutlineUsers } from "react-icons/hi2";
-import { LuLayoutDashboard, LuMail, LuChurch } from "react-icons/lu";
+import React, { useState, useEffect } from "react";
+import { NavLink } from "react-router-dom";
+import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose } from "react-icons/md";
+import { HiUsers } from "react-icons/hi2";
+import { LuLayoutDashboard, LuMail, LuChurch, LuSettings } from "react-icons/lu";
 import { LiaDonateSolid } from "react-icons/lia";
-import { BiPencil } from "react-icons/bi";
-import { MdOutlineClose } from "react-icons/md";
+import { useSelector } from "react-redux";
+import { RootState } from "../../reduxstore/redux";
+import { QrCodeScannerOutlined } from "@mui/icons-material";
+import { Tooltip } from "@mui/material";
 
 interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
 }
 
+// Color utility functions
+const isDarkColor = (color: string): boolean => {
+  // Remove any non-hex characters
+  const hex = color.replace(/[^0-9A-F]/gi, '');
+  // Convert to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  // Calculate brightness
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+};
+
+const getActiveBgColor = (color: string) => {
+  return isDarkColor(color)
+    ? "bg-[color-mix(in_srgb,_var(--color-primary),_white_20%)]"
+    : "bg-[color-mix(in_srgb,_var(--color-primary),_black_20%)]";
+};
+
+const getHoverBgColor = (color: string) => {
+  return isDarkColor(color)
+    ? "hover:bg-[color-mix(in_srgb,_var(--color-primary),_white_10%)]"
+    : "hover:bg-[color-mix(in_srgb,_var(--color-primary),_black_10%)]";
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [logo, setLogo] = useState<string>("https://img.freepik.com/free-vector/logo-with-vintage-luxury-style_23-2147839655.jpg");
-  const [background, setBackground] = useState<string>("https://img.freepik.com/free-vector/hotel-horizontal-banner-template-with-photo_52683-65998.jpg");
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const [primaryColor, setPrimaryColor] = useState("#111827");
+
+  // Watch for changes in CSS variable
+  useEffect(() => {
+    const updateColor = () => {
+      const color = getComputedStyle(document.documentElement)
+        .getPropertyValue("--color-primary")
+        .trim();
+      setPrimaryColor(color || "#111827");
+    };
+
+    // Initial update
+    updateColor();
+
+    // Watch for changes
+    const observer = new MutationObserver(updateColor);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const toggleDropdown = (menu: string) => {
     setActiveDropdown(activeDropdown === menu ? null : menu);
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setLogo(URL.createObjectURL(file));
-    }
-  };
-
-  const handleBackgroundUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setBackground(URL.createObjectURL(file));
-    }
-  };
+  // Get dynamic class names based on current primary color
+  const activeBgClass = getActiveBgColor(primaryColor);
+  const hoverBgClass = getHoverBgColor(primaryColor);
 
   return (
     <>
-      {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-screen w-64 bg-[#111827] text-white flex flex-col transform ${
+        className={`fixed top-0 left-0 h-screen w-64 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col transform ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 lg:translate-x-0 lg:static z-40`}
       >
-        {/* Name Section */}
-        <div className="flex items-center justify-between py-4 px-4 border-b border-gray-700">
-          <h1 className="text-2xl font-bold">ChurchSuite</h1>
+        {/* Name Section with Logo */}
+        <div className="flex items-center justify-between py-4 px-4 border-b border-[color-mix(in_srgb,_var(--color-primary),_black_30%)]">
+          <div className="flex items-center gap-3">
+            <img
+              src={authData?.logo}
+              alt={`${authData?.church_name} logo`}
+              className="h-8 w-8 object-contain rounded-full"
+            />
+            <Tooltip title={authData?.church_name || ""} arrow>
+              <h1 className="text-xl font-bold truncate max-w-[120px]">
+                {authData?.church_name || ""}
+              </h1>
+            </Tooltip>
+          </div>
           <button
             className="text-gray-300 hover:text-white lg:hidden"
             onClick={toggleSidebar}
+            aria-label="Close sidebar"
           >
-            <MdOutlineClose className="text-2xl" />
+            <MdClose className="text-2xl" />
           </button>
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
+        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-[color-mix(in_srgb,_var(--color-primary),_white_50%)] scrollbar-track-transparent">
           <ul className="space-y-4">
             {/* Dashboard */}
             <li>
-              <Link
+              <NavLink
                 to="/dashboard"
-                className="flex items-center gap-3 font-semibold text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
+                  }`
+                }
               >
                 <LuLayoutDashboard className="text-2xl" />
                 Dashboard
-              </Link>
+              </NavLink>
             </li>
 
             {/* Manage Church */}
             <li>
               <button
                 onClick={() => toggleDropdown("manageChurch")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Manage Church"                                
               >
                 <span className="flex items-center gap-3 font-semibold" title="Manage Church">
-                  <LuChurch className="text-2xl " />
+                  <LuChurch className="text-2xl" />
                   Manage
                 </span>
-                <span>{activeDropdown === "manageChurch" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "manageChurch" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "manageChurch" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
-                      to="/manage-church/branch"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
-                    >
-                      Branch
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/manage-church/department"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
-                    >
-                      Department
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/manage-church/admin"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                    <NavLink
+                      to="/manage/view-admins"                   
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Admin
-                    </Link>
+                    </NavLink>
                   </li>
+                  <li>
+                    <NavLink
+                      to="/manage/view-branches"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      Branch
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/manage/view-Departments"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      Department
+                    </NavLink>
+                  </li>                 
                 </ul>
               )}
             </li>
@@ -114,31 +181,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("members")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Members"
               >
                 <span className="flex items-center font-semibold gap-3">
-                  <HiOutlineUsers className="text-2xl " />
+                  <HiUsers className="text-2xl" />
                   Members
                 </span>
-                <span>{activeDropdown === "members" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "members" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "members" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
-                      to="/members/list"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                    <NavLink
+                      to="/members/view-members"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Members
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
-                      to="/members/qr-code"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                    <NavLink
+                      to="/view/followup"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
-                      Generate QR-CODE
-                    </Link>
+                      Follow Up's
+                    </NavLink>
                   </li>
                 </ul>
               )}
@@ -148,39 +224,52 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("autoMessages")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Auto Messages"
               >
                 <span className="flex items-center font-semibold gap-3">
                   <LuMail className="text-2xl" />
                   Auto Messages
                 </span>
-                <span>{activeDropdown === "autoMessages" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "autoMessages" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "autoMessages" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/new-month"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       New Month
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/birthday"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Birthday
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/auto-messages/first-timer"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       First/Second Timer
-                    </Link>
+                    </NavLink>
                   </li>
                 </ul>
               )}
@@ -190,94 +279,88 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             <li>
               <button
                 onClick={() => toggleDropdown("finance")}
-                className="flex items-center justify-between w-full gap-3 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Finance"
               >
                 <span className="flex items-center font-semibold gap-3">
                   <LiaDonateSolid className="text-2xl" />
                   Finance
                 </span>
-                <span>{activeDropdown === "finance" ? <MdOutlineKeyboardArrowUp /> : <MdOutlineKeyboardArrowDown />}</span>
+                <span>{activeDropdown === "finance" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
               {activeDropdown === "finance" && (
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/categories"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Finance Categories
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/qr-code"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Generate QR-CODE
-                    </Link>
+                    </NavLink>
                   </li>
                   <li>
-                    <Link
+                    <NavLink
                       to="/finance/budget"
-                      className="block text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-md"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
                     >
                       Budget Planning
-                    </Link>
+                    </NavLink>
                   </li>
                 </ul>
               )}
             </li>
+
+            {/* QRcode */}
+            <li>
+              <NavLink
+                to="/qrcodes"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
+                  }`
+                }
+              >
+                <QrCodeScannerOutlined className="text-2xl" />
+                QR-CODES
+              </NavLink>
+            </li>
+
+            {/* setting */}
+            <li>
+              <NavLink
+                to="/church-settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                    isActive ? `active ${activeBgClass}` : hoverBgClass
+                  }`
+                }
+              >
+                <LuSettings className="text-2xl" />
+                Settings
+              </NavLink>
+            </li>
           </ul>
-        </nav>
-
-        {/* Logo and Background Image Section */}
-        <div
-          className="relative h-40 rounded-t-xl"
-          style={{
-            backgroundImage: `url('${background}')`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          {/* Pencil Icon for Editing Background */}
-          <label
-            htmlFor="background-upload"
-            className="absolute text-center top-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
-          >
-            <BiPencil className="text-lg" />
-            <input
-              type="file"
-              id="background-upload"
-              accept="image/*"
-              className="hidden"
-              onChange={handleBackgroundUpload}
-            />
-          </label>
-
-          {/* Logo */}
-          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2">
-            <img
-              src={logo}
-              alt="ChurchSuite Logo"
-              className="h-16 w-16 object-contain rounded-full border-2 border-white"
-            />
-
-            {/* Pencil Icon for Editing Logo */}
-            <label
-              htmlFor="logo-upload"
-              className="absolute bottom-0 right-0 bg-white text-gray-700 p-1 rounded-full shadow-md hover:bg-gray-100 cursor-pointer"
-            >
-              <BiPencil className="text-sm" />
-              <input
-                type="file"
-                id="logo-upload"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
-            </label>
-          </div>
-        </div>
+        </nav>     
       </div>
 
       {/* Overlay for Off-Canvas Sidebar */}
@@ -285,123 +368,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <div
           className="fixed inset-0 bg-gray-50 opacity-50 z-30 lg:hidden"
           onClick={toggleSidebar}
+          data-testid="overlay"
         ></div>
       )}
     </>
   );
 };
-
-// Test Code (Only runs when in test environment)
-if (process.env.NODE_ENV === 'test') {
-  const { render, screen, fireEvent } = require('@testing-library/react');
-  const { MemoryRouter } = require('react-router-dom');
-  require('@testing-library/jest-dom');
-
-  // Explicitly define describe, test, expect, and jest to avoid ReferenceError
-  const { describe, test, expect, jest } = require('jest');
-
-  describe('Sidebar Component', () => {
-    test('renders sidebar elements when open', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      expect(screen.getByText('ChurchSuite')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
-      expect(screen.getByText('Manage')).toBeInTheDocument();
-      expect(screen.getByText('Members')).toBeInTheDocument();
-      expect(screen.getByText('Auto Messages')).toBeInTheDocument();
-      expect(screen.getByText('Finance')).toBeInTheDocument();
-      expect(screen.getByAltText('ChurchSuite Logo')).toBeInTheDocument();
-    });
-
-    test('sidebar is hidden when isOpen is false', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={false} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const sidebar = screen.getByText('ChurchSuite').closest('div');
-      expect(sidebar).toHaveClass('-translate-x-full');
-    });
-
-    test('toggles dropdown on click', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const manageButton = screen.getByText('Manage').closest('button');
-      fireEvent.click(manageButton!);
-      expect(screen.getByText('Branch')).toBeInTheDocument();
-      expect(screen.getByText('Department')).toBeInTheDocument();
-      expect(screen.getByText('Admin')).toBeInTheDocument();
-
-      fireEvent.click(manageButton!);
-      expect(screen.queryByText('Branch')).not.toBeInTheDocument();
-    });
-
-    test('calls toggleSidebar on close button click', () => {
-      const mockToggleSidebar = jest.fn();
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
-        </MemoryRouter>
-      );
-
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      fireEvent.click(closeButton);
-      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
-    });
-
-    test('calls toggleSidebar on overlay click', () => {
-      const mockToggleSidebar = jest.fn();
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={mockToggleSidebar} />
-        </MemoryRouter>
-      );
-
-      const overlay = screen.getByTestId('overlay');
-      fireEvent.click(overlay);
-      expect(mockToggleSidebar).toHaveBeenCalledTimes(1);
-    });
-
-    test('updates logo on upload', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const logoInput = screen.getByLabelText('Upload Logo') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(logoInput, { target: { files: [file] } });
-
-      const logoImg = screen.getByAltText('ChurchSuite Logo');
-      expect(logoImg).toHaveAttribute('src', expect.stringContaining('blob:'));
-    });
-
-    test('updates background on upload', () => {
-      render(
-        <MemoryRouter>
-          <Sidebar isOpen={true} toggleSidebar={jest.fn()} />
-        </MemoryRouter>
-      );
-
-      const backgroundInput = screen.getByLabelText('Upload Background') as HTMLInputElement;
-      const file = new File(['(dummy content)'], 'test.png', { type: 'image/png' });
-      fireEvent.change(backgroundInput, { target: { files: [file] } });
-
-      const backgroundDiv = backgroundInput.closest('div');
-      expect(backgroundDiv).toHaveStyle({ backgroundImage: expect.stringContaining('blob:') });
-    });
-  });
-}
 
 export default Sidebar;
