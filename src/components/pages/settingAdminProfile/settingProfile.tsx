@@ -30,7 +30,7 @@ interface Admin {
   id: string;
   name: string;
   email: string;
-  phoneNo: string;
+  phone: string;
   role: string;
   profilePicture?: string;
   createdAt?: string;
@@ -112,18 +112,35 @@ const ViewAdmin: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+  
     if (!validateForm()) {
       return;
     }
-
+  
     try {
       setEditLoading(true);
       setEditError(null);
-      
+  
       await Api.patch("/church/edit-admin", editForm);
-
-      setAdmin(prev => prev ? {...prev, ...editForm} : null);
+  
+      // Fetch updated admin data after successful update
+      const response = await Api.get(`/church/an-admin/${authData?.id}`);
+      const updatedAdmin: Admin = response.data.admin;
+  
+      setAdmin({
+        id: updatedAdmin.id,
+        name: updatedAdmin.name || '',
+        email: updatedAdmin.email,
+        phone: updatedAdmin.phone || '',
+        role: updatedAdmin.isSuperAdmin ? 'Super Admin' : 'Admin',
+        profilePicture: updatedAdmin.profilePicture || updatedAdmin.logo,
+        createdAt: updatedAdmin.createdAt || new Date().toISOString(),
+        isSuperAdmin: updatedAdmin.isSuperAdmin,
+        church_name: updatedAdmin.church_name,
+        logo: updatedAdmin.logo,
+        backgroundImg: updatedAdmin.backgroundImg,
+      });
+  
       setEditDialogOpen(false);
     } catch (err: any) {
       setEditError(
@@ -135,42 +152,67 @@ const ViewAdmin: React.FC = () => {
   };
 
   useEffect(() => {
-    try {
-      if (authData) {
-        const adminData: Admin = {
-          id: authData.id,
-          name: authData.name || '',
-          email: authData.email,
-          phoneNo: '', // Add phone number if available in your auth data
-          role: authData.isSuperAdmin ? 'Super Admin' : 'Admin',
-          profilePicture: authData.logo, // Using logo as profile picture
-          createdAt: new Date(authData.iat * 1000).toISOString(), // Convert iat to ISO string
-          isSuperAdmin: authData.isSuperAdmin,
-          church_name: authData.church_name,
-          logo: authData.logo,
-          backgroundImg: authData.backgroundImg
-        };
-        setAdmin(adminData);
-        setEditForm({
-          name: adminData.name,
-          phoneNo: adminData.phoneNo,
-          email: adminData.email
-        });
-      } else {
-        setError("No admin data available");
+    const fetchAdminData = async () => {
+      try {
+        if (authData) {
+          const adminData: Admin = {
+            id: authData.id,
+            name: authData.name || '',
+            email: authData.email,
+            phone: '', // Add phone number if available in your auth data
+            role: authData.isSuperAdmin ? 'Super Admin' : 'Admin',
+            profilePicture: authData.logo, // Using logo as profile picture
+            createdAt: new Date(authData.iat * 1000).toISOString(), // Convert iat to ISO string
+            isSuperAdmin: authData.isSuperAdmin,
+            church_name: authData.church_name,
+            logo: authData.logo,
+            backgroundImg: authData.backgroundImg
+          };
+          setAdmin(adminData);
+          setEditForm({
+            name: adminData.name,
+            phoneNo: adminData.phone || '',
+            email: adminData.email
+          });
+        } else {
+          setError("No admin data available");
+        }
+        if (authData?.id) {
+          setLoading(true);
+          const response = await Api.get(`/church/an-admin/${authData.id}`); // Fetch admin data using the ID
+          const adminData: Admin = response.data.admin;
+          setAdmin({
+            id: adminData.id,
+            name: adminData.name || '',
+            email: adminData.email,
+            phone: adminData.phone || '',
+            role: adminData.isSuperAdmin ? 'Super Admin' : 'Admin',
+            profilePicture: adminData.profilePicture || adminData.logo, // Use profilePicture or fallback to logo
+            createdAt: adminData.createdAt || new Date().toISOString(),
+            isSuperAdmin: adminData.isSuperAdmin,
+            church_name: adminData.church_name,
+            logo: adminData.logo,
+            backgroundImg: adminData.backgroundImg,
+          });
+          setLoading(false);
+        }
+      } catch (err) {
+        setError("Failed to parse admin data");
+        setError(
+          (axios.isAxiosError(err) && err.response?.data?.message) || "Failed to fetch admin data"
+        );
+        setLoading(false);
       }
-      setLoading(false);
-    } catch (err) {
-      setError("Failed to parse admin data");
-      setLoading(false);
-    }
+    };
+
+    fetchAdminData();
   }, [authData]);
 
   const handleEditClick = () => {
     if (admin) {
         setEditForm({
         name: admin.name,
-        phoneNo: admin.phoneNo,
+        phoneNo: admin.phone,
         email: admin.email
       });
     }
@@ -383,7 +425,7 @@ const ViewAdmin: React.FC = () => {
                   <Box sx={{ display: "flex", alignItems: "center" }}>
                     <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)", fontSize: "1rem" }} />
                     <Typography variant="body1">
-                      {admin.phoneNo || "not provided"}
+                      {admin.phone || "not provided"}
                     </Typography>
                   </Box>
                 </Box>
