@@ -242,7 +242,7 @@ const CreateAccount: React.FC = () => {
             <p className="mb-2 text-sm text-gray-200">Step 3 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Account</h1>
             <p className="text-lg lg:text-xl text-gray-300">
-              Kindly create an account to set up your church
+              Kindly create Admin account to set up your church
             </p>
           </div>
         </div>

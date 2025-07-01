@@ -4,10 +4,11 @@ import { useSelector } from "react-redux";
 import { RootState } from "../reduxstore/redux";
 import Loading from "./setupAccount/setting-loader/loading";
 import NotFoundPage from "./notFound";
-import ChangeColorButton from "./settingsChurch/setting";
+import ChangeColorButton from "./churchSettings/setting";
 
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
+const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const Branch = React.lazy(() => import("./manage/branch/branch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
@@ -26,7 +27,7 @@ const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
-const SettingProfile = React.lazy(() => import("./settingProfile/settingProfile"));
+const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
@@ -141,6 +142,11 @@ const AppRoutes: React.FC = () => {
            <Route path="/qrcodes" element={
             <PrivateRoute>
               <Qrcode/>
+            </PrivateRoute>
+          } />
+           <Route path="/church/settings" element={
+            <PrivateRoute>
+              <ViewChurch/>
             </PrivateRoute>
           } />
 

@@ -18,6 +18,7 @@ import {
 } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { useNavigate, useParams } from "react-router-dom";
+import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
 
 interface Member {
@@ -88,25 +89,50 @@ const ViewSingleMember: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error || !member) {
     return (
       <DashboardManager>
-        <Box sx={{ textAlign: "center", py: 4 }}>
-          <Typography variant="h6" color="error">
-            {error}
-          </Typography>
-        </Box>
-      </DashboardManager>
-    );
-  }
-
-  if (!member) {
-    return (
-      <DashboardManager>
-        <Box sx={{ textAlign: "center", py: 4 }}>
-          <Typography variant="h6" color="textSecondary">
-            No member data available.
-          </Typography>
+        <Box sx={{ textAlign: "center", py: 4 }}>          
+            <Box sx={{ 
+                textAlign: "center", 
+                py: 8,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center"
+              }}>
+                <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+                <Typography 
+                  variant="h6" 
+                  color="textSecondary" 
+                  gutterBottom
+                  sx={{
+                    fontSize: '1.25rem'
+                  }}
+                >
+                    Member not found!
+                </Typography>
+                {error ? (
+                  <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+                ) : null}
+                <Button
+                  variant="contained"
+                  onClick={() => navigate("/manage/view-members")}       
+                  sx={{
+                    backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+                    px: { xs: 2, sm: 2 }, 
+                    color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                    mt: 2,
+                    fontSize: '0.875rem',
+                    "&:hover": {
+                      backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                      opacity: 0.9, // Add hover effect
+                    },
+                  }}
+                >
+                  View All Members
+                </Button>
+            </Box>
         </Box>
       </DashboardManager>
     );

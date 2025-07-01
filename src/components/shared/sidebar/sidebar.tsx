@@ -348,7 +348,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             {/* setting */}
             <li>
               <NavLink
-                to="/church-settings"
+                to="/church/settings"
                 className={({ isActive }) =>
                   `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
                     isActive ? `active ${activeBgClass}` : hoverBgClass
