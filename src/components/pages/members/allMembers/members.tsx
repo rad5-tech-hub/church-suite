@@ -32,7 +32,7 @@ interface FormData {
   phoneNo: string;
   sex: string;
   maritalStatus: string;
-  memberFor: string;
+  memberSince: string;
   ageFrom: number | null;
   ageTo: number | null;
   birthMonth: string;
@@ -42,7 +42,7 @@ interface FormData {
   nationality: string;
 }
 
-const MemberForm: React.FC = () => {
+const memberSincem: React.FC = () => {
   const ageRanges = [
     { label: "12-18", from: 12, to: 18 },
     { label: "19-25", from: 19, to: 25 },
@@ -60,7 +60,7 @@ const MemberForm: React.FC = () => {
     phoneNo: "",
     sex: "",
     maritalStatus: "",
-    memberFor: "",
+    memberSince: "",
     ageFrom: null,
     ageTo: null,
     birthMonth: "",
@@ -173,7 +173,7 @@ const MemberForm: React.FC = () => {
         phoneNo: "",
         sex: "",
         maritalStatus: "",
-        memberFor: "",
+        memberSince: "",
         ageFrom: null,
         ageTo: null,
         birthMonth: "",
@@ -527,10 +527,10 @@ const MemberForm: React.FC = () => {
                 <TextField
                   fullWidth
                   label="Year Of Membership"
-                  id="memberFor"
-                  name="memberFor"
+                  id="memberSince"
+                  name="memberSince"
                   type="date"
-                  value={formData.memberFor}
+                  value={formData.memberSince}
                   onChange={handleChange} // Changed to handleChange to correctly update the state
                   variant="outlined"
                   disabled={isLoading}
@@ -938,4 +938,4 @@ const MemberForm: React.FC = () => {
   );
 };
 
-export default MemberForm;
+export default memberSincem;
