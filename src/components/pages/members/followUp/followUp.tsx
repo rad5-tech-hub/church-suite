@@ -94,7 +94,7 @@ const RegistrationForm: React.FC = () => {
         autoClose: 3000,      
       });
       setTimeout(() => {
-        navigate("/manage/view-branches");      
+        navigate("/view/followup");      
       }, 1500);;
     } catch (error:any) {
         console.error("Error creating branch:", error.response?.data || error.message);

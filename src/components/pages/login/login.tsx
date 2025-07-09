@@ -87,14 +87,18 @@ const Login: React.FC<LoginFormProps> = () => {
         throw new Error(apiError.error?.message || "Login failed");
       }
 
-      setFormData({
-        email: "",
-        password: "",
-      });
       setNotification({
         type: 'login-success',
         message: 'You have successfully logged in!'
       });
+
+      if (response.ok || !notification) {
+        setFormData({
+          email: "",
+          password: "",
+        });
+      }
+          
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Login failed. Please try again.";
@@ -169,10 +173,15 @@ const Login: React.FC<LoginFormProps> = () => {
               <p className="text-gray-600">{notification.message} Check your <b>Email</b> to continue with the verification Link.</p>
             </div>
             <button
-              onClick={() => setNotification(null)}
+              onClick={() => {setTimeout(()=>{setNotification(null)}, 2500)}}
               className="w-full bg-[#111827] text-white rounded-lg py-3 text-base font-semibold hover:bg-gray-800 transition duration-200"
             >
-              Ok
+              <a 
+                href={`mailto:${formData.email}`}
+                className="block w-full h-full"
+              >
+                OK
+              </a>
             </button>
           </div>
         </div>

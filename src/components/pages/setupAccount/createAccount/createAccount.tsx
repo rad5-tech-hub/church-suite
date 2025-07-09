@@ -21,7 +21,7 @@ interface ChurchData {
 const CreateAccount: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error'} | null>(null);
   const [loading, setLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     passwordMismatch: false,
@@ -226,10 +226,31 @@ const CreateAccount: React.FC = () => {
               Please check your email and click the verification link to be verified.
             </p>
             <button
-              className="w-full bg-[#111827] text-white rounded-full py-2 text-base font-semibold hover:bg-gray-800 transition duration-200"
+              type="button"
+              className="
+                w-full 
+                bg-gray-900 
+                text-white 
+                rounded-full 
+                py-2 
+                text-base 
+                font-semibold 
+                hover:bg-gray-800 
+                focus-visible:outline-offset-2 
+                focus-visible:outline-gray-900
+                transition 
+                duration-200
+                ease-in-out
+              "
               onClick={() => setNotification(null)}
+              aria-label="Close notification and open email client"
             >
-              OK
+              <a 
+                href={`mailto:${showSuccessMessage}`}
+                className="block w-full h-full"
+              >
+                OK
+              </a>
             </button>
           </div>
         </div>

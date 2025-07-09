@@ -156,7 +156,6 @@ const memberSincem: React.FC = () => {
 
       const payload = {
         ...formData,
-        churchId: authData?.churchId,
       };
       
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";

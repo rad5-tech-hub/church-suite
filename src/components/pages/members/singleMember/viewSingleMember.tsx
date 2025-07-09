@@ -16,6 +16,7 @@ import {
   WhatsApp as WhatsAppIcon,
   Edit as EditIcon
 } from "@mui/icons-material";
+import { IoArrowRedoOutline } from "react-icons/io5";
 import Api from "../../../shared/api/api";
 import { useNavigate, useParams } from "react-router-dom";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
@@ -398,6 +399,29 @@ const ViewSingleMember: React.FC = () => {
                 </Box>
               </Grid>
             </Grid>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Button
+              variant="contained"
+              startIcon={<IoArrowRedoOutline/>}
+              onClick={() =>{navigate('/view/followup')}}
+              size="medium"
+              sx={{
+                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable               
+                borderRadius: 1,
+                fontWeight: 500,
+                textTransform: "none",
+                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+                fontSize: isLargeScreen ? '1rem' : undefined,
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
+                  opacity: 0.9, // Add hover effect
+                },
+              }}
+            >
+              Move To Member
+            </Button>
           </Box>
         </Box>
       </Container>

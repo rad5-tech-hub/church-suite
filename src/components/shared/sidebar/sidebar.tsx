@@ -8,6 +8,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import { QrCodeScannerOutlined } from "@mui/icons-material";
 import { Tooltip } from "@mui/material";
+import { FaPeopleRoof } from "react-icons/fa6";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -85,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <div className="flex items-center justify-between py-4 px-4 border-b border-[color-mix(in_srgb,_var(--color-primary),_black_30%)]">
           <div className="flex items-center gap-3">
             <img
-              src={authData?.logo}
+              src={authData?.logo || undefined}
               alt={`${authData?.church_name} logo`}
               className="h-8 w-8 object-contain rounded-full"
             />
@@ -172,7 +173,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                     >
                       Department
                     </NavLink>
-                  </li>                 
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/manage/viewUnits"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      Unit
+                    </NavLink>
+                  </li>                
                 </ul>
               )}
             </li>
@@ -229,7 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               >
                 <span className="flex items-center font-semibold gap-3">
                   <LuMail className="text-2xl" />
-                  Auto Messages
+                  Messages
                 </span>
                 <span>{activeDropdown === "autoMessages" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
@@ -271,6 +284,61 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                       First/Second Timer
                     </NavLink>
                   </li>
+                </ul>
+              )}
+            </li>
+
+            {/* Attendance */}
+            <li>
+              <button
+                onClick={() => toggleDropdown("attendance")}
+                className={`flex items-center justify-between w-full gap-3 px-4 py-2 rounded-md transition-colors ${hoverBgClass.replace('hover:', '')}`}
+                aria-label="Attendance"
+              >
+                <span className="flex items-center font-semibold gap-3">
+                  <FaPeopleRoof className="text-2xl" />                
+                  Attendance
+                </span>
+                <span>{activeDropdown === "attendance" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
+              </button>
+              {activeDropdown === "attendance" && (
+                <ul className="mt-2 space-y-1 pl-8">
+                  <li>
+                    <NavLink
+                      to="/attendance/service"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      Services
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/attendance/record"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      Records
+                    </NavLink>
+                  </li>
+                  {/* <li>
+                    <NavLink
+                      to="/auto-messages/first-timer"
+                      className={({ isActive }) =>
+                        `block px-4 py-2 rounded-md transition-colors ${
+                          isActive ? `active ${activeBgClass}` : hoverBgClass
+                        }`
+                      }
+                    >
+                      First/Second Timer
+                    </NavLink>
+                  </li> */}
                 </ul>
               )}
             </li>

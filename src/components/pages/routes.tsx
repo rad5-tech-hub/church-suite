@@ -23,6 +23,8 @@ const FollowUpRegisterar = React.lazy(() => import("./members/followUp/followUp"
 const ViewFollowUp = React.lazy(() => import("./members/followUp/viewFollowUp"));
 const ViewSingleFollowUp = React.lazy(() => import("./members/followUp/singlefollowup"));
 const Admin = React.lazy(() => import("./manage/admin/admin"));
+const Unit = React.lazy(() => import("./manage/unit/unit"));
+const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
@@ -30,6 +32,8 @@ const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"))
 const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/followUp/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
+const Service = React.lazy(() => import("./attendance/services/services"));
+const RecordAttendance = React.lazy(() => import("./attendance/records/records"));
 const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 
 // Private Route Component
@@ -104,6 +108,16 @@ const AppRoutes: React.FC = () => {
               <ViewDepartment/>
             </PrivateRoute>
           } />
+          <Route path="/manage/unit" element={
+            <PrivateRoute>
+              <Unit />
+            </PrivateRoute>
+          } />
+           <Route path="/manage/viewUnits" element={
+            <PrivateRoute>
+              <ViewUnit/>
+            </PrivateRoute>
+          } />
           <Route path="/members/member" element={
             <PrivateRoute>
               <Member />
@@ -137,6 +151,16 @@ const AppRoutes: React.FC = () => {
             <Route path="/view/single-fellower/:followUpId" element={
             <PrivateRoute>
               <ViewSingleFollowUp/>
+            </PrivateRoute>
+          } />
+          <Route path="/attendance/service" element={
+            <PrivateRoute>
+              <Service/>
+            </PrivateRoute>
+          } />
+          <Route path="/attendance/record" element={
+            <PrivateRoute>
+              <RecordAttendance/>
             </PrivateRoute>
           } />
            <Route path="/qrcodes" element={

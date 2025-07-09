@@ -163,10 +163,11 @@ const FollowUpRow: React.FC<{
         disabled={loading}
         sx={{
           borderRadius: 1,
-          backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+          backgroundColor: "#e1e1e1e1", // Correctly reference the CSS variable
           "&:hover": {
             backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
             opacity: 0.9, // Add hover effect
+            color: '#e1e1e1e1'
           },
         }}
         size="small"

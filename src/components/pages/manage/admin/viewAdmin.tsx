@@ -51,6 +51,7 @@ interface Admin {
   id: number | string;
   name: string;
   email: string;
+  title?: string;
   phone: string;
   isSuperAdmin: boolean;
   isSuspended?: boolean;
@@ -397,6 +398,7 @@ const ViewAdmins: React.FC = () => {
                           width: columnWidths.name,
                           fontSize: isLargeScreen ? '0.875rem' : undefined
                         }}>
+                          {admin.title ? `${admin.title} ` : ""}
                           {admin.name}
                         </TableCell>
                         <TableCell sx={{

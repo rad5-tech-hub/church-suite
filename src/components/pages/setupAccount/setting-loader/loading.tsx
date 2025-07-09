@@ -216,13 +216,17 @@ const Loading: React.FC = () => {
               <button
                 className="w-full bg-[#111827] text-white rounded-full py-2 text-base font-semibold hover:bg-gray-800 transition duration-200"
                 onClick={() => {
-                  setNotification(null);
-                  setEmail("");
+                  setNotification(null);                 
                   setIsPaused(true); // Pause the spinner and show "Still waiting..."
                   setError('');
                 }}
               >
+              <a 
+                href={`mailto:${email}`}
+                className="block w-full h-full"
+              >
                 OK
+              </a>
               </button>
             </div>
           </div>
