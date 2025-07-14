@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               >
                 <span className="flex items-center font-semibold gap-3">
                   <HiUsers className="text-2xl" />
-                  Members
+                  Workers
                 </span>
                 <span>{activeDropdown === "members" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
@@ -214,7 +214,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                         }`
                       }
                     >
-                      Members
+                      Workers
                     </NavLink>
                   </li>
                   <li>
@@ -226,7 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                         }`
                       }
                     >
-                      Follow Up's
+                      New Comers
                     </NavLink>
                   </li>
                 </ul>

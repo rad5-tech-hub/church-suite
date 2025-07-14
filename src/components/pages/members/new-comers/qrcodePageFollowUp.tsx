@@ -179,7 +179,7 @@ const RightSection: React.FC<RightSectionProps> = ({
       >
         <Box>
           <Typography variant="h5" fontWeight={600} gutterBottom sx={{ color: "text.primary" }}>
-            Register Follow Up
+            Register New Comer
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Welcome to our church! We're excited to get to know you better.

@@ -90,7 +90,7 @@ const RegistrationForm: React.FC = () => {
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
       await Api.post(`/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`, formData);
 
-      toast.success(`New Fellow Up created successfully!`, {
+      toast.success(`New Comer created successfully!`, {
         autoClose: 3000,      
       });
       setTimeout(() => {
@@ -98,7 +98,7 @@ const RegistrationForm: React.FC = () => {
       }, 1500);;
     } catch (error:any) {
         console.error("Error creating branch:", error.response?.data || error.message);
-        toast.error(error.response?.data?.message || "Failed to create branch. Please try again.", {
+        toast.error(error.response?.data?.message || "Failed to create New Comer. Please try again.", {
           autoClose: 3000,
         });
     } finally {
@@ -117,10 +117,10 @@ const RegistrationForm: React.FC = () => {
               gutterBottom
               sx={{ color: 'text.primary' }}
             >
-               Register Fellow Up
+               Register New Comer
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Please fill out the form below to register a Fellow Up.
+              Please fill out the form to register a New Comer.
             </Typography>
           </Grid>
           <Grid 
@@ -149,7 +149,7 @@ const RegistrationForm: React.FC = () => {
                 },
               }}
             >
-              View Fellow Up
+              View New Comers
             </Button>
           </Grid>
         </Grid>

@@ -114,8 +114,8 @@ const EditMember: React.FC = () => {
         }
 
       } catch (err) {
-        console.error("Failed to fetch member data:", err);
-        setError(`Failed to fetch member data. Please Reload this Page!`);
+        console.error("Failed to fetch worker data:", err);
+        setError(`Failed to fetch worker data. Please Reload this Page!`);
       } finally {
         setLoading(false);
       }

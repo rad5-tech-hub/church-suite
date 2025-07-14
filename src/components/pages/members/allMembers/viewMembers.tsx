@@ -159,7 +159,7 @@ const ViewMembers: React.FC = () => {
           fontSize: isLargeScreen ? '1.25rem' : undefined
         }}
       >
-        No members found
+        No Workers found
       </Typography>
       {error ? (
         <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
@@ -179,7 +179,7 @@ const ViewMembers: React.FC = () => {
           },
         }}
       >
-        Add New Member
+        Add New Worker
       </Button>
     </Box>
   );
@@ -200,7 +200,7 @@ const ViewMembers: React.FC = () => {
                 fontSize: isLargeScreen ? '1.5rem' : undefined
               }}
             >
-              All Members
+              All Workers
             </Typography>
             <Typography 
               variant="body2" 
@@ -209,7 +209,7 @@ const ViewMembers: React.FC = () => {
                 fontSize: isLargeScreen ? '0.875rem' : undefined
               }}
             >
-              View and manage all church members.
+              View and manage all church workers.
             </Typography>
           </Grid>
           <Grid  size={{xs:12, md:4}} sx={{ 
@@ -237,7 +237,7 @@ const ViewMembers: React.FC = () => {
               }}
               startIcon={<PersonAddIcon />}
             >
-              Add Member
+              Add Worker
             </Button>
           </Grid>
         </Grid>
@@ -458,7 +458,7 @@ const ViewMembers: React.FC = () => {
           maxWidth="xs"
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
-            {actionType === "delete" ? "Delete Member" : "Suspend Member"}
+            {actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>

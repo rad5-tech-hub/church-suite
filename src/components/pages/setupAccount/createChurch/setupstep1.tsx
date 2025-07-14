@@ -206,7 +206,7 @@ const SetupChurch: React.FC = () => {
 
             {renderSelectField(
               'isHeadquarter',
-              'Is this the Headquarter?',
+              'Does your church have branches?',
               [
                 { value: 'true', label: 'Yes' },
                 { value: 'false', label: 'No' }

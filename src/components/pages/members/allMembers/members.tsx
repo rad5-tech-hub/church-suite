@@ -160,7 +160,7 @@ const memberSincem: React.FC = () => {
       
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
       await Api.post(`/member/add-member?churchId=${authData?.churchId}${branchIdParam}`, payload);
-      toast.success("Member created successfully!", { 
+      toast.success("Worker created successfully!", { 
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
@@ -191,7 +191,7 @@ const memberSincem: React.FC = () => {
       console.error("Error creating member:", error);
       const errorMessage = error.response?.data?.message || 
         error.message || 
-        "Failed to create member. Please try again.";
+        "Failed to create Worker. Please try again.";
       toast.error(errorMessage, { 
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
@@ -236,7 +236,7 @@ const memberSincem: React.FC = () => {
                 fontSize: isLargeScreen ? "1.5rem" : undefined,
               }}
             >
-              Manage Members
+              Manage Workers
             </Typography>
             <Typography
               variant="body2"
@@ -245,7 +245,7 @@ const memberSincem: React.FC = () => {
                 fontSize: isLargeScreen ? "0.8125rem" : undefined,
               }}
             >
-              Create and manage member records for {authData?.church_name}.
+              Create and manage Workers records for {authData?.church_name}.
             </Typography>
           </Grid>
           <Grid
@@ -275,7 +275,7 @@ const memberSincem: React.FC = () => {
                 },
               }}
             >
-              View Members
+              View Workers
             </Button>
           </Grid>
         </Grid>
@@ -923,10 +923,10 @@ const memberSincem: React.FC = () => {
                 {isLoading ? (
                   <>
                     <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                    Creating Member...
+                    Creating Worker...
                   </>
                 ) : (
-                  "Create Member"
+                  "Create Workers"
                 )}
               </Button>
             )}

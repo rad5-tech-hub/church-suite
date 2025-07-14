@@ -67,7 +67,7 @@ const Branch: React.FC = () => {
       }, 1500);
     } catch (error: any) {
       console.error("Error creating branch:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to create branch. Please try again.", {
+      toast.error(`${error.response?.data?.error.message} Please try again.` || "Failed to create branch. Please try again.", {
         autoClose: 3000,
       });
     } finally {

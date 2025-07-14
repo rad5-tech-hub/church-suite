@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoMailOutline, IoCallOutline, IoEyeOutline } from "react-icons/io5";
 import { PiEyeClosed } from "react-icons/pi";
@@ -26,22 +26,6 @@ import {
   InputLabel,
   SelectChangeEvent,
 } from "@mui/material";
-
-// Church position options
-const churchPositions = [
-  "Pastor",
-  "Reverend",
-  "Bishop",
-  "Elder",
-  "Deacon",
-  "Deaconess",
-  "Minister",
-  "Evangelist",
-  "Prophet",
-  "Apostle",
-  "Brother",
-  "Sister",
-];
 
 interface FormData {
   name: string;
@@ -92,19 +76,21 @@ const Admin: React.FC = () => {
     departmentIds: [],
     unitIds: [],
   });
-
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [departmentUnits, setDepartmentUnits] = useState<{ [deptId: string]: Unit[] }>({});
+  const [hasFetchedBranches, setHasFetchedBranches] = useState(false);
+  const [hasFetchedDepartments, setHasFetchedDepartments] = useState(false);
+  const [hasFetchedUnits, setHasFetchedUnits] = useState<{ [deptId: string]: boolean }>({});
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isFetchingDepartments, setIsFetchingDepartments] = useState(false);
-  const [isFetchingUnits, setIsFetchingUnits] = useState(false);
+  const [isFetchingUnits, setIsFetchingUnits] = useState<{ [deptId: string]: boolean }>({});
   const [branchesError, setBranchesError] = useState("");
   const [departmentsError, setDepartmentsError] = useState("");
-  const [unitsError, setUnitsError] = useState("");
+  const [unitsError, setUnitsError] = useState<{ [deptId: string]: string }>({});
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -117,99 +103,98 @@ const Admin: React.FC = () => {
     { value: "unit", label: "Unit" },
   ];
 
-  // Fetch branches when scope level is branch
-  useEffect(() => {
-    const fetchBranches = async () => {
-      if (formData.scopeLevel !== "branch") return;
+  // Fetch branches when branch Select is opened
+  const fetchBranches = async () => {
+    if (hasFetchedBranches || isFetchingBranches) return;
 
-      setIsFetchingBranches(true);
-      setBranchesError("");
+    setIsFetchingBranches(true);
+    setBranchesError("");
 
-      try {
-        const response = await Api.get("/church/get-branches");
-        setBranches(response.data.branches || []);
-      } catch (error: any) {
-        console.error("Error fetching branches:", error);
-        setBranchesError("Failed to load branches. Please try again.");
-      } finally {
-        setIsFetchingBranches(false);
-      }
-    };
+    try {
+      const response = await Api.get("/church/get-branches");
+      setBranches(response.data.branches || []);
+      setHasFetchedBranches(true);
+    } catch (error: any) {
+      console.error("Error fetching branches:", error);
+      setBranchesError("Failed to load branches. Please try again.");
+    } finally {
+      setIsFetchingBranches(false);
+    }
+  };
 
-    fetchBranches();
-  }, [formData.scopeLevel]);
+  // Fetch departments when department Select is opened
+  const fetchDepartments = async () => {
+    if (hasFetchedDepartments || isFetchingDepartments) return;
 
-  // Fetch departments when scope level is department or unit
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      if (formData.scopeLevel !== "department" && formData.scopeLevel !== "unit") {
-        setDepartments([]);
-        return;
-      }
+    setIsFetchingDepartments(true);
+    setDepartmentsError("");
 
-      setIsFetchingDepartments(true);
-      setDepartmentsError("");
+    try {
+      const response = await Api.get("/church/get-departments");
+      setDepartments(response.data.departments || []);
+      setHasFetchedDepartments(true);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+      setDepartmentsError("Failed to load departments. Please try again.");
+    } finally {
+      setIsFetchingDepartments(false);
+    }
+  };
 
-      try {
-        const response = await Api.get("/church/get-departments");
-        setDepartments(response.data.departments || []);
-      } catch (error: any) {
-        console.error("Error fetching departments:", error);
-        setDepartmentsError("Failed to load departments. Please try again.");
-      } finally {
-        setIsFetchingDepartments(false);
-      }
-    };
+  // Fetch units for a specific department when its unit Select is opened
+  const fetchUnits = async (deptId: string) => {
+    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
 
-    fetchDepartments();
-  }, [formData.scopeLevel]);
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+    setUnitsError((prev) => ({ ...prev, [deptId]: "" }));
 
-  // Fetch units when departmentIds are selected and scope level is unit
-  useEffect(() => {
-    const fetchUnits = async () => {
-      if (formData.scopeLevel !== "unit" || formData.departmentIds.length === 0) {
-        setUnits([]);
-        return;
-      }
-
-      setIsFetchingUnits(true);
-      setUnitsError("");
-
-      try {
-        const unitPromises = formData.departmentIds.map((deptId) =>
-          Api.get(`/church/a-department/${deptId}`)
-        );
-        const responses = await Promise.all(unitPromises);
-        const allUnits = responses.flatMap((response) =>
-          (response.data.department.units || []).map((unit: Unit) => ({
-            ...unit,
-            departmentId: response.data.department.id,
-          }))
-        );
-        setUnits(allUnits);
-      } catch (error: any) {
-        console.error("Error fetching units:", error);
-        setUnitsError("Failed to load units. Please try again.");
-      } finally {
-        setIsFetchingUnits(false);
-      }
-    };
-
-    fetchUnits();
-  }, [formData.departmentIds, formData.scopeLevel]);
+    try {
+      const response = await Api.get(`/church/a-department/${deptId}`);
+      const units = (response.data.department.units || []).map((unit: Unit) => ({
+        ...unit,
+        departmentId: deptId,
+      }));
+      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+    } catch (error: any) {
+      console.error(`Error fetching units for department ${deptId}:`, error);
+      setUnitsError((prev) => ({
+        ...prev,
+        [deptId]: "Failed to load units for this department.",
+      }));
+    } finally {
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+    }
+  };
 
   // Reset related fields when scope level changes
-  useEffect(() => {
-    if (formData.scopeLevel !== "branch") {
-      setFormData((prev) => ({ ...prev, branchId: "" }));
+  const handleScopeLevelChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    if (!name) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      branchId: value !== "branch" ? "" : prev.branchId,
+      departmentIds: value !== "department" && value !== "unit" ? [] : prev.departmentIds,
+      unitIds: value !== "unit" ? [] : prev.unitIds,
+    }));
+
+    // Reset fetched data when scope changes
+    if (value !== "branch") {
+      setBranches([]);
+      setHasFetchedBranches(false);
     }
-    if (formData.scopeLevel !== "department" && formData.scopeLevel !== "unit") {
-      setFormData((prev) => ({ ...prev, departmentIds: [] }));
+    if (value !== "department" && value !== "unit") {
+      setDepartments([]);
+      setHasFetchedDepartments(false);
     }
-    if (formData.scopeLevel !== "unit") {
-      setFormData((prev) => ({ ...prev, unitIds: [] }));
+    if (value !== "unit") {
+      setDepartmentUnits({});
+      setHasFetchedUnits({});
+      setUnitsError({});
     }
-  }, [formData.scopeLevel]);
+  };
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -220,7 +205,7 @@ const Admin: React.FC = () => {
     }));
   };
 
-  // Handle select changes
+  // Handle select changes (for branchId and departmentIds)
   const handleSelectChange = (e: SelectChangeEvent<string | string[]>) => {
     const { name, value } = e.target;
     if (!name) return;
@@ -230,12 +215,25 @@ const Admin: React.FC = () => {
       [name]: value,
       // Reset unitIds when departmentIds changes
       ...(name === "departmentIds" && { unitIds: [] }),
-      // Reset dependent fields when scopeLevel changes
-      ...(name === "scopeLevel" && {
-        branchId: "",
-        departmentIds: [],
-        unitIds: [],
-      }),
+    }));
+
+    // Reset units and fetch states when departmentIds change
+    if (name === "departmentIds") {
+      setDepartmentUnits({});
+      setHasFetchedUnits({});
+      setUnitsError({});
+    }
+  };
+
+  // Handle unit selection per department
+  const handleUnitSelectChange = (deptId: string) => (e: SelectChangeEvent<string[]>) => {
+    const selectedUnitIds = e.target.value as string[];
+    const otherUnitIds = formData.unitIds.filter(
+      (unitId) => !departmentUnits[deptId]?.some((unit) => unit.id === unitId)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      unitIds: [...otherUnitIds, ...selectedUnitIds],
     }));
   };
 
@@ -244,9 +242,9 @@ const Admin: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await Api.post("church/create-admin", {
+      const payload = {
         name: formData.name,
-        title: formData.title,
+        title: formData.title || undefined,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
@@ -256,7 +254,9 @@ const Admin: React.FC = () => {
         branchId: formData.branchId || undefined,
         departmentIds: formData.departmentIds.length > 0 ? formData.departmentIds : undefined,
         unitIds: formData.unitIds.length > 0 ? formData.unitIds : undefined,
-      });
+      };
+
+      await Api.post("church/create-admin", payload);
 
       toast.success("Admin created successfully!", {
         position: isMobile ? "top-center" : "top-right",
@@ -359,57 +359,33 @@ const Admin: React.FC = () => {
                 disabled={loading}
                 size="medium"
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <FormControl
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            fieldset: {
-                              border: "none",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              border: "none",
-                            },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                              border: "none",
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel id="title-label" sx={{ display: "none" }}>
-                          Title
-                        </InputLabel>
-                        <Select
-                          labelId="title-label"
-                          id="title"
-                          name="title"
-                          value={formData.title}
-                          onChange={handleSelectChange}
-                          disabled={loading}
-                          displayEmpty
-                          inputProps={{ "aria-label": "Title" }}
-                          sx={{
-                            fontSize: isLargeScreen ? "1rem" : undefined,
-                            "& .MuiSelect-select": {
-                              backgroundColor: "transparent",
-                            },
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              border: "none",
-                            },
-                          }}
-                        >
-                          <MenuItem value="" disabled>
-                            <em>Title</em>
-                          </MenuItem>
-                          {churchPositions.map((position, index) => (
-                            <MenuItem key={index} value={position}>
-                              {position}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </InputAdornment>
-                  ),
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}
+                required
+              />
+            </Grid>
+
+            {/* Title Field */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Title *"
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter title"
+                disabled={loading}
+                size="medium"
+                InputProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
@@ -492,13 +468,15 @@ const Admin: React.FC = () => {
             {/* Scope Level Selection */}
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
-                <InputLabel id="scope-level-label">Scope Level *</InputLabel>
+                <InputLabel id="scope-level-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                  Scope Level *
+                </InputLabel>
                 <Select
                   labelId="scope-level-label"
                   id="scopeLevel"
                   name="scopeLevel"
                   value={formData.scopeLevel}
-                  onChange={handleSelectChange}
+                  onChange={handleScopeLevelChange}
                   label="Scope Level *"
                   disabled={loading}
                   sx={{
@@ -518,13 +496,16 @@ const Admin: React.FC = () => {
             {formData.scopeLevel === "branch" && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="branch-label">Assign to Branch</InputLabel>
+                  <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                    Assign to Branch
+                  </InputLabel>
                   <Select
                     labelId="branch-label"
                     id="branchId"
                     name="branchId"
                     value={formData.branchId}
                     onChange={handleSelectChange}
+                    onOpen={fetchBranches}
                     label="Assign to Branch"
                     disabled={loading}
                     sx={{
@@ -555,6 +536,10 @@ const Admin: React.FC = () => {
                           <CircularProgress size={20} sx={{ mr: 1 }} />
                           <Typography variant="body2">Loading branches...</Typography>
                         </Box>
+                      </MenuItem>
+                    ) : branches.length === 0 && hasFetchedBranches ? (
+                      <MenuItem disabled>
+                        <Typography variant="body2">No branches available</Typography>
                       </MenuItem>
                     ) : [
                         <MenuItem key="select-branch" value="" disabled>
@@ -604,8 +589,11 @@ const Admin: React.FC = () => {
             {(formData.scopeLevel === "department" || formData.scopeLevel === "unit") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="department-label">
-                    Assign to Department(s)
+                  <InputLabel id="department-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                    {formData.scopeLevel === "department"
+                        ? "Assign to Department(s)"
+                        : "Select Department(s)"
+                    }
                   </InputLabel>
                   <Select
                     labelId="department-label"
@@ -614,14 +602,16 @@ const Admin: React.FC = () => {
                     multiple
                     value={formData.departmentIds}
                     onChange={handleSelectChange}
-                    label="Assign to Department(s)"
+                    onOpen={fetchDepartments}
+                    label={
+                      formData.scopeLevel === "department"
+                        ? "Assign to Department(s)"
+                        : "Select Department(s)"
+                    }
                     disabled={loading}
                     renderValue={(selected) =>
                       (selected as string[])
-                        .map(
-                          (id) =>
-                            departments.find((dept) => dept.id === id)?.name || id
-                        )
+                        .map((id) => departments.find((dept) => dept.id === id)?.name || id)
                         .join(", ")
                     }
                     sx={{
@@ -639,6 +629,10 @@ const Admin: React.FC = () => {
                           <CircularProgress size={20} sx={{ mr: 1 }} />
                           <Typography variant="body2">Loading departments...</Typography>
                         </Box>
+                      </MenuItem>
+                    ) : departments.length === 0 && hasFetchedDepartments ? (
+                      <MenuItem disabled>
+                        <Typography variant="body2">No departments available</Typography>
                       </MenuItem>
                     ) : (
                       departments.map((department) => (
@@ -671,97 +665,104 @@ const Admin: React.FC = () => {
               </Grid>
             )}
 
-            {/* Unit Selection - shown only when scopeLevel is unit and departmentIds are selected */}
-            {formData.scopeLevel === "unit" && formData.departmentIds.length > 0 && (
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="unit-label">Assign to Unit(s)</InputLabel>
-                  <Select
-                    labelId="unit-label"
-                    id="unitIds"
-                    name="unitIds"
-                    multiple
-                    value={formData.unitIds}
-                    onChange={handleSelectChange}
-                    label="Assign to Unit(s)"
-                    disabled={loading}
-                    renderValue={(selected) =>
-                      (selected as string[])
-                        .map((id) => units.find((unit) => unit.id === id)?.name || id)
-                        .join(", ")
-                    }
-                    sx={{
-                      fontSize: isLargeScreen ? "1rem" : undefined,
-                      "& .MuiSelect-select": {
-                        display: "flex",
-                        alignItems: "center",
-                      },
-                    }}
-                    MenuProps={{
-                      PaperProps: {
-                        sx: {
-                          maxHeight: 300,
-                        },
-                      },
-                    }}
-                  >
-                    {isFetchingUnits ? (
-                      <MenuItem disabled>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            width: "100%",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <CircularProgress size={20} sx={{ mr: 1 }} />
-                          <Typography variant="body2">Loading units...</Typography>
-                        </Box>
-                      </MenuItem>
-                    ) : (
-                      units.map((unit) => (
-                        <MenuItem
-                          key={unit.id}
-                          value={unit.id}
-                          sx={{
-                            whiteSpace: "normal",
-                            py: 1.5,
-                          }}
-                        >
-                          <Box>
-                            <Typography variant="subtitle2">{unit.name}</Typography>                          
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              (Dept: {departments.find((dept) => dept.id === unit.departmentId)?.name || "Unknown"})
-                            </Typography>
-                          </Box>
-                        </MenuItem>
-                      ))
-                    )}
-                  </Select>
-
-                  {unitsError && !isFetchingUnits && (
-                    <Typography
-                      variant="body2"
-                      color="error"
+            {/* Unit Selection per Department - shown when scopeLevel is unit and departmentIds are selected */}
+            {formData.scopeLevel === "unit" &&
+              formData.departmentIds.map((deptId) => (
+                <Grid size={{ xs: 12, md: 6 }} key={deptId}>
+                  <FormControl fullWidth>
+                    <InputLabel id={`unit-label-${deptId}`} sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                      Units for {departments.find((dept) => dept.id === deptId)?.name || "Department"}
+                    </InputLabel>
+                    <Select
+                      labelId={`unit-label-${deptId}`}
+                      id={`unitIds-${deptId}`}
+                      name={`unitIds-${deptId}`}
+                      multiple
+                      value={formData.unitIds.filter((unitId) =>
+                        departmentUnits[deptId]?.some((unit) => unit.id === unitId)
+                      )}
+                      onChange={handleUnitSelectChange(deptId)}
+                      onOpen={() => fetchUnits(deptId)}
+                      label={`Units for ${departments.find((dept) => dept.id === deptId)?.name || "Department"}`}
+                      disabled={loading}
+                      renderValue={(selected) =>
+                        (selected as string[])
+                          .map((id) => departmentUnits[deptId]?.find((unit) => unit.id === id)?.name || id)
+                          .join(", ")
+                      }
                       sx={{
-                        mt: 1,
-                        display: "flex",
-                        alignItems: "center",
+                        fontSize: isLargeScreen ? "1rem" : undefined,
+                        "& .MuiSelect-select": {
+                          display: "flex",
+                          alignItems: "center",
+                        },
+                      }}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            maxHeight: 300,
+                          },
+                        },
                       }}
                     >
-                      <Box component="span" sx={{ mr: 1 }}>
-                        ⚠️
-                      </Box>
-                      {unitsError}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
-            )}
+                      {isFetchingUnits[deptId] ? (
+                        <MenuItem disabled>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              width: "100%",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            <Typography variant="body2">Loading units...</Typography>
+                          </Box>
+                        </MenuItem>
+                      ) : departmentUnits[deptId]?.length > 0 ? (
+                        departmentUnits[deptId].map((unit) => (
+                          <MenuItem
+                            key={unit.id}
+                            value={unit.id}
+                            sx={{
+                              whiteSpace: "normal",
+                              py: 1.5,
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="subtitle2">{unit.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {unit.description || "No description"}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>
+                          <Typography variant="body2">No units available</Typography>
+                        </MenuItem>
+                      )}
+                    </Select>
+
+                    {unitsError[deptId] && !isFetchingUnits[deptId] && (
+                      <Typography
+                        variant="body2"
+                        color="error"
+                        sx={{
+                          mt: 1,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Box component="span" sx={{ mr: 1 }}>
+                          ⚠️
+                        </Box>
+                        {unitsError[deptId]}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Grid>
+              ))}
 
             {/* Password Field */}
             <Grid size={{ xs: 12, md: 6 }}>

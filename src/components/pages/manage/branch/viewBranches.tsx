@@ -454,10 +454,12 @@ const ViewBranches: React.FC = () => {
                               size="small"
                               sx={{
                                 borderRadius: 1,
-                                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
+                                backgroundColor: "#E1E1E1", // Correctly reference the CSS variable
+
                                 "&:hover": {
                                   backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
                                   opacity: 0.9, // Add hover effect
+                                  color: "#E1E1E1", // Ensure text color is set correctly
                                 },
                               }}
                             >
