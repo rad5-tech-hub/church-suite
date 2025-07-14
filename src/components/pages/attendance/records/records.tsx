@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
-import DashboardManager from "../../../shared/dashboardManager";
-import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
-import { RootState } from "../../../reduxstore/redux";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   Box,
   Button,
@@ -21,11 +18,19 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { SelectChangeEvent } from "@mui/material";
+import DashboardManager from "../../../shared/dashboardManager";
+import Api from "../../../shared/api/api";
+import { RootState } from "../../../reduxstore/redux";
 
 interface AttendanceFormData {
-  service: string;
-  category: string;
-  number: number | "";
+  eventId: string;
+  date: string;
+  total: number | "";
+  male: number | "";
+  female: number | "";
+  children: number | "";
+  adults: number | "";
+  categories: string[];
 }
 
 interface Service {
@@ -35,9 +40,14 @@ interface Service {
 
 const Attendance: React.FC = () => {
   const [formData, setFormData] = useState<AttendanceFormData>({
-    service: "",
-    category: "",
-    number: "",
+    eventId: "",
+    date: "",
+    total: "",
+    male: "",
+    female: "",
+    children: "",
+    adults: "",
+    categories: [],
   });
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -48,6 +58,15 @@ const Attendance: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
+  // Category options
+  const categoryOptions = [
+    { value: "total", label: "Total" },
+    { value: "male", label: "Male" },
+    { value: "female", label: "Female" },
+    { value: "children", label: "Children" },
+    { value: "adults", label: "Adults" },
+  ];
+
   // Fetch services
   useEffect(() => {
     const fetchServices = async () => {
@@ -57,32 +76,28 @@ const Attendance: React.FC = () => {
         setServices(response.data.services || []);
       } catch (error) {
         console.error("Failed to fetch services:", error);
+        toast.error("Failed to fetch services. Please try again.", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
       } finally {
         setServiceLoading(false);
       }
     };
     fetchServices();
-  }, [isMobile]);
-
-  // Static category options
-  const categoryOptions = [
-    { value: "Men", label: "Men" },
-    { value: "Women", label: "Women" },
-    { value: "Children", label: "Children" },
-    { value: "Everybody", label: "Everybody" },
-  ];
+  }, []);
 
   // Handle text input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "number" ? (value === "" ? "" : Number(value)) : value,
+      [name]: name === "date" ? value : value === "" ? "" : Number(value),
     }));
   };
 
   // Handle select changes
-  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+  const handleSelectChange = (e: SelectChangeEvent<string | string[]>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -92,7 +107,7 @@ const Attendance: React.FC = () => {
 
   // Handle form submission
   const handleAddAttendance = async () => {
-    if (!formData.service) {
+    if (!formData.eventId) {
       toast.error("Service is required.", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
@@ -100,34 +115,56 @@ const Attendance: React.FC = () => {
       return;
     }
 
-    if (!formData.category) {
-      toast.error("Category is required.", {
+    if (!formData.categories.length) {
+      toast.error("At least one category is required.", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
       return;
     }
 
-    if (formData.number === "" || formData.number < 0) {
-      toast.error("Valid attendance number is required.", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-      return;
+    for (const category of formData.categories) {
+      const selectedValue = formData[category as keyof AttendanceFormData];
+      if (selectedValue === "" || Number(selectedValue) < 0) {
+        toast.error(`Valid ${category} attendance number is required.`, {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return;
+      }
     }
 
     try {
       setLoading(true);
+      const payload = {
+        eventId: formData.eventId,
+        date: formData.date || undefined,
+        total: formData.total === "" ? undefined : Number(formData.total),
+        male: formData.male === "" ? undefined : Number(formData.male),
+        female: formData.female === "" ? undefined : Number(formData.female),
+        children: formData.children === "" ? undefined : Number(formData.children),
+        adults: formData.adults === "" ? undefined : Number(formData.adults),
+      };
+
       const response = await Api.post(
         `/church/record-attendance${authData?.branchId ? `/${authData.branchId}` : ""}`,
-        formData
+        payload
       );
 
       toast.success(response.data.message || "Attendance recorded successfully!", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
-      setFormData({ service: "", category: "", number: "" }); // Reset form
+      setFormData({
+        eventId: "",
+        date: "",
+        total: "",
+        male: "",
+        female: "",
+        children: "",
+        adults: "",
+        categories: [],
+      });
       navigate("/manage/view-attendance");
     } catch (error: any) {
       console.error("Attendance recording error:", error);
@@ -167,7 +204,7 @@ const Attendance: React.FC = () => {
                 fontSize: isLargeScreen ? "0.8125rem" : undefined,
               }}
             >
-              Record attendance for {authData?.church_name}.
+              Record attendance for {authData?.church_name || "your church"}.
             </Typography>
           </Grid>
           <Grid
@@ -203,106 +240,129 @@ const Attendance: React.FC = () => {
         </Grid>
 
         <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {/* Service Field */}
-          <FormControl fullWidth size="medium" disabled={loading}>
-            <InputLabel id="service-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-              Service *
-            </InputLabel>
-            <Select
-              labelId="service-label"
-              id="service"
-              name="service"
-              value={formData.service}
-              onChange={handleSelectChange}
-              label="Service *"
-              sx={{
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              <MenuItem value="" disabled sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                {serviceLoading ? <em>Loading..</em> : <em>Select a service</em>}
-              </MenuItem>
-              {services.map((service) => (
-                <MenuItem
-                  key={service.id}
-                  value={service.id}
-                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+          <Grid container spacing={4}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="medium" disabled={loading || serviceLoading}>
+                <InputLabel id="service-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                  Service *
+                </InputLabel>
+                <Select
+                  labelId="service-label"
+                  id="eventId"
+                  name="eventId"
+                  value={formData.eventId}
+                  onChange={handleSelectChange}
+                  label="Service *"
+                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
                 >
-                  {service.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* Category Field */}
-          <FormControl fullWidth size="medium">
-            <InputLabel id="category-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-              Category *
-            </InputLabel>
-            <Select
-              labelId="category-label"
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleSelectChange}
-              label="Category *"
-              disabled={loading}
-              sx={{
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              <MenuItem value="" disabled sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                <em>Select a category</em>
-              </MenuItem>
-              {categoryOptions.map((option) => (
-                <MenuItem
-                  key={option.value}
-                  value={option.value}
-                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                  <MenuItem value="" disabled sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                    {serviceLoading ? <em>Loading...</em> : <em>Select a service</em>}
+                  </MenuItem>
+                  {services.map((service) => (
+                    <MenuItem
+                      key={service.id}
+                      value={service.id}
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                    >
+                      {service.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="Date (Optional)"
+                id="date"
+                name="date"
+                type="datetime-local"
+                value={formData.date}
+                onChange={handleChange}
+                variant="outlined"
+                disabled={loading}
+                size="medium"
+                InputLabelProps={{
+                  shrink: true,
+                  sx: { fontSize: isLargeScreen ? "1rem" : undefined },
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? "1rem" : undefined },
+                }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="medium" disabled={loading}>
+                <InputLabel id="category-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                  Categories *
+                </InputLabel>
+                <Select
+                  labelId="category-label"
+                  id="categories"
+                  name="categories"
+                  multiple
+                  value={formData.categories}
+                  onChange={handleSelectChange}
+                  label="Categories *"
+                  renderValue={(selected) =>
+                    selected
+                      .map(
+                        (value) =>
+                          categoryOptions.find((option) => option.value === value)?.label || value
+                      )
+                      .join(", ")
+                  }
+                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
                 >
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+                  {categoryOptions.map((option) => (
+                    <MenuItem
+                      key={option.value}
+                      value={option.value}
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                    >
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {formData.categories.map((category) => (
+              <Grid size={{ xs: 12, md: 6 }} key={category}>
+                <TextField
+                  fullWidth
+                  label={`${category.charAt(0).toUpperCase() + category.slice(1)} Attendance *`}
+                  id={category}
+                  name={category}
+                  type="number"
+                  value={formData[category as keyof AttendanceFormData] || ""}
+                  onChange={handleChange}
+                  variant="outlined"
+                  placeholder={`Enter ${category} attendance number`}
+                  disabled={loading}
+                  size="medium"
+                  inputProps={{ min: 0 }}
+                  InputLabelProps={{
+                    sx: { fontSize: isLargeScreen ? "1rem" : undefined },
+                  }}
+                  InputProps={{
+                    sx: { fontSize: isLargeScreen ? "1rem" : undefined },
+                  }}
+                />
+              </Grid>
+            ))}
+          </Grid>
 
-          {/* Number Field */}
-          <TextField
-            fullWidth
-            label="Attendance Number *"
-            id="number"
-            name="number"
-            type="number"
-            value={formData.number}
-            onChange={handleChange}
-            variant="outlined"
-            placeholder="Enter attendance number"
-            disabled={loading}
-            size="medium"
-            InputLabelProps={{
-              sx: {
-                fontSize: isLargeScreen ? "1rem" : undefined,
-              },
-            }}
-            InputProps={{
-              sx: {
-                fontSize: isLargeScreen ? "1rem" : undefined,
-              },
-            }}
-          />
-
-          {/* Submit Button */}
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
             <Button
               variant="contained"
               onClick={handleAddAttendance}
-              disabled={loading}
+              disabled={loading || serviceLoading}
               sx={{
                 py: 1,
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
+                px: { xs: 2, sm: 3 },
                 borderRadius: 1,
                 fontWeight: "semibold",
+                backgroundColor: "var(--color-primary)",
                 color: "var(--color-text-on-primary)",
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },

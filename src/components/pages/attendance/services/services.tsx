@@ -14,20 +14,27 @@ import {
   CircularProgress,
   Grid,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from "@mui/material";
 
 interface ServiceFormData {
   name: string;
   date: string;
   description: string;
+  recurrenceType: string;
 }
 
 const Service: React.FC = () => {
   const [formData, setFormData] = useState<ServiceFormData>({ 
     name: "",
     date: "",
-    description: ""
+    description: "",
+    recurrenceType: "none"
   });
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -36,11 +43,11 @@ const Service: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name as keyof ServiceFormData]: value
     }));
   };
 
@@ -64,7 +71,7 @@ const Service: React.FC = () => {
     try {
       setLoading(true);
       const response = await Api.post(
-        `/church/create-service${authData?.branchId ? `/${authData.branchId}` : ''}`, 
+        `church/create-event`, 
         formData
       );
       
@@ -72,7 +79,7 @@ const Service: React.FC = () => {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right"
       });
-      setFormData({ name: "", date: "", description: "" }); // Reset
+      setFormData({ name: "", date: "", description: "", recurrenceType: "none" }); // Reset
 
       navigate("/manage/view-Services");
       
@@ -148,56 +155,82 @@ const Service: React.FC = () => {
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Grid container spacing={4}>
             <Grid size={{xs:12, md:6}}>
-                {/* Name Field */}
-                <TextField
-                    fullWidth
-                    label="Service Name *"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="Enter Service name"
-                    disabled={loading}
-                    size={"medium"}
-                    InputLabelProps={{
-                    sx: {
-                        fontSize: isLargeScreen ? '1rem' : undefined,              
-                    }
-                    }}
-                    InputProps={{
-                    sx: {
-                        fontSize: isLargeScreen ? '1rem' : undefined
-                    }
-                    }}
-                />
+              {/* Name Field */}
+              <TextField
+                fullWidth
+                label="Service Name *"
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Enter Service name"
+                disabled={loading}
+                size={"medium"}
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? '1rem' : undefined,              
+                  }
+                }}
+                InputProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? '1rem' : undefined
+                  }
+                }}
+              />
             </Grid>
             <Grid size={{xs:12, md:6}}>
-                {/* Date Field */}
-                <TextField
-                    fullWidth
-                    label="Service Date (Optional)"
-                    id="date"
-                    name="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="Select a date"
-                    disabled={loading}
-                    size={"medium"}
-                    InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                        fontSize: isLargeScreen ? '1rem' : undefined
-                    }
-                    }}
-                    InputProps={{
-                    sx: {
-                        fontSize: isLargeScreen ? '1rem' : undefined
-                    }
-                    }}
-                />
+              {/* Date Field */}
+              <TextField
+                fullWidth
+                label="Service Date (Optional)"
+                id="date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={handleChange}
+                variant="outlined"
+                placeholder="Select a date"
+                disabled={loading}
+                size={"medium"}
+                InputLabelProps={{
+                  shrink: true,
+                  sx: {
+                    fontSize: isLargeScreen ? '1rem' : undefined
+                  }
+                }}
+                InputProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? '1rem' : undefined
+                  }
+                }}
+              />
+            </Grid>
+            <Grid size={{xs:12}}>
+              {/* Recurrence Type Field */}
+              <FormControl fullWidth variant="outlined" disabled={loading}>
+                <InputLabel id="recurrenceType-label" sx={{
+                  fontSize: isLargeScreen ? '1rem' : undefined
+                }}>
+                  Regularity Type
+                </InputLabel>
+                <Select
+                  labelId="recurrenceType-label"
+                  id="recurrenceType"
+                  name="recurrenceType"
+                  value={formData.recurrenceType}
+                  onChange={handleChange}
+                  label="Recurrence Type"
+                  sx={{
+                    fontSize: isLargeScreen ? '1rem' : undefined
+                  }}
+                >
+                  <MenuItem value="none">None</MenuItem>
+                  <MenuItem value="weekly">Weekly</MenuItem>
+                  <MenuItem value="monthly">Monthly</MenuItem>
+                  <MenuItem value="annually">Annually</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
 
