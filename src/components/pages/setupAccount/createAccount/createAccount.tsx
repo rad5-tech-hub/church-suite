@@ -6,6 +6,7 @@ import { clearChurchData } from "../../../reduxstore/datamanager";
 import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
+import { useNavigate } from "react-router-dom";
 
 interface ChurchData {
   churchName?: string;
@@ -28,6 +29,7 @@ const CreateAccount: React.FC = () => {
   });
   const [showCongratsDialog, setShowCongratsDialog] = useState(true); // State for congratulatory dialog
   const churchData = useSelector((state: RootState) => state.church);
+  const navigate = useNavigate();
 
   const validateForm = (password: string, confirmPassword: string, email: string): boolean => {
     const errors = {
@@ -171,7 +173,7 @@ const CreateAccount: React.FC = () => {
       try {
         const errorObj = JSON.parse(error.message);
         if (errorObj?.error?.message) {
-          errorMessage = errorObj.error.message;
+          errorMessage = `${errorObj.error.message} ${errorObj.error.details && errorObj.error.details.map((detail: { message: any; }) => detail.message)} `;
         } else if (error.message.includes('<!DOCTYPE html>')) {
           errorMessage = "Server error occurred. Please try again later.";
         } else {
@@ -265,9 +267,11 @@ const CreateAccount: React.FC = () => {
               onClick={() => setNotification(null)}
               aria-label="Close notification and open email client"
             >
+          
               <a 
                 href={`mailto:${notification.message.split(': ')[1]}`}
                 className="block w-full h-full"
+                onClick={() => {setShowCongratsDialog(false); setNotification(null); store.dispatch(clearChurchData()); navigate('/')} }
               >
                 OK
               </a>
@@ -283,7 +287,7 @@ const CreateAccount: React.FC = () => {
           <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
             <div className="lg:w-10/12 py-8">
               <p className="mb-2 text-sm text-gray-200">Step 3 of 3</p>
-              <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Account</h1>
+              <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Admin Account</h1>
               <p className="text-lg lg:text-xl text-gray-300">
                 Kindly create Admin account to set up your church
               </p>

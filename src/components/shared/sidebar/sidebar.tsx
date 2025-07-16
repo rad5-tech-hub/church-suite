@@ -91,7 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               className="h-8 w-8 object-contain rounded-full"
             />
             <Tooltip title={authData?.church_name || ""} arrow>
-              <h1 className="text-xl font-bold truncate max-w-[120px]">
+              <h1 className="text-xl font-bold">
                 {authData?.church_name || ""}
               </h1>
             </Tooltip>
@@ -226,7 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                         }`
                       }
                     >
-                      New Comers
+                      Newcomers
                     </NavLink>
                   </li>
                 </ul>
@@ -312,7 +312,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                         }`
                       }
                     >
-                      Services
+                      Program
                     </NavLink>
                   </li>
                   <li>

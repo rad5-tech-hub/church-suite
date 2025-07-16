@@ -10,15 +10,15 @@ import { RootState } from "../../reduxstore/redux";
 const qrCodes = [
   {
     id: 1,
-    title: "Follow Up Registration",
-    description: "Scan to register for follow-up sessions",
+    title: "Newcomers Registration",
+    description: "Scan to register for newcomer sessions",
     path: "/followups", // Will be appended to your base URL
     scanCount: 124
   },
   {
     id: 2,
-    title: "Members Registration",
-    description: "Scan to register as a church member",
+    title: "Workers Registration",
+    description: "Scan to register as a church worker",
     path: "/members"
   },
   {

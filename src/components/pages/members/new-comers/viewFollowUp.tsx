@@ -71,7 +71,7 @@ const EmptyState: React.FC<{ error: string | null; onAddFollowUp: () => void; is
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
     <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
     <Typography variant="h6" color="textSecondary" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      No New Comer found
+      No  Newcomer found
     </Typography>
     {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
     <Button
@@ -89,7 +89,7 @@ const EmptyState: React.FC<{ error: string | null; onAddFollowUp: () => void; is
         },
       }}
     >
-      Add New Comer
+      Add Newcomer
     </Button>
   </Box>
 );
@@ -268,8 +268,8 @@ const ViewFollowUp: React.FC = () => {
       const response = await Api.get("/member/get-follow-up");
       setFollowUps(response.data.data || []);
     } catch (error) {
-      console.error("Failed to fetch New Comer:", error);
-      setError("Failed to load follow-ups. Please try again later.");
+      console.error("Failed to fetch Newcomer:", error);
+      setError("Failed to load Newcomers. Please try again later.");
       toast.error("Failed to load follow-ups");
     } finally {
       setLoading(false);
@@ -303,10 +303,10 @@ const ViewFollowUp: React.FC = () => {
       if (actionType === "delete") {
         await Api.delete(`/followup/delete-followup/${currentFollowUp.id}`);
         setFollowUps(followUps.filter((followUp) => followUp.id !== currentFollowUp.id));
-        toast.success("New Comer deleted successfully!");
+        toast.success("Newcomer deleted successfully!");
       } else if (actionType === "suspend") {
         await Api.patch(`/followup/suspend-followup/${currentFollowUp.id}`);
-        toast.success("New Comer address upphoneNod successfully!");
+        toast.success("Newcomer address upphoneNod successfully!");
         fetchFollowUps();
       }
     } catch (error) {
@@ -357,10 +357,10 @@ const ViewFollowUp: React.FC = () => {
               gutterBottom
               sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined }}
             >
-              All New Comers
+              All Newcomers
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              View and manage all New Comer records.
+              View and manage all Newcomer records.
             </Typography>
           </Grid>
           <Grid
@@ -386,7 +386,7 @@ const ViewFollowUp: React.FC = () => {
                 },
               }}          
             >
-              Add New Comer
+              Add Newcomer
             </Button>
           </Grid>
         </Grid>

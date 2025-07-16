@@ -44,13 +44,13 @@ interface FormData {
 
 const memberSincem: React.FC = () => {
   const ageRanges = [
+    { label: "0-11", from: 0, to: 11 },
     { label: "12-18", from: 12, to: 18 },
     { label: "19-25", from: 19, to: 25 },
     { label: "26-35", from: 26, to: 35 },
     { label: "36-45", from: 36, to: 45 },
     { label: "46-55", from: 46, to: 55 },
     { label: "56+", from: 56, to: null },
-    { label: "Custom", from: null, to: null },
   ];
 
   const [formData, setFormData] = useState<FormData>({
@@ -74,7 +74,6 @@ const memberSincem: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAgeRange, setSelectedAgeRange] = useState("");
-  const [showCustomAgeInputs, setShowCustomAgeInputs] = useState(false);
   const navigate = useNavigate();
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const theme = useTheme();
@@ -91,29 +90,11 @@ const memberSincem: React.FC = () => {
     }));
   };
 
-  const handleNumberChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value === "" ? null : Number(value),
-    }));
-  };
 
   const handleAgeRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSelectedAgeRange(value);
 
-    if (value === "Custom") {
-      setShowCustomAgeInputs(true);
-      setFormData(prev => ({
-        ...prev,
-        ageFrom: null,
-        ageTo: null,
-      }));
-    } else {
-      setShowCustomAgeInputs(false);
       const selectedRange = ageRanges.find(range => range.label === value);
       if (selectedRange) {
         setFormData(prev => ({
@@ -122,7 +103,6 @@ const memberSincem: React.FC = () => {
           ageTo: selectedRange.to,
         }));
       }
-    }
   };
 
   const handleNextStep = () => {
@@ -182,7 +162,6 @@ const memberSincem: React.FC = () => {
         nationality: "",
       });
       setSelectedAgeRange("");
-      setShowCustomAgeInputs(false);
       setTimeout(()=>{
         navigate('/members/view-members')
       }, 1500)
@@ -619,66 +598,6 @@ const memberSincem: React.FC = () => {
                 </TextField>
               </Grid>
 
-              {showCustomAgeInputs && (
-                <>
-                  <Grid size={{xs:6, md:3}}>
-                    <TextField
-                      fullWidth
-                      label="Age From"
-                      id="ageFrom"
-                      name="ageFrom"
-                      type="number"
-                      value={formData.ageFrom ?? ""}
-                      onChange={handleNumberChange}
-                      variant="outlined"
-                      placeholder="From"
-                      disabled={isLoading}
-                      size="medium"
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <BsPerson style={{ color: theme.palette.text.secondary }} />
-                          </InputAdornment>
-                        ),
-                        sx: {
-                          fontSize: isLargeScreen ? "1rem" : undefined,
-                        },
-                        inputProps: {
-                          min: 0,
-                        },
-                      }}
-                    />
-                  </Grid>
-                  <Grid size={{xs:6, md:3}}>
-                    <TextField
-                      fullWidth
-                      label="Age To"
-                      id="ageTo"
-                      name="ageTo"
-                      type="number"
-                      value={formData.ageTo ?? ""}
-                      onChange={handleNumberChange}
-                      variant="outlined"
-                      placeholder="To"
-                      disabled={isLoading}
-                      size="medium"
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <BsPerson style={{ color: theme.palette.text.secondary }} />
-                          </InputAdornment>
-                        ),
-                        sx: {
-                          fontSize: isLargeScreen ? "1rem" : undefined,
-                        },
-                        inputProps: {
-                          min: formData.ageFrom ?? 0,
-                        },
-                      }}
-                    />
-                  </Grid>
-                </>
-              )}
 
               <Grid size={{xs:12, md:6}}>
                 <TextField

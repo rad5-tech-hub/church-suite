@@ -117,10 +117,10 @@ const RegistrationForm: React.FC = () => {
               gutterBottom
               sx={{ color: 'text.primary' }}
             >
-               Register New Comer
+               Register Newcomer
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Please fill out the form to register a New Comer.
+              Please fill out the form to register a Newcomer.
             </Typography>
           </Grid>
           <Grid 
@@ -149,7 +149,7 @@ const RegistrationForm: React.FC = () => {
                 },
               }}
             >
-              View New Comers
+              View Newcomers
             </Button>
           </Grid>
         </Grid>
@@ -218,8 +218,7 @@ const RegistrationForm: React.FC = () => {
                     name="sex"
                     value={formData.sex}                  
                     label="sex"
-                    onChange={handleChange}
-                    required
+                    onChange={handleChange}                    
                     startAdornment={
                       <InputAdornment position="start">
                         <FaTransgender style={{ color: theme.palette.text.secondary }} />
@@ -249,8 +248,7 @@ const RegistrationForm: React.FC = () => {
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    placeholder="Enter your address"
-                    required
+                    placeholder="Enter your address"                    
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -273,8 +271,7 @@ const RegistrationForm: React.FC = () => {
                       name="birthMonth"
                       value={formData.birthMonth}                    
                       label="Month of Birth"
-                      onChange={handleChange}
-                      required
+                      onChange={handleChange}                    
                       startAdornment={
                         <InputAdornment position="start">
                           <BsCalendarDate style={{ color: theme.palette.text.secondary }} />
@@ -299,8 +296,7 @@ const RegistrationForm: React.FC = () => {
                       name="birthDay"
                       value={formData.birthDay}                    
                       label="Day of Birth"
-                      onChange={handleChange}
-                      required
+                      onChange={handleChange}                    
                       startAdornment={
                         <InputAdornment position="start">
                           <BsCalendarDate style={{ color: theme.palette.text.secondary }} />
@@ -329,8 +325,7 @@ const RegistrationForm: React.FC = () => {
                     name="timer"
                     value={formData.timer || ""}
                     onChange={handleChange}
-                    displayEmpty
-                    required
+                    displayEmpty                    
                     startAdornment={
                       <InputAdornment position="start">
                         <FiClock style={{ color: theme.palette.text.secondary }} />
@@ -340,7 +335,7 @@ const RegistrationForm: React.FC = () => {
                     <MenuItem value="" disabled>
                       Select how many times you have been here. 
                     </MenuItem>
-                    {Array.from({ length: 50 }, (_, i) => (
+                    {Array.from({ length: 10 }, (_, i) => (
                       <MenuItem key={i + 1} value={i + 1}>
                         {i + 1} {i + 1 === 1 ? 'Time' : 'Times'}
                       </MenuItem>

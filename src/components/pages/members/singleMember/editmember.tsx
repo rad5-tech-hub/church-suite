@@ -8,7 +8,6 @@ import {
   TextField, 
   MenuItem, 
   Divider,
-  InputAdornment,
   Container
 } from '@mui/material';
 import { toast } from "react-toastify";
@@ -22,7 +21,6 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import Api from '../../../shared/api/api';
 import DashboardManager from '../../../shared/dashboardManager';
-import { BsPerson } from 'react-icons/bs';
 
 interface Member {
   id: string;
@@ -47,13 +45,13 @@ interface Member {
 }
 
 const ageRanges = [
+  { label: "0-11", from: 0, to: 11 },
   { label: "12-18", from: 12, to: 18 },
   { label: "19-25", from: 19, to: 25 },
   { label: "26-35", from: 26, to: 35 },
   { label: "36-45", from: 36, to: 45 },
   { label: "46-55", from: 46, to: 55 },
-  { label: "56+", from: 56, to: null },
-  { label: "Custom", from: null, to: null },
+  { label: "56+", from: 56, to: null },  
 ];
 
 const EditMember: React.FC = () => {
@@ -64,7 +62,6 @@ const EditMember: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>('');
-  const [showCustomAgeInputs, setShowCustomAgeInputs] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState<Partial<Member>>({});
@@ -106,12 +103,8 @@ const EditMember: React.FC = () => {
         );
         
         if (foundRange) {
-          setSelectedAgeRange(foundRange.label);
-          setShowCustomAgeInputs(false);
-        } else {
-          setSelectedAgeRange('Custom');
-          setShowCustomAgeInputs(true);
-        }
+          setSelectedAgeRange(foundRange.label);          
+        } 
 
       } catch (err) {
         console.error("Failed to fetch worker data:", err);
@@ -137,13 +130,8 @@ const EditMember: React.FC = () => {
   const handleAgeRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSelectedAgeRange(value);
+  
     
-    if (value === 'Custom') {
-      setShowCustomAgeInputs(true);
-      return;
-    }
-    
-    setShowCustomAgeInputs(false);
     const selectedRange = ageRanges.find(range => range.label === value);
     
     if (selectedRange) {
@@ -153,14 +141,6 @@ const EditMember: React.FC = () => {
         ageTo: selectedRange.to || 0
       }));
     }
-  };
-
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value ? parseInt(value) : null
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -228,7 +208,7 @@ const EditMember: React.FC = () => {
                     fontSize: '1.25rem'
                   }}
                 >
-                    Member not found!
+                    Worker not found!
                 </Typography>
                 {error ? (
                   <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
@@ -268,10 +248,10 @@ const EditMember: React.FC = () => {
               gutterBottom
               sx={{ color: 'text.primary' }}
             >
-              Edit Member Profile
+              Edit Worker Profile
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Update member information below
+              Update Worker information below
             </Typography>
           </Grid>
           <Grid 
@@ -365,47 +345,6 @@ const EditMember: React.FC = () => {
                     ))}
                   </TextField>
                 </Box>
-
-                {showCustomAgeInputs && (
-                  <Box sx={{ display: 'flex', gap: 2, mt: 2, flexDirection: { md: 'row', xs: 'column' } }}>
-                    <TextField
-                      fullWidth
-                      label="Age From"
-                      name="ageFrom"
-                      type="number"
-                      value={formData.ageFrom ?? ""}
-                      onChange={handleNumberChange}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <BsPerson style={{ color: '#6b7280' }} />
-                          </InputAdornment>
-                        ),
-                        inputProps: {
-                          min: 0,
-                        },
-                      }}
-                    />
-                    <TextField
-                      fullWidth
-                      label="Age To"
-                      name="ageTo"
-                      type="number"
-                      value={formData.ageTo ?? ""}
-                      onChange={handleNumberChange}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <BsPerson style={{ color: '#6b7280' }} />
-                          </InputAdornment>
-                        ),
-                        inputProps: {
-                          min: formData.ageFrom ?? 0,
-                        },
-                      }}
-                    />
-                  </Box>
-                )}
               </Grid>
             </Grid>
           </Box>

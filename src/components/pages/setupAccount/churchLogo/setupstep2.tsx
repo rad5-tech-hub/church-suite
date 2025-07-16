@@ -15,7 +15,7 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, error }) => {
-  const label = type === "logo" ? "Logo" : "Background Image";
+  const label = type === "logo" ? "Logo" : "Banner Image";
   const id = `${type}-upload`;
 
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,7 +33,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, er
   return (
     <div className="mb-6 relative"> {/* Added relative positioning for the container */}
       <label htmlFor={id} className="block text-base text-gray-700 font-medium mb-2">
-        Upload {label}
+        Upload {label }
       </label>
       <div
         className={`file-upload input-shadow flex flex-col items-center justify-center border border-gray-300 rounded-md py-6 cursor-pointer relative ${
@@ -159,7 +159,7 @@ const SetupStep2: React.FC = () => {
             <p className="mb-2 text-sm text-gray-200">Step 2 of 3</p>
             <h1 className="text-3xl lg:text-5xl font-bold mb-2">Image Uploads</h1>
             <p className="text-lg lg:text-xl text-gray-300">
-              Upload your logo and background image to complete the setup.
+              Upload Church logo and banner to complete the setup.
             </p>
           </div>
         </div>

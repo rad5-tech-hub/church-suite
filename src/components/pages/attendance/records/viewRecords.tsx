@@ -24,7 +24,6 @@ import {
   DialogActions,
   TextField,
   TablePagination,
-  Tooltip,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
@@ -36,28 +35,33 @@ import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 
-interface Event {
+interface AttendanceRecord {
   id: string;
-  title: string;
-  description: string;
+  eventId: string;
+  eventTitle: string; // Assumed to be included in API response or fetched separately
   date: string;
-  recurrenceType: string;
+  total: number | null;
+  male: number | null;
+  female: number | null;
+  children: number | null;
 }
 
-const ViewServices: React.FC = () => {
-  const [events, setEvents] = useState<Event[]>([]);
+const ViewAttendance: React.FC = () => {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
-  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
+  const [currentRecord, setCurrentRecord] = useState<AttendanceRecord | null>(null);
   const [actionType, setActionType] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [editFormData, setEditFormData] = useState<Omit<Event, "id">>({
-    title: "",
-    description: "",
+  const [editFormData, setEditFormData] = useState<Omit<AttendanceRecord, "id" | "eventTitle">>({
+    eventId: "",
     date: "",
-    recurrenceType: "",
+    total: null,
+    male: null,
+    female: null,
+    children: null,
   });
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
@@ -67,53 +71,57 @@ const ViewServices: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
-  // Fetch events
-  const fetchEvents = async () => {
+  // Fetch attendance records
+  const fetchAttendance = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await Api.get("/church/get-events");
-      setEvents(response.data.events || []);
+      const response = await Api.get("/church/get-attendance");
+      setRecords(response.data.records || []);
     } catch (error) {
-      console.error("Failed to fetch events:", error);
-      setError("Failed to load Program. Please try again later.");
+      console.error("Failed to fetch attendance records:", error);
+      setError("Failed to load attendance records. Please try again later.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEvents();
+    fetchAttendance();
   }, []);
 
   // Calculate counts
-  const totalCount = events.length;
-  const recurringCount = events.filter(event => event.recurrenceType && event.recurrenceType !== "none").length;
+  const totalCount = records.length;
+  const totalCategoryCount = records.filter(record => record.total !== null).length;
 
   // Table column widths
   const columnWidths = {
-    title: "20%",
-    description: "30%",
-    date: "20%",
-    recurrenceType: "20%",
+    eventTitle: "20%",
+    date: "15%",
+    total: "15%",
+    male: "15%",
+    female: "15%",
+    children: "15%",
     actions: "10%",
   };
 
   // Action handlers
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, eventItem: Event) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, record: AttendanceRecord) => {
     setAnchorEl(event.currentTarget);
-    setCurrentEvent(eventItem);
+    setCurrentRecord(record);
   };
 
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleEditOpen = () => {
-    if (currentEvent) {
+    if (currentRecord) {
       setEditFormData({
-        title: currentEvent.title,
-        description: currentEvent.description,
-        date: currentEvent.date,
-        recurrenceType: currentEvent.recurrenceType,
+        eventId: currentRecord.eventId,
+        date: currentRecord.date,
+        total: currentRecord.total,
+        male: currentRecord.male,
+        female: currentRecord.female,
+        children: currentRecord.children,
       });
       setEditModalOpen(true);
     }
@@ -122,7 +130,7 @@ const ViewServices: React.FC = () => {
 
   const handleEditClose = () => {
     setEditModalOpen(false);
-    setCurrentEvent(null);
+    setCurrentRecord(null);
   };
 
   const showConfirmation = (action: string) => {
@@ -133,50 +141,53 @@ const ViewServices: React.FC = () => {
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: name === "date" ? value : value === "" ? null : Number(value),
+    }));
   };
 
   const handleEditSubmit = async () => {
-    if (!currentEvent?.id) {
-      console.error("Program ID is undefined");
-      toast.error("Invalid program data");
+    if (!currentRecord?.id) {
+      console.error("Attendance record ID is undefined");
+      toast.error("Invalid attendance record data");
       return;
     }
 
     try {
       setLoading(true);
-      await Api.patch(`/church/edit-event/${currentEvent.id}`, editFormData);
-      setEvents(events.map(event =>
-        event.id === currentEvent.id ? { ...event, ...editFormData } : event
+      await Api.patch(`/church/edit-attendance/${currentRecord.id}`, editFormData);
+      setRecords(records.map(record =>
+        record.id === currentRecord.id ? { ...record, ...editFormData } : record
       ));
-      toast.success("Program updated successfully!");
+      toast.success("Attendance record updated successfully!");
       handleEditClose();
     } catch (error) {
       console.error("Update error:", error);
-      toast.error("Failed to update Program");
+      toast.error("Failed to update attendance record");
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmedAction = async () => {
-    if (!currentEvent || !actionType) return;
+    if (!currentRecord || !actionType) return;
 
     try {
       setLoading(true);
       if (actionType === "delete") {
-        await Api.delete(`/church/delete-event/${currentEvent.id}`);
-        setEvents(events.filter(event => event.id !== currentEvent.id));
-        toast.success("Program deleted successfully!");
+        await Api.delete(`/church/delete-attendance/${currentRecord.id}`);
+        setRecords(records.filter(record => record.id !== currentRecord.id));
+        toast.success("Attendance record deleted successfully!");
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error("Failed to delete program");
+      toast.error("Failed to delete attendance record");
     } finally {
       setLoading(false);
       setConfirmModalOpen(false);
       setActionType(null);
-      setCurrentEvent(null);
+      setCurrentRecord(null);
     }
   };
 
@@ -188,11 +199,6 @@ const ViewServices: React.FC = () => {
     setPage(0);
   };
 
-  // Helper functions
-  const truncateText = (text: string | null, maxLength = 30) => {
-    if (!text) return "-";
-    return text.length <= maxLength ? text : `${text.substring(0, maxLength)}...`;
-  };
 
   // Empty state component
   const EmptyState = () => (
@@ -211,7 +217,7 @@ const ViewServices: React.FC = () => {
         gutterBottom
         sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
       >
-        No programs found
+        No attendance records found
       </Typography>
       {error && (
         <Typography color="error" sx={{ mb: 2, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
@@ -220,7 +226,7 @@ const ViewServices: React.FC = () => {
       )}
       <Button
         variant="contained"
-        onClick={() => navigate("/attendance/service")}
+        onClick={() => navigate("/attendance/record")}
         sx={{
           backgroundColor: "var(--color-primary)",
           px: { xs: 2, sm: 2 },
@@ -233,7 +239,7 @@ const ViewServices: React.FC = () => {
           },
         }}
       >
-        Create New Program
+        Record Attendance
       </Button>
     </Box>
   );
@@ -251,14 +257,14 @@ const ViewServices: React.FC = () => {
               gutterBottom
               sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined }}
             >
-              All Programs
+              All Attendance Records
             </Typography>
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
             >
-              View and manage all church programs for {authData?.church_name || "your church"}.
+              View and manage all attendance records for {authData?.church_name || "your church"}.
             </Typography>
           </Grid>
           <Grid
@@ -271,7 +277,7 @@ const ViewServices: React.FC = () => {
           >
             <Button
               variant="contained"
-              onClick={() => navigate("/attendance/service")}
+              onClick={() => navigate("/attendance/record")}
               size="medium"
               sx={{
                 backgroundColor: "var(--color-primary)",
@@ -288,25 +294,25 @@ const ViewServices: React.FC = () => {
                 },
               }}
             >
-              Create Program
+              Record Attendance
             </Button>
           </Grid>
         </Grid>
 
         {/* Loading State */}
-        {loading && events.length === 0 && (
+        {loading && records.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
           </Box>
         )}
 
         {/* Error or Empty State */}
-        {(!loading && error && events.length === 0) || (!loading && events.length === 0) ? (
+        {(!loading && error && records.length === 0) || (!loading && records.length === 0) ? (
           <EmptyState />
         ) : null}
 
         {/* Data Table */}
-        {events.length > 0 && (
+        {records.length > 0 && (
           <>
             <Typography
               variant="subtitle1"
@@ -317,24 +323,30 @@ const ViewServices: React.FC = () => {
                 fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
             >
-              {totalCount} Program{totalCount !== 1 ? "s" : ""} • {recurringCount} Recurring
+              {totalCount} Record{totalCount !== 1 ? "s" : ""} • {totalCategoryCount} with Total
             </Typography>
 
             <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.title, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Title
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.eventTitle, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Program
                     </TableCell>
-                     <TableCell sx={{ fontWeight: 600, width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Date
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.description, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Description
-                    </TableCell>                   
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.recurrenceType, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Recurrence
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Total
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.male, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Men
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.female, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Women
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.children, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Children
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Actions
@@ -342,36 +354,38 @@ const ViewServices: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {events
+                  {records
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((event) => (
+                    .map((record) => (
                       <TableRow
-                        key={event.id}
+                        key={record.id}
                         sx={{
                           borderBottom: "1px solid #e5e7eb",
                           "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
                         }}
                       >
-                        <TableCell sx={{ width: columnWidths.title, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {event.title}
+                        <TableCell sx={{ width: columnWidths.eventTitle, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.eventTitle || "-"}
                         </TableCell>
                         <TableCell sx={{ width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {new Date(event.date).toLocaleDateString()}
+                          {record.date ? new Date(record.date).toLocaleDateString() : "-"}
                         </TableCell>
-                        <TableCell sx={{ width: columnWidths.description, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          <Tooltip title={event.description || "-"} arrow>
-                            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                              {truncateText(event.description)}
-                            </Typography>
-                          </Tooltip>
+                        <TableCell sx={{ width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.total ?? "-"}
                         </TableCell>
-                        <TableCell sx={{ width: columnWidths.recurrenceType, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {event.recurrenceType || "-"}
+                        <TableCell sx={{ width: columnWidths.male, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.male ?? "-"}
+                        </TableCell>
+                        <TableCell sx={{ width: columnWidths.female, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.female ?? "-"}
+                        </TableCell>
+                        <TableCell sx={{ width: columnWidths.children, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.children ?? "-"}
                         </TableCell>
                         <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           <IconButton
                             aria-label="more"
-                            onClick={(e) => handleMenuOpen(e, event)}
+                            onClick={(e) => handleMenuOpen(e, record)}
                             disabled={loading}
                             size="small"
                             sx={{
@@ -394,7 +408,7 @@ const ViewServices: React.FC = () => {
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25]}
                 component="div"
-                count={events.length}
+                count={records.length}
                 rowsPerPage={rowsPerPage}
                 page={page}
                 onPageChange={handleChangePage}
@@ -412,7 +426,7 @@ const ViewServices: React.FC = () => {
 
         {/* Action Menu */}
         <Menu
-          id="event-menu"
+          id="attendance-menu"
           anchorEl={anchorEl}
           keepMounted
           open={Boolean(anchorEl)}
@@ -435,13 +449,6 @@ const ViewServices: React.FC = () => {
             Edit
           </MenuItem>
           <MenuItem
-            onClick={() => navigate(`/attendance/record?eventId=${currentEvent?.id}`)}
-            disabled={loading}
-          >
-            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📋</Typography>
-            Record Attendance
-          </MenuItem>
-          <MenuItem
             onClick={() => showConfirmation("delete")}
             disabled={loading || !authData?.isSuperAdmin}
           >
@@ -450,38 +457,21 @@ const ViewServices: React.FC = () => {
           </MenuItem>
         </Menu>
 
-        {/* Edit Event Modal */}
+        {/* Edit Attendance Modal */}
         <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Edit Program
+            Edit Attendance Record
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
               <TextField
                 fullWidth
-                label="Program Title"
-                name="title"
-                value={editFormData.title}
+                label="Program ID"
+                name="eventId"
+                value={editFormData.eventId}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={editFormData.description}
-                onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
-                multiline
-                rows={4}
                 InputLabelProps={{
                   sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
@@ -508,9 +498,58 @@ const ViewServices: React.FC = () => {
               />
               <TextField
                 fullWidth
-                label="Recurrence Type"
-                name="recurrenceType"
-                value={editFormData.recurrenceType}
+                label="Total Attendance"
+                name="total"
+                type="number"
+                value={editFormData.total ?? ""}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Men Attendance"
+                name="male"
+                type="number"
+                value={editFormData.male ?? ""}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Women Attendance"
+                name="female"
+                type="number"
+                value={editFormData.female ?? ""}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Children Attendance"
+                name="children"
+                type="number"
+                value={editFormData.children ?? ""}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
@@ -556,11 +595,11 @@ const ViewServices: React.FC = () => {
           maxWidth="xs"
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Delete Program
+            Delete Attendance Record
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              Are you sure you want to delete "{currentEvent?.title}"?
+              Are you sure you want to delete the attendance record for "{currentRecord?.eventTitle}"?
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -586,4 +625,4 @@ const ViewServices: React.FC = () => {
   );
 };
 
-export default ViewServices;
+export default ViewAttendance;
