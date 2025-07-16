@@ -318,7 +318,7 @@ const Attendance: React.FC = () => {
         <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <Grid container spacing={4}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth disabled={loading || eventLoading}>
+              <FormControl fullWidth disabled={loading}>
                 <InputLabel id="event-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                   Programs *
                 </InputLabel>
