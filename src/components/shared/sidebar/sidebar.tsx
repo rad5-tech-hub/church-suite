@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               >
                 <span className="flex items-center font-semibold gap-3">
                   <HiUsers className="text-2xl" />
-                  Registrar
+                  Register
                 </span>
                 <span>{activeDropdown === "members" ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}</span>
               </button>
