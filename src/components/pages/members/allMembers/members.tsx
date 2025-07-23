@@ -26,10 +26,13 @@ import {
   Select,
   Checkbox,
   ListItemText,
+  Tooltip,
+  Autocomplete,
 } from "@mui/material";
 import { BsPerson, BsCalendar, BsGeoAlt } from "react-icons/bs";
 import { IoCallOutline } from "react-icons/io5";
 import DashboardManager from "../../../shared/dashboardManager";
+import { SelectChangeEvent } from '@mui/material/Select';
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 
@@ -37,7 +40,7 @@ import { RootState } from "../../../reduxstore/redux";
 interface FormData {
   name: string;
   address: string;
-  whatsappNo: string;
+  whatappNo: string;
   phoneNo: string;
   sex: string;
   maritalStatus: string;
@@ -58,10 +61,26 @@ interface FormData {
 interface Department {
   id: string;
   name: string;
+  type?: string;
 }
+
+// Interface for Countries and unit data
+interface Countries {
+  iso2: string;
+  name: string;
+  flag: string;
+}
+
 
 interface Unit {
   id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  departmentId: string;
+}
+
+interface State {
   name: string;
 }
 
@@ -91,8 +110,6 @@ const months = [
   { name: "December", value: "12" },
 ];
 
-const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, "0"));
-
 const steps = ["Basic Information", "Additional Details"];
 
 const MemberSince: React.FC = () => {
@@ -106,7 +123,7 @@ const MemberSince: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     address: "",
-    whatsappNo: "",
+    whatappNo: "",
     phoneNo: "",
     sex: "",
     maritalStatus: "",
@@ -130,47 +147,146 @@ const MemberSince: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [fetchingUnits, setFetchingUnits] = useState(false);
+  const [countries, setCountries] = useState<Countries[]>([]);
+  const [isFetchingCountries, setIsFetchingCountries] = useState(false);
+  const [hasFetchedCountries, setHasFetchedCountries] = useState(false);
+  const [departmentUnits, setDepartmentUnits] = useState<{ [deptId: string]: Unit[] }>({});
+  const [hasFetchedDepartments, setHasFetchedDepartments] = useState(false);
+  const [hasFetchedUnits, setHasFetchedUnits] = useState<{ [deptId: string]: boolean }>({});
+  const [isFetchingDepartments, setIsFetchingDepartments] = useState(false);
+  const [isFetchingUnits, setIsFetchingUnits] = useState<{ [deptId: string]: boolean }>({});
+  const [departmentsError, setDepartmentsError] = useState("");
+  const [unitsError, setUnitsError] = useState<{ [deptId: string]: string }>({});
+  const [states, setStates] = useState<State[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // select year membership since function
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1960 + 1 }, (_, i) => 1960 + i);
+
 
   // Fetch departments
   const fetchDepartments = useCallback(async () => {
-    if (!authData?.churchId) return;
-    try {
-      const response = await Api.get(`/church/get-departments`);
-      setDepartments(response.data.departments || []);
-    } catch (error) {
-      console.error("Failed to fetch departments:", error);     
-    }
-  }, [authData?.churchId, isMobile]);
+    if (hasFetchedDepartments || isFetchingDepartments) return;
 
-  // Fetch units based on selected department
-  const fetchUnits = useCallback(
-    async (departmentId: string) => {
-      if (!authData?.churchId || !departmentId) {
-        setUnits([]);
-        return;
-      }
-      setFetchingUnits(true);
+    setIsFetchingDepartments(true);
+    setDepartmentsError("");
+
+    try {
+      const response = await Api.get("/church/get-departments");
+      setDepartments(response.data.departments || []);
+      setHasFetchedDepartments(true);
+    } catch (error: any) {
+      console.error("Error fetching departments:", error);
+      setDepartmentsError("Failed to load departments. Please try again.");
+    } finally {
+      setIsFetchingDepartments(false);
+    }
+  }, [hasFetchedDepartments]);
+
+  // Fetch units for a specific department
+  const fetchUnits = useCallback(async (deptId: string) => {
+    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+    setUnitsError((prev) => ({ ...prev, [deptId]: "" }));
+
+    try {
+      const response = await Api.get(`/church/a-department/${deptId}`);
+      const units = (response.data.department.units || []).map((unit: Unit) => ({
+        ...unit,
+        departmentId: deptId,
+      }));
+      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+    } catch (error: any) {
+      console.error(`Error fetching units for department ${deptId}:`, error);
+      setUnitsError((prev) => ({
+        ...prev,
+        [deptId]: "Failed to load units for this department.",
+      }));
+    } finally {
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+    }
+  }, [hasFetchedUnits, isFetchingUnits]);
+
+  // Handle department selection
+  const handleDepartmentChange = (event: SelectChangeEvent<string[]>)  => {
+    const selectedIds = event.target.value as string[];
+    setFormData((prev) => ({
+      ...prev,
+      departmentIds: selectedIds,
+      unitIds: [], // Reset unitIds when departments change
+    }));
+    setDepartmentUnits({});
+    setHasFetchedUnits({});
+    setUnitsError({});
+  };
+
+  // Handle unit selection
+  const handleUnitChange =  (deptId: string) => (event: SelectChangeEvent<string[]>) => {
+    const selectedUnitIds = event.target.value as string[];
+    const otherUnitIds = formData.unitIds.filter(
+      (unitId) => !departmentUnits[deptId]?.some((unit) => unit.id === unitId)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      unitIds: [...otherUnitIds, ...selectedUnitIds],
+    }));
+  };
+
+  // fetch locations
+  const fetchLocations = useCallback(async () => {
+    if (hasFetchedCountries || isFetchingCountries) return; // Skip if already set
+
+    try {
+      const response = await fetch("https://countriesnow.space/api/v0.1/countries/flag/images");
+      const result = await response.json(); // Parse the JSON response
+      setCountries(result.data || []); 
+      setHasFetchedCountries(true);     
+    } catch (error: any) {
+      console.error("Error fetching locations:", error);
+    } finally{
+      setIsFetchingCountries(false)
+    }
+  }, [hasFetchedCountries, isFetchingCountries]);
+
+  // Fetch states when nationality changes
+   useEffect(() => {
+    const fetchStates = async () => {
+      if (!formData.nationality) return;
+      
+      setLoadingStates(true);
       try {
-        const response = await Api.get(
-          `/church/a-department/${departmentId}`
-        );
-        setUnits(response.data.units || []);
+        const response = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            country: formData.nationality
+          })
+        });
+        const data = await response.json();
+        setStates(data.data?.states || []);
+        setFormData(prev => ({ ...prev, state: '' })); // Reset state when country changes
       } catch (error) {
-        console.error("Failed to fetch units:", error);
+        console.error('Error fetching states:', error);
       } finally {
-        setFetchingUnits(false);
+        setLoadingStates(false);
       }
-    },
-    [authData?.churchId, isMobile]
-  );
+    };
+
+    fetchStates();
+  }, [formData.nationality]);  
 
   // Initial data fetch
   useEffect(() => {
     fetchDepartments();
-  }, [fetchDepartments]);
+    fetchLocations();
+  }, [fetchDepartments, fetchLocations]);
+
 
   // Handle form input changes
   const handleChange = (
@@ -182,10 +298,6 @@ const MemberSince: React.FC = () => {
         ...prev,
         [name]: value,
       }));
-      if (name === "departmentIds" && typeof value === "string") {
-        setFormData((prev) => ({ ...prev, unitIds: [] }));
-        fetchUnits(value);
-      }
     }
   };
 
@@ -285,7 +397,7 @@ const MemberSince: React.FC = () => {
       }
       const payload = {
         ...formData,
-        departmentIds: formData.departmentIds.length > 0 ? [formData.departmentIds[0]] : [],
+        departmentIds: formData.departmentIds,
       };
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
       await Api.post(`/member/add-member?churchId=${authData?.churchId}${branchIdParam}`, payload);
@@ -296,7 +408,7 @@ const MemberSince: React.FC = () => {
       setFormData({
         name: "",
         address: "",
-        whatsappNo: "",
+        whatappNo: "",
         phoneNo: "",
         sex: "",
         maritalStatus: "",
@@ -423,12 +535,23 @@ const MemberSince: React.FC = () => {
     setIsDragging(false);
   };
 
-  // Render selected unit names
-  const renderUnitValues = (selected: string[]) => {
-    return selected
-      .map((id) => units.find((unit) => unit.id === id)?.name || id)
-      .join(", ");
-  };
+  function getDaysInMonth(month: string): number {
+    const monthNumber = parseInt(month, 10);    
+    
+    // Handle February with leap year calculation
+    if (monthNumber === 2) {
+      return 29
+      // return ((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 29 : 28; handles for leap year
+    }
+    
+    // Months with 31 days
+    if ([1, 3, 5, 7, 8, 10, 12].includes(monthNumber)) {
+      return 31;
+    }
+    
+    // All others have 30 days
+    return 30;
+  }
 
   return (
     <DashboardManager>
@@ -511,38 +634,41 @@ const MemberSince: React.FC = () => {
               </Step>
             ))}
           </Stepper>
-          <Button
-            variant="contained"
-            onClick={handleDownloadTemplate}
-            disabled={downLoading}
-            sx={{
-              py: 1,
-              backgroundColor: "var(--color-primary)",
-              px: { xs: 3, sm: 3 },
-              borderRadius: 1,
-              fontWeight: 500,
-              textTransform: "none",
-              color: "var(--color-text-on-primary)",
-              fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
-              "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9 },
-              ml: "auto",
-            }}
-          >
-            {downLoading ? (
-              <>
-                <CircularProgress size={18} sx={{ color: "var(--color-text-on-primary)", mr: 1 }} />
-                Downloading...
-              </>
-            ) : (
-              "Download Excel Template"
-            )}
-          </Button>
+          {currentStep === 0 && <Tooltip title='Download Worker Form Template In Excel'>
+            <Button
+              variant="contained"
+              onClick={handleDownloadTemplate}
+              disabled={downLoading}
+              sx={{
+                py: 1,
+                backgroundColor: "var(--color-primary)",
+                px: { xs: 3, sm: 3 },
+                borderRadius: 1,
+                fontWeight: 500,
+                textTransform: "none",
+                color: "var(--color-text-on-primary)",
+                fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
+                "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9 },
+                ml: "auto",
+              }}
+            >
+              {downLoading ? (
+                <>
+                  <CircularProgress size={18} sx={{ color: "var(--color-text-on-primary)", mr: 1 }} />
+                  Downloading...
+                </>
+              ) : (
+                "Download Excel Template"
+              )}
+            </Button>
+          </Tooltip>}
         </Box>
 
         {/* Form Section */}
         <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4, borderRadius: 2 }}>
           {currentStep === 0 ? (
             <Grid container spacing={4}>
+              {/* fullname input  */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
@@ -567,6 +693,8 @@ const MemberSince: React.FC = () => {
                   required
                 />
               </Grid>
+
+              {/* gender input */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="sex-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
@@ -596,13 +724,15 @@ const MemberSince: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* whatsapp input */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   label="WhatsApp Number"
-                  id="whatsappNo"
-                  name="whatsappNo"
-                  value={formData.whatsappNo}
+                  id="whatappNo"
+                  name="whatappNo"
+                  value={formData.whatappNo}
                   type="tel"
                   onChange={handleChange}
                   variant="outlined"
@@ -620,6 +750,8 @@ const MemberSince: React.FC = () => {
                   InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
                 />
               </Grid>
+
+              {/* phone number input */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
@@ -645,6 +777,8 @@ const MemberSince: React.FC = () => {
                   required
                 />
               </Grid>
+
+              {/* martial status input */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="maritalStatus-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
@@ -677,29 +811,50 @@ const MemberSince: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* year of membership input */}
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Year of Membership"
-                  id="memberSince"
-                  name="memberSince"
-                  type="date"
-                  value={formData.memberSince}
-                  onChange={handleChange}
-                  variant="outlined"
-                  disabled={isLoading}
-                  size="medium"
-                  InputProps={{
-                    startAdornment: (
+                <FormControl fullWidth>
+                  <InputLabel id="ageRange-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                   Year of Membership
+                  </InputLabel>
+                  <Select
+                    fullWidth
+                    label="Year of Membership"
+                    id="memberSince"
+                    name="memberSince"
+                    value={formData.memberSince}
+                    onChange={handleChange}
+                    variant="outlined"
+                    disabled={isLoading}
+                    size="medium"
+                    startAdornment={
                       <InputAdornment position="start">
                         <BsPerson style={{ color: theme.palette.text.secondary }} />
                       </InputAdornment>
-                    ),
-                    sx: { fontSize: isLargeScreen ? "1rem" : undefined },
-                  }}
-                  InputLabelProps={{ shrink: true, sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
-                />
+                    }
+                    sx={{ 
+                      fontSize: isLargeScreen ? "1rem" : undefined,
+                      textAlign: 'left'
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 300 // Limit dropdown height
+                        }
+                      }
+                    }}
+                  >
+                    {years.map((year) => (
+                      <MenuItem  key={String(year)} value={String(year)}>
+                        {year}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
+
+              {/* address input */}
               <Grid size={{ xs: 12, md: 12 }}>
                 <TextField
                   fullWidth
@@ -729,6 +884,7 @@ const MemberSince: React.FC = () => {
             </Grid>
           ) : (
             <Grid container spacing={4}>
+               {/* age range input */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="ageRange-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
@@ -740,12 +896,7 @@ const MemberSince: React.FC = () => {
                     onChange={handleAgeRangeChange as any}
                     variant="outlined"
                     disabled={isLoading}
-                    label="Age Range"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <BsGeoAlt style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
-                    }
+                    label="Age Range"                  
                     sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
                   >
                     <MenuItem value="" disabled>
@@ -759,94 +910,253 @@ const MemberSince: React.FC = () => {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* Month/Day Row */}         
               <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="birthMonth-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                    Birth Month *
-                  </InputLabel>
-                  <Select
-                    labelId="birthMonth-label"
-                    id="birthMonth"
-                    name="birthMonth"
-                    value={formData.birthMonth}
-                    onChange={handleChange}
-                    variant="outlined"
-                    disabled={isLoading}
-                    label="Birth Month *"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <BsCalendar style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
+                <Autocomplete
+                  id="birthDate"
+                  options={(() => {
+                    const options = [];
+                    for (const month of months) {
+                      const daysInMonth = getDaysInMonth(month.value);
+                      for (let day = 1; day <= daysInMonth; day++) {
+                        options.push({
+                          value: `${month.value}-${day}`,
+                          label: `${month.name} ${day}`,
+                          monthName: month.name,
+                          day: day
+                        });
+                      }
                     }
-                    sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
-                  >
-                    <MenuItem value="" disabled>
-                      Select birth month
-                    </MenuItem>
-                    {months.map((month) => (
-                      <MenuItem key={month.value} value={month.value}>
-                        {month.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="birthDay-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                    Birth Day *
-                  </InputLabel>
-                  <Select
-                    labelId="birthDay-label"
-                    id="birthDay"
-                    name="birthDay"
-                    value={formData.birthDay}
-                    onChange={handleChange}
-                    variant="outlined"
-                    disabled={isLoading}
-                    label="Birth Day *"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <BsCalendar style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
+                    return options;
+                  })()}
+                  getOptionLabel={(option) => option.label}
+                  value={
+                    formData.birthMonth && formData.birthDay
+                      ? {
+                          value: `${formData.birthMonth}-${formData.birthDay}`,
+                          label: `${months.find(m => m.value === formData.birthMonth)?.name || ''} ${formData.birthDay}`,
+                          monthName: months.find(m => m.value === formData.birthMonth)?.name || '',
+                          day: Number(formData.birthDay)
+                        }
+                      : null
+                  }
+                  isOptionEqualToValue={(option, value) => option.value === value?.value}
+                  onChange={(_event, newValue) => {
+                    if (newValue) {
+                      const [month, day] = newValue.value.split('-');
+                      handleChange({
+                        target: { name: 'birthMonth', value: month }
+                      });
+                      handleChange({
+                        target: { name: 'birthDay', value: day }
+                      });
+                    } else {
+                      handleChange({ target: { name: 'birthMonth', value: '' } });
+                      handleChange({ target: { name: 'birthDay', value: '' } });
                     }
-                    sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
-                  >
-                    <MenuItem value="" disabled>
-                      Select day
-                    </MenuItem>
-                    {days.map((day) => (
-                      <MenuItem key={day} value={day}>
-                        {day}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="State *"
-                  id="state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleChange}
-                  variant="outlined"
-                  placeholder="Enter state"
+                  }}
+                  filterOptions={(options, state) => {
+                    const input = state.inputValue.toLowerCase();
+                    return options.filter(option => 
+                      option.monthName.toLowerCase().includes(input) || 
+                      option.day.toString().includes(input) ||
+                      option.label.toLowerCase().includes(input)
+                    );
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <li key={option.value} {...otherProps}>
+                        {option.label}
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Date of Birth *"
+                      variant="outlined"
+                      required
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <InputAdornment position="start" sx={{paddingLeft: 2}}>
+                            <BsCalendar style={{ color: theme.palette.text.secondary }} />
+                          </InputAdornment>
+                        ),
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          '& input': {
+                            paddingLeft: '8px !important'
+                          }
+                        }
+                      }}
+                      InputLabelProps={{ 
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                        } 
+                      }}
+                    />
+                  )}
                   disabled={isLoading}
                   size="medium"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BsGeoAlt style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
-                    ),
-                    sx: { fontSize: isLargeScreen ? "1rem" : undefined },
+                  sx={{ 
+                    '& .MuiAutocomplete-inputRoot': {
+                      paddingLeft: '6px'
+                    }
                   }}
-                  InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
-                  required
                 />
               </Grid>
+       
+              {/* Country Select */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Autocomplete
+                  id="nationality"
+                  options={countries}
+                  getOptionLabel={(option: Countries) => option.name}
+                  value={countries.find(c => c.name === formData.nationality) || null}
+                  onChange={(_event: any, newValue: Countries | null) => {
+                    handleChange({
+                      target: {
+                        name: "nationality",
+                        value: newValue?.name || ""
+                      }
+                    });
+                  }}
+                  isOptionEqualToValue={(option, value) => option.name === value?.name}
+                  filterOptions={(options, state) => {
+                    return options.filter(option =>
+                      option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                    );
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props; // Extract key from props
+                    return (
+                      <li 
+                        key={key} // Pass key directly
+                        {...otherProps} // Spread remaining props
+                        style={{ display: 'flex', alignItems: 'center' }}
+                      >
+                        <img 
+                          src={option.flag} 
+                          alt={option.iso2} 
+                          style={{ 
+                            width: 24, 
+                            height: 16, 
+                            marginRight: 8, 
+                            flexShrink: 0 
+                          }} 
+                        />
+                        <span>{option.name}</span>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Nationality *"
+                      variant="outlined"
+                      required
+                      InputProps={{
+                        ...params.InputProps,                    
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          '& input': {
+                            paddingLeft: '8px !important'
+                          }
+                        }
+                      }}
+                      InputLabelProps={{ 
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                        } 
+                      }}
+                    />
+                  )}
+                  disabled={isLoading}
+                  size="medium"
+                  sx={{ 
+                    '& .MuiAutocomplete-inputRoot': {
+                      paddingLeft: '6px'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* State Select */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Autocomplete
+                  id="state"
+                  options={states}
+                  loading={loadingStates}
+                  loadingText="Loading states..."
+                  getOptionLabel={(option: State) => option.name}
+                  value={states.find(s => s.name === formData.state) || null}
+                  onChange={(_event: any, newValue: State | null) => {
+                    handleChange({
+                      target: {
+                        name: "state",
+                        value: newValue?.name || ""
+                      }
+                    });
+                  }}
+                  isOptionEqualToValue={(option, value) => option.name === value?.name}
+                  filterOptions={(options, state) => {
+                    return options.filter(option =>
+                      option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                    );
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <li key={key} {...otherProps} style={{ display: 'flex', alignItems: 'center' }}>
+                        <span>{option.name}</span>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="State *"
+                      variant="outlined"
+                      required
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingStates && <CircularProgress color="inherit" size={20} />}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          '& input': {
+                            paddingLeft: '8px !important'
+                          }
+                        }
+                      }}
+                      InputLabelProps={{ 
+                        sx: { 
+                          fontSize: isLargeScreen ? "1rem" : undefined,
+                          transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                        } 
+                      }}
+                    />
+                  )}
+                  noOptionsText={!formData.nationality ? "Select a Nationality or Country first" : "No states found"}
+                  size="medium"
+                  sx={{ 
+                    '& .MuiAutocomplete-inputRoot': {
+                      paddingLeft: '6px'
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* L.G.A Input form */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
@@ -870,98 +1180,182 @@ const MemberSince: React.FC = () => {
                   InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
                   required
                 />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Nationality *"
-                  id="nationality"
-                  name="nationality"
-                  value={formData.nationality}
-                  onChange={handleChange}
-                  variant="outlined"
-                  placeholder="Enter nationality"
-                  disabled={isLoading}
-                  size="medium"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BsGeoAlt style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
-                    ),
-                    sx: { fontSize: isLargeScreen ? "1rem" : undefined },
-                  }}
-                  InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
-                  required
-                />
-              </Grid>
+              </Grid> 
+
+              {/* department form*/}
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="departmentIds-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                    Department
+                    Departments
                   </InputLabel>
                   <Select
                     labelId="departmentIds-label"
                     id="departmentIds"
                     name="departmentIds"
-                    value={formData.departmentIds[0] || ""}
-                    onChange={handleChange}
-                    variant="outlined"
-                    disabled={isLoading || departments.length === 0}
-                    label="Department"
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <BsPerson style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
-                    }
-                    sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
-                  >
-                    <MenuItem value="" disabled>
-                      {departments.length === 0 ? "No departments available" : "Select department"}
-                    </MenuItem>
-                    {departments.map((dept) => (
-                      <MenuItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="unitIds-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
-                    Units
-                  </InputLabel>
-                  <Select
-                    labelId="unitIds-label"
-                    id="unitIds"
-                    name="unitIds"
                     multiple
-                    value={formData.unitIds}
-                    onChange={handleChange}
+                    value={formData.departmentIds}
+                    onChange={handleDepartmentChange}
+                    onOpen={fetchDepartments}
                     variant="outlined"
-                    disabled={isLoading || fetchingUnits || units.length === 0 || !formData.departmentIds[0]}
-                    label="Units"
-                    renderValue={renderUnitValues}
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <BsPerson style={{ color: theme.palette.text.secondary }} />
-                      </InputAdornment>
+                    disabled={isLoading || isFetchingDepartments}
+                    label="Departments"
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map((id) => departments.find((dept) => dept.id === id)?.name || id)
+                        .join(", ")
                     }
                     sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 300,
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="" disabled>
-                      <ListItemText primary={units.length === 0 ? "No units available" : "Select units"} />
-                    </MenuItem>
-                    {units.map((unit) => (
-                      <MenuItem key={unit.id} value={unit.id}>
-                        <Checkbox checked={formData.unitIds.includes(unit.id)} />
-                        <ListItemText primary={unit.name} />
+                    {isFetchingDepartments ? (
+                      <MenuItem disabled>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            width: "100%",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <CircularProgress size={20} sx={{ mr: 1 }} />
+                          <Typography variant="body2">Loading departments...</Typography>
+                        </Box>
                       </MenuItem>
-                    ))}
+                    ) : departments.length === 0 && hasFetchedDepartments ? (
+                      <MenuItem disabled>
+                        <Typography variant="body2">No departments available</Typography>
+                      </MenuItem>
+                    ) : (
+                      departments.map((dept) => (
+                        <MenuItem key={dept.id} value={dept.id}>
+                          <Checkbox
+                            checked={formData.departmentIds.includes(dept.id)}
+                            sx={{
+                              color: "var(--color-primary)",
+                              "&.Mui-checked": { color: "var(--color-primary)" },
+                            }}
+                          />
+                          <ListItemText primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} />
+                        </MenuItem>
+                      ))
+                    )}
                   </Select>
+                  {departmentsError && !isFetchingDepartments && (
+                    <Typography
+                      variant="body2"
+                      color="error"
+                      sx={{
+                        mt: 1,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Box component="span" sx={{ mr: 1 }}>
+                        ⚠️
+                      </Box>
+                      {departmentsError}
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
+
+              {/* dynamic unit input form */}
+              {formData.departmentIds.map((deptId) => (
+                <Grid size={{ xs: 12, md: 6 }} key={deptId}>
+                  <FormControl fullWidth>
+                    <InputLabel id={`unit-label-${deptId}`} sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                      Units for {departments.find((dept) => dept.id === deptId)?.name || "Department"}
+                    </InputLabel>
+                    <Select
+                      labelId={`unit-label-${deptId}`}
+                      id={`unitIds-${deptId}`}
+                      name={`unitIds-${deptId}`}
+                      multiple
+                      value={formData.unitIds.filter((unitId) =>
+                        departmentUnits[deptId]?.some((unit) => unit.id === unitId)
+                      )}
+                      onChange={handleUnitChange(deptId)}
+                      onOpen={() => fetchUnits(deptId)}
+                      variant="outlined"
+                      disabled={isLoading || isFetchingUnits[deptId]}
+                      label={`Units for ${departments.find((dept) => dept.id === deptId)?.name || "Department"}`}
+                      renderValue={(selected) =>
+                        (selected as string[])
+                          .map((id) => departmentUnits[deptId]?.find((unit) => unit.id === id)?.name || id)
+                          .join(", ")
+                      }
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                      MenuProps={{
+                        PaperProps: {
+                          sx: {
+                            maxHeight: 300,
+                          },
+                        },
+                      }}
+                    >
+                      {isFetchingUnits[deptId] ? (
+                        <MenuItem disabled>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              width: "100%",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            <Typography variant="body2">Loading units...</Typography>
+                          </Box>
+                        </MenuItem>
+                      ) : departmentUnits[deptId]?.length > 0 ? (
+                        departmentUnits[deptId].map((unit) => (
+                          <MenuItem key={unit.id} value={unit.id}>
+                            <Checkbox
+                              checked={formData.unitIds.includes(unit.id)}
+                              sx={{
+                                color: "var(--color-primary)",
+                                "&.Mui-checked": { color: "var(--color-primary)" },
+                              }}
+                            />
+                            <ListItemText
+                              primary={unit.name}
+                              secondary={unit.description || "No description"}
+                            />
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem disabled>
+                          <Typography variant="body2">No units available</Typography>
+                        </MenuItem>
+                      )}
+                    </Select>
+                    {unitsError[deptId] && !isFetchingUnits[deptId] && (
+                      <Typography
+                        variant="body2"
+                        color="error"
+                        sx={{
+                          mt: 1,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Box component="span" sx={{ mr: 1 }}>
+                          ⚠️
+                        </Box>
+                        {unitsError[deptId]}
+                      </Typography>
+                    )}
+                  </FormControl>
+                </Grid>
+              ))}
+
+              {/* comment input */}
               <Grid size={{ xs: 12, md: 12 }}>
                 <TextField
                   fullWidth
@@ -977,11 +1371,6 @@ const MemberSince: React.FC = () => {
                   multiline
                   rows={3}
                   InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BsPerson style={{ color: theme.palette.text.secondary, marginTop: -14 }} />
-                      </InputAdornment>
-                    ),
                     sx: { fontSize: isLargeScreen ? "1rem" : undefined },
                   }}
                   InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined } }}
@@ -1024,26 +1413,28 @@ const MemberSince: React.FC = () => {
                   py: 1,
                 }}
               >
-                <Button
-                  variant="contained"
-                  onClick={handleImportExcel}
-                  disabled={isLoading}
-                  sx={{
-                    py: 1,
-                    backgroundColor: "var(--color-primary)",
-                    px: { xs: 3, sm: 3 },
-                    borderRadius: 1,
-                    fontWeight: "semibold",
-                    textTransform: "none",
-                    color: "var(--color-text-on-primary)",
-                    fontSize: { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9 },
-                    width: { xs: "100%", sm: "auto" },
-                    order: { xs: 2, sm: 1 },
-                  }}
-                >
-                  Import Excel
-                </Button>
+                <Tooltip title="Import worker's data in excel to this system ">
+                  <Button
+                    variant="contained"
+                    onClick={handleImportExcel}
+                    disabled={isLoading}
+                    sx={{
+                      py: 1,
+                      backgroundColor: "var(--color-primary)",
+                      px: { xs: 3, sm: 3 },
+                      borderRadius: 1,
+                      fontWeight: "semibold",
+                      textTransform: "none",
+                      color: "var(--color-text-on-primary)",
+                      fontSize: { xs: "1rem", sm: "1rem" },
+                      "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9 },
+                      width: { xs: "100%", sm: "auto" },
+                      order: { xs: 2, sm: 1 },
+                    }}
+                  >
+                    Import Excel
+                  </Button>
+                </Tooltip>
                 <Button
                   variant="contained"
                   onClick={handleNextStep}

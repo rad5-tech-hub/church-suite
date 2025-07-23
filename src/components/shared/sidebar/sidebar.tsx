@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose } from "react-icons/md";
+import { MdKeyboardArrowDown, MdKeyboardArrowUp, MdClose} from "react-icons/md";
+import { BiSupport } from "react-icons/bi";
 import { HiUsers } from "react-icons/hi2";
 import { LuLayoutDashboard, LuMail, LuChurch, LuSettings } from "react-icons/lu";
 import { LiaDonateSolid } from "react-icons/lia";
@@ -9,6 +10,14 @@ import { RootState } from "../../reduxstore/redux";
 import { QrCodeScannerOutlined } from "@mui/icons-material";
 import { Tooltip } from "@mui/material";
 import { FaPeopleRoof } from "react-icons/fa6";
+import { FiLogOut } from "react-icons/fi";
+import Modal from "@mui/material/Modal";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import { store } from "../../reduxstore/redux";
+import { clearAuth } from "../../reduxstore/authstore";
+import Typography from "@mui/material/Typography";
+// import { useNavigate } from "react-router-dom";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -42,8 +51,9 @@ const getHoverBgColor = (color: string) => {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const authData = useSelector((state: RootState) => state.auth?.authData);
   const [primaryColor, setPrimaryColor] = useState("#111827");
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const [openLogoutModal, setOpenLogoutModal] = useState(false);
 
   // Watch for changes in CSS variable
   useEffect(() => {
@@ -69,6 +79,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
   const toggleDropdown = (menu: string) => {
     setActiveDropdown(activeDropdown === menu ? null : menu);
+  };
+
+  const handleOpenLogoutModal = () => {
+    setOpenLogoutModal(true);
+  };
+
+  const handleCloseLogoutModal = () => {
+    setOpenLogoutModal(false);
+  };
+
+  const handleConfirmLogout = () => {
+    // Dispatch action to clear auth store    
+    handleCloseLogoutModal();
+    store.dispatch(clearAuth());
   };
 
   // Get dynamic class names based on current primary color
@@ -106,8 +130,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-[color-mix(in_srgb,_var(--color-primary),_white_50%)] scrollbar-track-transparent">
-          <ul className="space-y-4">
+        <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-[color-mix(in_srgb,_var(--color-primary),_white_50%)] scrollbar-track-transparent flex flex-col h-full">
+          {/* Main Navigation Links - takes up available space */}
+          <ul className="space-y-4 flex-grow">
             {/* Dashboard */}
             <li>
               <NavLink
@@ -305,7 +330,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <ul className="mt-2 space-y-1 pl-8">
                   <li>
                     <NavLink
-                      to="/attendance/service"
+                      to="/attendance/viewServices"
                       className={({ isActive }) =>
                         `block px-4 py-2 rounded-md transition-colors ${
                           isActive ? `active ${activeBgClass}` : hoverBgClass
@@ -428,6 +453,31 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
               </NavLink>
             </li>
           </ul>
+            {/* Support/Logout Links - pushed to bottom */}
+            <ul className="mt-5 space-y-4 pb-4">
+              <li>
+               <NavLink
+                  to="/church/settings"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors ${
+                      isActive ? `active ${activeBgClass}` : hoverBgClass
+                    }`
+                  }
+                >
+                  <BiSupport className="text-2xl" />
+                  Contact Support
+                </NavLink>
+              </li>
+              <li className="mt-6">
+                <button 
+                  onClick={handleOpenLogoutModal}
+                  className="flex items-center gap-3 font-semibold px-4 py-2 rounded-md transition-colors w-full text-left hover:bg-red-500 dark:hover:bg-red-700"
+                >
+                  <FiLogOut className="text-2xl" />
+                  Log Out
+                </button>
+              </li>
+            </ul>
         </nav>     
       </div>
 
@@ -439,6 +489,100 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           data-testid="overlay"
         ></div>
       )}
+
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        open={openLogoutModal}
+        onClose={handleCloseLogoutModal}
+        aria-labelledby="logout-modal-title"
+        aria-describedby="logout-modal-description"
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backdropFilter: "blur(3px)",
+        }}
+      >
+        <Box
+          sx={{
+            position: "relative",
+            width: {
+              xs: "90%",   // 90% width on extra small screens (mobile)
+              sm: "400px",  // fixed 400px on small screens and up
+            },
+            maxWidth: "95vw", // Ensure it doesn't touch screen edges
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: {
+              xs: 2,       // Smaller padding on mobile
+              sm: 4,       // Larger padding on larger screens
+            },
+            border: "none",
+            borderRadius: 1,
+            mx: "auto",    // Center horizontally
+            my: "auto",    // Center vertically
+          }}
+        >
+          <Typography id="logout-modal-title" variant="h6" component="h2">
+            Confirm Logout
+          </Typography>
+          <Typography id="logout-modal-description" sx={{ mt: 2 }}>
+            Are you sure you want to logout?
+          </Typography>
+          <Box 
+            sx={{ 
+              display: "flex", 
+              justifyContent: "flex-end", 
+              mt: 3, 
+              gap: 2,
+              flexDirection: {
+                xs: "column", // Stack buttons vertically on mobile
+                sm: "row",    // Side by side on larger screens
+              }
+            }}
+          >
+            <Button 
+              variant="outlined" 
+              onClick={handleCloseLogoutModal}
+              sx={{
+                borderColor: 'gray',
+                color: '#111827',
+                '&:hover': {
+                  borderColor: 'darkgray',
+                },
+                width: {
+                  xs: '100%', // Full width on mobile
+                  sm: 'auto', // Auto width on larger screens
+                }
+              }}
+              fullWidth // Ensures full width on mobile
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleConfirmLogout}
+              sx={{
+                backgroundColor: '#FB2C36',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#FF6467',
+                },
+                border: 'none',
+                boxShadow: 'none',
+                width: {
+                  xs: '100%', // Full width on mobile
+                  sm: 'auto', // Auto width on larger screens
+                }
+              }}
+              fullWidth // Ensures full width on mobile
+            >
+              Logout
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </>
   );
 };

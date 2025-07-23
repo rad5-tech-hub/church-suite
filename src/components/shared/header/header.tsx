@@ -209,10 +209,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
               variant="contained"
               onClick={handleConfirmLogout}
               sx={{
-                backgroundColor: '#111827',
+                backgroundColor: '#FB2C36',
                 color: 'white',
                 '&:hover': {
-                  backgroundColor: '#1f2937',
+                  backgroundColor: '#FF6467',
                 },
                 border: 'none',
                 boxShadow: 'none',

@@ -47,6 +47,7 @@ interface Member {
   phoneNo: string;
   whatappNo: string;
   isDeleted?: boolean;
+  branch:{name: string}
 }
 
 const ViewMembers: React.FC = () => {
@@ -479,7 +480,7 @@ const ViewMembers: React.FC = () => {
                               : "none",
                           }}
                         >
-                          Main Branch
+                          {member?.branch?.name || 'HQ'}
                         </TableCell>
                         <TableCell
                           sx={{

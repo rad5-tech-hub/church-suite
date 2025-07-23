@@ -438,8 +438,15 @@ const ViewServices: React.FC = () => {
             onClick={() => navigate(`/attendance/record?eventId=${currentEvent?.id}`)}
             disabled={loading}
           >
-            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📋</Typography>
+            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📝</Typography>
             Record Attendance
+          </MenuItem>
+          <MenuItem
+            onClick={() => navigate(`/attendance/records/${currentEvent?.id}`)}
+            disabled={loading}
+          >
+            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📋</Typography>
+            View Attendance
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("delete")}

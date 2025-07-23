@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { IoMailOutline } from "react-icons/io5";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { store } from "../../reduxstore/redux";
 import { clearChurchData } from "../../reduxstore/datamanager";
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Interfaces
 interface LoginFormProps {}
@@ -12,11 +14,6 @@ interface LoginFormProps {}
 interface LoginData {
   email: string;
   password: string;
-}
-
-interface Notification {
-  type: 'login-success' | 'login-error' | 'reset-success' | 'reset-error';
-  message: string;
 }
 
 interface ApiError {
@@ -29,12 +26,12 @@ interface ApiError {
 
 // Main Component
 const Login: React.FC<LoginFormProps> = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginData>({
     email: "",
     password: "",
   });
-  const [notification, setNotification] = useState<Notification | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
@@ -65,12 +62,11 @@ const Login: React.FC<LoginFormProps> = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNotification(null);
     setIsLoading(true);
 
     try {
       const response = await fetch(
-       `${import.meta.env.VITE_API_BASE_URL}/church/login`,
+        `${import.meta.env.VITE_API_BASE_URL}/church/login`,
         {
           method: "POST",
           headers: {
@@ -81,30 +77,48 @@ const Login: React.FC<LoginFormProps> = () => {
       );
 
       const data = await response.json();
-
+      
       if (!response.ok) {
         const apiError = data as ApiError;
         throw new Error(apiError.error?.message || "Login failed");
       }
 
-      setNotification({
-        type: 'login-success',
-        message: 'You have successfully logged in!'
+      // Store email in session storage for verification
+      sessionStorage.setItem('email', formData.email);
+      
+      // Show success toast
+      toast.success('Login successful! Redirecting to verification...', {
+        position: "top-center",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
       });
 
-      if (response.ok || !notification) {
-        setFormData({
-          email: "",
-          password: "",
-        });
-      }
+      // Navigate to verify-email after a short delay
+      setTimeout(() => {
+        navigate('/verify-email');
+      }, 2000);
+
+      // Clear form
+      setFormData({
+        email: "",
+        password: "",
+      });
           
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Login failed. Please try again.";
-      setNotification({
-        type: 'login-error',
-        message: errorMessage
+      toast.error(errorMessage, {
+        position: "top-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
       });
     } finally {
       setIsLoading(false);
@@ -114,7 +128,6 @@ const Login: React.FC<LoginFormProps> = () => {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setNotification(null);
 
     try {
       const response = await fetch(
@@ -135,18 +148,29 @@ const Login: React.FC<LoginFormProps> = () => {
         throw new Error(apiError.error?.message || "Failed to send reset link");
       }
 
-      setNotification({
-        type: 'reset-success',
-        message: 'Password reset link has been sent to your email!'
+      toast.success('Password reset link has been sent to your email!', {
+        position: "top-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
       });
+      
       setShowForgotPasswordModal(false);
       setForgotPasswordEmail("");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to send reset link. Please try again.";
-      setNotification({
-        type: 'reset-error',
-        message: errorMessage
+      toast.error(errorMessage, {
+        position: "top-center",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
       });
     } finally {
       setIsLoading(false);
@@ -159,114 +183,6 @@ const Login: React.FC<LoginFormProps> = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
-      {/* Login Success Modal */}
-      {notification?.type === 'login-success' && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-lg max-w-md w-full mx-4 shadow-xl">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back!</h3>
-              <p className="text-gray-600">{notification.message} Check your <b>Email</b> to continue with the verification Link.</p>
-            </div>
-            <button
-              onClick={() => {setTimeout(()=>{setNotification(null)}, 2500)}}
-              className="w-full bg-[#111827] text-white rounded-lg py-3 text-base font-semibold hover:bg-gray-800 transition duration-200"
-            >
-              <a 
-                href={`mailto:${formData.email}`}
-                className="block w-full h-full"
-              >
-                OK
-              </a>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Success Notification */}
-      {notification?.type === 'reset-success' && (
-        <div className="fixed top-4 right-4 z-50">
-          <div className="bg-white p-4 rounded-lg shadow-lg border-l-4 border-green-500 max-w-sm">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-gray-800">Check your email to continue</h3>
-                <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
-              </div>
-              <button
-                onClick={() => setNotification(null)}
-                className="ml-4 text-gray-400 hover:text-gray-500"
-              >
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Login Error Notification */}
-      {notification?.type === 'login-error' && (
-        <div className="fixed top-4 right-4 z-50">
-          <div className="bg-red-50 p-4 rounded-md shadow-lg border-l-4 border-red-500 max-w-sm">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-red-800">{notification.message}</p>
-              </div>
-              <button
-                onClick={() => setNotification(null)}
-                className="ml-auto -mx-1.5 -my-1.5 bg-red-50 text-red-500 rounded-lg p-1.5 hover:bg-red-100"
-              >
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Error Notification */}
-      {notification?.type === 'reset-error' && (
-        <div className="fixed top-4 right-4 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg border-l-4 border-red-500 max-w-sm">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-lg font-medium text-gray-800">Something went wrong</h3>
-                <p className="mt-1 text-sm text-gray-600">{notification.message}</p>
-              </div>
-              <button
-                onClick={() => setNotification(null)}
-                className="ml-4 text-gray-400 hover:text-gray-500"
-              >
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Forgot Password Modal */}
       {showForgotPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

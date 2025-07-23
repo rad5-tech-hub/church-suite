@@ -7,6 +7,8 @@ import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 
 interface ChurchData {
   churchName?: string;
@@ -21,13 +23,12 @@ interface ChurchData {
 const CreateAccount: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error'} | null>(null);
   const [loading, setLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     passwordMismatch: false,
     emailInvalid: false
   });
-  const [showCongratsDialog, setShowCongratsDialog] = useState(true); // State for congratulatory dialog
+  const [showCongratsDialog, setShowCongratsDialog] = useState(true);
   const churchData = useSelector((state: RootState) => state.church);
   const navigate = useNavigate();
 
@@ -38,13 +39,27 @@ const CreateAccount: React.FC = () => {
     };
 
     setFormErrors(errors);
+    
+    if (errors.passwordMismatch) {
+      toast.error('Passwords do not match', {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
+    
+    if (errors.emailInvalid) {
+      toast.error('Please enter a valid email address', {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
+    
     return !errors.passwordMismatch && !errors.emailInvalid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setNotification(null);
   
     try {
       const form = e.currentTarget as HTMLFormElement;
@@ -69,7 +84,6 @@ const CreateAccount: React.FC = () => {
     }
   };
 
-  // Helper functions (unchanged)
   const getFormValues = (form: HTMLFormElement) => {
     const getValue = (id: string) => 
       (form.querySelector(`#${id}`) as HTMLInputElement)?.value || '';
@@ -144,59 +158,128 @@ const CreateAccount: React.FC = () => {
     return formData;
   };
     
-  const submitChurchData = async (formData: FormData) => {
+const submitChurchData = async (formData: FormData) => {
+  try {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/church/create-church`, {
       method: "POST",
       body: formData,
     });
-  
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(errorText || "Failed to create account");
+      throw new Error(errorText || "Failed to create church account");
     }
-  
-    return response.json();
-  };
-  
-  const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
-    showSuccessMessage(responseData.email || email);
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error submitting church data:", error);
+    throw error; // Re-throw to allow handling in the calling function
+  }
+};
+
+const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
+  try {
+    // Validate email before storing
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
+    // Store email in sessionStorage
+    sessionStorage.setItem('email', email);
+    
+    // Verify the value was stored correctly
+    const storedEmail = sessionStorage.getItem('email');
+    if (storedEmail !== email) {
+      throw new Error("Failed to store email in sessionStorage");
+    }
+
+    // Show success message (using the response email if available)
+    showSuccessMessage(responseData.email || email);    
+    
+    // Reset form and clear Redux store
     form.reset();
     store.dispatch(clearChurchData());
-  };
+    navigate('/verify-email')
+
+  } catch (error) {
+    console.error("Error in handleSuccess:", error);
+    // Fallback: Show error to user or implement alternative storage
+    // showErrorMessage("Failed to complete setup. Please try again.");
+  }
+};
   
-  const handleSubmissionError = (error: unknown) => {
-    console.error("Account creation error:", error);
-    
-    let errorMessage = "An unexpected error occurred. Please try again.";
-    
-    if (error instanceof Error) {
-      try {
-        const errorObj = JSON.parse(error.message);
-        if (errorObj?.error?.message) {
-          errorMessage = `${errorObj.error.message} ${errorObj.error.details && errorObj.error.details.map((detail: { message: any; }) => detail.message)} `;
-        } else if (error.message.includes('<!DOCTYPE html>')) {
-          errorMessage = "Server error occurred. Please try again later.";
-        } else {
-          errorMessage = error.message;
-        }
-      } catch {
-        errorMessage = error.message.includes('<!DOCTYPE html>')
-          ? "Server error occurred. Please try again later."
-          : error.message;
+const handleSubmissionError = (error: unknown) => {
+  console.error("Account creation error:", error);
+  
+  if (error instanceof Error) {
+    try {
+      const errorObj = JSON.parse(error.message);
+      if (errorObj?.error?.message) {
+        // Properly format the error message for display
+        const errorDetails = errorObj.error.details?.map((detail: any) => 
+          `${detail.field}: ${detail.value} has already been used`
+        ).join('\n') || '';
+
+        toast.error(
+          <div>
+            <div>{errorObj.error.message}</div>
+            {errorDetails && (
+              <pre style={{ 
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                marginTop: '8px'
+              }}>
+                {errorDetails}
+              </pre>
+            )}
+          </div>, 
+          {
+            position: "top-right",
+            autoClose: 8000,
+          }
+        );
+      } else if (error.message.includes('<!DOCTYPE html>')) {          
+        toast.error("Server error occurred. Please try again later.", {
+          position: "top-right",
+          autoClose: 5000,
+        });
+      } else {
+        toast.error(error.message, {
+          position: "top-right",
+          autoClose: 5000,
+        });
       }
+    } catch {
+      const errorMessage = error.message.includes('<!DOCTYPE html>')
+        ? "Server error occurred. Please try again later."
+        : error.message;
+
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+      });
     }
-  
-    setNotification({
-      message: errorMessage,
-      type: 'error'
+  } else {
+    toast.error("An unexpected error occurred. Please try again.", {
+      position: "top-right",
+      autoClose: 5000,
     });
-  };
+  }
+};
 
   const showSuccessMessage = (email: string) => {
-    setNotification({
-      message: `We sent a verification link to: ${email}`,
-      type: 'success'
-    });
+    toast.success(
+      <div>
+        <div>Account created successfully!</div>
+        <div>We sent a verification link to: {email}</div>
+        <div className="mt-2">
+        </div>
+      </div>,
+      {
+        position: "top-right",
+        autoClose: 10000,
+      }
+    );
   };
 
   return (
@@ -214,21 +297,7 @@ const CreateAccount: React.FC = () => {
             </p>
             <button
               type="button"
-              className="
-                w-full 
-                bg-gray-900 
-                text-white 
-                rounded-full 
-                py-2 
-                text-base 
-                font-semibold 
-                hover:bg-gray-800 
-                focus-visible:outline-offset-2 
-                focus-visible:outline-gray-900
-                transition 
-                duration-200
-                ease-in-out
-              "
+              className="w-full bg-gray-900 text-white rounded-full py-2 text-base font-semibold hover:bg-gray-800 focus-visible:outline-offset-2 focus-visible:outline-gray-900 transition duration-200 ease-in-out"
               onClick={() => setShowCongratsDialog(false)}
               aria-label="Proceed to create admin account"
             >
@@ -238,49 +307,7 @@ const CreateAccount: React.FC = () => {
         </div>
       )}
 
-      {/* Success Modal Overlay */}
-      {notification?.type === 'success' && (
-        <div className="fixed inset-0 bg-black opacity-[0.96] flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-lg max-w-md mx-4 shadow-xl">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Account Created Successfully!</h3>
-            <p className="mb-4 text-gray-600">{notification.message}</p>
-            <p className="text-sm text-gray-600 mb-6">
-              Please check your email and click the verification link to be verified.
-            </p>
-            <button
-              type="button"
-              className="
-                w-full 
-                bg-gray-900 
-                text-white 
-                rounded-full 
-                py-2 
-                text-base 
-                font-semibold 
-                hover:bg-gray-800 
-                focus-visible:outline-offset-2 
-                focus-visible:outline-gray-900
-                transition 
-                duration-200
-                ease-in-out
-              "
-              onClick={() => setNotification(null)}
-              aria-label="Close notification and open email client"
-            >
-          
-              <a 
-                href={`mailto:${notification.message.split(': ')[1]}`}
-                className="block w-full h-full"
-                onClick={() => {setShowCongratsDialog(false); setNotification(null); store.dispatch(clearChurchData()); navigate('/')} }
-              >
-                OK
-              </a>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content (only shown when dialog is dismissed) */}
+      {/* Main Content */}
       {!showCongratsDialog && (
         <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
           {/* Left Section (Image) */}
@@ -401,19 +428,6 @@ const CreateAccount: React.FC = () => {
                   <p className="text-red-500 text-sm mt-1">Passwords do not match</p>
                 )}
               </div>
-
-              {/* Error Notification */}
-              {notification?.type === 'error' && (
-                <div className="fixed flex top-3 right-3 justify-between items-center bg-red-100 text-red-700 p-4 rounded-md shadow-lg z-50 w-100">
-                  <p>{notification.message}</p>
-                  <button 
-                    className="text-red-700"
-                    onClick={() => setNotification(null)}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
 
               {/* Submit Button */}
               <div className="w-full gap-3 pt-5">

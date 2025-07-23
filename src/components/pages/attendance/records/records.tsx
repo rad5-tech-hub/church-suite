@@ -284,34 +284,13 @@ const Attendance: React.FC = () => {
             </Typography>
           </Grid>
           <Grid
-            size={{ xs: 12, md: 4 }}
+            size={{ xs: 12 }}
             sx={{
               display: "flex",
               justifyContent: { xs: "flex-start", md: "flex-end" },
               alignItems: "center",
             }}
           >
-            <Button
-              variant="contained"
-              onClick={() => navigate("/manage/view-attendance")}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "var(--color-text-on-primary)",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              View Attendance
-            </Button>
           </Grid>
         </Grid>
 

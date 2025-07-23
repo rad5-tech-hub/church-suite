@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Box,
@@ -38,12 +38,13 @@ import { RootState } from "../../../reduxstore/redux";
 interface AttendanceRecord {
   id: string;
   eventId: string;
-  eventTitle: string; // Assumed to be included in API response or fetched separately
+  eventTitle: string;
   date: string;
   total: number | null;
   male: number | null;
   female: number | null;
   children: number | null;
+  adults: number | null; // Added adults field
 }
 
 const ViewAttendance: React.FC = () => {
@@ -62,25 +63,45 @@ const ViewAttendance: React.FC = () => {
     male: null,
     female: null,
     children: null,
+    adults: null, // Added adults field
   });
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
   const navigate = useNavigate();
+  const { programId } = useParams<{ programId: string }>(); // Extract eventId from URL
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
-  // Fetch attendance records
+  // Fetch attendance records for a specific event
   const fetchAttendance = async () => {
+    if (!programId) {
+      setError("No event ID provided in the URL.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const response = await Api.get("/church/get-attendance");
-      setRecords(response.data.records || []);
+      const response = await Api.get(`/church/get-event/${programId}`);
+      const eventData = response.data.event;
+      const attendanceRecords: AttendanceRecord[] = (eventData.attendances || []).map((attendance: any) => ({
+        id: attendance.id,
+        eventId: attendance.eventId,
+        eventTitle: eventData.title, // Set eventTitle from event.title
+        date: attendance.date,
+        total: attendance.total,
+        male: attendance.male,
+        female: attendance.female,
+        children: attendance.children,
+        adults: attendance.adults, // Include adults field
+      }));
+      setRecords(attendanceRecords);
     } catch (error) {
       console.error("Failed to fetch attendance records:", error);
-      setError("Failed to load attendance records. Please try again later.");
+      setError("Failed to load attendance records for this event. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +109,7 @@ const ViewAttendance: React.FC = () => {
 
   useEffect(() => {
     fetchAttendance();
-  }, []);
+  }, [programId]); // Re-fetch if eventId changes
 
   // Calculate counts
   const totalCount = records.length;
@@ -96,12 +117,11 @@ const ViewAttendance: React.FC = () => {
 
   // Table column widths
   const columnWidths = {
-    eventTitle: "20%",
-    date: "15%",
-    total: "15%",
-    male: "15%",
-    female: "15%",
-    children: "15%",
+    date: "18%",
+    total: "18%",
+    male: "18%",
+    female: "18%",
+    children: "18%",
     actions: "10%",
   };
 
@@ -122,6 +142,7 @@ const ViewAttendance: React.FC = () => {
         male: currentRecord.male,
         female: currentRecord.female,
         children: currentRecord.children,
+        adults: currentRecord.adults, // Include adults field
       });
       setEditModalOpen(true);
     }
@@ -199,7 +220,6 @@ const ViewAttendance: React.FC = () => {
     setPage(0);
   };
 
-
   // Empty state component
   const EmptyState = () => (
     <Box sx={{
@@ -226,7 +246,7 @@ const ViewAttendance: React.FC = () => {
       )}
       <Button
         variant="contained"
-        onClick={() => navigate("/attendance/record")}
+        onClick={() => navigate(`/attendance/record?eventId=${programId}`)}
         sx={{
           backgroundColor: "var(--color-primary)",
           px: { xs: 2, sm: 2 },
@@ -255,16 +275,19 @@ const ViewAttendance: React.FC = () => {
               component="h1"
               fontWeight={600}
               gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined }}
+              sx={{
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
+              }}
             >
-              All Attendance Records
+              Attendance Records for {records[0]?.eventTitle || "Event"}
             </Typography>
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
             >
-              View and manage all attendance records for {authData?.church_name || "your church"}.
+              View and manage attendance records for {authData?.church_name || "your church"}.
             </Typography>
           </Grid>
           <Grid
@@ -277,7 +300,7 @@ const ViewAttendance: React.FC = () => {
           >
             <Button
               variant="contained"
-              onClick={() => navigate("/attendance/record")}
+              onClick={() => navigate(`/attendance/record?eventId=${programId}`)}
               size="medium"
               sx={{
                 backgroundColor: "var(--color-primary)",
@@ -329,16 +352,10 @@ const ViewAttendance: React.FC = () => {
             <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.eventTitle, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Program
-                    </TableCell>
+                  <TableRow>             
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Date
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Total
-                    </TableCell>
+                    </TableCell>                    
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.male, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Men
                     </TableCell>
@@ -347,6 +364,9 @@ const ViewAttendance: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.children, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Children
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      Total
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                       Actions
@@ -363,16 +383,10 @@ const ViewAttendance: React.FC = () => {
                           borderBottom: "1px solid #e5e7eb",
                           "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
                         }}
-                      >
-                        <TableCell sx={{ width: columnWidths.eventTitle, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {record.eventTitle || "-"}
-                        </TableCell>
+                      >                        
                         <TableCell sx={{ width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           {record.date ? new Date(record.date).toLocaleDateString() : "-"}
-                        </TableCell>
-                        <TableCell sx={{ width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {record.total ?? "-"}
-                        </TableCell>
+                        </TableCell>                       
                         <TableCell sx={{ width: columnWidths.male, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           {record.male ?? "-"}
                         </TableCell>
@@ -381,6 +395,9 @@ const ViewAttendance: React.FC = () => {
                         </TableCell>
                         <TableCell sx={{ width: columnWidths.children, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           {record.children ?? "-"}
+                        </TableCell>
+                         <TableCell sx={{ width: columnWidths.total, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {record.total ?? "-"}
                         </TableCell>
                         <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           <IconButton
@@ -472,6 +489,7 @@ const ViewAttendance: React.FC = () => {
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
+                disabled
                 InputLabelProps={{
                   sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
@@ -550,6 +568,22 @@ const ViewAttendance: React.FC = () => {
                 name="children"
                 type="number"
                 value={editFormData.children ?? ""}
+                onChange={handleEditChange}
+                margin="normal"
+                variant="outlined"
+                InputLabelProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+                InputProps={{
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                }}
+              />
+              <TextField
+                fullWidth
+                label="Adults Attendance"
+                name="adults"
+                type="number"
+                value={editFormData.adults ?? ""}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"

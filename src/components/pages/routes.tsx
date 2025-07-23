@@ -2,9 +2,9 @@ import React, { Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../reduxstore/redux";
-import Loading from "./setupAccount/setting-loader/loading";
 import NotFoundPage from "./notFound";
 import ChangeColorButton from "./churchSettings/setting";
+import EmailVerification from "./setupAccount/verify-email/otp";
 
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
@@ -32,8 +32,8 @@ const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"))
 const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
-const Service = React.lazy(() => import("./attendance/services/services"));
-const ViewServices = React.lazy(() => import("./attendance/services/viewServices"));
+const Service = React.lazy(() => import("./attendance/programs/services"));
+const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));
 const RecordAttendance = React.lazy(() => import("./attendance/records/records"));
 const ViewRecords = React.lazy(() => import("./attendance/records/viewRecords"));
 const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
@@ -63,8 +63,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-church" element={<SetupChurch />} />
           <Route path="/setup-logo" element={<SetupStep2 />} />
-          <Route path="/admin-account" element={<CreateAccount />} />
-          <Route path="/setting-up" element={<Loading />} />
+          <Route path="/admin-account" element={<CreateAccount />} />  
           <Route path="/followups" element={<FollowUpQrcodepage />} />
           <Route path="/members" element={<MemberQrcodepage />} />
           <Route path="/church-settings" element={<ChangeColorButton />} />
@@ -175,7 +174,7 @@ const AppRoutes: React.FC = () => {
               <RecordAttendance/>
             </PrivateRoute>
           } />
-          <Route path="/attendance/viewRecords" element={
+          <Route path="/attendance/records/:programId" element={
             <PrivateRoute>
               <ViewRecords/>
             </PrivateRoute>
@@ -184,6 +183,9 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <Qrcode/>
             </PrivateRoute>
+          } />
+           <Route path="/verify-email" element={
+            <EmailVerification/>
           } />
            <Route path="/church/settings" element={
             <PrivateRoute>
