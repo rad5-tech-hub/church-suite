@@ -920,9 +920,10 @@ const MemberSince: React.FC = () => {
                     for (const month of months) {
                       const daysInMonth = getDaysInMonth(month.value);
                       for (let day = 1; day <= daysInMonth; day++) {
+                        const dayFormatted = day.toString().padStart(2, '0'); // Format day as two digits
                         options.push({
-                          value: `${month.value}-${day}`,
-                          label: `${month.name} ${day}`,
+                          value: `${month.value}-${dayFormatted}`,
+                          label: `${month.name} ${dayFormatted}`,
                           monthName: month.name,
                           day: day
                         });
@@ -934,8 +935,8 @@ const MemberSince: React.FC = () => {
                   value={
                     formData.birthMonth && formData.birthDay
                       ? {
-                          value: `${formData.birthMonth}-${formData.birthDay}`,
-                          label: `${months.find(m => m.value === formData.birthMonth)?.name || ''} ${formData.birthDay}`,
+                          value: `${formData.birthMonth}-${formData.birthDay.toString().padStart(2, '0')}`,
+                          label: `${months.find(m => m.value === formData.birthMonth)?.name || ''} ${formData.birthDay.toString().padStart(2, '0')}`,
                           monthName: months.find(m => m.value === formData.birthMonth)?.name || '',
                           day: Number(formData.birthDay)
                         }
@@ -960,7 +961,7 @@ const MemberSince: React.FC = () => {
                     const input = state.inputValue.toLowerCase();
                     return options.filter(option => 
                       option.monthName.toLowerCase().includes(input) || 
-                      option.day.toString().includes(input) ||
+                      option.day.toString().padStart(2, '0').includes(input) || // Search with two-digit format
                       option.label.toLowerCase().includes(input)
                     );
                   }}
@@ -1477,7 +1478,7 @@ const MemberSince: React.FC = () => {
                 {isLoading ? (
                   <>
                     <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                    Creating Worker...
+                    Creating...
                   </>
                 ) : (
                   "Create Worker"
