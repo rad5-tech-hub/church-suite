@@ -733,7 +733,7 @@ const MemberSince: React.FC = () => {
                   id="whatappNo"
                   name="whatappNo"
                   value={formData.whatappNo}
-                  type="tel"
+                  type="number"
                   onChange={handleChange}
                   variant="outlined"
                   placeholder="Enter WhatsApp number"
@@ -758,7 +758,7 @@ const MemberSince: React.FC = () => {
                   label="Phone Number *"
                   id="phoneNo"
                   name="phoneNo"
-                  type="tel"
+                  type="number"
                   value={formData.phoneNo}
                   onChange={handleChange}
                   variant="outlined"
