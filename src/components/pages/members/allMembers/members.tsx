@@ -161,55 +161,65 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1960 + 1 }, (_, i) => 1960 + i);
 
-  // Fetch Data
-  const fetchDepartments = useCallback(async () => {
-    if (hasFetchedDepartments || isFetchingDepartments) return;
-    setIsFetchingDepartments(true);
-    setDepartmentsError("");
-    try {
-      const response = await Api.get("/church/get-departments");
-      setDepartments(response.data.departments || []);
-      setHasFetchedDepartments(true);
-    } catch (error: any) {
-      setDepartmentsError("Failed to load departments. Please try again.");
-    } finally {
-      setIsFetchingDepartments(false);
-    }
-  }, [hasFetchedDepartments, isFetchingDepartments]);
+// Fetch Departments
+const fetchDepartments = useCallback(async () => {
+  if (hasFetchedDepartments || isFetchingDepartments) return;
+  setIsFetchingDepartments(true);
+  setDepartmentsError('');
+  try {
+    const response = await Api.get('/church/get-departments');
+    setDepartments(response.data.departments || []);
+    setHasFetchedDepartments(true);
+  } catch (error: any) {
+    setDepartmentsError('Failed to load departments. Please try again.');
+  } finally {
+    setIsFetchingDepartments(false);
+  }
+}, [hasFetchedDepartments, isFetchingDepartments]);
 
-  const fetchUnits = useCallback(async (deptId: string) => {
-    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
-    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
-    setUnitsError((prev) => ({ ...prev, [deptId]: "" }));
-    try {
-      const response = await Api.get(`/church/a-department/${deptId}`);
-      const units = (response.data.department.units || []).map((unit: Unit) => ({
-        ...unit,
-        departmentId: deptId,
-      }));
-      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
-      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
-    } catch (error: any) {
-      setUnitsError((prev) => ({ ...prev, [deptId]: "Failed to load units for this department." }));
-    } finally {
-      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
-    }
-  }, [hasFetchedUnits, isFetchingUnits]);
+// Fetch Units
+const fetchUnits = useCallback(async (deptId: string) => {
+  if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+  setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+  setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
+  try {
+    const response = await Api.get(`/church/a-department/${deptId}`);
+    const units = (response.data.department.units || []).map((unit: Unit) => ({
+      ...unit,
+      departmentId: deptId,
+    }));
+    setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+    setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+  } catch (error: any) {
+    setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+  } finally {
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+  }
+}, [hasFetchedUnits, isFetchingUnits]);
 
-  const fetchLocations = useCallback(async () => {
-    if (hasFetchedCountries || isFetchingCountries) return;
-    setIsFetchingCountries(true);
-    try {
-      const response = await fetch("https://countriesnow.space/api/v0.1/countries/flag/images");
-      const result = await response.json();
-      setCountries(result.data || []);
-      setHasFetchedCountries(true);
-    } catch (error: any) {
-      console.error("Error fetching locations:", error);
-    } finally {
-      setIsFetchingCountries(false);
+// Fetch Locations (Countries)
+const fetchLocations = useCallback(async () => {
+  if (hasFetchedCountries || isFetchingCountries) return;
+  setIsFetchingCountries(true);
+  try {
+    const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
+    const result = await response.json();
+    setCountries(result.data || []);
+    setHasFetchedCountries(true);
+  } catch (error: any) {
+    console.error('Error fetching locations:', error);
+  } finally {
+    setIsFetchingCountries(false);
+  }
+}, [hasFetchedCountries, isFetchingCountries]);
+
+  // Trigger fetching when modal opens
+  useEffect(() => {
+    if (open) { // Assuming `open` prop from CreateProgramModal
+      fetchDepartments();
+      fetchLocations();
     }
-  }, [hasFetchedCountries, isFetchingCountries]);
+  }, [open, fetchDepartments, fetchLocations]);
 
   useEffect(() => {
     const fetchStates = async () => {
