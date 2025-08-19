@@ -1,15 +1,12 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { IoMailOutline, IoCallOutline, IoEyeOutline } from "react-icons/io5";
 import { PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
 import Api from "../../../shared/api/api";
-import DashboardManager from "../../../shared/dashboardManager";
 import { toast } from "react-toastify";
 import {
   Box,
   Button,
-  Container,
   TextField,
   Typography,
   CircularProgress,
@@ -25,7 +22,12 @@ import {
   FormControl,
   InputLabel,
   SelectChangeEvent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 
 interface FormData {
   name: string;
@@ -62,8 +64,13 @@ interface Unit {
   departmentId: string;
 }
 
-const Admin: React.FC = () => {
-  const [formData, setFormData] = useState<FormData>({
+interface AdminModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
+  const initialFormData: FormData = {
     name: "",
     title: "",
     email: "",
@@ -75,7 +82,9 @@ const Admin: React.FC = () => {
     branchId: "",
     departmentIds: [],
     unitIds: [],
-  });
+  };
+
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -91,19 +100,16 @@ const Admin: React.FC = () => {
   const [branchesError, setBranchesError] = useState("");
   const [departmentsError, setDepartmentsError] = useState("");
   const [unitsError, setUnitsError] = useState<{ [deptId: string]: string }>({});
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
-  // Scope level options
   const scopeLevels: { value: string; label: string }[] = [
     { value: "branch", label: "Branch" },
     { value: "department", label: "Department" },
     { value: "unit", label: "Unit" },
   ];
 
-  // Fetch branches when branch Select is opened
   const fetchBranches = async () => {
     if (hasFetchedBranches || isFetchingBranches) return;
 
@@ -122,7 +128,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Fetch departments when department Select is opened
   const fetchDepartments = async () => {
     if (hasFetchedDepartments || isFetchingDepartments) return;
 
@@ -141,7 +146,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Fetch units for a specific department when its unit Select is opened
   const fetchUnits = async (deptId: string) => {
     if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
 
@@ -167,7 +171,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Reset related fields when scope level changes
   const handleScopeLevelChange = (e: SelectChangeEvent<string>) => {
     const { name, value } = e.target;
     if (!name) return;
@@ -180,7 +183,6 @@ const Admin: React.FC = () => {
       unitIds: value !== "unit" ? [] : prev.unitIds,
     }));
 
-    // Reset fetched data when scope changes
     if (value !== "branch") {
       setBranches([]);
       setHasFetchedBranches(false);
@@ -196,7 +198,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -205,7 +206,6 @@ const Admin: React.FC = () => {
     }));
   };
 
-  // Handle select changes (for branchId and departmentIds)
   const handleSelectChange = (e: SelectChangeEvent<string | string[]>) => {
     const { name, value } = e.target;
     if (!name) return;
@@ -213,11 +213,9 @@ const Admin: React.FC = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      // Reset unitIds when departmentIds changes
       ...(name === "departmentIds" && { unitIds: [] }),
     }));
 
-    // Reset units and fetch states when departmentIds change
     if (name === "departmentIds") {
       setDepartmentUnits({});
       setHasFetchedUnits({});
@@ -225,7 +223,6 @@ const Admin: React.FC = () => {
     }
   };
 
-  // Handle unit selection per department
   const handleUnitSelectChange = (deptId: string) => (e: SelectChangeEvent<string[]>) => {
     const selectedUnitIds = e.target.value as string[];
     const otherUnitIds = formData.unitIds.filter(
@@ -237,7 +234,6 @@ const Admin: React.FC = () => {
     }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -261,8 +257,8 @@ const Admin: React.FC = () => {
       toast.success("Admin created successfully!", {
         position: isMobile ? "top-center" : "top-right",
       });
-      setTimeout(() => {
-        navigate("/manage/view-admins");
+      setTimeout(() => {        
+        onClose();
       }, 1500);
     } catch (error: any) {
       toast.error(error.response?.data.error.message || "Failed to create admin", {
@@ -273,66 +269,51 @@ const Admin: React.FC = () => {
     }
   };
 
-  return (
-    <DashboardManager>
-      <Container sx={{ py: isMobile ? 2 : 3 }}>
-        {/* Header Section */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 9 }}>
-            <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1"
-              fontWeight={600}
-              gutterBottom
-              sx={{
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
-              }}
-            >
-              Manage Admins
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                fontSize: isLargeScreen ? "0.8125rem" : undefined,
-              }}
-            >
-              Create and manage Admins for your church.
-            </Typography>
-          </Grid>
-          <Grid
-            size={{ xs: 12, md: 3 }}
-            sx={{
-              display: "flex",
-              justifyContent: { xs: "flex-start", md: "flex-end" },
-              alignItems: "center",
-            }}
-          >
-            <Button
-              variant="contained"
-              onClick={() => navigate("/manage/view-admins")}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                fontWeight: "semibold",
-                color: "var(--color-text-on-primary)",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              View Admins
-            </Button>
-          </Grid>
-        </Grid>
+  const handleCancel = () => {
+    setFormData(initialFormData);
+    setBranches([]);
+    setDepartments([]);
+    setDepartmentUnits({});
+    setHasFetchedBranches(false);
+    setHasFetchedDepartments(false);
+    setHasFetchedUnits({});
+    setBranchesError("");
+    setDepartmentsError("");
+    setUnitsError({});
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    onClose();
+  };
 
+  return (
+    <Dialog
+      open={open}
+      onClose={handleCancel}
+      maxWidth="md"
+      fullWidth
+      fullScreen={isMobile}
+      sx={{
+        "& .MuiDialog-paper": {
+          borderRadius: isMobile ? 0 : 2,
+          bgcolor: '#2C2C2C',
+          color: "#F6F4FE",
+        },
+      }}
+    >
+      <DialogTitle>
+        <Typography
+          variant={isMobile ? "h6" : "h5"}
+          component="h1"
+          fontWeight={600}
+          sx={{ color: "#F6F4FE" }}
+        >
+          Create Admin
+        </Typography> 
+        <IconButton onClick={onClose}>
+          <Close className="text-gray-300" />
+        </IconButton>       
+      </DialogTitle>
+      <DialogContent dividers>
         <Box
           component="form"
           onSubmit={handleSubmit}
@@ -340,12 +321,10 @@ const Admin: React.FC = () => {
             display: "flex",
             flexDirection: "column",
             gap: 4,
-            mt: 4,
-            borderRadius: 2,
+            mt: 2,
           }}
         >
           <Grid container spacing={4}>
-            {/* Name Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -358,21 +337,39 @@ const Admin: React.FC = () => {
                 placeholder="Enter Admin name"
                 disabled={loading}
                 size="medium"
-                InputProps={{
-                  sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                  },
-                }}
                 InputLabelProps={{
                   sx: {
+                    color: "#F6F4FE", // This changes the label color
+                    "&.Mui-focused": {
+                      color: "#F6F4FE", // Keeps the same color when focused (optional)
+                    },
+                  },
+                }}
+                InputProps={{
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
+                }}             
+                inputProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Title Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -385,21 +382,39 @@ const Admin: React.FC = () => {
                 placeholder="Enter title"
                 disabled={loading}
                 size="medium"
+                InputLabelProps={{
+                  sx: {
+                    color: "#F6F4FE", // This changes the label color
+                    "&.Mui-focused": {
+                      color: "#F6F4FE", // Keeps the same color when focused (optional)
+                    },
+                  },
+                }}
                 InputProps={{
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
-                InputLabelProps={{
+                inputProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Email Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -416,23 +431,33 @@ const Admin: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoMailOutline style={{ color: theme.palette.text.secondary }} />
+                      <IoMailOutline style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    fontSize: isLargeScreen ? "1rem" : undefined,                
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Phone Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -449,26 +474,36 @@ const Admin: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoCallOutline style={{ color: theme.palette.text.secondary }} />
+                      <IoCallOutline style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
-                  ),
+                  ),                             
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Scope Level Selection */}
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
-                <InputLabel id="scope-level-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                <InputLabel id="scope-level-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
                   Scope Level *
                 </InputLabel>
                 <Select
@@ -480,7 +515,17 @@ const Admin: React.FC = () => {
                   label="Scope Level *"
                   disabled={loading}
                   sx={{
-                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    fontSize: isLargeScreen ? "1rem" : undefined,                
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    "& .MuiSelect-select": {
+                        borderColor: "#777280",
+                        color: "#F6F4FE",
+                    },              
                   }}
                 >
                   {scopeLevels.map((level, index) => (
@@ -491,12 +536,10 @@ const Admin: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-
-            {/* Branch Selection - shown only when scopeLevel is branch */}
             {formData.scopeLevel === "branch" && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                  <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined,  color: "#F6F4FE" }}>
                     Assign to Branch
                   </InputLabel>
                   <Select
@@ -509,11 +552,17 @@ const Admin: React.FC = () => {
                     label="Assign to Branch"
                     disabled={loading}
                     sx={{
-                      fontSize: isLargeScreen ? "1rem" : undefined,
-                      "& .MuiSelect-select": {
-                        display: "flex",
-                        alignItems: "center",
+                      fontSize: isLargeScreen ? "1rem" : undefined,                
+                      color: "#F6F4FE",
+                      outlineColor: "#777280",
+                      borderColor: "#777280",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
                       },
+                      "& .MuiSelect-select": {
+                          borderColor: "#777280",
+                          color: "#F6F4FE",
+                      },              
                     }}
                     MenuProps={{
                       PaperProps: {
@@ -564,7 +613,6 @@ const Admin: React.FC = () => {
                         )),
                       ]}
                   </Select>
-
                   {branchesError && !isFetchingBranches && (
                     <Typography
                       variant="body2"
@@ -584,16 +632,13 @@ const Admin: React.FC = () => {
                 </FormControl>
               </Grid>
             )}
-
-            {/* Department Selection - shown when scopeLevel is department or unit */}
             {(formData.scopeLevel === "department" || formData.scopeLevel === "unit") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="department-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                  <InputLabel id="department-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
                     {formData.scopeLevel === "department"
-                        ? "Assign to Department(s)"
-                        : "Select Department(s)"
-                    }
+                      ? "Assign to Department(s)"
+                      : "Select Department(s)"}
                   </InputLabel>
                   <Select
                     labelId="department-label"
@@ -615,7 +660,17 @@ const Admin: React.FC = () => {
                         .join(", ")
                     }
                     sx={{
-                      fontSize: isLargeScreen ? "1rem" : undefined,
+                      fontSize: isLargeScreen ? "1rem" : undefined,                
+                      color: "#F6F4FE",
+                      outlineColor: "#777280",
+                      borderColor: "#777280",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
+                      },
+                      "& .MuiSelect-select": {
+                          borderColor: "#777280",
+                          color: "#F6F4FE",
+                      },              
                     }}
                   >
                     {isFetchingDepartments ? (
@@ -644,7 +699,6 @@ const Admin: React.FC = () => {
                       ))
                     )}
                   </Select>
-
                   {departmentsError && !isFetchingDepartments && (
                     <Typography
                       variant="body2"
@@ -664,13 +718,11 @@ const Admin: React.FC = () => {
                 </FormControl>
               </Grid>
             )}
-
-            {/* Unit Selection per Department - shown when scopeLevel is unit and departmentIds are selected */}
             {formData.scopeLevel === "unit" &&
               formData.departmentIds.map((deptId) => (
                 <Grid size={{ xs: 12, md: 6 }} key={deptId}>
                   <FormControl fullWidth>
-                    <InputLabel id={`unit-label-${deptId}`} sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
+                    <InputLabel id={`unit-label-${deptId}`} sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
                       Units for {departments.find((dept) => dept.id === deptId)?.name || "Department"}
                     </InputLabel>
                     <Select
@@ -690,12 +742,18 @@ const Admin: React.FC = () => {
                           .map((id) => departmentUnits[deptId]?.find((unit) => unit.id === id)?.name || id)
                           .join(", ")
                       }
-                      sx={{
-                        fontSize: isLargeScreen ? "1rem" : undefined,
-                        "& .MuiSelect-select": {
-                          display: "flex",
-                          alignItems: "center",
+                       sx={{
+                        fontSize: isLargeScreen ? "1rem" : undefined,                
+                        color: "#F6F4FE",
+                        outlineColor: "#777280",
+                        borderColor: "#777280",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#777280",
                         },
+                        "& .MuiSelect-select": {
+                            borderColor: "#777280",
+                            color: "#F6F4FE",
+                        },              
                       }}
                       MenuProps={{
                         PaperProps: {
@@ -743,7 +801,6 @@ const Admin: React.FC = () => {
                         </MenuItem>
                       )}
                     </Select>
-
                     {unitsError[deptId] && !isFetchingUnits[deptId] && (
                       <Typography
                         variant="body2"
@@ -763,8 +820,6 @@ const Admin: React.FC = () => {
                   </FormControl>
                 </Grid>
               ))}
-
-            {/* Password Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -781,7 +836,7 @@ const Admin: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SlLock style={{ color: theme.palette.text.secondary }} />
+                      <SlLock style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -791,24 +846,34 @@ const Admin: React.FC = () => {
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
                       >
-                        {!showPassword ? <PiEyeClosed size={20} /> : <IoEyeOutline size={20} />}
+                        {!showPassword ? <PiEyeClosed size={20} style={{ color: '#F6F4FE' }} /> : <IoEyeOutline size={20} style={{ color: '#F6F4FE' }} />}
                       </IconButton>
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Confirm Password Field */}
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -825,7 +890,7 @@ const Admin: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SlLock style={{ color: theme.palette.text.secondary }} />
+                      <SlLock style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -836,27 +901,37 @@ const Admin: React.FC = () => {
                         edge="end"
                       >
                         {!showConfirmPassword ? (
-                          <PiEyeClosed size={20} />
+                          <PiEyeClosed size={20} style={{ color: '#F6F4FE' }} />
                         ) : (
-                          <IoEyeOutline size={20} />
+                          <IoEyeOutline size={20} style={{ color: '#F6F4FE' }} />
                         )}
                       </IconButton>
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
               />
             </Grid>
-
-            {/* Super Admin Checkbox */}
             <Grid size={{ xs: 12 }}>
               <FormControlLabel
                 control={
@@ -864,47 +939,62 @@ const Admin: React.FC = () => {
                     checked={formData.isSuperAdmin}
                     onChange={handleChange}
                     name="isSuperAdmin"
-                    color="primary"
+                    color="default"
                   />
                 }
                 label="Is Super Admin?"
                 sx={{
                   "& .MuiTypography-root": {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: '#F6F4FE'
                   },
                 }}
               />
             </Grid>
           </Grid>
-
-          {/* Submit Button */}
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading}
-              sx={{
-                py: 1,
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                borderRadius: 1,
-                color: "var(--color-text-on-primary)",
-                fontWeight: "semibold",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : "Create Admin"}
-            </Button>
-          </Box>
         </Box>
-      </Container>
-    </DashboardManager>
+      </DialogContent>
+      <DialogActions>
+        {/* <Button
+          onClick={handleCancel}
+          variant="outlined"
+          sx={{
+            py: 1,
+            px: { xs: 2, sm: 2 },
+            borderRadius: 1,
+            textTransform: "none",
+            fontSize: { xs: "1rem", sm: "1rem" },
+            color: theme.palette.text.primary,
+            borderColor: theme.palette.divider,
+          }}
+        >
+          Cancel
+        </Button> */}
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={loading}
+          onClick={handleSubmit}
+          sx={{
+            py: 1,
+            backgroundColor: "#F6F4FE",          
+            px: { xs: 7, sm: 2 },
+            borderRadius: 50,
+            color: "#2C2C2C",
+            fontWeight: "semibold",
+            textTransform: "none",
+            fontSize: { xs: "1rem", sm: "1rem" },
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+          }}
+        >
+          {loading ? <CircularProgress size={24} color="inherit" /> : "Create Admin"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
-export default Admin;
+export default AdminModal;

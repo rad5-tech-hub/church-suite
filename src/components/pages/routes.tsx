@@ -9,21 +9,15 @@ import EmailVerification from "./setupAccount/verify-email/otp";
 // Lazy-loaded components
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
 const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
-const Branch = React.lazy(() => import("./manage/branch/branch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
-const Department = React.lazy(() => import("./manage/department/department"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
-const Member = React.lazy(() => import("./members/allMembers/members"));
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const EditMember = React.lazy(() => import("./members/singleMember/editmember"));
-const FollowUpRegisterar = React.lazy(() => import("./members/new-comers/followUp"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewSingleFollowUp = React.lazy(() => import("./members/new-comers/singlefollowup"));
-const Admin = React.lazy(() => import("./manage/admin/admin"));
-const Unit = React.lazy(() => import("./manage/unit/unit"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
@@ -32,7 +26,6 @@ const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"))
 const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
-const Service = React.lazy(() => import("./attendance/programs/services"));
 const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));
 const RecordAttendance = React.lazy(() => import("./attendance/records/records"));
 const ViewRecords = React.lazy(() => import("./attendance/records/viewRecords"));
@@ -78,12 +71,7 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <SettingProfile/>
             </PrivateRoute>
-          } />
-          <Route path="/manage/admin" element={
-            <PrivateRoute>
-              <Admin />
-            </PrivateRoute>
-          } />
+          } />         
           <Route path="/manage/view-admins" element={
             <PrivateRoute>
               <ViewAdmin />
@@ -94,37 +82,17 @@ const AppRoutes: React.FC = () => {
               <ViewBranches />
             </PrivateRoute>
           } />
-          <Route path="/manage/branch" element={
-            <PrivateRoute>
-              <Branch />
-            </PrivateRoute>
-          } />
-          <Route path="/manage/department" element={
-            <PrivateRoute>
-              <Department />
-            </PrivateRoute>
-          } />
           <Route path="/manage/view-departments" element={
             <PrivateRoute>
               <ViewDepartment/>
             </PrivateRoute>
-          } />
-          <Route path="/manage/unit" element={
-            <PrivateRoute>
-              <Unit />
-            </PrivateRoute>
-          } />
-           <Route path="/manage/viewUnits" element={
+          } />        
+           <Route path="/manage/view-units" element={
             <PrivateRoute>
               <ViewUnit/>
             </PrivateRoute>
           } />
-          <Route path="/members/member" element={
-            <PrivateRoute>
-              <Member />
-            </PrivateRoute>
-          } />
-          <Route path="/members/view-members" element={
+          <Route path="/members/view-workers" element={
             <PrivateRoute>
               <ViewMember />
             </PrivateRoute>
@@ -139,12 +107,7 @@ const AppRoutes: React.FC = () => {
               <EditMember/>
             </PrivateRoute>
           } />
-           <Route path="/register/followup" element={
-            <PrivateRoute>
-              <FollowUpRegisterar/>
-            </PrivateRoute>
-          } />
-            <Route path="/view/followup" element={
+            <Route path="/members/view-followup" element={
             <PrivateRoute>
               <ViewFollowUp/>
             </PrivateRoute>
@@ -154,12 +117,7 @@ const AppRoutes: React.FC = () => {
               <ViewSingleFollowUp/>
             </PrivateRoute>
           } />
-          <Route path="/attendance/service" element={
-            <PrivateRoute>
-              <Service/>
-            </PrivateRoute>
-          } />
-          <Route path="/attendance/viewServices" element={
+          <Route path="/program/programs" element={
             <PrivateRoute>
               <ViewServices/>
             </PrivateRoute>

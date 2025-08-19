@@ -2,39 +2,16 @@ import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import {
-  Box,
-  Button,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Grid,
-  useTheme,
-  useMediaQuery,
-  IconButton,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  TablePagination,
-  Tooltip,
-} from "@mui/material";
-import {
-  MoreVert as MoreVertIcon,
-  SentimentVeryDissatisfied as EmptyIcon,
-} from "@mui/icons-material";
-import { MdOutlineEdit } from "react-icons/md";
-import { AiOutlineDelete } from "react-icons/ai";
+import { Calendar, momentLocalizer } from "react-big-calendar";
+import moment from "moment";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
-import { RootState } from "../../../reduxstore/redux";
+import CreateProgramModal from "./services";
+import { Box, Button, IconButton, List, ListItem } from "@mui/material";
+import { Check } from "@mui/icons-material";
+
+const localizer = momentLocalizer(moment);
 
 interface Event {
   id: string;
@@ -44,39 +21,67 @@ interface Event {
   recurrenceType: string;
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  color: string;
+  extendedProps: {
+    description: string;
+    recurrenceType: string;
+  };
+  rrule?: {
+    freq: string;
+    dtstart: string;
+  };
+}
+
+interface RootState {
+  auth?: {
+    authData?: {
+      isSuperAdmin?: boolean;
+    };
+  };
+}
+
+const EventComponent: React.FC<{ event: CalendarEvent }> = ({ event }) => (
+  <div className="p-1 rounded text-sm h-full overflow-hidden">
+    <strong>{event.title}</strong>
+    <div className="text-xs">
+      {moment(event.start).format("h:mm A")}
+      {event.end && ` - ${moment(event.end).format("h:mm A")}`}
+    </div>
+  </div>
+);
+
 const ViewServices: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-  const [actionType, setActionType] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [editFormData, setEditFormData] = useState<Omit<Event, "id">>({
     title: "",
     description: "",
     date: "",
     recurrenceType: "",
   });
-  const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
-  const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const colors = ["#FFDAB9", "#98FB98", "#DDA0DD", "#ADD8E6"];
 
-  // Fetch events
   const fetchEvents = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const response = await Api.get("/church/get-events");
+      const response = await Api.get("/church/with-events");
       setEvents(response.data.events || []);
     } catch (error) {
-      console.error("Failed to fetch events:", error);
-      setError("Failed to load Program. Please try again later.");
+      toast.error("Failed to load programs");
     } finally {
       setLoading(false);
     }
@@ -86,26 +91,30 @@ const ViewServices: React.FC = () => {
     fetchEvents();
   }, []);
 
-  // Calculate counts
-  const totalCount = events.length;
-  const recurringCount = events.filter(event => event.recurrenceType && event.recurrenceType !== "none").length;
+  const calendarEvents = events.map((e, i) => {
+    const startDate = new Date(e.date);
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
+    return {
+      id: e.id,
+      title: e.title,
+      start: startDate.toISOString(),
+      end: endDate.toISOString(),
+      color: colors[i % colors.length],
+      extendedProps: {
+        description: e.description,
+        recurrenceType: e.recurrenceType,
+      },
+      rrule: e.recurrenceType && e.recurrenceType !== "none" ? {
+        freq: e.recurrenceType.toUpperCase(),
+        dtstart: startDate.toISOString(),
+      } : undefined,
+    };
+  });
 
-  // Table column widths
-  const columnWidths = {
-    title: "20%",
-    description: "30%",
-    date: "20%",
-    recurrenceType: "20%",
-    actions: "10%",
-  };
-
-  // Action handlers
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, eventItem: Event) => {
     setAnchorEl(event.currentTarget);
     setCurrentEvent(eventItem);
   };
-
-  const handleMenuClose = () => setAnchorEl(null);
 
   const handleEditOpen = () => {
     if (currentEvent) {
@@ -117,32 +126,14 @@ const ViewServices: React.FC = () => {
       });
       setEditModalOpen(true);
     }
-    handleMenuClose();
-  };
-
-  const handleEditClose = () => {
-    setEditModalOpen(false);
-    setCurrentEvent(null);
-  };
-
-  const showConfirmation = (action: string) => {
-    setActionType(action);
-    setConfirmModalOpen(true);
-    handleMenuClose();
-  };
-
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
+    setAnchorEl(null);
   };
 
   const handleEditSubmit = async () => {
     if (!currentEvent?.id) {
-      console.error("Program ID is undefined");
       toast.error("Invalid program data");
       return;
     }
-
     try {
       setLoading(true);
       await Api.patch(`/church/edit-event/${currentEvent.id}`, editFormData);
@@ -150,445 +141,314 @@ const ViewServices: React.FC = () => {
         event.id === currentEvent.id ? { ...event, ...editFormData } : event
       ));
       toast.success("Program updated successfully!");
-      handleEditClose();
+      setEditModalOpen(false);
+      setCurrentEvent(null);
     } catch (error) {
-      console.error("Update error:", error);
-      toast.error("Failed to update Program");
+      toast.error("Failed to update program");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConfirmedAction = async () => {
-    if (!currentEvent || !actionType) return;
-
+  const handleDelete = async () => {
+    if (!currentEvent) return;
     try {
       setLoading(true);
-      if (actionType === "delete") {
-        await Api.delete(`/church/delete-event/${currentEvent.id}`);
-        setEvents(events.filter(event => event.id !== currentEvent.id));
-        toast.success("Program deleted successfully!");
-      }
+      await Api.delete(`/church/delete-event/${currentEvent.id}`);
+      setEvents(events.filter(event => event.id !== currentEvent.id));
+      toast.success("Program deleted successfully!");
     } catch (error) {
-      console.error("Action error:", error);
       toast.error("Failed to delete program");
     } finally {
       setLoading(false);
       setConfirmModalOpen(false);
-      setActionType(null);
       setCurrentEvent(null);
     }
   };
 
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const handleSelectEvent = (event: CalendarEvent) => {
+    const eventData: Event = {
+      id: event.id,
+      title: event.title,
+      description: event.extendedProps.description,
+      date: event.start,
+      recurrenceType: event.extendedProps.recurrenceType,
+    };
+    handleMenuOpen({ currentTarget: document.body } as React.MouseEvent<HTMLElement>, eventData);
   };
 
-  // Helper functions
-  const truncateText = (text: string | null, maxLength = 30) => {
-    if (!text) return "-";
-    return text.length <= maxLength ? text : `${text.substring(0, maxLength)}...`;
+  const handleSelectSlot = (_slotInfo: any) => {
+    setIsOpen(true);
   };
-
-  // Empty state component
-  const EmptyState = () => (
-    <Box sx={{
-      textAlign: "center",
-      py: 8,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-    }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="textSecondary"
-        gutterBottom
-        sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
-      >
-        No programs found
-      </Typography>
-      {error && (
-        <Typography color="error" sx={{ mb: 2, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-          {error}
-        </Typography>
-      )}
-      <Button
-        variant="contained"
-        onClick={() => navigate("/attendance/service")}
-        sx={{
-          backgroundColor: "var(--color-primary)",
-          px: { xs: 2, sm: 2 },
-          mt: 2,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "var(--color-primary)",
-            opacity: 0.9,
-          },
-        }}
-      >
-        Create New Program
-      </Button>
-    </Box>
-  );
 
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        {/* Header Section */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1"
-              fontWeight={600}
-              gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined }}
-            >
-              All Programs
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-            >
-              View and manage all church programs for {authData?.church_name || "your church"}.
-            </Typography>
-          </Grid>
-          <Grid
-            size={{ xs: 12, md: 4 }}
-            sx={{
-              display: "flex",
-              justifyContent: { xs: "flex-start", md: "flex-end" },
-              alignItems: "center",
-            }}
-          >
-            <Button
-              variant="contained"
-              onClick={() => navigate("/attendance/service")}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "var(--color-text-on-primary)",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              Create Program
-            </Button>
-          </Grid>
-        </Grid>
-
-        {/* Loading State */}
-        {loading && events.length === 0 && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
-          </Box>
-        )}
-
-        {/* Error or Empty State */}
-        {(!loading && error && events.length === 0) || (!loading && events.length === 0) ? (
-          <EmptyState />
-        ) : null}
-
-        {/* Data Table */}
-        {events.length > 0 && (
-          <>
-            <Typography
-              variant="subtitle1"
-              sx={{
-                mb: 2,
-                color: "#4b5563",
-                textAlign: "right",
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              {totalCount} Program{totalCount !== 1 ? "s" : ""} • {recurringCount} Recurring
-            </Typography>
-
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
-              <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.title, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Title
-                    </TableCell>
-                     <TableCell sx={{ fontWeight: 600, width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Date
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.description, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Description
-                    </TableCell>                   
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.recurrenceType, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Recurrence
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {events
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((event) => (
-                      <TableRow
-                        key={event.id}
-                        sx={{
-                          borderBottom: "1px solid #e5e7eb",
-                          "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
-                        }}
-                      >
-                        <TableCell sx={{ width: columnWidths.title, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {event.title}
-                        </TableCell>
-                        <TableCell sx={{ width: columnWidths.date, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {new Date(event.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell sx={{ width: columnWidths.description, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          <Tooltip title={event.description || "-"} arrow>
-                            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                              {truncateText(event.description)}
-                            </Typography>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell sx={{ width: columnWidths.recurrenceType, fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {event.recurrenceType || "-"}
-                        </TableCell>
-                        <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          <IconButton
-                            aria-label="more"
-                            onClick={(e) => handleMenuOpen(e, event)}
-                            disabled={loading}
-                            size="small"
-                            sx={{
-                              borderRadius: 1,
-                              backgroundColor: "#E1E1E1",
-                              "&:hover": {
-                                backgroundColor: "var(--color-primary)",
-                                opacity: 0.9,
-                                color: "#E1E1E1",
-                              },
-                            }}
-                          >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={events.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  borderTop: "1px solid #e0e0e0",
-                  "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                    fontSize: isLargeScreen ? "0.75rem" : undefined,
-                  },
+      <div className="p-4 min-h-screen">
+        <div className="grid grid-cols-1 lg:grid-cols-8 gap-4">
+          {/* Sidebar */}
+          <div className="lg:col-span-1 rounded-lg shadow">
+            <Box>
+              <Button
+                variant="contained"
+                onClick={() => setIsOpen(true)}
+                sx={{ 
+                  mb: 2,
+                  backgroundColor: '#F6F4FE', 
+                  color: 'gray', 
+                  border: '1px solid white',
+                  width: { xs: '100%', md: 'auto' }
                 }}
-              />
-            </TableContainer>
-          </>
-        )}
+              >
+                + Create
+              </Button>
+              <List 
+                sx={{
+                  display: { xs: 'grid', md: 'block' },
+                  gridTemplateColumns: { xs: '1fr 1fr' },
+                  gap: 1,
+                  padding: 0,
+                }}
+              >
+                {[
+                  { label: 'Ongoing', color: 'green' },
+                  { label: 'Pending', color: 'orange' },
+                  { label: 'Upcoming', color: 'purple' },
+                  { label: 'Past', color: 'gray' }
+                ].map((item) => (
+                  <ListItem key={item.label} sx={{ color: 'white' }}>
+                    <IconButton
+                      size="small"
+                      sx={{                       
+                        borderRadius: '50%', 
+                        bgcolor: item.color, 
+                        mr: 1,
+                        width: 25, 
+                        height: 25,
+                      }} 
+                    >
+                      <Check sx={{fontSize:"20"}}/>
+                    </IconButton>
+                    <span className="text-sm">{item.label}</span>                    
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          </div>
+
+          {/* Main Calendar */}
+          <div className="lg:col-span-7 bg-[#F6F4FE] rounded-lg shadow p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setCurrentDate(moment(currentDate).subtract(1, view).toDate());
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => {
+                    setCurrentDate(moment(currentDate).add(1, view).toDate());
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
+                >
+                  Today
+                </button>
+                <span className="text-lg font-medium">
+                  {moment(currentDate).format("MMMM YYYY")}
+                </span>
+              </div>
+            </div>
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: "calc(100vh - 100px)" }}
+              eventPropGetter={(event) => ({
+                style: {
+                  backgroundColor: event.color,
+                  color: "#fff",
+                },
+              })}
+              onSelectEvent={handleSelectEvent}
+              onSelectSlot={handleSelectSlot}
+              selectable
+              popup
+              view={view}
+              onView={(newView) => {
+                if (["month", "week", "day"].includes(newView)) {
+                  setView(newView as "month" | "week" | "day");
+                }
+              }}
+              date={currentDate}
+              onNavigate={setCurrentDate}
+              components={{ event: EventComponent }}
+              dayLayoutAlgorithm="no-overlap"
+              showMultiDayTimes
+              step={15}
+              timeslots={window.innerWidth < 640 ? 2 : 4}
+              views={['month', 'week', 'day']} // This line removes the Agenda view
+            />
+          </div>
+        </div>
 
         {/* Action Menu */}
-        <Menu
-          id="event-menu"
-          anchorEl={anchorEl}
-          keepMounted
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            sx: {
-              "& .MuiMenuItem-root": {
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              },
-            },
+        <div
+          className={`fixed z-10 bg-white shadow-lg rounded-lg ${anchorEl ? "block" : "hidden"}`}
+          style={{
+            top: (anchorEl?.getBoundingClientRect().top ?? 0) + window.scrollY,
+            left: (anchorEl?.getBoundingClientRect().left ?? 0) + window.scrollX,
           }}
         >
-          <MenuItem
-            onClick={handleEditOpen}
-            disabled={loading || !authData?.isSuperAdmin}
-          >
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
-            Edit
-          </MenuItem>
-          <MenuItem
-            onClick={() => navigate(`/attendance/record?eventId=${currentEvent?.id}`)}
-            disabled={loading}
-          >
-            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📝</Typography>
-            Record Attendance
-          </MenuItem>
-          <MenuItem
-            onClick={() => navigate(`/attendance/records/${currentEvent?.id}`)}
-            disabled={loading}
-          >
-            <Typography sx={{ mr: 1, fontSize: "1rem" }}>📋</Typography>
-            View Attendance
-          </MenuItem>
-          <MenuItem
-            onClick={() => showConfirmation("delete")}
-            disabled={loading || !authData?.isSuperAdmin}
-          >
-            <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
-            Delete
-          </MenuItem>
-        </Menu>
-
-        {/* Edit Event Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Edit Program
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-              <TextField
-                fullWidth
-                label="Program Title"
-                name="title"
-                value={editFormData.title}
-                onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={editFormData.description}
-                onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
-                multiline
-                rows={4}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Date"
-                name="date"
-                type="datetime-local"
-                value={editFormData.date}
-                onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
-                InputLabelProps={{
-                  shrink: true,
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="Recurrence Type"
-                name="recurrenceType"
-                value={editFormData.recurrenceType}
-                onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
-                }}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={handleEditClose}
-              sx={{ border: 1, color: "var(--color-primary)", fontSize: isLargeScreen ? "0.875rem" : undefined }}
+          <ul className="py-2">
+            <li
+              onClick={handleEditOpen}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditSubmit}
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                color: "var(--color-text-on-primary)",
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Edit
+            </li>
+            <li
+              onClick={() => navigate(`/attendance/record?eventId=${currentEvent?.id}`)}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Record Attendance
+            </li>
+            <li
+              onClick={() => navigate(`/attendance/records/${currentEvent?.id}`)}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              View Attendance
+            </li>
+            <li
+              onClick={() => {
+                setConfirmModalOpen(true);
+                setAnchorEl(null);
               }}
-              variant="contained"
-              disabled={loading || !authData?.isSuperAdmin}
+              className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center text-red-500"
             >
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogActions>
-        </Dialog>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a2 2 0 00-2 2v1h8V5a2 2 0 00-2-2zm-1 6v10m4-10v10" />
+              </svg>
+              Delete
+            </li>
+          </ul>
+        </div>
+
+        {/* Edit Modal */}
+        {editModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">Edit Program</h2>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  name="title"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  placeholder="Program Title"
+                  className="w-full border rounded px-3 py-2"
+                />
+                <textarea
+                  name="description"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  placeholder="Description"
+                  className="w-full border rounded px-3 py-2"
+                  rows={4}
+                />
+                <input
+                  type="datetime-local"
+                  name="date"
+                  value={editFormData.date}
+                  onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                />
+                <input
+                  type="text"
+                  name="recurrenceType"
+                  value={editFormData.recurrenceType}
+                  onChange={(e) => setEditFormData({ ...editFormData, recurrenceType: e.target.value })}
+                  placeholder="Recurrence Type"
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  onClick={() => {
+                    setEditModalOpen(false);
+                    setCurrentEvent(null);
+                  }}
+                  className="px-4 py-2 border rounded hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSubmit}
+                  disabled={loading || !authData?.isSuperAdmin}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300"
+                >
+                  {loading ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Confirmation Modal */}
-        <Dialog
-          open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
-          maxWidth="xs"
-        >
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Delete Program
-          </DialogTitle>
-          <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              Are you sure you want to delete "{currentEvent?.title}"?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => setConfirmModalOpen(false)}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              color="error"
-              variant="contained"
-              disabled={loading || !authData?.isSuperAdmin}
-            >
-              {loading ? "Processing..." : "Delete"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
+        {confirmModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h2 className="text-xl font-semibold mb-4">Delete Program</h2>
+              <p className="mb-4">Are you sure you want to delete "{currentEvent?.title}"?</p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmModalOpen(false)}
+                  className="px-4 py-2 border rounded hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={loading || !authData?.isSuperAdmin}
+                  className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-red-300"
+                >
+                  {loading ? "Processing..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <CreateProgramModal
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+          onSuccess={() => {
+            setIsOpen(false);
+            fetchEvents();
+          }}
+        />
+      </div>
     </DashboardManager>
   );
 };

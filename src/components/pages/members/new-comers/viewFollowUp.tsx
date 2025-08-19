@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import {
   Box,
   Button,
@@ -11,10 +11,6 @@ import {
   TableRow,
   Typography,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Menu,
   MenuItem,
   TablePagination,
@@ -23,16 +19,21 @@ import {
   Grid,
   Tooltip,
   CircularProgress,
-} from "@mui/material";
-import {
-  MoreVert as MoreVertIcon,
-  SentimentVeryDissatisfied as EmptyIcon,
-  PersonOutline,
-} from "@mui/icons-material";
-import { AiOutlineDelete } from "react-icons/ai";
-import { toast } from "react-toastify";
-import DashboardManager from "../../../shared/dashboardManager";
-import Api from "../../../shared/api/api";
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import { MoreVert as MoreVertIcon, SentimentVeryDissatisfied as EmptyIcon, PersonOutline } from '@mui/icons-material';
+import { LiaLongArrowAltRightSolid } from 'react-icons/lia';
+import { AiOutlineDelete } from 'react-icons/ai';
+import { PiDownloadThin } from 'react-icons/pi';
+import { toast } from 'react-toastify';
+import DashboardManager from '../../../shared/dashboardManager';
+import Api from '../../../shared/api/api';
+import { RootState } from '../../../reduxstore/redux';
+import RegistrationModal from './followUp';
+import { MdOutlineFileUpload } from 'react-icons/md';
 
 // Types
 interface FollowUp {
@@ -42,7 +43,6 @@ interface FollowUp {
   phoneNo: string;
   address: string;
   timer: number;
-  whatappNo: string;
   birthMonth: string;
   birthDay: string;
   maritalStatus: string;
@@ -50,69 +50,51 @@ interface FollowUp {
   isDeleted: boolean;
 }
 
-// Table column widths
 interface TableColumnWidths {
+  snumber: string;
   name: string;
-  phoneNo: string;
+  contact: string;
   address: string;
-  sex: string;
   actions: string;
 }
 
 // Constants
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
-  name: "25%",
-  phoneNo: "25%",
-  address: "25%",
-  sex: "15%",
-  actions: "10%",
+  snumber: '3%',
+  name: '25%',
+  contact: '15%',
+  address: '25%',
+  actions: '17%',
 };
 
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 25];
 
 // Components
-const EmptyState: React.FC<{
+interface EmptyStateProps {
   error: string | null;
   onAddFollowUp: () => void;
   isLargeScreen: boolean;
-}> = ({ error, onAddFollowUp, isLargeScreen }) => (
-  <Box
-    sx={{
-      textAlign: "center",
-      py: 8,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
-    <Typography
-      variant="h6"
-      color="textSecondary"
-      gutterBottom
-      sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
-    >
+}
+
+const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
+  <Box sx={{ textAlign: 'center', py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <EmptyIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
+    <Typography variant="h6" color="rgba(255, 255, 255, 0.1)" sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
       No Newcomers found
     </Typography>
-    {error && (
-      <Typography color="error" sx={{ mb: 2 }}>
-        {error}
-      </Typography>
-    )}
+    {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
     <Button
       variant="contained"
       onClick={onAddFollowUp}
       sx={{
-        backgroundColor: "var(--color-primary)",
+        backgroundColor: '#363740',
         px: { xs: 2, sm: 2 },
         mt: 2,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: "var(--color-text-on-primary)",
-        "&:hover": {
-          backgroundColor: "var(--color-primary)",
-          opacity: 0.9,
-        },
+        borderRadius: 50,
+        py: 1,
+        fontSize: isLargeScreen ? '0.875rem' : undefined,
+        color: 'var(--color-text-on-primary)',
+        '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
       }}
     >
       Add Newcomer
@@ -120,95 +102,52 @@ const EmptyState: React.FC<{
   </Box>
 );
 
-const FollowUpRow: React.FC<{
+interface FollowUpRowProps {
   followUp: FollowUp;
+  index: number;
   onMenuOpen: (event: React.MouseEvent<HTMLElement>, followUp: FollowUp) => void;
   isLargeScreen: boolean;
   loading: boolean;
-}> = React.memo(({ followUp, onMenuOpen, isLargeScreen, loading }) => (
+}
+
+const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, onMenuOpen, isLargeScreen, loading }) => (
   <TableRow
     sx={{
-      borderBottom: "1px solid #e5e7eb",
-      backgroundColor: followUp.isDeleted ? "rgba(0, 0, 0, 0.04)" : "inherit",
-      "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
+      backgroundColor: followUp.isDeleted ? 'rgba(0, 0, 0, 0.04)' : '#4d4d4e8e',
+      '&:hover': {
+        backgroundColor: '#4d4d4e8e',
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+      },
+      transition: 'all 0.2s ease',
+      mb: 1,
     }}
   >
-    <TableCell
-      sx={{
-        width: TABLE_COLUMN_WIDTHS.name,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        color: followUp.isDeleted ? "gray" : "inherit",
-        textDecoration: followUp.isDeleted ? "line-through" : "none",
-      }}
-    >
-      <Box
-        sx={{
-          width: 15,
-          height: 15,
-          borderRadius: 1,
-          bgcolor:
-            followUp.timer === 1
-              ? "warning.main"
-              : followUp.timer === 2
-              ? "primary.main"
-              : "success.main",
-        }}
-      />
-      <Box>{followUp.name}</Box>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {(index + 1).toString().padStart(2, '0')}
     </TableCell>
-    <TableCell
-      sx={{
-        width: TABLE_COLUMN_WIDTHS.phoneNo,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: followUp.isDeleted ? "gray" : "inherit",
-        textDecoration: followUp.isDeleted ? "line-through" : "none",
-      }}
-    >
-      {followUp.phoneNo || "N/A"}
+    <TableCell sx={{ color: followUp.isDeleted ? 'gray' : '#F6F4FE', display: 'flex', alignItems: 'center', gap: 1, fontSize: isLargeScreen ? '0.875rem' : undefined, py: 2 }}>
+      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+        {followUp.name.split(' ').map((name) => name.charAt(0)).join('')}
+      </Box>
+      <Box>
+        {followUp.name}
+        <Typography component="span" sx={{ display: 'block', fontSize: '13px', color: '#777280' }}>
+          {followUp.sex || '-'}
+        </Typography>
+      </Box>
     </TableCell>
-    <TableCell
-      sx={{
-        width: TABLE_COLUMN_WIDTHS.address,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: followUp.isDeleted ? "gray" : "inherit",
-        textDecoration: followUp.isDeleted ? "line-through" : "none",
-      }}
-    >
-      {followUp.address || "N/A"}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {followUp.phoneNo || 'N/A'}
     </TableCell>
-    <TableCell
-      sx={{
-        width: TABLE_COLUMN_WIDTHS.sex,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: followUp.isDeleted ? "gray" : "inherit",
-        textDecoration: followUp.isDeleted ? "line-through" : "none",
-      }}
-    >
-      {followUp.sex || "N/A"}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {followUp.address || 'N/A'}
     </TableCell>
-    <TableCell
-      sx={{
-        width: TABLE_COLUMN_WIDTHS.actions,
-        textAlign: "center",
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-      }}
-    >
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: 'center', fontSize: isLargeScreen ? '0.875rem' : undefined }}>
       <IconButton
-        aria-label="more"
         onClick={(e) => onMenuOpen(e, followUp)}
         disabled={loading || followUp.isDeleted}
-        sx={{
-          borderRadius: 1,
-          backgroundColor: "#e1e1e1",
-          "&:hover": {
-            backgroundColor: "var(--color-primary)",
-            opacity: 0.9,
-            color: "#ffffff",
-          },
-        }}
+        sx={{ borderRadius: 1, backgroundColor: '#e1e1e1', '&:hover': { backgroundColor: 'var(--color-primary)', opacity: 0.9, color: '#ffffff' } }}
         size="small"
       >
         <MoreVertIcon fontSize="small" />
@@ -217,7 +156,7 @@ const FollowUpRow: React.FC<{
   </TableRow>
 ));
 
-const ActionMenu: React.FC<{
+interface ActionMenuProps {
   anchorEl: HTMLElement | null;
   currentFollowUp: FollowUp | null;
   onClose: () => void;
@@ -225,31 +164,29 @@ const ActionMenu: React.FC<{
   onView: () => void;
   isLargeScreen: boolean;
   loading: boolean;
-}> = ({ anchorEl, onClose, onAction, onView, isLargeScreen, loading }) => (
+}
+
+const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, onView, isLargeScreen, loading }) => (
   <Menu
-    id="followup-menu"
     anchorEl={anchorEl}
-    keepMounted
     open={Boolean(anchorEl)}
     onClose={onClose}
-    anchorOrigin={{ vertical: "top", horizontal: "right" }}
-    transformOrigin={{ vertical: "top", horizontal: "right" }}
-    PaperProps={{
-      sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } },
-    }}
+    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+    PaperProps={{ sx: { '& .MuiMenuItem-root': { fontSize: isLargeScreen ? '0.875rem' : undefined } } }}
   >
     <MenuItem onClick={onView} disabled={loading}>
-      <PersonOutline style={{ marginRight: 8, fontSize: "1rem" }} />
+      <PersonOutline sx={{ mr: 1, fontSize: '1rem' }} />
       Profile
     </MenuItem>
-    <MenuItem onClick={() => onAction("delete")} disabled={loading}>
-      <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
+    <MenuItem onClick={() => onAction('delete')} disabled={loading}>
+      <AiOutlineDelete style={{ marginRight: '8px', fontSize: '1rem' }} />
       Delete
     </MenuItem>
   </Menu>
 );
 
-const ConfirmationDialog: React.FC<{
+interface ConfirmationDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -257,28 +194,30 @@ const ConfirmationDialog: React.FC<{
   followUpName: string | undefined;
   isLargeScreen: boolean;
   loading: boolean;
-}> = ({ open, onClose, onConfirm, followUpName, isLargeScreen, loading }) => (
+}
+
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, onConfirm, followUpName, isLargeScreen, loading }) => (
   <Dialog open={open} onClose={onClose} maxWidth="xs">
-    <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+    <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
       Delete Newcomer
     </DialogTitle>
     <DialogContent>
-      <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+      <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
         Are you sure you want to delete {followUpName}?
       </Typography>
     </DialogContent>
     <DialogActions>
-      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }} disabled={loading}>
         Cancel
       </Button>
       <Button
         onClick={onConfirm}
-        sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
         color="error"
         variant="contained"
         disabled={loading}
+        sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
       >
-        {loading ? "Processing..." : "Delete"}
+        {loading ? 'Processing...' : 'Delete'}
       </Button>
     </DialogActions>
   </Dialog>
@@ -286,12 +225,12 @@ const ConfirmationDialog: React.FC<{
 
 // Main Component
 const ViewFollowUp: React.FC = () => {
-  const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const authData = useSelector((state: RootState) => state.auth?.authData);
 
-  // State management
+  // State
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [exportLoading, setExportLoading] = useState<boolean>(false);
@@ -302,41 +241,44 @@ const ViewFollowUp: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [openExcelDialog, setOpenExcelDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);  
 
-  // Fetch follow-up data
+  // Data fetching
   const fetchFollowUps = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await Api.get("/member/get-follow-up");
+      const response = await Api.get('/member/get-follow-up');
       setFollowUps(response.data.results || []);
     } catch (error) {
-      console.error("Failed to fetch Newcomers:", error);
-      setError("Failed to load Newcomers. Please try again later.");
-      toast.error("Failed to load Newcomers", {
+      console.error('Failed to fetch Newcomers:', error);
+      setError('Failed to load Newcomers. Please try again later.');
+      toast.error('Failed to load Newcomers', {
         autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
+        position: isMobile ? 'top-center' : 'top-right',
       });
     } finally {
       setLoading(false);
     }
   }, [isMobile]);
 
-  // Initial data fetch
   useEffect(() => {
     fetchFollowUps();
   }, [fetchFollowUps]);
 
-  // Handle Excel export
-  const handleExportExcel = async () => {
+  // Export to Excel
+  const handleExportExcel = useCallback(async () => {
     setExportLoading(true);
     try {
-      const response = await Api.get("/member/export-followup", {
-        responseType: "blob",
-      });
-
-      const contentDisposition = response.headers["content-disposition"];
-      let filename = "newcomers_export.xlsx";
+      const response = await Api.get('/followUp/export-followup', { responseType: 'blob' });
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'newcomers_export.xlsx';
+      
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
         if (filenameMatch && filenameMatch[1]) {
@@ -345,12 +287,10 @@ const ViewFollowUp: React.FC = () => {
       }
 
       const blob = new Blob([response.data], {
-        type:
-          response.headers["content-type"] ||
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type: response.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
@@ -358,22 +298,20 @@ const ViewFollowUp: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Excel file exported successfully!", {
+      toast.success('Excel file exported successfully!', {
         autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
+        position: isMobile ? 'top-center' : 'top-right',
       });
     } catch (error: any) {
-      console.error("Failed to export Newcomers:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to export Excel file. Please try again.";
-      toast.error(errorMessage, {
+      console.error('Failed to export Newcomers:', error);
+      toast.error(error.response?.data?.message || 'Failed to export Excel file. Please try again.', {
         autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
+        position: isMobile ? 'top-center' : 'top-right',
       });
     } finally {
       setExportLoading(false);
     }
-  };
+  }, [isMobile]);
 
   // Action handlers
   const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, followUp: FollowUp) => {
@@ -385,33 +323,30 @@ const ViewFollowUp: React.FC = () => {
     setAnchorEl(null);
   }, []);
 
-  const showConfirmation = useCallback(
-    (action: string) => {
-      setActionType(action);
-      setConfirmModalOpen(true);
-      handleMenuClose();
-    },
-    [handleMenuClose]
-  );
+  const showConfirmation = useCallback((action: string) => {
+    setActionType(action);
+    setConfirmModalOpen(true);
+    handleMenuClose();
+  }, [handleMenuClose]);
 
   const handleConfirmedAction = useCallback(async () => {
     if (!currentFollowUp || !actionType) return;
 
     try {
       setLoading(true);
-      if (actionType === "delete") {
-        await Api.delete(`/member/delete-followup/${currentFollowUp.id}`);
+      if (actionType === 'delete') {
+        await Api.delete(`/followUp/delete-followup/${currentFollowUp.id}`);
         setFollowUps(followUps.filter((followUp) => followUp.id !== currentFollowUp.id));
-        toast.success("Newcomer deleted successfully!", {
+        toast.success('Newcomer deleted successfully!', {
           autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
+          position: isMobile ? 'top-center' : 'top-right',
         });
       }
     } catch (error) {
-      console.error("Action error:", error);
+      console.error('Action error:', error);
       toast.error(`Failed to ${actionType} Newcomer`, {
         autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
+        position: isMobile ? 'top-center' : 'top-right',
       });
     } finally {
       setLoading(false);
@@ -431,145 +366,224 @@ const ViewFollowUp: React.FC = () => {
     setPage(0);
   }, []);
 
-  // Navigation handlers
+  // Modal handler
   const handleAddFollowUp = useCallback(() => {
-    navigate("/register/followup");
-  }, [navigate]);
+    setIsModalOpen(true);
+  }, []);
 
   const handleViewFollowUp = useCallback(() => {
     if (currentFollowUp) {
-      navigate(`/view/single-follower/${currentFollowUp.id}`);
+      window.location.href = `/view/single-follower/${currentFollowUp.id}`;
       handleMenuClose();
     }
-  }, [currentFollowUp, navigate, handleMenuClose]);
+  }, [currentFollowUp, handleMenuClose]);
 
   // Paginated data
   const paginatedFollowUps = useMemo(() => {
     return followUps.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   }, [followUps, page, rowsPerPage]);
 
+    const handleImportExcel = () => {
+      setOpenExcelDialog(true);
+    };
+  
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (
+        file &&
+        (file.type === "application/vnd.ms-excel" ||
+          file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      ) {
+        setSelectedFile(file);
+      } else {
+        toast.error("Please select a valid Excel file (.xlsx or .xls)", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        setSelectedFile(null);
+      }
+    };
+  
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      const file = event.dataTransfer.files?.[0];
+      if (
+        file &&
+        (file.type === "application/vnd.ms-excel" ||
+          file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      ) {
+        setSelectedFile(file);
+      } else {
+        toast.error("Please drop a valid Excel file (.xlsx or .xls)", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        setSelectedFile(null);
+      }
+    };
+  
+    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(true);
+    };
+  
+    const handleDragLeave = () => {
+      setIsDragging(false);
+    };
+  
+    const handleUpload = async () => {
+      if (!selectedFile) {
+        toast.error("Please select an Excel file to upload", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return;
+      }
+  
+      setIsLoading(true);
+      try {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", selectedFile);
+        const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
+        await Api.post(
+          `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
+          uploadFormData,
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+          }
+        );
+  
+        toast.success("Excel file uploaded successfully!", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+  
+        setOpenExcelDialog(false);
+        setSelectedFile(null);     
+      } catch (error: any) {
+        console.error("Error uploading file:", error);
+        const errorMessage =
+          error.response?.data?.message || "Failed to upload Excel file. Please try again.";
+        toast.error(errorMessage, {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    const handleCloseExcelDialog = () => {
+      setOpenExcelDialog(false);
+      setSelectedFile(null);
+      setIsDragging(false);
+    };
+
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        {/* Header Section */}
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: '100%' }}>
+        {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 8 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1"
-              fontWeight={600}
-              gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined }}
+              variant={isMobile ? 'h5' : 'h5'}
+              component="h4"
+              sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.1rem' : undefined }}
             >
-              All Newcomers
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-            >
-              View and manage all Newcomer records.
+              <span className="text-[#777280]">Members</span>
+              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
+              <span className="text-[#F6F4FE]">Newcomers</span>
             </Typography>
           </Grid>
-          <Grid
-            size={{ xs: 12, md: 4 }}
-            sx={{ display: "flex", justifyContent: { xs: "flex-start", md: "flex-end" }, alignItems: "center" }}
-          >
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end', gap: 3 }, alignItems: 'center' }}>            
             <Button
-              variant="contained"
-              onClick={handleAddFollowUp}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "var(--color-text-on-primary)",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              Add Newcomer
-            </Button>
+                variant="contained"
+                onClick={handleImportExcel}
+                disabled={isLoading}
+                sx={{
+                  py: 1,
+                  backgroundColor: "#363740",
+                  px: { xs: 3, sm: 3 },
+                  borderRadius: 50,
+                  fontWeight: "semibold",
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: 'max-content'
+                }}
+              >
+                Upload Newcomers <MdOutlineFileUpload className="ml-1" />
+              </Button>
+            
+              <Button
+                variant="contained"
+                onClick={() => setIsModalOpen(true)}
+                size="medium"
+                sx={{
+                  backgroundColor: "#363740",
+                  px: { xs: 2, sm: 2 },
+                  py: 1,
+                  borderRadius: 50,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": {
+                    backgroundColor: "#363740",
+                    opacity: 0.9,
+                  },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: 'max-content'
+                }}              
+              >
+                Add Newcomer +
+              </Button>
           </Grid>
         </Grid>
 
         {/* Loading State */}
         {loading && followUps.length === 0 && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={40} sx={{ color: '#777280' }} />
           </Box>
         )}
 
-        {/* Error or Empty State */}
+        {/* Empty/Error State */}
         {!loading && (error || followUps.length === 0) && (
           <EmptyState error={error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
         )}
 
-        {/* Data Table */}
+        {/* Table */}
         {followUps.length > 0 && (
-          <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
-            <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
+          <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: 'auto' }}>
+            <Table sx={{ minWidth: { xs: 'auto', sm: 650 }, '& td, & th': { border: 'none' } }}>
               <TableHead>
                 <TableRow>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: TABLE_COLUMN_WIDTHS.name,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    }}
-                  >
-                    Name
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: TABLE_COLUMN_WIDTHS.phoneNo,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    }}
-                  >
-                    Phone Number
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: TABLE_COLUMN_WIDTHS.address,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    }}
-                  >
-                    Address
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: TABLE_COLUMN_WIDTHS.sex,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    }}
-                  >
-                    Gender
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: TABLE_COLUMN_WIDTHS.actions,
-                      textAlign: "center",
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    }}
-                  >
-                    Actions
-                  </TableCell>
+                  {(['snumber', 'name', 'contact', 'address', 'actions'] as const).map((key) => (
+                    <TableCell
+                      key={key}
+                      sx={{
+                        fontWeight: 600,
+                        width: TABLE_COLUMN_WIDTHS[key],
+                        fontSize: isLargeScreen ? '0.875rem' : undefined,
+                        color: '#777280',
+                        textAlign: key === 'actions' ? 'center' : 'left',
+                      }}
+                    >
+                      {key === 'snumber' ? '#' : key.charAt(0).toUpperCase() + key.slice(1)}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedFollowUps.map((followUp) => (
+                {paginatedFollowUps.map((followUp, index) => (
                   <FollowUpRow
                     key={followUp.id}
                     followUp={followUp}
+                    index={page * rowsPerPage + index}
                     onMenuOpen={handleMenuOpen}
                     isLargeScreen={isLargeScreen}
                     loading={loading}
@@ -586,50 +600,40 @@ const ViewFollowUp: React.FC = () => {
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
               sx={{
-                borderTop: "1px solid #e0e0e0",
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: isLargeScreen ? "0.75rem" : undefined,
+                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                  fontSize: isLargeScreen ? '0.75rem' : undefined,
+                },
+                color: '#F6F4FE',
+                '& .MuiTablePagination-select, & .MuiTablePagination-input': {
+                  color: '#F6F4FE',
                 },
               }}
             />
-            <Box
-              sx={{
-                p: 3,
-                display: "flex",
-                justifyContent: "flex-end",
-                width: "100%",
-              }}
-            >
-              <Tooltip title="Export Newcomers data to Excel sheet" placement="top" arrow>
+            <Box sx={{ p: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Tooltip title="Download Newcomers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
                   disabled={exportLoading}
                   size="medium"
                   sx={{
-                    backgroundColor: "var(--color-primary)",
+                    backgroundColor: '#363740',
                     px: { xs: 2, sm: 2 },
                     py: 1,
                     borderRadius: 1,
                     fontWeight: 500,
-                    textTransform: "none",
-                    color: "var(--color-text-on-primary)",
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    "&:hover": {
-                      backgroundColor: "var(--color-primary)",
-                      opacity: 0.9,
-                    },
+                    textTransform: 'none',
+                    color: 'var(--color-text-on-primary)',
+                    fontSize: isLargeScreen ? '1rem' : undefined,
+                    '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
                   }}
                 >
                   {exportLoading ? (
                     <>
-                      <CircularProgress
-                        size={18}
-                        sx={{ color: "var(--color-text-on-primary)", mr: 1 }}
-                      />
-                      Exporting...
+                      <CircularProgress size={18} sx={{ color: 'var(--color-text-on-primary)', mr: 1 }} />
+                      Downloading...
                     </>
                   ) : (
-                    "Export Excel"
+                    <span className="flex items-center gap-1">Download Newcomers <PiDownloadThin /></span>
                   )}
                 </Button>
               </Tooltip>
@@ -646,7 +650,7 @@ const ViewFollowUp: React.FC = () => {
           onView={handleViewFollowUp}
           isLargeScreen={isLargeScreen}
           loading={loading}
-          />
+        />
 
         {/* Confirmation Dialog */}
         <ConfirmationDialog
@@ -658,7 +662,94 @@ const ViewFollowUp: React.FC = () => {
           isLargeScreen={isLargeScreen}
           loading={loading}
         />
+
+        {/* Registration Modal */}
+        <RegistrationModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            fetchFollowUps();
+            setIsModalOpen(false);
+          }}
+        />
       </Box>
+      {/* Excel Import Dialog */}
+      <Dialog open={openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Import Excel File</DialogTitle>
+        <DialogContent>
+          <Box
+            sx={{
+              border: `2px dashed ${isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
+              borderRadius: 2,
+              p: 4,
+              textAlign: "center",
+              bgcolor: isDragging ? theme.palette.grey[100] : "transparent",
+              transition: "all 0.2s",
+            }}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              Drag and drop your Excel file here or
+            </Typography>
+            <Button
+              variant="contained"
+              component="label"
+              sx={{
+                mt: 2,
+                backgroundColor: "#777280",
+                color: "var(--color-text-on-primary)",
+                "&:hover": {
+                  backgroundColor: "#777280",
+                  opacity: 0.9,
+                },
+              }}
+            >
+              Select File
+              <input
+                type="file"
+                hidden
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+              />
+            </Button>
+            {selectedFile && (
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Selected file: {selectedFile.name}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseExcelDialog} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={isLoading || !selectedFile}
+            sx={{
+              backgroundColor: "#777280",
+              color: "var(--color-text-on-primary)",
+              "&:hover": {
+                backgroundColor: "#777280",
+                opacity: 0.9,
+              },
+            }}
+          >
+            {isLoading ? (
+              <>
+                <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
+                Uploading...
+              </>
+            ) : (
+              "Upload"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </DashboardManager>
   );
 };

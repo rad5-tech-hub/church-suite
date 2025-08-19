@@ -1,14 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { IoMailOutline, IoCallOutline, IoLocationOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import Api from "../../../shared/api/api";
-import DashboardManager from "../../../shared/dashboardManager";
 import { toast } from "react-toastify";
 import {
   Box,
   Button,
-  Container,
   TextField,
   Typography,
   CircularProgress,
@@ -16,7 +13,13 @@ import {
   useTheme,
   useMediaQuery,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from "@mui/material";
+import { Close } from "@mui/icons-material";
 
 interface FormData {
   name: string;
@@ -25,7 +28,13 @@ interface FormData {
   phone: string;
 }
 
-const Branch: React.FC = () => {
+interface BranchModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     location: "",
@@ -34,9 +43,7 @@ const Branch: React.FC = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,9 +69,8 @@ const Branch: React.FC = () => {
       toast.success("Branch created successfully!", {
         autoClose: 3000,
       });
-      setTimeout(() => {
-        navigate("/manage/view-branches");      
-      }, 1500);
+      onSuccess?.();
+      onClose();
     } catch (error: any) {
       console.error("Error creating branch:", error.response?.data || error.message);
       toast.error(`${error.response?.data?.error.message} Please try again.` || "Failed to create branch. Please try again.", {
@@ -76,65 +82,31 @@ const Branch: React.FC = () => {
   };
 
   return (
-    <DashboardManager>
-      <Container sx={{ py: isMobile ? 2 : 3 }}>
-        {/* Header Section */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{xs:12, md:9}}>
-            <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1"
-              fontWeight={600}
-              gutterBottom
-              sx={{
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
-              }}
-            >
-              Manage Branches
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                fontSize: isLargeScreen ? "0.8125rem" : undefined,
-              }}
-            >
-              Create and manage branches for your church.
-            </Typography>
-          </Grid>
-          <Grid
-           size={{xs:12, md:3}}
-            sx={{
-              display: "flex",
-              justifyContent: { xs: "flex-start", md: "flex-end" },
-              alignItems: "center",
-            }}
-          >
-            <Button
-              variant="contained"
-              onClick={() => navigate("/manage/view-branches")}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                fontWeight: "semibold",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                  opacity: 0.9, // Add hover effect
-                },
-              }}
-            >
-              View Branches
-            </Button>
-          </Grid>
-        </Grid>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      sx={{
+        "& .MuiDialog-paper": {
+          borderRadius:  2,
+          bgcolor: '#2C2C2C',
+          color: "#F6F4FE",
+        },
+      }}
+    >
+      <DialogTitle>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6" fontWeight={600}>
+            Create New Branch
+          </Typography>
+          <IconButton onClick={onClose}>
+            <Close className="text-gray-300"/>
+          </IconButton>
+        </Box>
+      </DialogTitle>
 
+      <DialogContent dividers>
         <Box
           component="form"
           onSubmit={handleSubmit}
@@ -142,13 +114,12 @@ const Branch: React.FC = () => {
             display: "flex",
             flexDirection: "column",
             gap: 4,
-            mt: 4,            
-            borderRadius: 2,                    
+            py: 2,
           }}
         >
           <Grid container spacing={4}>
             {/* Name Field */}
-            <Grid size={{xs:12, md:6}}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Branch Name *"
@@ -163,16 +134,28 @@ const Branch: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <BsPerson style={{ color: theme.palette.text.secondary }} />
+                      <BsPerson style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
                 required
@@ -180,7 +163,7 @@ const Branch: React.FC = () => {
             </Grid>
 
             {/* Location Field */}
-            <Grid size={{xs:12, md:6}}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Branch Location"
@@ -195,23 +178,35 @@ const Branch: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoLocationOutline style={{ color: theme.palette.text.secondary }} />
+                      <IoLocationOutline style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
               />
             </Grid>
 
             {/* Email Field */}
-            <Grid size={{xs:12, md:6}}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Branch Email"
@@ -227,23 +222,35 @@ const Branch: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoMailOutline style={{ color: theme.palette.text.secondary }} />
+                      <IoMailOutline style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
               />
             </Grid>
 
             {/* Phone Field */}
-            <Grid size={{xs:12, md:6}}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 label="Branch Phone No"
@@ -259,57 +266,69 @@ const Branch: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoCallOutline style={{ color: theme.palette.text.secondary }} />
+                      <IoCallOutline style={{ color: '#F6F4FE' }} />
                     </InputAdornment>
                   ),
                   sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
                     fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
                   },
                 }}
               />
             </Grid>
           </Grid>
-
-          {/* Submit Button */}
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading}
-              sx={{
-                py: 1,
-                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
-                px: { xs: 2, sm: 2 },
-                borderRadius: 1,
-                fontWeight: "semibold",
-                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                  opacity: 0.9, // Add hover effect
-                },
-              }}
-            >
-              {loading ? (
-                <>
-                  <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                  Creating...
-                </>
-              ) : (
-                "Create Branch"
-              )}
-            </Button>
-          </Box>
         </Box>
-      </Container>
-    </DashboardManager>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button
+          type="submit"
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={loading}
+          sx={{
+            py: 1,
+            backgroundColor: "#F6F4FE",
+            px: { xs: 6, sm: 2 },
+            borderRadius: 50,
+            color: "#2C2C2C",
+            fontWeight: "semibold",
+            textTransform: "none",
+            fontSize: { xs: "1rem", sm: "1rem" },
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+          }}
+        >
+          {loading ? (
+            <>
+              <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
+              Creating...
+            </>
+          ) : (
+            "Create Branch"
+          )}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
-export default Branch;
+export default BranchModal;

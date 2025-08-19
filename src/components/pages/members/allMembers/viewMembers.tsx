@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardManager from "../../../shared/dashboardManager";
+import { RootState } from "../../../reduxstore/redux";
+import { useSelector } from "react-redux";
+import MemberModal from "./members";
 import {
   Box,
   Button,
@@ -27,27 +30,27 @@ import {
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
-  PersonAdd as PersonAddIcon,
-  Phone as PhoneIcon,
-  Block as BlockIcon,
-  WhatsApp as WhatsAppIcon,
+  Block as BlockIcon,  
 } from "@mui/icons-material";
+import { MdOutlineFileUpload } from "react-icons/md";
+import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { MdRefresh } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { FiSettings } from "react-icons/fi";
 import Api from "../../../shared/api/api";
 import { toast } from "react-toastify";
+import { PiDownloadThin } from "react-icons/pi";
 
 interface Member {
   id: string;
   memberId: string;
   name: string;
-  sex: string;
+  address: string;
   phoneNo: string;
+  sex: string;
   whatappNo: string;
   isDeleted?: boolean;
-  branch:{name: string}
 }
 
 const ViewMembers: React.FC = () => {
@@ -66,6 +69,14 @@ const ViewMembers: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  
 
   // Fetch members from API
   const fetchMembers = async () => {
@@ -138,11 +149,12 @@ const ViewMembers: React.FC = () => {
 
   // Table column widths
   const columnWidths = {
+    snumber: '3%',
     name: "25%",
-    contact: "25%",
-    sex: "15%",
-    branch: "15%",
-    actions: "20%",
+    contact: "15%",
+    address: "25%",
+    whatsapp: "15%",
+    actions: "17%",
   };
 
   // Action handlers
@@ -204,10 +216,10 @@ const ViewMembers: React.FC = () => {
         justifyContent: "center",
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
       <Typography
         variant="h6"
-        color="textSecondary"
+        color="rgba(255, 255, 255, 0.1)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
@@ -222,15 +234,17 @@ const ViewMembers: React.FC = () => {
       ) : null}
       <Button
         variant="contained"
-        onClick={() => navigate("/members/member")}
+        onClick={() => setIsModalOpen(true)}
         sx={{
-          backgroundColor: "var(--color-primary)",
+          backgroundColor: "#363740",
           px: { xs: 2, sm: 2 },
           mt: 2,
+          borderRadius: 50,
+          py: 1,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
           color: "var(--color-text-on-primary)",
           "&:hover": {
-            backgroundColor: "var(--color-primary)",
+            backgroundColor: "#363740",
             opacity: 0.9,
           },
         }}
@@ -240,6 +254,100 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
+    // Handle Excel import
+    const handleImportExcel = () => {
+      setOpenDialog(true);
+    };
+  
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (
+        file &&
+        (file.type === "application/vnd.ms-excel" ||
+          file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      ) {
+        setSelectedFile(file);
+      } else {
+        toast.error("Please select a valid Excel file (.xlsx or .xls)", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        setSelectedFile(null);
+      }
+    };
+  
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      const file = event.dataTransfer.files?.[0];
+      if (
+        file &&
+        (file.type === "application/vnd.ms-excel" ||
+          file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      ) {
+        setSelectedFile(file);
+      } else {
+        toast.error("Please drop a valid Excel file (.xlsx or .xls)", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        setSelectedFile(null);
+      }
+    };
+  
+    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragging(true);
+    };
+  
+    const handleDragLeave = () => {
+      setIsDragging(false);
+    };
+  
+    const handleUpload = async () => {
+      if (!selectedFile) {
+        toast.error("Please select an Excel file to upload", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
+        await Api.post(`/member/import?churchId=${authData?.churchId}${branchIdParam}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        toast.success("Excel file uploaded successfully!", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        setOpenDialog(false);
+        setSelectedFile(null);
+        setTimeout(() => {
+          fetchMembers();
+        }, 1500);
+      } catch (error: any) {
+        console.error("Error uploading file:", error);
+        const errorMessage =
+          error.response?.data?.message || "Failed to upload Excel file. Please try again.";
+        toast.error(errorMessage, {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+  
+    const handleCloseDialog = () => {
+      setOpenDialog(false);
+      setSelectedFile(null);
+      setIsDragging(false);
+    };
+
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
@@ -247,16 +355,21 @@ const ViewMembers: React.FC = () => {
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 8 }}>
             <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1"
+              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
+              component="h4"
               fontWeight={600}
               gutterBottom
               sx={{
                 color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
+                fontSize: isLargeScreen ? "1.1rem" : undefined,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
               }}
             >
-              All Workers
+              <span className="text-[#777280]">Members</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
+              <span className="text-[#F6F4FE]">Worker</span>
             </Typography>
             <Typography
               variant="body2"
@@ -265,46 +378,77 @@ const ViewMembers: React.FC = () => {
                 fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
             >
-              View and manage all church workers.
+            
             </Typography>
           </Grid>
-          <Grid
-            size={{ xs: 12, md: 4 }}
+          <Grid          
             sx={{
               display: "flex",
-              justifyContent: { xs: "flex-start", md: "flex-end" },
+              justifyContent: "flex-end",
               alignItems: "center",
+              xs:12,
+              md:4,
+              mt: { xs: 2, md: 0 } // Add some top margin on mobile if needed
             }}
           >
-            <Button
-              variant="contained"
-              onClick={() => navigate("/members/member")}
-              size="medium"
-              sx={{
-                backgroundColor: "var(--color-primary)",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 1,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "var(--color-text-on-primary)",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "var(--color-primary)",
-                  opacity: 0.9,
-                },
-              }}
-              startIcon={<PersonAddIcon />}
-            >
-              Add Worker
-            </Button>
+            <Box sx={{
+              display: 'flex',
+              gap: 2,
+              flexDirection: { xs: 'column', sm: 'row' },
+              width: { xs: '100%', sm: 'auto' }
+            }}>
+              <Button
+                variant="contained"
+                onClick={handleImportExcel}
+                disabled={isLoading}
+                sx={{
+                  py: 1,
+                  backgroundColor: "#363740",
+                  px: { xs: 3, sm: 3 },
+                  borderRadius: 50,
+                  fontWeight: "semibold",
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: 'max-content'
+                }}
+              >
+                Upload Workers <MdOutlineFileUpload className="ml-1" />
+              </Button>
+            
+              <Button
+                variant="contained"
+                onClick={() => setIsModalOpen(true)}
+                size="medium"
+                sx={{
+                  backgroundColor: "#363740",
+                  px: { xs: 2, sm: 2 },
+                  py: 1,
+                  borderRadius: 50,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": {
+                    backgroundColor: "#363740",
+                    opacity: 0.9,
+                  },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: 'max-content'
+                }}              
+              >
+                Add Worker +
+              </Button>
+            </Box>
           </Grid>
         </Grid>
 
         {/* Loading State */}
         {loading && members.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
@@ -326,11 +470,22 @@ const ViewMembers: React.FC = () => {
             >
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
+                    <TableCell
+                      sx={{
+                        fontWeight: 600,
+                        width: columnWidths.snumber,
+                        color: "#777280",
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      }}
+                    >
+                      #
+                    </TableCell>
                     <TableCell
                       sx={{
                         fontWeight: 600,
                         width: columnWidths.name,
+                        color: "#777280",
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
                       }}
                     >
@@ -339,33 +494,37 @@ const ViewMembers: React.FC = () => {
                     <TableCell
                       sx={{
                         fontWeight: 600,
+                        color: "#777280",
                         width: columnWidths.contact,
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
                       }}
                     >
-                      Contact
+                      Phone Number
                     </TableCell>
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        width: columnWidths.sex,
+                        color: "#777280",
+                        width: columnWidths.address,
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
                       }}
                     >
-                      Gender
+                      Address
                     </TableCell>
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        width: columnWidths.branch,
+                        color: "#777280",
+                        width: columnWidths.whatsapp,
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
                       }}
                     >
-                      Branch
+                      Whatsapp Number
                     </TableCell>
                     <TableCell
                       sx={{
                         fontWeight: 600,
+                        color: "#777280",
                         width: columnWidths.actions,
                         textAlign: "center",
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
@@ -378,110 +537,92 @@ const ViewMembers: React.FC = () => {
                 <TableBody>
                   {members
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((member) => (
+                    .map((member, index) => (
                       <TableRow
                         key={member.id}
-                        sx={{
-                          borderBottom: "1px solid #e5e7eb",
+                        sx={{         
+                          "& td": { border: "none" },                 
                           backgroundColor: member.isDeleted
-                            ? "rgba(0, 0, 0, 0.04)"
-                            : "inherit",
-                          "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)" },
+                          ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+                          borderRadius: "4px",
+                          "&:hover": {
+                            backgroundColor: "#4d4d4e8e",
+                            transform: "translateY(-2px)",
+                            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                          },
+                          transition: "all 0.2s ease",
+                          mb: 2,
                         }}
                       >
                         <TableCell
                           sx={{
-                            width: columnWidths.name,
+                            width: columnWidths.snumber,
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            color: member.isDeleted ? "gray" : "inherit",
+                            color: member.isDeleted ? "gray" : "#F6F4FE",
                             textDecoration: member.isDeleted
                               ? "line-through"
                               : "none",
                           }}
                         >
-                          {member.name}
+                          {(index + 1).toString().padStart(2, "0")}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            textDecoration: member.isDeleted ? "line-through" : "none",
+                            color: member.isDeleted ? "gray" : "#F6F4FE",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            fontSize: isLargeScreen ? "0.875rem" : undefined,
+                            py: 2,
+                            flex: 1,
+                          }}
+                        >
+                          <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+                            {member.name.split(" ").map((name) => name.charAt(0)).join("")}
+                          </Box>
+                          <Box>
+                            {member.name}
+                            <br />
+                            <span className="text-[13px] text-[#777280]">{member.sex || "-"}</span>
+                          </Box>
                         </TableCell>
                         <TableCell
                           sx={{
                             width: columnWidths.contact,
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            color: member.isDeleted ? "gray" : "inherit",
+                            color: member.isDeleted ? "gray" : "#F6F4FE",
                             textDecoration: member.isDeleted
                               ? "line-through"
                               : "none",
                           }}
                         >
-                          <Box>
-                            <Typography
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                fontSize: isLargeScreen ? "0.875rem" : undefined,
-                                color: member.isDeleted
-                                  ? "gray"
-                                  : "text.secondary",
-                                textDecoration: member.isDeleted
-                                  ? "line-through"
-                                  : "none",
-                              }}
-                            >
-                              <PhoneIcon
-                                sx={{
-                                  fontSize: "1rem",
-                                  marginRight: 1,
-                                  color: "var(--color-primary)",
-                                }}
-                              />
-                              {member.phoneNo || "N/A"}
-                            </Typography>
-                            <Typography
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                fontSize: isLargeScreen ? "0.875rem" : undefined,
-                                color: member.isDeleted
-                                  ? "gray"
-                                  : "text.secondary",
-                                textDecoration: member.isDeleted
-                                  ? "line-through"
-                                  : "none",
-                              }}
-                            >
-                              <WhatsAppIcon
-                                sx={{
-                                  fontSize: "1rem",
-                                  marginRight: 1,
-                                  color: "#25D366",
-                                }}
-                              />
-                              {member.whatappNo || "N/A"}
-                            </Typography>
-                          </Box>
+                          {member.phoneNo || "N/A"}                            
                         </TableCell>
                         <TableCell
                           sx={{
-                            width: columnWidths.sex,
+                            width: columnWidths.address,
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            color: member.isDeleted ? "gray" : "inherit",
+                            color: member.isDeleted ? "gray" : "#F6F4FE",
                             textDecoration: member.isDeleted
                               ? "line-through"
                               : "none",
                           }}
-                        >
-                          {member.sex}
+                        >                          
+                          {member.address || "N/A"}                            
                         </TableCell>
                         <TableCell
                           sx={{
-                            width: columnWidths.branch,
+                            width: columnWidths.whatsapp,
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            color: member.isDeleted ? "gray" : "inherit",
+                            color: member.isDeleted ? "gray" : "#F6F4FE",
                             textDecoration: member.isDeleted
                               ? "line-through"
                               : "none",
                           }}
                         >
-                          {member?.branch?.name || 'HQ'}
-                        </TableCell>
+                          {member.whatappNo}
+                        </TableCell>                    
                         <TableCell
                           sx={{
                             width: columnWidths.actions,
@@ -519,8 +660,8 @@ const ViewMembers: React.FC = () => {
                 page={page}
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  borderTop: "1px solid #e0e0e0",
+                sx={{  
+                  color: '#F6F4FE',
                   "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
                     {
                       fontSize: isLargeScreen ? "0.75rem" : undefined,
@@ -535,13 +676,13 @@ const ViewMembers: React.FC = () => {
                   width: "100%",
                 }}
               >
-                <Tooltip title="Export workers data to Excel sheet" placement="top" arrow>
+                <Tooltip title="Download Workers Data" placement="top" arrow>
                   <Button
                     onClick={handleExportExcel}
                     disabled={exportLoading}
                     size="medium"
                     sx={{
-                      backgroundColor: "var(--color-primary)",
+                      backgroundColor: "#363740",
                       px: { xs: 2, sm: 2 },
                       py: 1,
                       borderRadius: 1,
@@ -550,7 +691,7 @@ const ViewMembers: React.FC = () => {
                       color: "var(--color-text-on-primary)",
                       fontSize: isLargeScreen ? "1rem" : undefined,
                       "&:hover": {
-                        backgroundColor: "var(--color-primary)",
+                        backgroundColor: "#363740",
                         opacity: 0.9,
                       },
                     }}
@@ -561,10 +702,10 @@ const ViewMembers: React.FC = () => {
                           size={18}
                           sx={{ color: "var(--color-text-on-primary)", mr: 1 }}
                         />
-                        Exporting...
+                        Downloading...
                       </>
                     ) : (
-                      "Export Excel"
+                      <span className="flex items-center gap-1 "> Download Workers <PiDownloadThin/></span>
                     )}
                   </Button>
                 </Tooltip>
@@ -645,6 +786,84 @@ const ViewMembers: React.FC = () => {
           </DialogActions>
         </Dialog>
       </Box>
+      {/* Import Excel Dialog */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Import Excel File</DialogTitle>
+        <DialogContent>
+          <Box
+            sx={{
+              border: `2px dashed ${isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
+              borderRadius: 2,
+              p: 4,
+              textAlign: "center",
+              bgcolor: isDragging ? theme.palette.grey[100] : "transparent",
+              transition: "all 0.2s",
+            }}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              Drag and drop your Excel file here or
+            </Typography>
+            <Button
+              variant="contained"
+              component="label"
+              sx={{
+                mt: 2,
+                backgroundColor: "#777280",
+                color: "var(--color-text-on-primary)",
+                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+              }}
+            >
+              Select File
+              <input
+                type="file"
+                hidden
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+              />
+            </Button>
+            {selectedFile && (
+              <Typography variant="body2" sx={{ mt: 2 }}>
+                Selected file: {selectedFile.name}
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={isLoading || !selectedFile}
+            sx={{
+              backgroundColor: "#777280",
+              color: "var(--color-text-on-primary)",
+              "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+            }}
+          >
+            {isLoading ? (
+              <>
+                <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
+                Uploading...
+              </>
+            ) : (
+              "Upload"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* member-workermodal */}
+      <MemberModal 
+        open={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchMembers}
+      />
     </DashboardManager>
   );
 };

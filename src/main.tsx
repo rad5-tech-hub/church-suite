@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './components/reduxstore/redux';
 import App from './App';
-import { ToastContainer } from 'react-toastify';
+// import { ToastContainer } from 'react-toastify';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
@@ -12,7 +12,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <App />
-        <ToastContainer
+        {/* <ToastContainer
           position="top-right"
           autoClose={5000}      
           newestOnTop={false}
@@ -21,7 +21,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           pauseOnFocusLoss
           draggable
           pauseOnHover
-          theme="light"/>
+          theme="light"/> */}
       </PersistGate>
     </Provider>
   </React.StrictMode>

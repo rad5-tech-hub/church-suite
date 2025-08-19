@@ -143,10 +143,10 @@ Api.interceptors.response.use(
         });
       }
     } else if (error.request) {
-      toast.error(
-        "Network error: Failed to connect to the server. Please check your connection.",
-        { autoClose: 5000 }
-      );
+      // Handle network errors
+      toast.error("Network error. Please check your connection.", {
+        autoClose: 5000,
+      });
     }
     return Promise.reject(error);
   }

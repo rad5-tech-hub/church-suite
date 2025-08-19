@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import { IoMailOutline } from "react-icons/io5";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
-import { SlLock } from "react-icons/sl";
 import { Link, useNavigate } from "react-router-dom";
 import { store } from "../../reduxstore/redux";
 import { clearChurchData } from "../../reduxstore/datamanager";
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Interfaces
@@ -182,205 +180,171 @@ const Login: React.FC<LoginFormProps> = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      {/* Forgot Password Modal */}
-      {showForgotPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md mx-4 shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">Reset Password</h3>
-              <button 
-                onClick={() => setShowForgotPasswordModal(false)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="mb-4 text-gray-600">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
-            <form onSubmit={handleForgotPassword}>
-              <div className="mb-4">
-                <label htmlFor="forgotEmail" className="block text-gray-700 mb-2 font-medium">
-                  Email Address
-                </label>
-                <div className="flex items-center border border-gray-300 rounded-md px-4 py-3">
-                  <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-                  <input
-                    type="email"
-                    id="forgotEmail"
-                    className="w-full text-base text-gray-800 focus:outline-none"
-                    placeholder="Enter your email"
-                    required
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                  />
+    <div className="bg-[#F6F4FE] min-h-screen ">
+      {/* SVG Pattern at the top */}
+      <div className="w-full h-[300px]"      
+          style={{
+            background: `
+              radial-gradient(at top left, #2A1B45 100%, transparent 10%),
+              radial-gradient(at top right, #2A1B45 70%, transparent 0%),
+              radial-gradient(at bottom left, #1E0D2E 90%, transparent 0%),
+              radial-gradient(at bottom right, #D778C4 100%, transparent 1%),
+              #120B1B
+            `,
+          }}
+        >
+        <div className="w-full relative overflow-hidden" style={{ height: '450px', flexShrink: 0 }}> 
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="1440" 
+            height="450" 
+            viewBox="0 0 1440 450" 
+            preserveAspectRatio="none"
+            className="w-full h-full"
+          >
+            <path 
+              fillRule="evenodd" 
+              clipRule="evenodd" 
+              d="M0 0H1440V306L0 450V0Z" 
+              fill="#120B1B"
+            />
+          </svg>    
+        </div>
+      </div>
+
+      {/* Login Form Container */}
+      <div className="max-w-md mx-auto px-4 -mt-45 relative z-10">
+        <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
+          {/* Forgot Password Modal */}
+          {showForgotPasswordModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-gray p-6 rounded-lg bg-gray-200 w-full max-w-md mx-4 shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-800">Reset Password</h3>
+                  <button 
+                    onClick={() => setShowForgotPasswordModal(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
+                <p className="mb-4 text-gray-600">
+                  Enter your email address and we'll send you a link to reset your password.
+                </p>
+                <form onSubmit={handleForgotPassword}>
+                  <div className="mb-4">
+                    <label htmlFor="forgotEmail" className="block text-gray-700 mb-2 font-medium">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="forgotEmail"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      placeholder="Enter your email"
+                      required
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => setShowForgotPasswordModal(false)}
+                      className="px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="px-4 py-2 bg-[#120B1B] text-white rounded-md hover:bg-opacity-90 disabled:opacity-50"
+                    >
+                      {isLoading ? 'Sending...' : 'Send Reset Link'}
+                    </button>
+                  </div>
+                </form>
               </div>
-              <div className="flex justify-end gap-3">
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-gray-800">Log in</h1>
+              <p className="text-gray-600 mt-2">
+                Welcome, Kindly login to your account to continue <br className="sm:hidden"/> with your church
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email *
+              </label>
+              <input
+                type="email"
+                id="email"
+                placeholder="email@gmail.com"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#120B1B]"
+                value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password *
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#120B1B] pr-10"
+                  placeholder="........"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
                 <button
                   type="button"
-                  disabled={isLoading}
-                  onClick={() => setShowForgotPasswordModal(false)}
-                  className="px-4 py-2 text-gray-700 rounded-md hover:bg-gray-100"
+                  onClick={togglePasswordVisibility}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-[#111827] text-white rounded-md hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {isLoading ? 'Sending...' : 'Send Reset Link'}
+                  {showPassword ? <PiEye size={18} /> : <PiEyeClosed size={18} />}
                 </button>
               </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgotPasswordModal(true)}
+                className="text-sm text-[#120B1B] hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full  bg-gradient-to-b from-[#120B1B] to-[#1E0D2E] text-white py-2 rounded-md hover:bg-opacity-90 transition disabled:opacity-50"
+            >
+              {isLoading ? "Logging in..." : "Log in"}
+            </button>
+
+            <div className="text-center text-sm">
+              <span>Don't have an Account? </span>
+              <Link to="/setup-church" className="text-[#120B1B] font-medium hover:underline">
+                Sign Up
+              </Link>
+            </div>
+          </form>
         </div>
-      )}
-
-      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 h-screen">
-        {/* Left Section - Welcome Message */}
-        <LeftSection />
-
-        {/* Right Section - Login Form */}
-        <RightSection
-          handleSubmit={handleSubmit}
-          showPassword={showPassword}
-          togglePasswordVisibility={togglePasswordVisibility}
-          handleChange={handleChange}
-          formData={formData}
-          isLoading={isLoading}
-          onForgotPasswordClick={() => setShowForgotPasswordModal(true)}
-        />
       </div>
+      <ToastContainer/>
     </div>
   );
 };
-
-// Left Section Component
-const LeftSection: React.FC = () => (
-  <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
-    <div className="lg:w-9/12 py-8">
-      <h1 className="text-3xl lg:text-5xl font-bold mb-2">Log in</h1>
-      <p className="text-lg lg:text-xl text-gray-300">
-        Welcome, Kindly login to your account to continue with your church
-      </p>
-    </div>
-  </div>
-);
-
-// Right Section Component
-interface RightSectionProps {
-  handleSubmit: (e: React.FormEvent) => void;
-  showPassword: boolean;
-  togglePasswordVisibility: () => void;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  formData: LoginData;
-  isLoading: boolean;
-  onForgotPasswordClick: () => void;
-}
-
-const RightSection: React.FC<RightSectionProps> = ({
-  handleSubmit,
-  showPassword,
-  togglePasswordVisibility,
-  handleChange,
-  formData,
-  isLoading,
-  onForgotPasswordClick,
-}) => (
-  <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 justify-center flex flex-col">
-    <form className="flex flex-col" onSubmit={handleSubmit}>
-      {/* Email Input */}
-      <div className="mb-6">
-        <label
-          htmlFor="email"
-          className="block text-base text-gray-700 font-medium mb-2 text-left"
-        >
-          Email
-        </label>
-        <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow">
-          <IoMailOutline className="text-gray-400 mr-3 text-xl" />
-          <input
-            type="email"
-            id="email"
-            className="w-full text-base text-gray-800 focus:outline-none"
-            placeholder="Enter your email"
-            required
-            value={formData.email}
-            onChange={handleChange}
-          />
-        </div>
-      </div>
-
-      {/* Password Input */}
-      <div className="mb-4">
-        <label
-          htmlFor="password"
-          className="block text-base text-gray-700 font-medium mb-2 text-left"
-        >
-          Password
-        </label>
-        <div className="flex items-center border border-gray-300 rounded-md px-4 py-3 input-shadow relative">
-          <SlLock className="text-gray-400 mr-3 text-xl" />
-          <input
-            type={showPassword ? "text" : "password"}
-            id="password"
-            className="w-full text-base text-gray-800 focus:outline-none pr-10"
-            placeholder="Enter your password"
-            required
-            value={formData.password}
-            onChange={handleChange}
-          />
-          <button
-            type="button"
-            aria-label="Toggle password visibility"
-            className="absolute right-4 cursor-pointer text-gray-400 text-xl"
-            onClick={togglePasswordVisibility}
-          >
-            {showPassword ? <PiEye /> : <PiEyeClosed />}
-          </button>
-        </div>
-      </div>
-
-      {/* Forgot Password Link */}
-      <div className="mb-6 text-right">
-        <button
-          type="button"
-          onClick={onForgotPasswordClick}
-          className="text-sm text-[#111827] hover:underline font-medium"
-        >
-          Forgot Password?
-        </button>
-      </div>
-
-      {/* Form Actions */}
-      <div className="w-full gap-3 pt-5">
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
-        >
-          {isLoading ? (
-           <> <span className="inline-block h-5 w-5 border-2 mr-2 border-white border-t-transparent rounded-full animate-spin"></span> Loging in...</>
-          ) : (
-            "Log in"
-          )}
-        </button>
-      </div>
-
-      {/* Sign Up Link */}
-      <div className="mt-5 text-center">
-        <span>Don't have account? </span>
-        <Link to="/setup-church" className="underline font-medium">
-          Sign Up
-        </Link>
-      </div>
-    </form>
-  </div>
-);
 
 export default Login;

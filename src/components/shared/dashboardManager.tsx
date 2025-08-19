@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, CssBaseline } from "@mui/material";
 import Sidebar from "./sidebar/sidebar";
 import Header from "./header/header";
+import { useLocation } from "react-router-dom";
 
 // Interface for component props
 interface DashboardManagerProps {
@@ -11,6 +12,10 @@ interface DashboardManagerProps {
 // Component Code
 const DashboardManager: React.FC<DashboardManagerProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
+  
+  // Check if current path is '/dashboard'
+  const isDashboardPath = location.pathname === '/dashboard';
 
   // Toggle sidebar visibility
   const toggleSidebar = () => {
@@ -21,15 +26,12 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({ children }) => {
     <>
       <CssBaseline />
       <Box
-        sx={{
-          display: "flex",
+        sx={{          
           height: "100vh", // Full viewport height
-          bgcolor: "#f5f5f5", // Equivalent to bg-gray-100
+         background: "linear-gradient(135deg, #0d1421 0%, #1a1a2e 20%, #16213e 40%, #201339 80%, #533483 105%, #201339 200%)",
           overflow: "hidden", // Prevent body overflow
         }}
-      >
-        {/* Sidebar */}
-        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      >        
 
         {/* Main Content */}
         <Box
@@ -45,16 +47,31 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({ children }) => {
           <Header toggleSidebar={toggleSidebar} />
 
           {/* Dynamic Body */}
-          <Box
-            component="main"
-            sx={{
-              flex: 1,
-              p: { xs: 2, sm: 3 },
-              overflowY: "auto", // Scroll only this area
-              bgcolor: "#f5f5f5", // Match background
-            }}
-          >
-            {children}
+            <Box
+            sx={{            
+              display: "flex",              
+              flex: 1, // Take remaining height after header
+              overflow: "hidden", // Prevent overflow in this container
+            }}>
+
+            {/* Sidebar */}
+            {!isDashboardPath && (
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <Sidebar />
+              </Box>
+            )}
+            
+            <Box
+              component="main"
+              sx={{
+                flex: 1,
+                p: { xs: 2, sm: 3 },
+                pb: { xs: '84px', sm: '92px', md: '24px' },
+                overflowY: "auto", // Scroll only this area
+              }}
+            >
+              {children}
+            </Box>
           </Box>
         </Box>
       </Box>

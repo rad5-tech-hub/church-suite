@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
 import {
   Box,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Card,
+  CardContent,
   Typography,
   IconButton,
   Dialog,
@@ -22,22 +17,30 @@ import {
   FormControl,
   InputLabel,
   TablePagination,
-  Tooltip,
   SelectChangeEvent,
   Menu,
   useTheme,
   useMediaQuery,
-  Grid
+  Grid,
+  Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
-  MoreVert as MoreVertIcon,
+  // MoreVert as MoreVertIcon,
   Block as BlockIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
+import { PiChurch } from "react-icons/pi";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
+import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import Api from "../../../shared/api/api";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
+import DepartmentModal from "./department"; // Corrected import path
+import { useNavigate } from "react-router-dom";
 
 interface Department {
   id: string;
@@ -48,15 +51,21 @@ interface Department {
   isDeleted?: boolean;
 }
 
+interface AuthData {
+  isHeadquarter?: boolean;
+  isSuperAdmin?: boolean;
+}
+
 const ViewDepartment: React.FC = () => {
-  const navigate = useNavigate();
+  const authData = useSelector((state: RootState) => state.auth?.authData as AuthData | undefined);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null);
-  const [actionType, setActionType] = useState<string | null>(null);
+  const [actionType, setActionType] = useState<"delete" | "suspend" | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [editFormData, setEditFormData] = useState<Omit<Department, "id">>({
     name: "",
@@ -64,11 +73,15 @@ const ViewDepartment: React.FC = () => {
     type: "Department",
     isActive: true,
   });
+  const [nameError, setNameError] = useState<string | null>(null);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const navigate = useNavigate();
 
   // Fetch departments with error handling
   const fetchDepartments = async () => {
@@ -77,10 +90,11 @@ const ViewDepartment: React.FC = () => {
     try {
       const response = await Api.get("/church/get-departments");
       setDepartments(response.data.departments || []);
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again later.";
       console.error("Failed to fetch departments:", error);
-      setError("Failed to load departments. Please try again later.");
-      toast.error("Failed to load departments");
+      setError(errorMessage);
+      toast.error(errorMessage, { position: "top-right" });
     } finally {
       setLoading(false);
     }
@@ -90,23 +104,35 @@ const ViewDepartment: React.FC = () => {
     fetchDepartments();
   }, []);
 
-  // Calculate counts
-  const departmentCount = departments.filter(dept => dept.type === "Department").length;
-  const outreachCount = departments.filter(dept => dept.type === "Outreach").length;
-
-  // Table column widths
-  const columnWidths = {
-    name: "30%",
-    description: "40%",
-    type: "15%",
-    actions: "15%"
+  // Handle search to apply filters and reset pagination
+  const handleSearch = () => {
+    setPage(0);
+    toast.success("Filters applied successfully!", { position: "top-right" });
   };
+
+  // Filter departments based on search and type
+  const filteredDepartments = useMemo(() => {
+    return departments.filter((dept) => {
+      const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType =
+        typeFilter === "" ||
+        (typeFilter === "Department" && dept.type === "Department") ||
+        (typeFilter === "Outreach" && dept.type === "Outreach");
+      return matchesSearch && matchesType;
+    });
+  }, [departments, searchTerm, typeFilter]);
+
+  // Calculate counts
+  // const activeCount = filteredDepartments.filter((dept) => dept.isActive).length;
+  // const inactiveCount = filteredDepartments.filter((dept) => !dept.isActive).length;
+  // const departmentCount = filteredDepartments.filter((dept) => dept.type === "Department").length;
+  // const outreachCount = filteredDepartments.filter((dept) => dept.type === "Outreach").length;
 
   // Action handlers
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, department: Department) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentDepartment(department);
-  };
+  // const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, department: Department) => {
+  //   setAnchorEl(event.currentTarget);
+  //   setCurrentDepartment(department);
+  // };
 
   const handleMenuClose = () => setAnchorEl(null);
 
@@ -118,54 +144,63 @@ const ViewDepartment: React.FC = () => {
         type: currentDepartment.type,
         isActive: currentDepartment.isActive,
       });
+      setNameError(null);
       setEditModalOpen(true);
     }
+    handleMenuClose();
+  };
+
+  const showConfirmation = (action: "delete" | "suspend") => {
+    setActionType(action);
+    setConfirmModalOpen(true);
     handleMenuClose();
   };
 
   const handleEditClose = () => {
     setEditModalOpen(false);
     setCurrentDepartment(null);
-  };
-
-  const showConfirmation = (action: string) => {
-    setActionType(action);
-    setConfirmModalOpen(true);
-    handleMenuClose();
+    setNameError(null);
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "name") {
+      setNameError(value.trim() ? null : "Department name is required");
+    }
   };
 
   const handleTypeChange = (e: SelectChangeEvent<"Department" | "Outreach">) => {
-    setEditFormData(prev => ({ ...prev, type: e.target.value as "Department" | "Outreach" }));
+    setEditFormData((prev) => ({ ...prev, type: e.target.value as "Department" | "Outreach" }));
   };
 
   const handleEditSubmit = async () => {
     if (!currentDepartment?.id) {
-      console.error("Department ID is undefined");
-      toast.error("Invalid department data");
+      toast.error("Invalid department data", { position: "top-right" });
       return;
     }
-  
+    if (!editFormData.name.trim()) {
+      setNameError("Department name is required");
+      return;
+    }
+
     try {
       setLoading(true);
-        await Api.patch(
-        `/church/edit-dept/${currentDepartment.id}`,
-        editFormData
+      await Api.patch(`/church/edit-dept/${currentDepartment.id}`, {
+        ...editFormData,
+        description: editFormData.description || null,
+      });
+      setDepartments(
+        departments.map((dept) =>
+          dept.id === currentDepartment.id ? { ...dept, ...editFormData } : dept
+        )
       );
-      
-      setDepartments(departments.map(dept =>
-        dept.id === currentDepartment.id ? { ...dept, ...editFormData } : dept
-      ));
-      
-      toast.success("Department updated successfully!");
+      toast.success("Department updated successfully!", { position: "top-right" });
       handleEditClose();
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Failed to update department";
       console.error("Update error:", error);
-      toast.error("Failed to update department");
+      toast.error(errorMessage, { position: "top-right" });
     } finally {
       setLoading(false);
     }
@@ -178,23 +213,26 @@ const ViewDepartment: React.FC = () => {
       setLoading(true);
       if (actionType === "delete") {
         await Api.delete(`/church/delete-dept/${currentDepartment.id}`);
-        setDepartments(departments.filter(dept => dept.id !== currentDepartment.id));
-        toast.success("Department deleted successfully!");
+        setDepartments(departments.filter((dept) => dept.id !== currentDepartment.id));
+        toast.success("Department deleted successfully!", { position: "top-right" });
       } else if (actionType === "suspend") {
         const newStatus = !currentDepartment.isActive;
         await Api.patch(`/church/suspend-dept/${currentDepartment.id}`, {
-          ...currentDepartment,
-          type: currentDepartment.type,
           isActive: newStatus,
         });
-        setDepartments(departments.map(dept => 
-          dept.id === currentDepartment.id ? { ...dept, isActive: newStatus } : dept
-        ));
-        toast.success(`Department ${newStatus ? "activated" : "suspended"} successfully!`);
+        setDepartments(
+          departments.map((dept) =>
+            dept.id === currentDepartment.id ? { ...dept, isActive: newStatus } : dept
+          )
+        );
+        toast.success(`Department ${newStatus ? "activated" : "suspended"} successfully!`, {
+          position: "top-right",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || `Failed to ${actionType} department`;
       console.error("Action error:", error);
-      toast.error(`Failed to ${actionType} department`);
+      toast.error(errorMessage, { position: "top-right" });
     } finally {
       setLoading(false);
       setConfirmModalOpen(false);
@@ -212,49 +250,56 @@ const ViewDepartment: React.FC = () => {
   };
 
   // Helper functions
-  const truncateDescription = (description: string | null, maxLength = 50) => {
-    if (!description) return "-";
-    return description.length <= maxLength 
-      ? description 
-      : `${description.substring(0, maxLength)}...`;
-  };
+  // const truncateDescription = (description: string | null, maxLength = 25) => {
+  //   if (!description) return "-";
+  //   return description.length <= maxLength
+  //     ? description
+  //     : `${description.substring(0, maxLength)}...`;
+  // };
 
   // Empty state component
   const EmptyState = () => (
-    <Box sx={{ 
-      textAlign: "center", 
-      py: 8,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center"
-    }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
-      <Typography 
-        variant="h6" 
-        color="textSecondary" 
+    <Box
+      sx={{
+        textAlign: "center",
+        py: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <Typography
+        variant="h6"
+        color="rgba(255, 255, 255, 0.1)"
         gutterBottom
         sx={{
-          fontSize: isLargeScreen ? '1.25rem' : undefined
+          fontSize: isLargeScreen ? "1.25rem" : undefined,
         }}
       >
         No departments found
       </Typography>
-      {error ? (
-        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
-      ) : null}
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
       <Button
         variant="contained"
-        onClick={() => navigate("/manage/department")}       
+        onClick={() => setIsModalOpen(true)}
         sx={{
-          backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
-          px: { xs: 2, sm: 2 }, 
-          color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+          backgroundColor: "#363740",
+          px: { xs: 2, sm: 2 },
+          py: 1,
           mt: 2,
-          fontSize: isLargeScreen ? '0.875rem' : undefined,
+          fontWeight: 500,
+          textTransform: "none",
+          color: "var(--color-text-on-primary)",
+          fontSize: isLargeScreen ? "1rem" : undefined,
           "&:hover": {
-            backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-            opacity: 0.9, // Add hover effect
+            backgroundColor: "#363740",
+            opacity: 0.9,
           },
         }}
       >
@@ -268,54 +313,141 @@ const ViewDepartment: React.FC = () => {
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{xs:12, md:8}}>
-            <Typography 
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
-              component="h1" 
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Typography
+              variant={isMobile ? "h5" : "h5"}
+              component="h4"
               fontWeight={600}
               gutterBottom
-              sx={{ 
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? '1.5rem' : undefined
-              }}
-            >
-              All Departments
-            </Typography>
-            <Typography 
-              variant="body2" 
-              color="text.secondary"
               sx={{
-                fontSize: isLargeScreen ? '0.875rem' : undefined
+                color: theme.palette.text.primary,
+                fontSize: isLargeScreen ? "1.1rem" : undefined,
+                display: "flex",
+                alignItems: "center",
+                marginBottom: 2,
+                gap: 1,                
               }}
             >
-              View and manage all departments and outreaches.
+              <span className="text-[#777280]">Manage</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
+              <span className="text-[#F6F4FE]">Department</span>
             </Typography>
+            <Box>
+              <Box
+                sx={{
+                  border: "1px solid #4d4d4e8e",
+                  borderRadius: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  backgroundColor: "#4d4d4e8e",
+                  padding: "4px",
+                  width: "100%",
+                  gap: "8px",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                  "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
+                }}
+              >
+                <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                  >
+                    Name
+                  </Typography>
+                  <TextField
+                    variant="standard"
+                    placeholder="Search by name"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    sx={{
+                      "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
+                      flex: 1,
+                    }}
+                    InputProps={{ disableUnderline: true }}
+                  />
+                </Box>
+                <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                  >
+                    Type
+                  </Typography>
+                  <Select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    displayEmpty
+                    sx={{
+                      color: typeFilter ? "#F6F4FE" : "#777280",
+                      fontWeight: 500,
+                      fontSize: "14px",
+                      ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                      ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                      "& .MuiSelect-icon": { display: "none" },
+                    }}
+                    renderValue={(selected) => selected || "Select Type"}
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="Department">Department</MenuItem>
+                    <MenuItem value="Outreach">Outreach</MenuItem>
+                  </Select>
+                </Box>
+                <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
+                  <Button
+                    onClick={handleSearch}
+                    aria-label="Search departments"
+                    sx={{
+                      backgroundColor: "transparent",
+                      border: "1px solid #777280",
+                      color: "white",
+                      borderRadius: "50%",
+                      minWidth: "48px",
+                      height: "48px",
+                      padding: 0,
+                      "&:hover": { backgroundColor: "#777280" },
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      <SearchIcon sx={{ fontSize: "20px" }} />
+                    )}
+                  </Button>              
+                </Box>
+              </Box>
+            </Box>
           </Grid>
-          <Grid size={{xs:12, md:4}} sx={{ 
-            display: 'flex', 
-            justifyContent: { xs: 'flex-start', md: 'flex-end' },
-            alignItems: 'center'
-          }}>
+          <Grid
+            size={{ xs: 12, md: 7 }}
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "flex-end", md: "flex-end" },
+              alignItems: "center",
+            }}
+          >
             <Button
               variant="contained"
-              onClick={() => navigate("/manage/department")}
+              onClick={() => setIsModalOpen(true)}
               size="medium"
               sx={{
-                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable,
+                backgroundColor: "#363740",
                 px: { xs: 2, sm: 2 },
                 py: 1,
-                borderRadius: 1,
+                borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                fontSize: isLargeScreen ? '1rem' : undefined,
+                color: "var(--color-text-on-primary)",
+                fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": {
-                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                  opacity: 0.9, // Add hover effect
+                  backgroundColor: "#363740",
+                  opacity: 0.9,
                 },
               }}
+              disabled={!authData?.isSuperAdmin}
             >
-              Create Department
+              Create Department +
             </Button>
           </Grid>
         </Grid>
@@ -323,7 +455,7 @@ const ViewDepartment: React.FC = () => {
         {/* Loading State */}
         {loading && departments.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
@@ -331,129 +463,135 @@ const ViewDepartment: React.FC = () => {
         {error && !loading && departments.length === 0 && <EmptyState />}
 
         {/* Empty State */}
-        {!loading && !error && departments.length === 0 && <EmptyState />}
+        {!loading && !error && filteredDepartments.length === 0 && <EmptyState />}
 
-        {/* Data Table */}
-        {departments.length > 0 && (
-          <>
-            <Typography variant="subtitle1" sx={{ 
-              mb: 2, 
-              color: "#4b5563", 
-              textAlign: "right",
-              fontSize: isLargeScreen ? '0.875rem' : undefined
-            }}>
-              {departmentCount} Department{departmentCount !== 1 ? "s" : ""} / 
-              {outreachCount} Outreach{outreachCount !== 1 ? "es" : ""}
-            </Typography>
-            
-            <TableContainer sx={{
-              boxShadow: 2,
-              borderRadius: 1,
-              overflowX: "auto",
-            }}>
-              <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
-                      width: columnWidths.name,
-                      fontSize: isLargeScreen ? '0.875rem' : undefined
-                    }}>Name</TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
-                      width: columnWidths.description,
-                      fontSize: isLargeScreen ? '0.875rem' : undefined
-                    }}>Description</TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
-                      width: columnWidths.type,
-                      fontSize: isLargeScreen ? '0.875rem' : undefined
-                    }}>Type</TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
-                      width: columnWidths.actions,
-                      textAlign: "center",
-                      fontSize: isLargeScreen ? '0.875rem' : undefined
-                    }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {departments
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((dept) => (
-                      <TableRow key={dept.id} sx={{
-                        borderBottom: "1px solid #e5e7eb",
-                        backgroundColor: dept.isDeleted ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' },
-                      }}>
-                        <TableCell sx={{
-                          textDecoration: dept.isDeleted ? 'line-through' : 'none',
-                          color: dept.isDeleted ? 'gray' : 'inherit',
-                          width: columnWidths.name,
-                          fontSize: isLargeScreen ? '0.875rem' : undefined
-                        }}>
-                          {dept.name}
-                        </TableCell>
-                        <TableCell sx={{
-                          textDecoration: dept.isDeleted ? 'line-through' : 'none',
-                          color: dept.isDeleted ? 'gray' : 'inherit',
-                          width: columnWidths.description,
-                          fontSize: isLargeScreen ? '0.875rem' : undefined
-                        }}>
-                          <Tooltip title={dept.description || "-"} arrow>
-                            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
-                              {truncateDescription(dept.description)}
-                            </Typography>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell sx={{
-                          textDecoration: dept.isDeleted ? 'line-through' : 'none',
-                          color: dept.isDeleted ? 'gray' : 'inherit',
-                          width: columnWidths.type,
-                          fontSize: isLargeScreen ? '0.875rem' : undefined
-                        }}>
-                          <Typography sx={{ 
-                            textTransform: "capitalize",
-                            fontSize: isLargeScreen ? '0.875rem' : undefined
+        {/* Data Cards */}
+        {filteredDepartments.length > 0 && (
+          <>         
+            <Grid container spacing={2}>
+              {filteredDepartments
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((dept) => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
+                    <Card
+                      component="div"
+                      onClick={() => {
+                        navigate(`/departments/${dept.id}`);
+                      }}
+                      sx={{
+                        borderRadius: '10.267px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                        boxShadow: '0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)',
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        opacity: dept.isDeleted ? 0.7 : 1,
+                        "&:hover": {
+                          cursor: 'pointer',
+                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Box sx={{marginBottom: 3}}>
+                          <IconButton sx={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                            color: '#E1E1E1',
+                            display: 'flex',
+                            flexDirection: 'column',                           
+                            borderRadius: 1,
+                            textAlign: 'center'
                           }}>
-                            {dept.type}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{
-                          width: columnWidths.actions,
-                          textAlign: "center",
-                          fontSize: isLargeScreen ? '0.875rem' : undefined
-                        }}>
-                          <IconButton
-                            aria-label="more"
-                            onClick={(e) => handleMenuOpen(e, dept)}
-                            disabled={loading}
-                            size="small"
-                          >
-                            <MoreVertIcon fontSize="small" />
+                            <PiChurch  size={30}/>
+                            <span className="text-[10px]">
+                              Department
+                            </span>
                           </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-              
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={departments.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  borderTop: "1px solid #e0e0e0",
-                  '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                    fontSize: isLargeScreen ? '0.75rem' : undefined
-                  }
-                }}
-              />
-            </TableContainer>
+                        </Box>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                          <Typography
+                            variant="subtitle1"
+                            fontWeight={600}
+                            sx={{
+                              textDecoration: dept.isDeleted ? "line-through" : "none",
+                              color: dept.isDeleted ? "gray" : "#E1E1E1",
+                            }}
+                          >
+                            {dept.name}
+                            {dept.type === "Outreach" && (
+                              <Typography
+                                component="span"
+                                sx={{
+                                  ml: 1,
+                                  fontSize: "0.75rem",
+                                  color: "#10b981",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                (Outreach)
+                              </Typography>
+                            )}
+                          </Typography>
+
+                          {/* {authData?.isSuperAdmin && (
+                            <IconButton
+                              aria-label="Department actions"
+                              aria-controls="department-menu"
+                              onClick={(e) => handleMenuOpen(e, dept)}
+                              disabled={loading}
+                              size="small"
+                              sx={{
+                                borderRadius: 1,
+                                backgroundColor: "#E1E1E1",
+                                "&:hover": {
+                                  backgroundColor: "var(--color-primary)",
+                                  color: "var(--color-text-on-primary)",
+                                },
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          )} */}
+                        </Box>
+
+                        <Box mt={2}>
+                          {dept.description && (
+                            <Box display="flex" alignItems="flex-start" mb={1}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  textDecoration: dept.isDeleted ? "line-through" : "none",
+                                  color: dept.isDeleted ? "gray" : "#777280",
+                                }}
+                              >                            
+                                <span>{dept.description}</span>
+                                {/* <span>{truncateDescription(dept.description)}</span> */}                              
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+            </Grid>
+
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredDepartments.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{              
+                mt: 2,
+                color: '#F6F4FE',
+                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
+                  fontSize: isLargeScreen ? "0.75rem" : undefined,
+                },
+              }}
+            />
           </>
         )}
 
@@ -468,36 +606,30 @@ const ViewDepartment: React.FC = () => {
           transformOrigin={{ vertical: "top", horizontal: "right" }}
           PaperProps={{
             sx: {
-              '& .MuiMenuItem-root': {
-                fontSize: isLargeScreen ? '0.875rem' : undefined
-              }
-            }
+              "& .MuiMenuItem-root": {
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
+              },
+            },
           }}
         >
-          <MenuItem onClick={handleEditOpen} disabled={currentDepartment?.isDeleted}>
+          <MenuItem onClick={handleEditOpen} disabled={currentDepartment?.isDeleted || loading}>
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
-          <MenuItem 
-            onClick={() => showConfirmation("suspend")} 
-            disabled={loading}
-          >
-             {!currentDepartment?.isDeleted ? (
+          <MenuItem onClick={() => showConfirmation("suspend")} disabled={loading}>
+            {currentDepartment?.isActive ? (
               <>
-                <BlockIcon sx={{ mr: 1, fontSize: '1rem' }} />
-                {loading && actionType === 'suspend' ? 'Suspending...' : 'Suspend'}
+                <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
+                {loading && actionType === "suspend" ? "Suspending..." : "Suspend"}
               </>
             ) : (
               <>
-                <MdRefresh style={{ marginRight: 8, fontSize: '1rem' }} />              
-                {loading && actionType === 'suspend' ? 'Activating...' : 'Activate'}
+                <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
+                {loading && actionType === "suspend" ? "Activating..." : "Activate"}
               </>
             )}
           </MenuItem>
-          <MenuItem 
-            onClick={() => showConfirmation("delete")} 
-            disabled={loading}
-          >
+          <MenuItem onClick={() => showConfirmation("delete")} disabled={loading}>
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
           </MenuItem>
@@ -505,7 +637,7 @@ const ViewDepartment: React.FC = () => {
 
         {/* Edit Department Modal */}
         <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             Edit Department
           </DialogTitle>
           <DialogContent>
@@ -518,27 +650,29 @@ const ViewDepartment: React.FC = () => {
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
+                error={!!nameError}
+                helperText={nameError}
                 InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
                 InputProps={{
-                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
               />
               <FormControl fullWidth margin="normal">
-                <InputLabel sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                <InputLabel sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                   Type
                 </InputLabel>
                 <Select
                   value={editFormData.type}
                   onChange={handleTypeChange}
                   label="Type"
-                  sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
                 >
-                  <MenuItem value="Department" sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                  <MenuItem value="Department" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                     Department
                   </MenuItem>
-                  <MenuItem value="Outreach" sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+                  <MenuItem value="Outreach" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                     Outreach
                   </MenuItem>
                 </Select>
@@ -554,51 +688,54 @@ const ViewDepartment: React.FC = () => {
                 multiline
                 rows={4}
                 InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
                 InputProps={{
-                  sx: { fontSize: isLargeScreen ? '0.875rem' : undefined }
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
                 }}
               />
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button 
-              onClick={handleEditClose} 
-              sx={{ 
-                border: 1, 
+            <Button
+              onClick={handleEditClose}
+              sx={{
+                border: 1,
                 color: "var(--color-primary)",
-                fontSize: isLargeScreen ? '0.875rem' : undefined
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleEditSubmit}
-              sx={{ 
-                backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable 
-                color: "var(--color-text-on-primary)", // Ensure text color is set correctly
+              sx={{
+                backgroundColor: "var(--color-primary)",
+                color: "var(--color-text-on-primary)",
                 "&:hover": {
-                  backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                  opacity: 0.9, // Add hover effect
+                  backgroundColor: "var(--color-primary)",
+                  opacity: 0.9,
                 },
-                fontSize: isLargeScreen ? '0.875rem' : undefined
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
               variant="contained"
-              disabled={loading}
+              disabled={loading || !!nameError}
             >
               {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
 
+        {/* Create Department Modal */}
+        <DepartmentModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={fetchDepartments}
+        />
+
         {/* Confirmation Modal */}
-        <Dialog 
-          open={confirmModalOpen} 
-          onClose={() => setConfirmModalOpen(false)} 
-          maxWidth="xs"
-        >
-          <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+        <Dialog open={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} maxWidth="xs">
+          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {actionType === "delete"
               ? "Delete Department"
               : actionType === "suspend"
@@ -608,25 +745,25 @@ const ViewDepartment: React.FC = () => {
               : ""}
           </DialogTitle>
           <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
               {actionType === "delete"
                 ? `Are you sure you want to delete "${currentDepartment?.name}"?`
                 : `Are you sure you want to ${currentDepartment?.isActive ? "suspend" : "activate"} "${currentDepartment?.name}"?`}
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button 
-              onClick={() => setConfirmModalOpen(false)} 
-              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+            <Button
+              onClick={() => setConfirmModalOpen(false)}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
               color={actionType === "delete" ? "error" : "primary"}
               variant="contained"
-              disabled={loading}              
+              disabled={loading}
             >
               {loading ? "Processing..." : actionType === "delete" ? "Delete" : "Confirm"}
             </Button>

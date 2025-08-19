@@ -293,7 +293,7 @@ const EmailVerification: React.FC = () => {
 
         {/* Message */}
         <Typography variant="body1" align="center" color="text.secondary">
-          We sent a verification code to <span style={{ fontWeight: 500 }}>olivia@untitledui.com</span>
+          We sent a verification code to <span style={{ fontWeight: 500 }}>{`[${email || '_'}]`}</span>
         </Typography>
         
         {error && (
@@ -303,10 +303,10 @@ const EmailVerification: React.FC = () => {
         )}
 
         {/* Verification Code Inputs */}
-        <Box sx={{display: 'flex', justifyContent: "center"}}>
+        <Box sx={{display: 'flex', justifyContent: "center", alignItems: 'center'}}>
           <Grid container spacing={{ xs: 1, md: 0 }} sx={{ pt: 3}}>            
               {code.map((digit, index) => (
-                <Grid size={{xs: 4, sm: 2}} key={index}>
+                <Grid size={{xs: 4, sm: 2}} key={index} sx={{display: 'flex', justifyContent: "center", alignItems: 'center'}}>
                     <Input
                     inputRef={el => (inputsRef.current[index] = el)}
                     type="text"

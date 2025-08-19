@@ -283,7 +283,38 @@ const handleSubmissionError = (error: unknown) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
+    <div className="bg-[#F6F4FE] min-h-screen ">
+      {/* SVG Pattern at the top */}
+      <div 
+        className="fixed top-0 left-0 w-full h-[200px] z-0"
+        style={{
+          background: `
+            radial-gradient(at top left, #2A1B45 100%, transparent 10%),
+            radial-gradient(at top right, #2A1B45 70%, transparent 0%),
+            radial-gradient(at bottom left, #1E0D2E 90%, transparent 0%),
+            radial-gradient(at bottom right, #D778C4 100%, transparent 1%),
+            #120B1B
+          `,
+        }}
+      >
+        <div className="w-full relative overflow-hidden" style={{ height: '350px', flexShrink: 0 }}> 
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="1440" 
+            height="350" 
+            viewBox="0 60 1440 350" 
+            preserveAspectRatio="none"
+            className="w-full h-full"
+          >
+            <path 
+              fillRule="evenodd" 
+              clipRule="evenodd" 
+              d="M0 0H1440V306L0 370V0Z" 
+              fill="#120B1B"
+            />
+          </svg>    
+        </div>
+      </div>
       {/* Congratulatory Dialog */}
       {showCongratsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 backdrop-blur-sm">
@@ -308,21 +339,16 @@ const handleSubmissionError = (error: unknown) => {
       )}
 
       {/* Main Content */}
-      {!showCongratsDialog && (
-        <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
-          {/* Left Section (Image) */}
-          <div className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
-            <div className="lg:w-10/12 py-8">
-              <p className="mb-2 text-sm text-gray-200">Step 3 of 3</p>
-              <h1 className="text-3xl lg:text-5xl font-bold mb-2">Create Admin Account</h1>
-              <p className="text-lg lg:text-xl text-gray-300">
+      {!showCongratsDialog && (       
+        <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+          <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
+            <div className="text-center mb-5">
+              <p className="mb-2 text-gray-600 text-end">Step 3 of 3</p>
+              <h1 className="text-2xl font-bold mb-2">Create Admin Account</h1>
+              <p className="text-gray-600 lg:w-11/12 ">
                 Kindly create Admin account to set up your church
               </p>
             </div>
-          </div>
-
-          {/* Right Section (Form) */}
-          <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 flex flex-col justify-center">
             <form className="flex flex-col" onSubmit={handleSubmit}>
               {/* Full Name */}
               <div className="mb-6">
@@ -434,7 +460,7 @@ const handleSubmissionError = (error: unknown) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="h-12 w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
+                  className="h-12 w-full  bg-gradient-to-b from-[#120B1B] to-[#1E0D2E] text-white rounded-full text-base font-semibold hover:bg-gray-800 transition duration-200 flex items-center justify-center disabled:opacity-50"
                 >
                   {loading ? (
                     <span className="flex items-center">

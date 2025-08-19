@@ -1,32 +1,89 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { MemoryRouter, useNavigate } from 'react-router-dom';
-import configureStore from 'redux-mock-store';
+import { MemoryRouter } from 'react-router-dom';
+import { store } from '../../../reduxstore/redux';
 import SetupStep2 from './setupstep2';
 import { setChurchData } from '../../../reduxstore/datamanager';
 
-const mockStore = configureStore([]);
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: jest.fn(),
+// Fix for global type
+declare const global: typeof globalThis;
+
+
+// Mock react-icons
+jest.mock('react-icons/sl', () => ({
+  SlCloudUpload: () => <span>UploadIcon</span>
 }));
 
+jest.mock('react-icons/io5', () => ({
+  IoArrowForward: () => <span>ArrowIcon</span>,
+  IoCheckmarkCircle: () => <span>CheckmarkIcon</span>
+}));
+
+// Mock useNavigate
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+  Link: jest.fn().mockImplementation(({ children }) => children),
+}));
+
+// Mock FileReader API
+class MockFileReader {
+  result = '';
+  onload: () => void = () => {};
+  readAsDataURL() {
+    this.result = 'data:image/png;base64,test';
+    this.onload();
+  }
+}
+
+global.FileReader = MockFileReader as any;
+
 describe('SetupStep2 Component', () => {
-  let store: any;
-  const mockNavigate = jest.fn();
+  const mockChurchData = {
+    logoPreview: null,
+    backgroundPreview: null
+  };
 
   beforeEach(() => {
-    store = mockStore({
-      church: {
-        logoPreview: {},
-        backgroundPreview: {},
-      },
+    jest.clearAllMocks();
+    store.dispatch(setChurchData(mockChurchData));
+  });
+
+  test('renders the component correctly', () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <SetupStep2 />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByText('Image Uploads')).toBeInTheDocument();
+    expect(screen.getByText('Upload Logo')).toBeInTheDocument();
+    expect(screen.getByText('Upload Banner Image')).toBeInTheDocument();
+    expect(screen.getByText('Continue')).toBeInTheDocument();
+    expect(screen.getByText('Skip')).toBeInTheDocument();
+  });
+
+  test('shows error when trying to continue without logo', async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <SetupStep2 />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText('Continue'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Please upload a logo')).toBeInTheDocument();
+      expect(screen.getByText('Continue')).toBeInTheDocument(); // Button text doesn't change to "Continuing..."
     });
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
-    store.dispatch = jest.fn();
   });
 
-  it('should render the form with all fields', () => {
+  test('handles file upload for logo', async () => {
     render(
       <Provider store={store}>
         <MemoryRouter>
@@ -35,12 +92,20 @@ describe('SetupStep2 Component', () => {
       </Provider>
     );
 
-    expect(screen.getByLabelText(/Upload Logo/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Upload Background Image/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Continue/i })).toBeInTheDocument();
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+    const logoInput = screen.getByLabelText('Upload Logo').querySelector('input[type="file"]') as HTMLInputElement;
+
+    fireEvent.change(logoInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(setChurchData).toHaveBeenCalledWith({
+        logoPreview: 'data:image/png;base64,test'
+      });
+      expect(screen.getByText('CheckmarkIcon')).toBeInTheDocument();
+    });
   });
 
-  it('should handle logo file upload and dispatch setChurchData', () => {
+  test('handles file upload for background', async () => {
     render(
       <Provider store={store}>
         <MemoryRouter>
@@ -49,17 +114,25 @@ describe('SetupStep2 Component', () => {
       </Provider>
     );
 
-    const file = new File(['logo'], 'logo.png', { type: 'image/png' });
-    const input = screen.getByLabelText(/Upload Logo/i);
+    const file = new File(['test'], 'test.png', { type: 'image/png' });
+    const bgInput = screen.getByLabelText('Upload Banner Image').querySelector('input[type="file"]') as HTMLInputElement;
 
-    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(bgInput, { target: { files: [file] } });
 
-    expect(store.dispatch).toHaveBeenCalledWith(
-      setChurchData({ logoPreview: expect.any(String) })
-    );
+    await waitFor(() => {
+      expect(setChurchData).toHaveBeenCalledWith({
+        backgroundPreview: 'data:image/png;base64,test'
+      });
+      expect(screen.getByText('CheckmarkIcon')).toBeInTheDocument();
+    });
   });
 
-  it('should handle background image file upload and dispatch setChurchData', () => {
+  test('navigates to admin account after successful submission', async () => {
+    store.dispatch(setChurchData({ 
+      ...mockChurchData,
+      logoPreview: 'data:image/png;base64,testlogo' 
+    }));
+
     render(
       <Provider store={store}>
         <MemoryRouter>
@@ -68,33 +141,18 @@ describe('SetupStep2 Component', () => {
       </Provider>
     );
 
-    const file = new File(['background'], 'background.png', { type: 'image/png' });
-    const input = screen.getByLabelText(/Upload Background Image/i);
+    fireEvent.click(screen.getByText('Continue'));
 
-    fireEvent.change(input, { target: { files: [file] } });
-
-    expect(store.dispatch).toHaveBeenCalledWith(
-      setChurchData({ backgroundPreview: expect.any(String) })
-    );
-  });
-
-  it('should navigate to /admin-account after clicking Continue and waiting 2 seconds', async () => {
-    render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <SetupStep2 />
-        </MemoryRouter>
-      </Provider>
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Continuing...')).toBeInTheDocument();
+    });
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/admin-account');
-    });
+    }, { timeout: 3000 });
   });
 
-  it('should disable the Continue button while loading', async () => {
+  test('allows skipping to admin account', () => {
     render(
       <Provider store={store}>
         <MemoryRouter>
@@ -103,12 +161,26 @@ describe('SetupStep2 Component', () => {
       </Provider>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    fireEvent.click(screen.getByText('Skip'));
+    expect(mockNavigate).toHaveBeenCalledWith('/admin-account');
+  });
 
-    expect(screen.getByRole('button', { name: /Continuing.../i })).toBeDisabled();
+  test('shows loading state during submission', async () => {
+    store.dispatch(setChurchData({ 
+      ...mockChurchData,
+      logoPreview: 'data:image/png;base64,testlogo' 
+    }));
 
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/admin-account');
-    });
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <SetupStep2 />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText('Continue'));
+
+    expect(await screen.findByText('Continuing...')).toBeInTheDocument();
   });
 });
