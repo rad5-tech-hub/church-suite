@@ -65,7 +65,7 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({ children }) => {
               component="main"
               sx={{
                 flex: 1,
-                p: { xs: 2, sm: 3 },
+                p: { xs: 1, sm: 1 },
                 pb: { xs: '84px', sm: '92px', md: '24px' },
                 overflowY: "auto", // Scroll only this area
               }}

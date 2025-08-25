@@ -18,7 +18,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TablePagination,
   Tooltip,
   Menu,
   MenuItem,
@@ -39,6 +38,8 @@ import {
   MoreVert as MoreVertIcon,
   Block as BlockIcon,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from "@mui/icons-material";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
@@ -82,6 +83,101 @@ interface Admin {
   unitIds?: string[];
   isDeleted?: boolean;
 }
+
+// Custom Pagination Component
+interface CustomPaginationProps {
+  count: number;
+  rowsPerPage: number;
+  page: number;
+  onPageChange: (event: unknown, newPage: number) => void;
+  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  isLargeScreen: boolean;
+}
+
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  count,
+  rowsPerPage,
+  page,
+  onPageChange,
+  isLargeScreen,
+}) => {
+  const totalPages = Math.ceil(count / rowsPerPage);
+  const isFirstPage = page === 0;
+  const isLastPage = page >= totalPages - 1;
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        py: 2,
+        px: { xs: 2, sm: 3 },
+        color: "#777280",
+        gap: 2,
+        flexWrap: "wrap",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          sx={{
+            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
+            color: "#777280",
+          }}
+        >
+          {`${page * rowsPerPage + 1}–${Math.min(
+            (page + 1) * rowsPerPage,
+            count
+          )} of ${count}`}
+        </Typography>
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          onClick={() => onPageChange(null, page - 1)}
+          disabled={isFirstPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isFirstPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronLeft />
+        </Button>
+        <Button
+          onClick={() => onPageChange(null, page + 1)}
+          disabled={isLastPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isLastPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronRight />
+        </Button>
+      </Box>
+    </Box>
+  );
+};
 
 const ViewAdmins: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -200,7 +296,7 @@ const ViewAdmins: React.FC = () => {
       if (state.assignLevel && state.accessLevel === "unit") params.unitIds = state.assignLevel;
       if (state.superAdminFilter) params.isSuperAdmin = state.superAdminFilter === "Yes" ? "true" : "false";
 
-      const response = await Api.get("/church/search-admins", { params });
+      const response = await Api.get("/church/view-admins", { params });
       setState((prev) => ({
         ...prev,
         admins: response.data.admins || [],
@@ -256,6 +352,7 @@ const ViewAdmins: React.FC = () => {
 
   const handleCloseModal = () => {
     handleStateChange("openModal", false);
+    fetchData();
   };
 
   const showConfirmation = (action: string) => {
@@ -449,7 +546,7 @@ const ViewAdmins: React.FC = () => {
           "&:hover": {
             backgroundColor: "#363740",
             opacity: 0.9,
-          },  
+          },
         }}
       >
         Create New Admin
@@ -465,7 +562,7 @@ const ViewAdmins: React.FC = () => {
       onClose={() => handleStateChange("isDrawerOpen", false)}
       sx={{
         "& .MuiDrawer-paper": {
-          backgroundColor: "#2A2A2A",
+          backgroundColor: "#2C2C2C",
           color: "#F6F4FE",
           padding: 2,
           boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)",
@@ -565,19 +662,19 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="">All</MenuItem>
             {state.accessLevel === "branch" &&
               state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>
+                <MenuItem key={branch.id} value={branch.name}>
                   {branch.name}
                 </MenuItem>
               ))}
             {(state.accessLevel === "department" || state.accessLevel === "unit") &&
               state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>
+                <MenuItem key={dept.id} value={dept.name}>
                   {dept.name}
                 </MenuItem>
               ))}
             {state.accessLevel === "unit" &&
               state.units.map((unit) => (
-                <MenuItem key={unit.id} value={unit.id}>
+                <MenuItem key={unit.id} value={unit.name}>
                   {unit.name}
                 </MenuItem>
               ))}
@@ -602,7 +699,8 @@ const ViewAdmins: React.FC = () => {
               borderRadius: "8px",
               "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
             }}
-          >        
+          >
+            <MenuItem value="">All</MenuItem>
             <MenuItem value="Yes">Yes</MenuItem>
             <MenuItem value="No">No</MenuItem>
           </TextField>
@@ -641,7 +739,7 @@ const ViewAdmins: React.FC = () => {
           backgroundColor: "#4d4d4e8e",
           padding: "4px",
           width: "100%",
-          gap: "8px",
+          // gap: "8px",
           boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
           "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
         }}
@@ -759,7 +857,8 @@ const ViewAdmins: React.FC = () => {
               "& .MuiSelect-icon": { display: "none" },
             }}
             renderValue={(selected) => selected || "Select Option"}
-          >    
+          >
+            <MenuItem value="">All</MenuItem>
             <MenuItem value="Yes">Yes</MenuItem>
             <MenuItem value="No">No</MenuItem>
           </MuiSelect>
@@ -789,8 +888,8 @@ const ViewAdmins: React.FC = () => {
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 12, lg: 8 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, md: 12, lg: 9 }}>
             <Typography
               variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
               component="h4"
@@ -856,7 +955,8 @@ const ViewAdmins: React.FC = () => {
                         <Button
                           onClick={handleSearch}
                           sx={{
-                            backgroundColor: "#FF385C",
+                            backgroundColor: "transparent",
+                            border: "1px solid #777280",
                             color: "white",
                             borderRadius: "50%",
                             minWidth: "48px",
@@ -882,7 +982,7 @@ const ViewAdmins: React.FC = () => {
               )}
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 4 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 12, lg: 3 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("openModal", true)}
@@ -926,262 +1026,252 @@ const ViewAdmins: React.FC = () => {
         {!state.loading && !state.error && filteredAdmins.length === 0 && <EmptyState />}
 
         {filteredAdmins.length > 0 && (
-          <>
-            <TableContainer sx={{ boxShadow: 9, overflowX: "auto", backgroundColor: "transparent" }}>
-              <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
-                <TableHead>
-                  <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
+          <TableContainer sx={{ boxShadow: 9, overflowX: "auto", backgroundColor: "transparent" }}>
+            <Table sx={{ minWidth: { xs: "auto", sm: 'auto' } }}>
+              <TableHead>
+                <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.number,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    #
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.name,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Full Name
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.email,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Email
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.phone,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Phone Number
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.access,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Access Level
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.assign,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Assigned Area
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      width: columnWidths.superAdmin,
+                      fontSize: isLargeScreen ? "0.875rem" : undefined,
+                      color: "#777280",
+                      py: 2,
+                    }}
+                  >
+                    Super Admin
+                  </TableCell>
+                  {authData?.isSuperAdmin && (
                     <TableCell
                       sx={{
                         fontWeight: 600,
-                        width: columnWidths.number,
+                        width: columnWidths.actions,
+                        textAlign: "center",
                         fontSize: isLargeScreen ? "0.875rem" : undefined,
                         color: "#777280",
                         py: 2,
                       }}
                     >
-                      #
+                      Actions
                     </TableCell>
-                    <TableCell
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredAdmins
+                  .slice(state.page * state.rowsPerPage, state.page * state.rowsPerPage + state.rowsPerPage)
+                  .map((admin, index) => (
+                    <TableRow
+                      key={admin.id}
                       sx={{
-                        fontWeight: 600,
-                        width: columnWidths.name,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
+                        "& td": { border: "none" },
+                        backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+                        borderRadius: "4px",
+                        "&:hover": {
+                          backgroundColor: "#4d4d4e8e",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                        },
+                        transition: "all 0.2s ease",
+                        mb: 2,
                       }}
                     >
-                      Full Name
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.email,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
-                      Email
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.phone,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
-                      Phone Number
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.access,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
-                      Access Level
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.assign,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
-                      Assigned Area
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.superAdmin,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
-                      Super Admin
-                    </TableCell>
-                    {authData?.isSuperAdmin && (
                       <TableCell
                         sx={{
-                          fontWeight: 600,
-                          width: columnWidths.actions,
-                          textAlign: "center",
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.number,
                           fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          color: "#777280",
                           py: 2,
                         }}
                       >
-                        Actions
+                        {(index + 1).toString().padStart(2, "0")}
                       </TableCell>
-                    )}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredAdmins
-                    .slice(state.page * state.rowsPerPage, state.page * state.rowsPerPage + state.rowsPerPage)
-                    .map((admin, index) => (
-                      <TableRow
-                        key={admin.id}
+                      <TableCell
                         sx={{
-                          "& td": { border: "none" },
-                          backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
-                          borderRadius: "4px",
-                          "&:hover": {
-                            backgroundColor: "#4d4d4e8e",
-                            transform: "translateY(-2px)",
-                            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                          },
-                          transition: "all 0.2s ease",
-                          mb: 2,
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                          flex: 1,
                         }}
                       >
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.number,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                          }}
-                        >
-                          {(index + 1).toString().padStart(2, "0")}
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                            flex: 1,
-                          }}
-                        >
-                          <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-                            {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
+                        <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+                          {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
+                        </Box>
+                        <Box>
+                          {admin.name}
+                          <br />
+                          <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
+                        </Box>
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.email,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                        }}
+                      >
+                        <Tooltip title={admin.email || "-"} arrow>
+                          <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                            {truncateText(admin.email)}
                           </Box>
-                          <Box>
-                            {admin.name}
-                            <br />
-                            <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
-                          </Box>
-                        </TableCell>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.phone,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                        }}
+                      >
+                        {admin.phone || "-"}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.access,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                        }}
+                      >
+                        {admin.scopeLevel || "-"}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.assign,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                        }}
+                      >
+                        {getAssignLevelText(admin)}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textDecoration: admin.isDeleted ? "line-through" : "none",
+                          color: admin.isDeleted ? "gray" : "#F6F4FE",
+                          width: columnWidths.superAdmin,
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          py: 2,
+                        }}
+                      >
+                        {admin.isSuperAdmin ? "Yes" : "No"}
+                      </TableCell>
+                      {authData?.isSuperAdmin && (
                         <TableCell
                           sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.email,
+                            width: columnWidths.actions,
+                            textAlign: "center",
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
                             py: 2,
+                            borderTopRightRadius: "8px",
+                            borderBottomRightRadius: "8px",
                           }}
                         >
-                          <Tooltip title={admin.email || "-"} arrow>
-                            <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                              {truncateText(admin.email)}
-                            </Box>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.phone,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                          }}
-                        >
-                          {admin.phone || "-"}
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.access,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                          }}
-                        >
-                          {admin.scopeLevel || "-"}
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.assign,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                          }}
-                        >
-                          {getAssignLevelText(admin)}
-                        </TableCell>
-                        <TableCell
-                          sx={{
-                            textDecoration: admin.isDeleted ? "line-through" : "none",
-                            color: admin.isDeleted ? "gray" : "#F6F4FE",
-                            width: columnWidths.superAdmin,
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                          }}
-                        >
-                          {admin.isSuperAdmin ? "Yes" : "No"}
-                        </TableCell>
-                        {authData?.isSuperAdmin && (
-                          <TableCell
+                          <IconButton
+                            aria-label="more"
+                            onClick={(e) => handleMenuOpen(e, admin)}
+                            disabled={state.loading}
+                            size="small"
                             sx={{
-                              width: columnWidths.actions,
-                              textAlign: "center",
-                              fontSize: isLargeScreen ? "0.875rem" : undefined,
-                              py: 2,
-                              borderTopRightRadius: "8px",
-                              borderBottomRightRadius: "8px",
+                              borderRadius: 1,
+                              bgcolor: "#E1E1E1",
+                              "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
                             }}
                           >
-                            <IconButton
-                              aria-label="more"
-                              onClick={(e) => handleMenuOpen(e, admin)}
-                              disabled={state.loading}
-                              size="small"
-                              sx={{
-                                borderRadius: 1,
-                                bgcolor: "#E1E1E1",
-                                "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
-                              }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={filteredAdmins.length}
-                rowsPerPage={state.rowsPerPage}
-                page={state.page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  borderTop: "none",
-                  color: "#777280",
-                  "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                    fontSize: isLargeScreen ? "0.75rem" : undefined,
-                  },
-                }}
-              />
-            </TableContainer>
-          </>
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+            <CustomPagination
+              count={filteredAdmins.length}
+              rowsPerPage={state.rowsPerPage}
+              page={state.page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              isLargeScreen={isLargeScreen}
+            />
+          </TableContainer>
         )}
 
         <Menu

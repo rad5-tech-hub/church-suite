@@ -3,7 +3,7 @@ import { IoMailOutline, IoCallOutline, IoEyeOutline } from "react-icons/io5";
 import { PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import {
   Box,
   Button,
@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  ListItemText,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 
@@ -234,15 +235,212 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     }));
   };
 
+// Form validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    // Remove any non-digit characters for validation
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Check if it's between 10-15 digits (international format)
+    return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+  };
+
+  const validatePassword = (password: string): { isValid: boolean; message: string } => { 
+    if (!/(?=.*[a-z])/.test(password)) {
+      return { isValid: false, message: "Password must contain at least one lowercase letter" };
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return { isValid: false, message: "Password must contain at least one number" };
+    }
+    return { isValid: true, message: "" };
+  };
+
+  const validateForm = (): boolean => {
+    // Required field validation
+    if (!formData.name.trim()) {
+      toast.error("Admin name is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!formData.title.trim()) {
+      toast.error("Title is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error("Email is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!formData.phone.trim()) {
+      toast.error("Phone number is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!formData.password.trim()) {
+      toast.error("Password is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!formData.confirmPassword.trim()) {
+      toast.error("Password confirmation is required", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    // Format validation
+    if (!validateEmail(formData.email)) {
+      toast.error("Please enter a valid email address", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (!validatePhone(formData.phone)) {
+      toast.error("Please enter a valid phone number (10-15 digits)", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    // Password validation
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      toast.error(passwordValidation.message, {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 4000,
+      });
+      return false;
+    }
+
+    // Password confirmation validation
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    // Scope level specific validation
+    if (formData.scopeLevel === "branch" && !formData.branchId) {
+      toast.error("Please select a branch for branch-level admin", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (formData.scopeLevel === "department" && formData.departmentIds.length === 0) {
+      toast.error("Please select at least one department for department-level admin", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (formData.scopeLevel === "unit") {
+      if (formData.departmentIds.length === 0) {
+        toast.error("Please select at least one department for unit-level admin", {
+          position: isMobile ? "top-center" : "top-right",
+          autoClose: 3000,
+        });
+        return false;
+      }
+      if (formData.unitIds.length === 0) {
+        toast.error("Please select at least one unit for unit-level admin", {
+          position: isMobile ? "top-center" : "top-right",
+          autoClose: 3000,
+        });
+        return false;
+      }
+    }
+
+    // Name validation (no numbers or special characters except spaces, hyphens, apostrophes)
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+    if (!nameRegex.test(formData.name)) {
+      toast.error("Name can only contain letters, spaces, hyphens, and apostrophes", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    // Name length validation
+    if (formData.name.trim().length < 2) {
+      toast.error("Name must be at least 2 characters long", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (formData.name.trim().length > 50) {
+      toast.error("Name must be less than 50 characters", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    // Title validation
+    if (formData.title.trim().length < 2) {
+      toast.error("Title must be at least 2 characters long", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    if (formData.title.trim().length > 100) {
+      toast.error("Title must be less than 100 characters", {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
+    
     try {
       const payload = {
-        name: formData.name,
-        title: formData.title || undefined,
-        email: formData.email,
-        phone: formData.phone,
+        name: formData.name.trim(),
+        title: formData.title.trim(),
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
         password: formData.password,
         confirmPassword: formData.confirmPassword,
         isSuperAdmin: formData.isSuperAdmin || undefined,
@@ -254,16 +452,105 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
       await Api.post("church/create-admin", payload);
 
+      // Show success toast
       toast.success("Admin created successfully!", {
         position: isMobile ? "top-center" : "top-right",
+        autoClose: 2000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
       });
-      setTimeout(() => {        
+
+      // Clear forms and reset all state after showing toast
+      setTimeout(() => {
+        // Reset form data
+        setFormData(initialFormData);
+        
+        // Reset all fetched data
+        setBranches([]);
+        setDepartments([]);
+        setDepartmentUnits({});
+        
+        // Reset fetch states
+        setHasFetchedBranches(false);
+        setHasFetchedDepartments(false);
+        setHasFetchedUnits({});
+        
+        // Reset loading states
+        setIsFetchingBranches(false);
+        setIsFetchingDepartments(false);
+        setIsFetchingUnits({});
+        
+        // Reset error states
+        setBranchesError("");
+        setDepartmentsError("");
+        setUnitsError({});
+        
+        // Reset password visibility
+        setShowPassword(false);
+        setShowConfirmPassword(false);
+        
+        // Close modal
         onClose();
-      }, 1500);
+      }, 2000);
+
     } catch (error: any) {
-      toast.error(error.response?.data.error.message || "Failed to create admin", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      // Handle specific server errors
+      const responseData = error.response?.data;
+      
+      // Extract error message based on different response structures
+      let errorMessage = "Failed to create admin";
+      
+      if (responseData) {
+        // Handle validation errors with array structure
+        if (Array.isArray(responseData.errors)) {
+          errorMessage = responseData.errors.join(", ") || responseData.message || errorMessage;
+        } 
+        // Handle object with error property
+        else if (responseData.error?.message) {
+          errorMessage = responseData.error.message;
+        }
+        // Handle direct message property
+        else if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+      }
+
+      // Show different messages for different types of errors
+      if (error.response?.status === 400) {
+        if (errorMessage.toLowerCase().includes("email")) {
+          toast.error("Email address is invalid or already in use", {
+            position: isMobile ? "top-center" : "top-right",
+            autoClose: 4000,
+          });
+        } else if (errorMessage.toLowerCase().includes("phone")) {
+          toast.error("Phone number is invalid or already in use", {
+            position: isMobile ? "top-center" : "top-right",
+            autoClose: 4000,
+          });
+        } else {
+          toast.error(errorMessage, {
+            position: isMobile ? "top-center" : "top-right",
+            autoClose: 4000,
+          });
+        }
+      } else if (error.response?.status === 401) {
+        toast.error("You don't have permission to create admins", {
+          position: isMobile ? "top-center" : "top-right",
+          autoClose: 4000,
+        });
+      } else if (error.response?.status >= 500) {
+        toast.error("Server error. Please try again later", {
+          position: isMobile ? "top-center" : "top-right",
+          autoClose: 4000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          position: isMobile ? "top-center" : "top-right",
+          autoClose: 4000,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -300,18 +587,21 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         },
       }}
     >
+      <ToastContainer />
       <DialogTitle>
-        <Typography
-          variant={isMobile ? "h6" : "h5"}
-          component="h1"
-          fontWeight={600}
-          sx={{ color: "#F6F4FE" }}
-        >
-          Create Admin
-        </Typography> 
-        <IconButton onClick={onClose}>
-          <Close className="text-gray-300" />
-        </IconButton>       
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography
+            variant={isMobile ? "h6" : "h5"}
+            component="h1"
+            fontWeight={600}
+            sx={{ color: "#F6F4FE" }}
+          >
+            Create Admin
+          </Typography> 
+          <IconButton onClick={onClose}>
+            <Close className="text-gray-300" />
+          </IconButton> 
+        </Box>      
       </DialogTitle>
       <DialogContent dividers>
         <Box
@@ -660,8 +950,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         .join(", ")
                     }
                     sx={{
-                      fontSize: isLargeScreen ? "1rem" : undefined,                
-                      color: "#F6F4FE",
+                      fontSize: isLargeScreen ? "1rem" : undefined,                                      
                       outlineColor: "#777280",
                       borderColor: "#777280",
                       "& .MuiOutlinedInput-notchedOutline": {
@@ -671,6 +960,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           borderColor: "#777280",
                           color: "#F6F4FE",
                       },              
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 300,
+                        },
+                      },
                     }}
                   >
                     {isFetchingDepartments ? (
@@ -692,9 +988,14 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     ) : (
                       departments.map((department) => (
                         <MenuItem key={department.id} value={department.id}>
-                          {department.type
-                            ? `${department.name} - (${department.type})`
-                            : department.name}
+                          <Checkbox 
+                            checked={formData.departmentIds.includes(department.id)}
+                          />
+                          <ListItemText 
+                            primary={department.type
+                              ? `${department.name} - (${department.type})`
+                              : department.name}                         
+                          />
                         </MenuItem>
                       ))
                     )}
@@ -778,23 +1079,40 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           </Box>
                         </MenuItem>
                       ) : departmentUnits[deptId]?.length > 0 ? (
-                        departmentUnits[deptId].map((unit) => (
-                          <MenuItem
-                            key={unit.id}
-                            value={unit.id}
-                            sx={{
-                              whiteSpace: "normal",
-                              py: 1.5,
-                            }}
-                          >
-                            <Box>
-                              <Typography variant="subtitle2">{unit.name}</Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {unit.description || "No description"}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        ))
+                        departmentUnits[deptId].map((unit) => {
+                          const currentUnitIds = formData.unitIds.filter((unitId) =>
+                            departmentUnits[deptId]?.some((u) => u.id === unitId)
+                          );
+                          const isChecked = currentUnitIds.includes(unit.id);
+                          
+                          return (
+                            <MenuItem
+                              key={unit.id}
+                              value={unit.id}
+                              sx={{
+                                whiteSpace: "normal",
+                                py: 1.5,
+                              }}
+                            >
+                              <Checkbox 
+                                checked={isChecked}                              
+                              />
+                              <ListItemText 
+                                primary={unit.name}
+                                secondary={unit.description || "No description"}
+                                sx={{
+                                  "& .MuiListItemText-primary": {
+                                    color: "#F6F4FE",
+                                    fontWeight: 600,
+                                  },
+                                  "& .MuiListItemText-secondary": {
+                                    color: "#B0B0B0",
+                                  },
+                                }}
+                              />
+                            </MenuItem>
+                          );
+                        })
                       ) : (
                         <MenuItem disabled>
                           <Typography variant="body2">No units available</Typography>
@@ -990,7 +1308,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             },
           }}
         >
-          {loading ? <CircularProgress size={24} color="inherit" /> : "Create Admin"}
+          {loading ? <span className="text-gray-600"> <CircularProgress size={24} color="inherit" /> Creating </span> : "Create Admin"}
         </Button>
       </DialogActions>
     </Dialog>

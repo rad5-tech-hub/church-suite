@@ -113,11 +113,14 @@ const Header: React.FC<HeaderProps> = () => {
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
       <div className="flex items-center lg:gap-17 gap-4 py-2">
         <Tooltip title={authData?.church_name || ""} arrow>
-          <img
+          {authData?.logo ? <img
             src={authData?.logo || undefined}
             alt={`${authData?.church_name} logo`}
             className="h-12 w-12 object-contain rounded-full"
-          />
+          /> : <div className="h-12 w-12 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
+                  {authData?.church_name ? authData.church_name.charAt(0).toUpperCase() : "C"}
+                </div>
+            }
         </Tooltip>
 
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>

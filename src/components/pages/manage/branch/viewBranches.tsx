@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import BranchModal from "./branch";
 import {
   Box,
@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  TablePagination,
   Menu,
   Divider,
   Select as MuiSelect,
@@ -27,13 +26,17 @@ import {
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { 
   Block as BlockIcon,
+  MoreVert as MoreVertIcon,
+  ChevronLeft,
+  ChevronRight,
   Search as SearchIcon,
+  Close,
 } from "@mui/icons-material";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import { TbArrowFork } from "react-icons/tb";
@@ -49,10 +52,105 @@ interface Branch {
   isDeleted?: boolean;
 }
 
+interface CustomPaginationProps {
+  count: number;
+  rowsPerPage: number;
+  page: number;
+  onPageChange: (event: unknown, newPage: number) => void;
+  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  isLargeScreen: boolean;
+}
+
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  count,
+  rowsPerPage,
+  page,
+  onPageChange,
+  isLargeScreen,
+}) => {
+  const totalPages = Math.ceil(count / rowsPerPage);
+  const isFirstPage = page === 0;
+  const isLastPage = page >= totalPages - 1;
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        py: 2,
+        px: { xs: 2, sm: 3 },
+        color: "#777280",
+        gap: 2,
+        flexWrap: "wrap",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          sx={{
+            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
+            color: "#777280",
+          }}
+        >
+          {`${page * rowsPerPage + 1}–${Math.min(
+            (page + 1) * rowsPerPage,
+            count
+          )} of ${count}`}
+        </Typography>
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          onClick={() => onPageChange(null, page - 1)}
+          disabled={isFirstPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isFirstPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronLeft />
+        </Button>
+        <Button
+          onClick={() => onPageChange(null, page + 1)}
+          disabled={isLastPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isLastPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronRight />
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
 const ViewBranches: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
@@ -73,7 +171,6 @@ const ViewBranches: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  const navigate = useNavigate();
 
   // Fetch branches with error handling
   const fetchBranches = async () => {
@@ -101,11 +198,13 @@ const ViewBranches: React.FC = () => {
 
   // Handle search to apply filters and reset pagination
   const handleSearch = () => {
+    setIsSearching(true);
     setPage(0); // Reset to first page when applying filters
     // Filtering is handled by filteredBranches, so no additional API call is needed
     toast.success("Filters applied successfully!", {
       position: isMobile ? "top-center" : "top-right",
     });
+    setIsSearching(false);
   };
 
   // Filter branches based on search and location
@@ -280,6 +379,7 @@ const ViewBranches: React.FC = () => {
 
   return (
     <DashboardManager>
+      <ToastContainer />
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
@@ -376,9 +476,9 @@ const ViewBranches: React.FC = () => {
                       padding: 0,
                       "&:hover": { backgroundColor: "#777280" },
                     }}
-                    disabled={loading}
+                    disabled={loading || isSearching}
                   >
-                    {loading ? (
+                    {isSearching ? (
                       <CircularProgress size={20} color="inherit" />
                     ) : (
                       <SearchIcon sx={{ fontSize: "20px" }} />
@@ -441,10 +541,7 @@ const ViewBranches: React.FC = () => {
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((branch) => (
                   <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={branch.id}>
-                    <Card
-                      onClick={() => {
-                        navigate(`/branch/${branch.id}`);
-                      }}
+                    <Card                
                       sx={{
                         borderRadius: '10.267px',
                         backgroundColor: 'rgba(255, 255, 255, 0.06)',
@@ -453,27 +550,45 @@ const ViewBranches: React.FC = () => {
                         display: "flex",
                         flexDirection: "column",
                         opacity: branch.isDeleted ? 0.7 : 1,
-                        "&:hover": {
-                          cursor: 'pointer',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        "&:hover": {                        
+                          backgroundColor: 'rgba(255, 255, 255, 0.)',
                         }
                       }}
                     >
                       <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{marginBottom: 3}}>
-                          <IconButton sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                            color: '#777280',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            padding: '15px',
-                            borderRadius: 1,
-                            textAlign: 'center'
-                          }}>                            
-                            <span className="border-2 rounded-md border-[#777280] p-1 ">
-                              <TbArrowFork  size={30}/>
-                            </span>
-                          </IconButton>
+                        <Box sx={{marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
+                          <Box>
+                            <IconButton sx={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                              color: '#777280',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              padding: '15px',
+                              borderRadius: 1,
+                              textAlign: 'center'
+                            }}>                            
+                              <span className="border-2 rounded-md border-[#777280] p-1 ">
+                                <TbArrowFork  size={30}/>
+                              </span>
+                            </IconButton>
+                          </Box>
+                          <Box>
+                            <IconButton
+                              onClick={(e) => {
+                                setCurrentBranch(branch);
+                                setAnchorEl(e.currentTarget);
+                              }}
+                              sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                                color: '#777280',                                
+                                padding: '8px',
+                                borderRadius: 1,
+                                textAlign: 'center'
+                              }}
+                            >
+                              <MoreVertIcon />
+                            </IconButton> 
+                          </Box>
                         </Box>
                         <Box display="flex" flexDirection={"column"} justifyContent="space-between" alignItems="flex-start">                                              
                           
@@ -508,22 +623,16 @@ const ViewBranches: React.FC = () => {
                 ))}
             </Grid>
 
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
+
+            {/* Custom Pagination */}
+            <CustomPagination
               count={filteredBranches.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{              
-                mt: 2,
-                color: '#E1E1E1',
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: isLargeScreen ? "0.75rem" : undefined,
-                },
-              }}
-            />
+              isLargeScreen={isLargeScreen}
+            />            
           </>
         )}
 
@@ -568,8 +677,25 @@ const ViewBranches: React.FC = () => {
         </Menu>
 
         {/* Edit Branch Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>Edit Branch</DialogTitle>
+        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth 
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius:  2,
+              bgcolor: '#2C2C2C',
+              color: "#F6F4FE",
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6" fontWeight={600}>
+                Edit Branch
+              </Typography>
+              <IconButton onClick={handleEditClose}>
+                <Close className="text-gray-300"/>
+              </IconButton>
+            </Box>
+          </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
               <TextField
@@ -580,11 +706,27 @@ const ViewBranches: React.FC = () => {
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
               <TextField
@@ -595,11 +737,27 @@ const ViewBranches: React.FC = () => {
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
               <TextField
@@ -611,11 +769,27 @@ const ViewBranches: React.FC = () => {
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
               <TextField
@@ -628,36 +802,47 @@ const ViewBranches: React.FC = () => {
                 variant="outlined"
                 multiline
                 rows={4}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
             </Box>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={handleEditClose}
-              sx={{
-                border: 1,
-                color: "var(--color-primary)",
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
               onClick={handleEditSubmit}
               sx={{
-                backgroundColor: "var(--color-primary)",
-                color: "var(--color-text-on-primary)",
+                py: 1,
+                backgroundColor: "#F6F4FE",
+                px: { xs: 6, sm: 2 },
+                borderRadius: 50,
+                color: "#2C2C2C",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
                 "&:hover": {
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: "#F6F4FE",
                   opacity: 0.9,
                 },
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
               variant="contained"
               disabled={loading}
@@ -670,7 +855,7 @@ const ViewBranches: React.FC = () => {
         {/* Create Branch Modal */}
          <BranchModal
           open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {setIsModalOpen(false), fetchBranches()}}
           onSuccess={fetchBranches}
         />
 

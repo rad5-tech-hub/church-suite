@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import {
@@ -173,6 +173,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
         },
       }}
     >
+      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">      
           <Typography

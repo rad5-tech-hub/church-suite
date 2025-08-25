@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { IoMailOutline, IoCallOutline, IoLocationOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import {
   Box,
   Button,
@@ -69,8 +69,13 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
       toast.success("Branch created successfully!", {
         autoClose: 3000,
       });
+
+      setFormData({ name: "", location: "", email: "", phone: "" });
       onSuccess?.();
-      onClose();
+      setTimeout(() => {        
+        onClose();
+      },2000)
+
     } catch (error: any) {
       console.error("Error creating branch:", error.response?.data || error.message);
       toast.error(`${error.response?.data?.error.message} Please try again.` || "Failed to create branch. Please try again.", {
@@ -95,6 +100,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
         },
       }}
     >
+      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" fontWeight={600}>
@@ -104,7 +110,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
             <Close className="text-gray-300"/>
           </IconButton>
         </Box>
-      </DialogTitle>
+      </DialogTitle>      
 
       <DialogContent dividers>
         <Box
@@ -318,10 +324,10 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
           }}
         >
           {loading ? (
-            <>
+            <span className="text-gray-500">
               <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
               Creating...
-            </>
+            </span>
           ) : (
             "Create Branch"
           )}

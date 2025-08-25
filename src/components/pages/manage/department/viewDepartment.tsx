@@ -16,7 +16,6 @@ import {
   Select,
   FormControl,
   InputLabel,
-  TablePagination,
   SelectChangeEvent,
   Menu,
   useTheme,
@@ -26,9 +25,12 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
-  // MoreVert as MoreVertIcon,
+  MoreVert as MoreVertIcon,
   Block as BlockIcon,
   Search as SearchIcon,
+  ChevronLeft,
+  ChevronRight,
+  Close,
 } from "@mui/icons-material";
 import { PiChurch } from "react-icons/pi";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
@@ -36,7 +38,7 @@ import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import DepartmentModal from "./department"; // Corrected import path
@@ -56,10 +58,105 @@ interface AuthData {
   isSuperAdmin?: boolean;
 }
 
+interface CustomPaginationProps {
+  count: number;
+  rowsPerPage: number;
+  page: number;
+  onPageChange: (event: unknown, newPage: number) => void;
+  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  isLargeScreen: boolean;
+}
+
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  count,
+  rowsPerPage,
+  page,
+  onPageChange,
+  isLargeScreen,
+}) => {
+  const totalPages = Math.ceil(count / rowsPerPage);
+  const isFirstPage = page === 0;
+  const isLastPage = page >= totalPages - 1;
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        py: 2,
+        px: { xs: 2, sm: 3 },
+        color: "#777280",
+        gap: 2,
+        flexWrap: "wrap",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          sx={{
+            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
+            color: "#777280",
+          }}
+        >
+          {`${page * rowsPerPage + 1}–${Math.min(
+            (page + 1) * rowsPerPage,
+            count
+          )} of ${count}`}
+        </Typography>
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          onClick={() => onPageChange(null, page - 1)}
+          disabled={isFirstPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isFirstPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronLeft />
+        </Button>
+        <Button
+          onClick={() => onPageChange(null, page + 1)}
+          disabled={isLastPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isLastPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronRight />
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
 const ViewDepartment: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData as AuthData | undefined);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
@@ -106,6 +203,10 @@ const ViewDepartment: React.FC = () => {
 
   // Handle search to apply filters and reset pagination
   const handleSearch = () => {
+    setIsSearching(true);
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 500); // Simulate a brief loading state
     setPage(0);
     toast.success("Filters applied successfully!", { position: "top-right" });
   };
@@ -310,6 +411,7 @@ const ViewDepartment: React.FC = () => {
 
   return (
     <DashboardManager>
+      <ToastContainer />
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
@@ -407,9 +509,9 @@ const ViewDepartment: React.FC = () => {
                       padding: 0,
                       "&:hover": { backgroundColor: "#777280" },
                     }}
-                    disabled={loading}
+                    disabled={loading || isSearching}
                   >
-                    {loading ? (
+                    {isSearching ? (
                       <CircularProgress size={20} color="inherit" />
                     ) : (
                       <SearchIcon sx={{ fontSize: "20px" }} />
@@ -493,20 +595,41 @@ const ViewDepartment: React.FC = () => {
                       }}
                     >
                       <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{marginBottom: 3}}>
-                          <IconButton sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                            color: '#E1E1E1',
-                            display: 'flex',
-                            flexDirection: 'column',                           
-                            borderRadius: 1,
-                            textAlign: 'center'
-                          }}>
-                            <PiChurch  size={30}/>
-                            <span className="text-[10px]">
-                              Department
-                            </span>
-                          </IconButton>
+                        <Box sx={{marginBottom: 3, display: 'flex', justifyContent: 'space-between'}}>
+                          <Box>
+                            <IconButton sx={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                              color: '#E1E1E1',
+                              display: 'flex',
+                              flexDirection: 'column',                           
+                              borderRadius: 1,
+                              textAlign: 'center'
+                            }}>
+                              <PiChurch  size={30}/>
+                              <span className="text-[10px]">
+                                Department
+                              </span>
+                            </IconButton>
+                          </Box>
+                          <Box>
+                            <IconButton
+                              aria-label="Department actions"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentDepartment(dept);
+                                setAnchorEl(e.currentTarget);
+                              }}                  
+                              sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                                color: '#777280',                                
+                                padding: '8px',
+                                borderRadius: 1,
+                                textAlign: 'center'
+                              }}
+                            >
+                              <MoreVertIcon />
+                            </IconButton> 
+                          </Box>
                         </Box>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                           <Typography
@@ -576,22 +699,15 @@ const ViewDepartment: React.FC = () => {
                 ))}
             </Grid>
 
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
+            {/* Custom Pagination */}
+            <CustomPagination
               count={filteredDepartments.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{              
-                mt: 2,
-                color: '#F6F4FE',
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: isLargeScreen ? "0.75rem" : undefined,
-                },
-              }}
-            />
+              isLargeScreen={isLargeScreen}
+            />        
           </>
         )}
 
@@ -636,9 +752,24 @@ const ViewDepartment: React.FC = () => {
         </Menu>
 
         {/* Edit Department Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius:  2,
+              bgcolor: '#2C2C2C',
+              color: "#F6F4FE",
+            },
+          }}
+        >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Edit Department
+             <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="h6" fontWeight={600}>
+                  Edit Department
+                </Typography>
+                <IconButton onClick={handleEditClose}>
+                  <Close className="text-gray-300"/>
+                </IconButton>
+              </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -652,22 +783,50 @@ const ViewDepartment: React.FC = () => {
                 variant="outlined"
                 error={!!nameError}
                 helperText={nameError}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
               <FormControl fullWidth margin="normal">
-                <InputLabel sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                <InputLabel sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                   Type
                 </InputLabel>
                 <Select
                   value={editFormData.type}
                   onChange={handleTypeChange}
                   label="Type"
-                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+                  sx={{
+                    fontSize: isLargeScreen ? "1rem" : undefined,                
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    "& .MuiSelect-select": {
+                        borderColor: "#777280",
+                        color: "#F6F4FE",
+                    },              
+                  }}
                 >
                   <MenuItem value="Department" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                     Department
@@ -687,36 +846,47 @@ const ViewDepartment: React.FC = () => {
                 variant="outlined"
                 multiline
                 rows={4}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                 
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
             </Box>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={handleEditClose}
-              sx={{
-                border: 1,
-                color: "var(--color-primary)",
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
               onClick={handleEditSubmit}
               sx={{
-                backgroundColor: "var(--color-primary)",
-                color: "var(--color-text-on-primary)",
+                py: 1,
+                backgroundColor: "#F6F4FE",
+                px: { xs: 6, sm: 2 },
+                borderRadius: 50,
+                color: "#2C2C2C",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
                 "&:hover": {
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: "#F6F4FE",
                   opacity: 0.9,
                 },
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
               variant="contained"
               disabled={loading || !!nameError}

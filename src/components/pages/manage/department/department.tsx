@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Api from "../../../shared/api/api";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import {
@@ -88,13 +88,15 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       );
       
       toast.success(response.data.message || `Department "${response.data.Department.name}" created successfully!`, {
-        autoClose: 3000,
+        autoClose: 2000,
         position: isMobile ? "top-center" : "top-right"
       });
       
       setFormData({ name: "", type: 'Department', description: "" });
       onSuccess?.();
-      onClose();
+      setTimeout(()=>{
+        onClose();
+      }, 2000)
       
     } catch (error: any) {
       console.error("Department creation error:", error);
@@ -122,6 +124,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
         },
       }}
     >
+      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" fontWeight={600}>
@@ -284,10 +287,10 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
           }}
         >
           {loading ? (
-            <>
+            <span className="text-gray-600">
               <CircularProgress size={18} sx={{ color: 'white', mr: 1 }} />
               Creating...
-            </>
+            </span>
           ) : (
             "Create Department"
           )}

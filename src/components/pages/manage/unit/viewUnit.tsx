@@ -14,7 +14,6 @@ import {
   TextField,
   Select,
   MenuItem,
-  TablePagination,
   Tooltip,
   SelectChangeEvent,
   Menu,
@@ -25,9 +24,12 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
-  // MoreVert as MoreVertIcon,
   Block as BlockIcon,
+  MoreVert as MoreVertIcon,
+  ChevronLeft,
+  ChevronRight,
   Search as SearchIcon,
+  Close,
 } from "@mui/icons-material";
 import { PiChurch } from "react-icons/pi";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
@@ -51,12 +53,107 @@ interface Department {
   name: string;
 }
 
+interface CustomPaginationProps {
+  count: number;
+  rowsPerPage: number;
+  page: number;
+  onPageChange: (event: unknown, newPage: number) => void;
+  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  isLargeScreen: boolean;
+}
+
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  count,
+  rowsPerPage,
+  page,
+  onPageChange,
+  isLargeScreen,
+}) => {
+  const totalPages = Math.ceil(count / rowsPerPage);
+  const isFirstPage = page === 0;
+  const isLastPage = page >= totalPages - 1;
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        py: 2,
+        px: { xs: 2, sm: 3 },
+        color: "#777280",
+        gap: 2,
+        flexWrap: "wrap",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          sx={{
+            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
+            color: "#777280",
+          }}
+        >
+          {`${page * rowsPerPage + 1}–${Math.min(
+            (page + 1) * rowsPerPage,
+            count
+          )} of ${count}`}
+        </Typography>
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          onClick={() => onPageChange(null, page - 1)}
+          disabled={isFirstPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isFirstPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronLeft />
+        </Button>
+        <Button
+          onClick={() => onPageChange(null, page + 1)}
+          disabled={isLastPage}
+          sx={{
+            minWidth: "40px",
+            height: "40px",
+            borderRadius: "8px",
+            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
+            color: isLastPage ? "#777280" : "#160F38",
+            "&:hover": {
+              backgroundColor: "#F6F4FE",
+              opacity: 0.9,
+            },
+            "&:disabled": {
+              backgroundColor: "#4d4d4e8e",
+              color: "#777280",
+            },
+          }}
+        >
+          <ChevronRight />
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
 const ViewUnit: React.FC = () => {
   // State Management
   const [units, setUnits] = useState<Unit[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
@@ -80,6 +177,7 @@ const ViewUnit: React.FC = () => {
 
   // Data Fetching
   const fetchDepartments = async () => {
+    setLoading(true);
     try {
       const response = await Api.get("/church/get-departments");
       setDepartments(response.data.departments || []);
@@ -88,6 +186,8 @@ const ViewUnit: React.FC = () => {
       console.error("Failed to fetch departments:", error);
       setError(errorMessage);
       toast.error(errorMessage, { position: "top-right" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -121,8 +221,12 @@ const ViewUnit: React.FC = () => {
 
   // Search and Filtering
   const handleSearch = () => {
+    setIsSearching(true);
     setPage(0);
     toast.success("Filters applied successfully!", { position: "top-right" });
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 200);
   };
 
   const filteredUnits = useMemo(() => {
@@ -132,15 +236,7 @@ const ViewUnit: React.FC = () => {
     });
   }, [units, searchTerm]);
 
-  // const activeCount = filteredUnits.filter((unit) => unit.isActive).length;
-  // const inactiveCount = filteredUnits.filter((unit) => !unit.isActive).length;
-
   // Action Handlers
-  // const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, unit: Unit) => {
-  //   setAnchorEl(event.currentTarget);
-  //   setCurrentUnit(unit);
-  // };
-
   const handleMenuClose = () => setAnchorEl(null);
 
   const handleEditOpen = () => {
@@ -293,27 +389,62 @@ const ViewUnit: React.FC = () => {
           {error}
         </Typography>
       )}
-      <Button
-        variant="contained"
-        onClick={() => setIsModalOpen(true)}
-        sx={{
-          px: { xs: 2, sm: 2 },
-          py: 1,
-          mt: 2, 
-          borderRadius: 50, 
-          backgroundColor: '#363740',
-          fontWeight: 500,
-          textTransform: "none",
-          color: "#FFFFFF",
-          fontSize: isLargeScreen ? "1rem" : undefined,
-          "&:hover": {
+      {error ? (
+        <Button
+          variant="contained"
+          onClick={() => setIsModalOpen(true)}
+          sx={{
+            px: { xs: 2, sm: 2 },
+            py: 1,
+            mt: 2,
+            borderRadius: 50,
             backgroundColor: "#363740",
-            opacity: 0.9,
-          },
-        }}
-      >
-        Create New Unit
-      </Button>
+            fontWeight: 500,
+            textTransform: "none",
+            color: "#FFFFFF",
+            fontSize: isLargeScreen ? "1rem" : undefined,
+            "&:hover": {
+              backgroundColor: "#363740",
+              opacity: 0.9,
+            },
+          }}
+        >
+          Create New Unit
+        </Button>
+      ) : (
+        <Select
+          value={selectedDepartmentId}
+          onChange={handleDepartmentChange}
+          displayEmpty
+          sx={{
+            backgroundColor: "#F6F4FE",
+            color: "#363740",
+            fontWeight: 500,
+            fontSize: isLargeScreen ? "1rem" : "0.875rem",
+            borderRadius: "50px",
+            mt: 2,
+            px: { xs: 2, sm: 2 },
+            py: 1,
+            "& .MuiSelect-select": { py: 1 },
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "transparent" },
+            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#363740" },
+          }}
+          renderValue={(selected) =>
+            selected
+              ? departments.find((dept) => dept.id === selected)?.name || "Select Department"
+              : "Select Department"
+          }
+        >
+          <MenuItem value="" disabled>
+            {departments.length ? "Select Department" : "Loading..."}
+          </MenuItem>
+          {departments.map((dept) => (
+            <MenuItem key={dept.id} value={dept.id}>
+              {dept.name}
+            </MenuItem>
+          ))}
+        </Select>
+      )}
     </Box>
   );
 
@@ -322,7 +453,7 @@ const ViewUnit: React.FC = () => {
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs:12, md:5}}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -424,21 +555,20 @@ const ViewUnit: React.FC = () => {
                       padding: 0,
                       "&:hover": { backgroundColor: "#777280" },
                     }}
-                    disabled={loading}
+                    disabled={loading || isSearching}
                   >
-                    {loading ? (
+                    {isSearching ? (
                       <CircularProgress size={20} color="inherit" />
                     ) : (
                       <SearchIcon sx={{ fontSize: "20px" }} />
                     )}
-                  </Button>                 
+                  </Button>
                 </Box>
               </Box>
             </Box>
           </Grid>
           <Grid
-            size={{ xs:12,
-            md:7}}
+            size={{ xs: 12, md: 7 }}
             sx={{
               display: "flex",
               justifyContent: { xs: "flex-start", md: "flex-end" },
@@ -471,23 +601,23 @@ const ViewUnit: React.FC = () => {
         </Grid>
 
         {/* Loading State */}
-        {loading && selectedDepartmentId && (
+        {loading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress sx={{ color: "var(--color-primary)" }} />
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
         {/* Error or Empty State */}
-        {(!loading && (error || filteredUnits.length === 0 || !selectedDepartmentId)) && <EmptyState />}
+        {!loading && (error || filteredUnits.length === 0 || !selectedDepartmentId) && <EmptyState />}
 
         {/* Data Cards */}
         {filteredUnits.length > 0 && (
-          <>         
+          <>
             <Grid container spacing={2}>
               {filteredUnits
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((unit) => (
-                  <Grid size={{ xs:12, sm:6, md:4, lg:3}} key={unit.id}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={unit.id}>
                     <Card
                       sx={{
                         borderRadius: '10.267px',
@@ -500,23 +630,44 @@ const ViewUnit: React.FC = () => {
                       }}
                     >
                       <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{marginBottom: 3}}>
-                          <IconButton sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                            color: '#E1E1E1',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            paddingX: '15px',
-                            borderRadius: 1,
-                            textAlign: 'center'
-                          }}>
-                            <PiChurch  size={30}/>
-                            <span className="text-[10px]">
-                              unit
-                            </span>
-                          </IconButton>
+                        <Box sx={{ marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
+                          <Box>
+                            <IconButton sx={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                              color: '#E1E1E1',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              paddingX: '15px',
+                              borderRadius: 1,
+                              textAlign: 'center'
+                            }}>
+                              <PiChurch size={30} />
+                              <span className="text-[10px]">
+                                unit
+                              </span>
+                            </IconButton>
+                          </Box>
+                          <Box>
+                            <IconButton
+                              aria-label="Department actions"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentUnit(unit);
+                                setAnchorEl(e.currentTarget);
+                              }}                  
+                              sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                                color: '#777280',                                
+                                padding: '8px',
+                                borderRadius: 1,
+                                textAlign: 'center'
+                              }}
+                            >
+                              <MoreVertIcon />
+                            </IconButton> 
+                          </Box>                                                  
                         </Box>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">                          
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                           <Typography
                             variant="subtitle1"
                             fontWeight={600}
@@ -527,28 +678,7 @@ const ViewUnit: React.FC = () => {
                           >
                             {unit.name}
                           </Typography>
-
-                          {/* {authData?.isSuperAdmin && (
-                            <IconButton
-                              aria-label="Unit actions"
-                              aria-controls="unit-menu"
-                              onClick={(e) => handleMenuOpen(e, unit)}
-                              disabled={loading}
-                              size="small"
-                              sx={{
-                                borderRadius: 1,
-                                backgroundColor: "#E1E1E1",
-                                "&:hover": {
-                                  backgroundColor: "var(--color-primary)",
-                                  color: "var(--color-text-on-primary)",
-                                },
-                              }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          )} */}
                         </Box>
-
                         <Box mt={2}>
                           {unit.description && (
                             <Box display="flex" alignItems="flex-start" mb={1}>
@@ -572,22 +702,15 @@ const ViewUnit: React.FC = () => {
                 ))}
             </Grid>
 
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
+            {/* Custom Pagination */}
+            <CustomPagination
               count={filteredUnits.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{
-                color: "#F6F4FE",
-                mt: 2,
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: isLargeScreen ? "0.75rem" : undefined,
-                },
-              }}
-            />
+              isLargeScreen={isLargeScreen}
+            />  
           </>
         )}
 
@@ -632,9 +755,31 @@ const ViewUnit: React.FC = () => {
         </Menu>
 
         {/* Edit Unit Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius:  2,
+              bgcolor: '#2C2C2C',
+              color: "#F6F4FE",
+            },
+          }}
+        >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            Edit Unit
+             <Box display="flex" justifyContent="space-between" alignItems="center">      
+                <Typography
+                  variant={isMobile ? "h5" : "h5"}
+                  component="h1"
+                  fontWeight={600}
+                  sx={{           
+                    fontSize: isLargeScreen ? '1.5rem' : undefined,
+                  }}
+                >
+                 Edit Unit
+                </Typography>
+                <IconButton onClick={handleEditClose}>
+                  <Close className="text-gray-300"/>
+                </IconButton>
+              </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -648,11 +793,27 @@ const ViewUnit: React.FC = () => {
                 variant="outlined"
                 error={!!nameError}
                 helperText={nameError}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                  
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
               <TextField
@@ -665,37 +826,48 @@ const ViewUnit: React.FC = () => {
                 variant="outlined"
                 multiline
                 rows={4}
-                InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputProps={{                  
+                  sx: {
+                    color: "#F6F4FE",
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  },
                 }}
-                InputProps={{
-                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined },
+                InputLabelProps={{
+                  sx: {
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",                    
+                    outlineColor: "#777280",
+                    borderColor: "#777280",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },                    
+                  },
                 }}
               />
             </Box>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={handleEditClose}
-              sx={{
-                border: 1,
-                color: "var(--color-primary)",
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
               onClick={handleEditSubmit}
               sx={{
-                backgroundColor: "var(--color-primary)",
-                color: "var(--color-text-on-primary)",
+                py: 1,
+                backgroundColor: "#F6F4FE",
+                px: { xs: 6, sm: 2 },
+                borderRadius: 50,
+                fontWeight: "semibold",
+                color: "#2C2C2C",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
                 "&:hover": {
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: "#F6F4FE",
                   opacity: 0.9,
                 },
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
+          }}
               variant="contained"
               disabled={loading || !!nameError}
             >
