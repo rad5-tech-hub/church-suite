@@ -765,21 +765,21 @@ const ViewUnit: React.FC = () => {
           }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-             <Box display="flex" justifyContent="space-between" alignItems="center">      
-                <Typography
-                  variant={isMobile ? "h5" : "h5"}
-                  component="h1"
-                  fontWeight={600}
-                  sx={{           
-                    fontSize: isLargeScreen ? '1.5rem' : undefined,
-                  }}
-                >
-                 Edit Unit
-                </Typography>
-                <IconButton onClick={handleEditClose}>
-                  <Close className="text-gray-300"/>
-                </IconButton>
-              </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center">      
+              <Typography
+                variant={isMobile ? "h5" : "h5"}
+                component="h1"
+                fontWeight={600}
+                sx={{           
+                  fontSize: isLargeScreen ? '1.5rem' : undefined,
+                }}
+              >
+                Edit Unit
+              </Typography>
+              <IconButton onClick={handleEditClose}>
+                <Close className="text-gray-300"/>
+              </IconButton>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>

@@ -40,12 +40,13 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Close,
 } from "@mui/icons-material";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 
@@ -1315,20 +1316,45 @@ const ViewAdmins: React.FC = () => {
           </MenuItem>
         </Menu>
 
-        <Dialog open={state.editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>Edit Admin</DialogTitle>
+        <Dialog open={state.editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius:  2,
+              bgcolor: '#2C2C2C',
+              color: "#F6F4FE",
+            },
+          }}
+        >
+          <ToastContainer/>
+          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center">      
+              <Typography
+                variant={isMobile ? "h5" : "h5"}
+                component="h1"
+                fontWeight={600}
+                sx={{           
+                  fontSize: isLargeScreen ? '1.5rem' : undefined,
+                }}
+              >
+                Edit Admin
+              </Typography>
+              <IconButton onClick={handleEditClose}>
+                <Close className="text-gray-300"/>
+              </IconButton>
+            </Box>
+          </DialogTitle>
           <DialogContent>
             {state.currentAdmin && (
               <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   {state.currentAdmin.name}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="body2" color= "#F6F4FE" sx={{ mb: 2 }}>
                   {state.currentAdmin.email}
                 </Typography>
                 {state.currentAdmin.scopeLevel === "branch" && (
                   <FormControl fullWidth>
-                    <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                    <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                       Branch
                     </InputLabel>
                     <MuiSelect
@@ -1339,9 +1365,17 @@ const ViewAdmins: React.FC = () => {
                       onChange={(e) => handleStateChange("selectedBranch", e.target.value)}
                       onOpen={fetchBranches}
                       sx={{
-                        "& .MuiSelect-select": {
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        fontSize: isLargeScreen ? "1rem" : undefined,                
+                        color: "#F6F4FE",
+                        outlineColor: "#777280",
+                        borderColor: "#777280",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#777280",
                         },
+                        "& .MuiSelect-select": {
+                            borderColor: "#777280",
+                            color: "#F6F4FE",
+                        },              
                       }}
                     >
                       {state.branches.length === 0 ? (
@@ -1360,7 +1394,7 @@ const ViewAdmins: React.FC = () => {
                 )}
                 {state.currentAdmin.scopeLevel === "department" && (
                   <FormControl fullWidth>
-                    <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                    <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                       Department
                     </InputLabel>
                     <MuiSelect
@@ -1371,9 +1405,17 @@ const ViewAdmins: React.FC = () => {
                       onChange={(e) => handleStateChange("selectedDepartment", e.target.value)}
                       onOpen={fetchDepartments}
                       sx={{
-                        "& .MuiSelect-select": {
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        fontSize: isLargeScreen ? "1rem" : undefined,                
+                        color: "#F6F4FE",
+                        outlineColor: "#777280",
+                        borderColor: "#777280",
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#777280",
                         },
+                        "& .MuiSelect-select": {
+                            borderColor: "#777280",
+                            color: "#F6F4FE",
+                        },              
                       }}
                     >
                       {state.departments.length === 0 ? (
@@ -1393,7 +1435,7 @@ const ViewAdmins: React.FC = () => {
                 {state.currentAdmin.scopeLevel === "unit" && (
                   <>
                     <FormControl fullWidth>
-                      <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                         Department
                       </InputLabel>
                       <MuiSelect
@@ -1408,9 +1450,17 @@ const ViewAdmins: React.FC = () => {
                         }}
                         onOpen={fetchDepartments}
                         sx={{
-                          "& .MuiSelect-select": {
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          fontSize: isLargeScreen ? "1rem" : undefined,                
+                          color: "#F6F4FE",
+                          outlineColor: "#777280",
+                          borderColor: "#777280",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "#777280",
                           },
+                          "& .MuiSelect-select": {
+                              borderColor: "#777280",
+                              color: "#F6F4FE",
+                          },              
                         }}
                       >
                         {state.departments.length === 0 ? (
@@ -1427,7 +1477,7 @@ const ViewAdmins: React.FC = () => {
                       </MuiSelect>
                     </FormControl>
                     <FormControl fullWidth>
-                      <InputLabel id="unit-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                      <InputLabel id="unit-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                         Unit
                       </InputLabel>
                       <MuiSelect
@@ -1438,9 +1488,17 @@ const ViewAdmins: React.FC = () => {
                         onChange={(e) => handleStateChange("selectedUnit", e.target.value)}
                         onOpen={fetchUnits}
                         sx={{
-                          "& .MuiSelect-select": {
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          fontSize: isLargeScreen ? "1rem" : undefined,                
+                          color: "#F6F4FE",
+                          outlineColor: "#777280",
+                          borderColor: "#777280",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "#777280",
                           },
+                          "& .MuiSelect-select": {
+                              borderColor: "#777280",
+                              color: "#F6F4FE",
+                          },              
                         }}
                         disabled={!state.selectedDepartment}
                       >
@@ -1477,32 +1535,27 @@ const ViewAdmins: React.FC = () => {
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={handleEditClose}
-              sx={{
-                border: 1,
-                color: "var(--color-primary)",
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              }}
-            >
-              Cancel
-            </Button>
+          <DialogActions>     
             <Button
               onClick={handleEditSubmit}
               sx={{
-                backgroundColor: "#777280",
-                color: "#F6F4FE",
+                py: 1,
+                backgroundColor: "#F6F4FE",          
+                px: { xs: 7, sm: 2 },
+                borderRadius: 50,
+                color: "#2C2C2C",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
                 "&:hover": {
-                  backgroundColor: "#777280",
+                  backgroundColor: "#F6F4FE",
                   opacity: 0.9,
                 },
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
               variant="contained"
               disabled={state.loading}
             >
-              {state.loading ? "Saving..." : "Save Changes"}
+              {state.loading ? <span className="text-gray-600">Saving...</span>  : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
