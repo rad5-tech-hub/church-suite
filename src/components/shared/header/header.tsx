@@ -35,7 +35,7 @@ const Header: React.FC<HeaderProps> = () => {
     Members: /^\/members(\/|$)/,
     Message: /^\/message(\/|$)/,
     Finance: /^\/finance(\/|$)/,
-    Program: /^\/program(\/|$)/,
+    Programs: /^\/programs(\/|$)/,
     Settings: /^\/settings(\/|$)/
   };
 
@@ -45,7 +45,7 @@ const Header: React.FC<HeaderProps> = () => {
     'Members',
     'Message',
     'Finance',
-    'Program',
+    'Programs',
     'Settings',
   ];
 
@@ -56,7 +56,7 @@ const Header: React.FC<HeaderProps> = () => {
     Members: '/members/view-workers',
     Message: '/message',
     Finance: '/finance',
-    Program: '/program/programs',
+    Programs: '/programs',
     Settings: '/settings'
   };
 

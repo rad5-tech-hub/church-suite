@@ -117,7 +117,7 @@ const AppRoutes: React.FC = () => {
               <ViewSingleFollowUp/>
             </PrivateRoute>
           } />
-          <Route path="/program/programs" element={
+          <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>
             </PrivateRoute>

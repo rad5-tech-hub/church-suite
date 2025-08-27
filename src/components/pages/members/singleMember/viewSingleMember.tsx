@@ -167,8 +167,9 @@ const ViewSingleMember: React.FC = () => {
                 component="h1" 
                 fontWeight={600}
                 gutterBottom
+                
                 sx={{ 
-                  color: theme.palette.text.primary,
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
@@ -179,6 +180,7 @@ const ViewSingleMember: React.FC = () => {
                 color="text.secondary"
                 sx={{
                   fontSize: isLargeScreen ? '0.875rem' : undefined
+                  
                 }}
               >
                 View and manage your profile information.

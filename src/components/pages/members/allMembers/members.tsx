@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import {
   Box,
   Button,
@@ -34,6 +34,7 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 import { Close } from "@mui/icons-material";
+import { PiDownload } from "react-icons/pi";
 
 // Interfaces
 interface FormData {
@@ -114,6 +115,7 @@ const months = [
 
 const steps = ['Basic Information', 'Additional Details'];
 
+
 const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const theme = useTheme();
@@ -158,6 +160,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
 
+  // year started
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1960 + 1 }, (_, i) => 1960 + i);
 
@@ -347,7 +350,7 @@ const fetchLocations = useCallback(async () => {
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
       await Api.post(`/member/add-member?churchId=${authData?.churchId}${branchIdParam}`, payload);
       toast.success("Worker created successfully!", {
-        autoClose: 3000,
+        autoClose: 1500,
         position: isMobile ? "top-center" : "top-right",
       });
       setFormData({
@@ -371,7 +374,10 @@ const fetchLocations = useCallback(async () => {
       });
       setSelectedAgeRange("");
       onSuccess?.();
-      setTimeout(() => onclose, 1500);
+      setTimeout(() => {
+        setCurrentStep(0);
+        onClose()
+      }, 1500);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || "Failed to create Worker. Please try again.";
       toast.error(errorMessage, { autoClose: 3000, position: isMobile ? "top-center" : "top-right" });
@@ -874,7 +880,7 @@ const fetchLocations = useCallback(async () => {
           onChange={handleChange}
           variant="outlined"
           placeholder="Enter local government area"
-          disabled={isLoading}
+          disabled={isLoading}          
           InputProps={{
             startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} />
               </InputAdornment>,
@@ -1088,7 +1094,8 @@ const fetchLocations = useCallback(async () => {
 
         },
       }}
-    >     
+    >   
+    <ToastContainer />  
     <DialogTitle>
       <Box display="flex" justifyContent="space-between" alignItems="center">            
         <Typography
@@ -1104,9 +1111,9 @@ const fetchLocations = useCallback(async () => {
         </IconButton>
       </Box>          
     </DialogTitle> 
-      <DialogContent sx={{ py: isMobile ? 2 : 3 }}>
+      <DialogContent sx={{ py: isMobile ? 1 : 2 }}>
         <Container>
-          <Box  sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 5 }} >
+          <Box  sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 2 }} >
             <Box sx={{ width: { xs: "100%", sm: "75%", md: "40%", mb: 2 }}}>
               <Stepper activeStep={currentStep} alternativeLabel sx={{
                 "& .MuiStepLabel-label": {
@@ -1138,11 +1145,11 @@ const fetchLocations = useCallback(async () => {
                   sx={{
                     py: 1,
                     backgroundColor: "#F6F4FE",
-                    px: { xs: 3, sm: 3 },
-                    borderRadius: 1,
+                    px: { xs: 3, sm: 3 },                  
                     fontWeight: 500,
                     textTransform: "none",
                     color: "#2C2C2C",
+                    borderRadius: 50,
                     fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
                     "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
                     mt: 2,
@@ -1151,10 +1158,11 @@ const fetchLocations = useCallback(async () => {
                   {downLoading ? (
                     <>
                       <CircularProgress size={18} sx={{ mr: 1 }} />
-                      Downloading...
+                        Downloading...
                     </>
                   ) : (
-                    "Download Template"
+                    <span className="flex gap-1"> Download Template <PiDownload className="mt-1"/>
+                    </span>
                   )}
                 </Button>
               </Tooltip>
@@ -1210,10 +1218,10 @@ const fetchLocations = useCallback(async () => {
                   }}
                 >
                   {isLoading ? (
-                    <>
+                    <span className="text-gray-500">
                       <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
                       Creating...
-                    </>
+                    </span>
                   ) : (
                     "Create Worker"
                   )}

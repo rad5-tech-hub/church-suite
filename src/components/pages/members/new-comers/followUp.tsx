@@ -1,6 +1,6 @@
-import React, { useState} from "react";
+import React, { useState } from "react";
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { RootState } from "../../../reduxstore/redux";
 import {
   Box,
@@ -20,6 +20,7 @@ import {
   FormControl,
   InputLabel,
   IconButton,
+  Autocomplete,
 } from "@mui/material";
 import {
   IoPersonOutline,
@@ -29,8 +30,9 @@ import {
 import { BsCalendarDate } from "react-icons/bs";
 import { FaTransgender } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
-import Api from "../../../shared/api/api";
 import { Close } from "@mui/icons-material";
+import Api from "../../../shared/api/api";
+import { PiDownload } from "react-icons/pi";
 
 interface FormData {
   name: string;
@@ -40,6 +42,12 @@ interface FormData {
   birthMonth: string;
   birthDay: string;
   timer: number | null;
+}
+
+interface RegistrationModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
 }
 
 const months = [
@@ -57,20 +65,16 @@ const months = [
   { name: "December", value: "12" },
 ];
 
-const days = Array.from({ length: 31 }, (_, i) =>
-  (i + 1).toString().padStart(2, "0")
-);
+const getDaysInMonth = (month: string): number => {
+  const monthNumber = parseInt(month, 10);
+  if (monthNumber === 2) return 29; // Simplified for leap year
+  return [1, 3, 5, 7, 8, 10, 12].includes(monthNumber) ? 31 : 30;
+};
 
-interface RegistrationModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-const RegistrationModal: React.FC<RegistrationModalProps> = ({ 
-  open, 
+const RegistrationModal: React.FC<RegistrationModalProps> = ({
+  open,
   onClose,
-  onSuccess 
+  onSuccess,
 }) => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
   const theme = useTheme();
@@ -87,7 +91,6 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [downLoading, setDownLoading] = useState(false);
-
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement> | { target: { name?: string; value: unknown } }
@@ -158,7 +161,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       await Api.post(`/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`, formData);
 
       toast.success("New Comer created successfully!", {
-        autoClose: 3000,
+        autoClose: 1500,
         position: isMobile ? "top-center" : "top-right",
       });
 
@@ -173,7 +176,9 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       });
 
       onSuccess();
-      onClose();
+      setTimeout(() => {
+          onClose();
+        }, 1500);
     } catch (error: any) {
       console.error("Error creating newcomer:", error);
       const errorMessage =
@@ -188,410 +193,452 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   };
 
   return (
-    <>
-      {/* Main Registration Modal */}
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="md" 
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            borderRadius: 2,
-            bgcolor: '#2C2C2C',
-            py: 3,
-            px: 2
-          }
-        }}
-      >
-        <DialogTitle>
-          <Box sx={{display: 'flex', flexDirection: {xs: 'column', md: 'row'}, alignItems: {xs:'center', md:'start'}, justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
-                Register Newcomer
-              </Typography>        
-            </Box>          
-             <IconButton onClick={onClose}>
-                <Close className="text-gray-300"/>
-              </IconButton> 
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      sx={{
+        '& .MuiDialog-paper': {
+          borderRadius: 2,
+          bgcolor: '#2C2C2C',
+          py: 3,
+          px: 2,
+        },
+      }}
+    >
+      <ToastContainer />
+      <DialogTitle>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'center', md: 'start' },
+            justifyContent: 'space-between',
+          }}
+        >
+          <Box>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+              Register Newcomer
+            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+          <IconButton onClick={onClose}>
+            <Close className="text-gray-300" />
+          </IconButton>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+          <Button
+            variant="contained"
+            onClick={handleDownloadTemplate}
+            disabled={downLoading}
+            sx={{
+              py: 1,
+              backgroundColor: "#F6F4FE",
+              px: { xs: 3, sm: 3 },
+              m: 2,
+              borderRadius: 50,
+              fontWeight: 500,
+              textTransform: "none",
+              color: "#2C2C2C",
+              fontSize: { xs: "1rem", md: "0.875rem", sm: "1rem" },
+              "&:hover": {
+                backgroundColor: "#F6F4FE",
+                opacity: 0.9,
+              },
+            }}
+          >
+            {downLoading ? (
+              <>
+                <CircularProgress size={18} sx={{ mr: 1 }} />
+                Downloading...
+              </>
+            ) : (
+               <span className="flex gap-1"> Download Template <PiDownload className="mt-1"/>
+                </span>
+            )}
+          </Button>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent dividers>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <Grid container spacing={4}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Full Name"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter your full name"
+                  required
+                  disabled={isLoading}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IoPersonOutline style={{ color: '#F6F4FE' }} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      color: "#F6F4FE",
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                  InputLabelProps={{
+                    sx: {
+                      color: '#F6F4FE',
+                      '&.Mui-focused': {
+                        color: '#F6F4FE',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                />
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Phone Number"
+                  id="phoneNo"
+                  name="phoneNo"
+                  type="tel"
+                  value={formData.phoneNo}
+                  onChange={handleChange}
+                  placeholder="Enter your phone number"
+                  required
+                  disabled={isLoading}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IoCallOutline style={{ color: '#F6F4FE' }} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      color: "#F6F4FE",
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                  InputLabelProps={{
+                    sx: {
+                      color: '#F6F4FE',
+                      '&.Mui-focused': {
+                        color: '#F6F4FE',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                />
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel id="gender-label" sx={{ color: '#F6F4FE', fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                  Gender
+                </InputLabel>
+                <Select
+                  labelId="gender-label"
+                  id="sex"
+                  name="sex"
+                  value={formData.sex}
+                  label="Gender"
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <FaTransgender style={{ color: '#F6F4FE' }} />
+                    </InputAdornment>
+                  }
+                  sx={{
+                    color: '#F6F4FE',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '& .MuiSelect-select': {
+                      paddingRight: '24px !important',
+                    },
+                    fontSize: isMobile ? '0.875rem' : '1rem',
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    Select Gender
+                  </MenuItem>
+                  <MenuItem value="male">Male</MenuItem>
+                  <MenuItem value="female">Female</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <TextField
+                  label="Address"
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="Enter your address"
+                  disabled={isLoading}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IoLocationOutline style={{ color: '#F6F4FE' }} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      color: '#F6F4FE',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#777280',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                  InputLabelProps={{
+                    sx: {
+                      color: '#F6F4FE',
+                      '&.Mui-focused': {
+                        color: '#F6F4FE',
+                      },
+                      fontSize: isMobile ? '0.875rem' : '1rem',
+                    },
+                  }}
+                />
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Autocomplete
+                id="birthDate"
+                options={(() => {
+                  const options = [];
+                  for (const month of months) {
+                    const daysInMonth = getDaysInMonth(month.value);
+                    for (let day = 1; day <= daysInMonth; day++) {
+                      const dayFormatted = day.toString().padStart(2, '0');
+                      options.push({
+                        value: `${month.value}-${dayFormatted}`,
+                        label: `${month.name} ${dayFormatted}`,
+                        monthName: month.name,
+                        day: day,
+                      });
+                    }
+                  }
+                  return options;
+                })()}
+                getOptionLabel={(option) => option.label}
+                value={
+                  formData.birthMonth && formData.birthDay
+                    ? {
+                        value: `${formData.birthMonth}-${formData.birthDay}`,
+                        label: `${
+                          months.find((m) => m.value === formData.birthMonth)?.name || ''
+                        } ${formData.birthDay}`,
+                        monthName: months.find((m) => m.value === formData.birthMonth)?.name || '',
+                        day: Number(formData.birthDay),
+                      }
+                    : null
+                }
+                isOptionEqualToValue={(option, value) => option.value === value?.value}
+                onChange={(_event, newValue) => {
+                  if (newValue) {
+                    const [month, day] = newValue.value.split('-');
+                    handleChange({ target: { name: 'birthMonth', value: month } });
+                    handleChange({ target: { name: 'birthDay', value: day } });
+                  } else {
+                    handleChange({ target: { name: 'birthMonth', value: '' } });
+                    handleChange({ target: { name: 'birthDay', value: '' } });
+                  }
+                }}
+                filterOptions={(options, state) => {
+                  const input = state.inputValue.toLowerCase();
+                  return options.filter(
+                    (option) =>
+                      option.monthName.toLowerCase().includes(input) ||
+                      option.day.toString().padStart(2, '0').includes(input) ||
+                      option.label.toLowerCase().includes(input)
+                  );
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <li key={option.value} {...otherProps}>
+                      {option.label}
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Date of Birth *"
+                    variant="outlined"
+                    required
+                    InputLabelProps={{
+                      sx: {
+                        color: '#F6F4FE',
+                        '&.Mui-focused': {
+                          color: '#F6F4FE',
+                        },
+                        fontSize: isMobile ? '0.875rem' : '1rem',
+                        transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined,
+                      },
+                    }}
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <InputAdornment position="start" sx={{ paddingLeft: 2 }}>
+                          <BsCalendarDate style={{ color: '#F6F4FE' }} />
+                        </InputAdornment>
+                      ),
+                      sx: {
+                        fontSize: isMobile ? '0.875rem' : '1rem',
+                        '& input': { paddingLeft: '8px !important' },
+                        color: '#F6F4FE',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#777280',
+                        },
+                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#777280',
+                        },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                          borderColor: '#777280',
+                        },
+                      },
+                    }}
+                  />
+                )}
+                disabled={isLoading}
+                size="medium"
+                sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' } }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel id="timer-label" sx={{ color: '#F6F4FE', fontSize: isMobile ? '0.875rem' : '1rem' }}>
+                  Attendance Duration
+                </InputLabel>
+                <Select
+                  labelId="timer-label"
+                  id="timer"
+                  name="timer"
+                  value={formData.timer || ""}
+                  label="Attendance Duration"
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <FiClock style={{ color: '#F6F4FE' }} />
+                    </InputAdornment>
+                  }
+                  sx={{
+                    color: '#F6F4FE',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#777280',
+                    },
+                    '& .MuiSelect-select': {
+                      paddingRight: '24px !important',
+                    },
+                    fontSize: isMobile ? '0.875rem' : '1rem',
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    Select how many times you have been here
+                  </MenuItem>
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <MenuItem key={i + 1} value={i + 1}>
+                      {i + 1} {i + 1 === 1 ? "Time" : "Times"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'end',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 2,
+              alignItems: { xs: 'flex-end' },
+              width: '100%',
+              px: 2,
+              py: 1,
+            }}
+          >
             <Button
+              type="submit"
               variant="contained"
-              onClick={handleDownloadTemplate}
-              disabled={downLoading}
+              disabled={isLoading}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
-                px: { xs: 3, sm: 3 },
-                m:2,
+                backgroundColor: '#F6F4FE',
+                px: { xs: 5, sm: 5 },
                 borderRadius: 50,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "#2C2C2C",
-                fontSize: { xs: "1rem", md: "0.875rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "#F6F4FE",
+                fontWeight: 'semibold',
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1rem' },
+                color: '#2C2C2C',
+                '&:hover': {
+                  backgroundColor: '#F6F4FE',
                   opacity: 0.9,
                 },
+                width: { xs: '100%', sm: 'auto' },
+                order: { xs: 1, sm: 2 },
               }}
             >
-              {downLoading ? (
+              {isLoading ? (
                 <>
-                  <CircularProgress size={18} sx={{ mr: 1 }} />
-                  Downloading...
+                  <CircularProgress size={20} sx={{ color: 'white', mr: 1 }} />
+                  Submitting...
                 </>
               ) : (
-                "Download Newcomer Template"
+                'Submit'
               )}
             </Button>
           </Box>
-        </DialogTitle>
-        
-        <DialogContent dividers>
-          <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>        
-            {/* Form Fields */}
-            <Grid container spacing={4}>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <TextField
-                    label="Full Name"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="Enter your full name"
-                    required
-                    disabled={isLoading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <IoPersonOutline style={{ color: '#F6F4FE' }} />
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        fontSize: "1rem" ,
-                      },
-                    }}
-                    InputLabelProps={{
-                      sx: {
-                        fontSize: "1rem" ,
-                        color: "#F6F4FE",                    
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },                    
-                      },
-                    }}
-                  />
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <TextField
-                    label="Phone Number"
-                    id="phoneNo"
-                    name="phoneNo"
-                    type="tel"
-                    value={formData.phoneNo}
-                    onChange={handleChange}
-                    placeholder="Enter your phone number"
-                    required
-                    disabled={isLoading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <IoCallOutline style={{ color: '#F6F4FE' }} />
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        fontSize: "1rem" ,
-                      },
-                    }}
-                    InputLabelProps={{
-                      sx: {
-                        fontSize: "1rem" ,
-                        color: "#F6F4FE",                    
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },                    
-                      },
-                    }}
-                  />
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="gender-label" sx={{ fontSize: '1rem', color: "#F6F4FE" }}>Gender</InputLabel>
-                  <Select
-                    labelId="gender-label"
-                    id="sex"
-                    name="sex"
-                    value={formData.sex}
-                    label="Gender"
-                    onChange={handleChange}
-                    disabled={isLoading}
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <FaTransgender style={{ color: "#F6F4FE" }} />
-                      </InputAdornment>
-                    }
-                    sx={{ "& .MuiSelect-icon": { right: 8 },                        
-                      fontSize: "1rem" ,                
-                      color: "#F6F4FE",
-                      outlineColor: "#777280",
-                      borderColor: "#777280",
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#777280",
-                      },
-                      "& .MuiSelect-select": {
-                          borderColor: "#777280",
-                          color: "#F6F4FE",
-                      },              
-                    }}
-                  >
-                    <MenuItem value="" disabled>
-                      Select Gender
-                    </MenuItem>
-                    <MenuItem value="male">Male</MenuItem>
-                    <MenuItem value="female">Female</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <TextField
-                    label="Address"
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    placeholder="Enter your address"
-                    disabled={isLoading}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <IoLocationOutline style={{ color: '#F6F4FE' }} />
-                        </InputAdornment>
-                      ),
-                      sx: {
-                        color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        fontSize: "1rem" ,
-                      },
-                    }}
-                    InputLabelProps={{
-                      sx: {
-                        fontSize: "1rem" ,
-                        color: "#F6F4FE",                    
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },                    
-                      },
-                    }}
-                  />
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }} spacing={2}>
-                <Box sx={{ display: "flex", gap: 2, flexDirection: { md: "row", xs: "column" } }}>
-                  <FormControl fullWidth>
-                    <InputLabel id="birthMonth-label" sx={{ fontSize: '1rem', color: "#F6F4FE" }}>Month of Birth</InputLabel>
-                    <Select
-                      labelId="birthMonth-label"
-                      id="birthMonth"
-                      name="birthMonth"
-                      value={formData.birthMonth}
-                      label="Month of Birth"
-                      onChange={handleChange}
-                      disabled={isLoading}
-                      startAdornment={
-                        <InputAdornment position="start">
-                          <BsCalendarDate style={{ color: "#F6F4FE"}} />
-                        </InputAdornment>
-                      }
-                      sx={{ "& .MuiSelect-icon": { right: 8 },                        
-                        fontSize: "1rem" ,                
-                        color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        "& .MuiSelect-select": {
-                            borderColor: "#777280",
-                            color: "#F6F4FE",
-                        },              
-                      }}
-                    >
-                      <MenuItem value="" disabled>
-                        Select Month
-                      </MenuItem>
-                      {months.map((month) => (
-                        <MenuItem key={month.value} value={month.value}>
-                          {month.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl fullWidth>
-                    <InputLabel id="birthDay-label" sx={{ fontSize: '1rem', color: "#F6F4FE" }}>Day of Birth</InputLabel>
-                    <Select
-                      labelId="birthDay-label"
-                      id="birthDay"
-                      name="birthDay"
-                      value={formData.birthDay}
-                      label="Day of Birth"
-                      onChange={handleChange}
-                      disabled={isLoading}
-                      startAdornment={
-                        <InputAdornment position="start">
-                          <BsCalendarDate style={{ color: "#F6F4FE"}} />
-                        </InputAdornment>
-                      }
-                      sx={{ "& .MuiSelect-icon": { right: 8 },                        
-                        fontSize: "1rem" ,                
-                        color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        "& .MuiSelect-select": {
-                            borderColor: "#777280",
-                            color: "#F6F4FE",
-                        },              
-                      }}
-                    >
-                      <MenuItem value="" disabled>
-                        Select Day
-                      </MenuItem>
-                      {days.map((day) => (
-                        <MenuItem key={day} value={day}>
-                          {day}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="timer-label" sx={{ fontSize: '1rem', color: "#F6F4FE" }}>Attendance Duration</InputLabel>
-                  <Select
-                    labelId="timer-label"
-                    id="timer"
-                    name="timer"
-                    value={formData.timer || ""}
-                    label="Attendance Duration"
-                    onChange={handleChange}
-                    disabled={isLoading}
-                    startAdornment={
-                      <InputAdornment position="start">
-                        <FiClock style={{ color: "#F6F4FE"}} />
-                      </InputAdornment>
-                    }
-                    sx={{ "& .MuiSelect-icon": { right: 8 },                        
-                      fontSize: "1rem" ,                
-                      color: "#F6F4FE",
-                      outlineColor: "#777280",
-                      borderColor: "#777280",
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#777280",
-                      },
-                      "& .MuiSelect-select": {
-                          borderColor: "#777280",
-                          color: "#F6F4FE",
-                      },              
-                    }}
-                  >
-                    <MenuItem value="" disabled>
-                      Select how many times you have been here
-                    </MenuItem>
-                    {Array.from({ length: 10 }, (_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>
-                        {i + 1} {i + 1 === 1 ? "Time" : "Times"}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-
-            {/* Form Actions */}
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "end",
-                flexDirection: { xs: "column", sm: "row" },
-                gap: 2,
-                alignItems: { xs: "flex-end" },
-                width: "100%",
-                px: 2,
-                py: 1,
-              }}
-            >            
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#F6F4FE",
-                  px: { xs: 5, sm: 5 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  color: "#2C2C2C",
-                  "&:hover": {
-                    backgroundColor: "#F6F4FE",
-                    opacity: 0.9,
-                  },
-                  width: { xs: "100%", sm: "auto" },
-                  order: { xs: 1, sm: 2 },
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <CircularProgress size={20} sx={{ color: "white", mr: 1 }} />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit"
-                )}
-              </Button>
-            </Box>
-          </Box>
-        </DialogContent>
-  
-      </Dialog>
-    </>
+        </Box>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
 import {
   Box,
   Button,
@@ -40,8 +39,8 @@ interface ServiceFormData {
   startTime: string;
   endTime: string;
   departmentIds: string[];
+  collectionIds: string[];
   recurrenceType: string;
-  collection: string;
   endDate?: string;
   byWeekday?: number[];
   nthWeekdays?: { weekday: number; nth: number }[];
@@ -49,6 +48,11 @@ interface ServiceFormData {
 }
 
 interface Department {
+  _id: string;
+  name: string;
+}
+
+interface Collection {
   _id: string;
   name: string;
 }
@@ -61,11 +65,27 @@ interface CreateProgramModalProps {
 
 const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
-  open,
-  onClose,
-  onSuccess,
-}) => {
+const fetchCollections = async (
+  setCollections: React.Dispatch<React.SetStateAction<Collection[]>>,
+  setFetchingCollections: React.Dispatch<React.SetStateAction<boolean>>,
+  setFetchCollectionsError: React.Dispatch<React.SetStateAction<string | null>>
+) => {
+  try {
+    setFetchingCollections(true);
+    setFetchCollectionsError(null);
+    const response = await Api.get("/church/get-collections");
+    const fetchedCollections = response.data.collections || [];
+    setCollections(fetchedCollections);
+  } catch (error) {
+    console.error("Failed to fetch collections:", error);
+    setFetchCollectionsError("Failed to load collections. Please try again.");
+    setCollections([]);
+  } finally {
+    setFetchingCollections(false);
+  }
+};
+
+const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, onSuccess }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -76,52 +96,46 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
     startTime: "",
     endTime: "",
     departmentIds: [],
+    collectionIds: [],
     recurrenceType: "none",
-    collection: "",
   });
   const [loading, setLoading] = useState<boolean>(false);
-  const [collections, setCollections] = useState<string[]>([]);
+  const [addingCollection, setAddingCollection] = useState<boolean>(false);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [fetchingDepartments, setFetchingDepartments] = useState<boolean>(true);
+  const [fetchingDepartments, setFetchingDepartments] = useState<boolean>(false);
+  const [fetchingCollections, setFetchingCollections] = useState<boolean>(false);
+  const [fetchCollectionsError, setFetchCollectionsError] = useState<string | null>(null);
+  const [fetchDepartmentsError, setFetchDepartmentsError] = useState<string | null>(null);
+  const [createProgramError, setCreateProgramError] = useState<string | null>(null);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [monthlyOption, setMonthlyOption] = useState<"byDate" | "byWeek">("byDate");
   const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
   const [nthWeekdays, setNthWeekdays] = useState<{ weekday: number; nth: number }[]>([]);
   const [customDates, setCustomDates] = useState<string[]>([]);
+  const [tempNewCollection, setTempNewCollection] = useState("");
+  const [selectOpen, setSelectOpen] = useState(false);
 
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
         setFetchingDepartments(true);
+        setFetchDepartmentsError(null);
         const response = await Api.get("/church/get-departments");
         setDepartments(response.data.departments || []);
       } catch (error) {
         console.error("Failed to fetch departments:", error);
-        toast.error("Failed to load departments. Please try again.", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        setFetchDepartmentsError("Failed to load departments. Please try again.");
       } finally {
         setFetchingDepartments(false);
       }
     };
 
-    const fetchCollections = async () => {
-      try {
-        const response = await Api.get("/collection/get-collections");
-        const fetchedCollections = response.data.collections || [];
-        setCollections([...fetchedCollections, "No Collection"]);
-      } catch (error) {
-        console.error("Failed to fetch collections:", error);
-        setCollections(["No Collection"]);
-      }
-    };
-
     if (open) {
       fetchDepartments();
-      fetchCollections();
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
     }
-  }, [open, isMobile]);
+  }, [open]);
 
   useEffect(() => {
     if (formData.recurrenceType !== "monthly") {
@@ -139,8 +153,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
   const inputProps = {
     sx: {
       fontSize: isLargeScreen ? "0.875rem" : undefined,
-      outlineColor: "#777280",
-      borderColor: "#777280",
+      color: "#F6F4FE",
       "& .MuiOutlinedInput-notchedOutline": {
         borderColor: "#777280",
       },
@@ -165,6 +178,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
       ...prev,
       [name as keyof ServiceFormData]: value,
     }));
+    setCreateProgramError(null);
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,10 +190,22 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
 
   const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
+    const selectedIds = typeof value === "string" ? value.split(",") : value;
     setFormData((prev) => ({
       ...prev,
-      departmentIds: typeof value === "string" ? value.split(",") : value,
+      departmentIds: selectedIds,
     }));
+    setCreateProgramError(null);
+  };
+
+  const handleCollectionChange = (event: SelectChangeEvent<string[]>) => {
+    const { value } = event.target;
+    const selectedIds = typeof value === "string" ? value.split(",") : value;
+    setFormData((prev) => ({
+      ...prev,
+      collectionIds: selectedIds,
+    }));
+    setCreateProgramError(null);
   };
 
   const handleWeekdayChange = (event: SelectChangeEvent<string[]>) => {
@@ -192,7 +218,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
 
   const handleAddNthWeekday = (weekday: number, nth: number) => {
     if (nth < -1 || nth > 5 || nth === 0) {
-      toast.error("nth must be between -1 and 5 (excluding 0).");
+      setCreateProgramError("nth must be between -1 and 5 (excluding 0).");
       return;
     }
     if (!nthWeekdays.some((item) => item.weekday === weekday && item.nth === nth)) {
@@ -204,11 +230,11 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
 
   const handleAddCustomDate = (newDate: string) => {
     if (!newDate || isNaN(new Date(newDate).getTime())) {
-      toast.error("Invalid date format.");
+      setCreateProgramError("Invalid date format.");
       return;
     }
     if (customDates.includes(newDate)) {
-      toast.error("Date already selected.");
+      setCreateProgramError("Date already selected.");
       return;
     }
     const newCustomDates = [...customDates, newDate];
@@ -240,9 +266,42 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
     }
   };
 
+  const handleAddCollection = async () => {
+    if (tempNewCollection.trim() === "") {
+      setFetchCollectionsError("Collection name cannot be empty.");
+      return;
+    }
+    if (collections.some((col) => col.name.toLowerCase() === tempNewCollection.trim().toLowerCase())) {
+      setFetchCollectionsError("Collection already exists.");
+      return;
+    }
+
+    try {
+      setAddingCollection(true);
+      setFetchCollectionsError(null);
+      const response = await Api.post("/church/create-collection", { name: tempNewCollection.trim() });
+      const newCollection = response.data.collection;
+      setCollections((prev) => [...prev, newCollection]);
+      setTempNewCollection("");
+      setFetchCollectionsError("Collection added successfully!");
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
+    } catch (error) {
+      console.error("Failed to create collection:", error);
+      setFetchCollectionsError("Failed to create collection. Please try again.");
+    } finally {
+      setAddingCollection(false);
+    }
+  };
+
   const handleAddService = async () => {
+    if (!formData.title.trim()) {
+      setCreateProgramError("Program title is required.");
+      return;
+    }
+
     try {
       setLoading(true);
+      setCreateProgramError(null);
       let payload: any = { ...formData };
 
       if (formData.recurrenceType === "none") {
@@ -258,7 +317,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
         };
       }
 
-      if (["weekly", "monthly", "annually"].includes(formData.recurrenceType) && !formData.endDate) {
+      if (["weekly", "monthly"].includes(formData.recurrenceType) && !formData.endDate) {
         const defaultEndDate = moment(formData.date).add(3, "months").format("YYYY-MM-DD");
         payload.endDate = defaultEndDate;
       }
@@ -275,35 +334,17 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
         payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
       }
 
-      if (formData.recurrenceType === "annually") {
-        const selectedDate = moment(formData.date);
-        const dayNum = selectedDate.date();
-        // const monthNum = selectedDate.month() + 1;
-        payload.recurrenceType = "annually";
-        payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
-      }
-
       const response = await Api.post("/church/create-event", payload);
 
-      toast.success(
-        response.data.message ||
-          `Program "${response.data.event?.title || formData.title}" created successfully!`,
-        {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        }
+      setCreateProgramError(
+        `Program "${response.data.event?.title || formData.title}" created successfully!`
       );
-
       resetForm();
       onSuccess?.();
     } catch (error: any) {
       console.error("Program creation error:", error);
-      toast.error(
-        error.response?.data?.message || "Failed to create program. Please try again.",
-        {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        }
+      setCreateProgramError(
+        error.response?.data?.message || "Failed to create program. Please try again."
       );
     } finally {
       setLoading(false);
@@ -317,13 +358,16 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
       startTime: "",
       endTime: "",
       departmentIds: [],
+      collectionIds: [],
       recurrenceType: "none",
-      collection: "",
     });
     setMonthlyOption("byDate");
     setSelectedWeekdays([]);
     setNthWeekdays([]);
     setCustomDates([]);
+    setTempNewCollection("");
+    setSelectOpen(false);
+    setCreateProgramError(null);
     onClose();
   };
 
@@ -359,7 +403,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
           { value: "none", label: "Single", icon: <CalendarTodayOutlined fontSize="small" /> },
           { value: "weekly", label: "Weekly", icon: <CachedOutlined fontSize="small" /> },
           { value: "monthly", label: "Monthly", icon: <CachedOutlined fontSize="small" /> },
-          { value: "annually", label: "Annually", icon: <CachedOutlined fontSize="small" /> },
         ].map(({ value, label, icon }) => (
           <FormControlLabel
             key={value}
@@ -391,7 +434,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
     let dateInput;
     if (formData.recurrenceType === "weekly") {
       dateInput = (
-        <FormControl fullWidth variant="outlined" disabled={loading}>
+        <FormControl fullWidth variant="outlined">
           <InputLabel id="weekday-label" sx={inputLabelProps.sx}>
             Days of the Week
           </InputLabel>
@@ -429,18 +472,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
             variant="outlined"
             disabled={loading}
             InputLabelProps={{ shrink: true, ...inputLabelProps }}
-            InputProps={inputProps}
-            inputProps={{
-              sx: {
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                color: "#F6F4FE",                    
-                outlineColor: "#777280",
-                borderColor: "#777280",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#777280",
-                },                    
-              },
-            }}
+            inputProps={inputProps}
           />
           <List sx={{ maxHeight: 150, overflow: "auto" }}>
             {customDates.map((date, index) => (
@@ -474,18 +506,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
           variant="outlined"
           disabled={loading}
           InputLabelProps={{ shrink: true, ...inputLabelProps }}
-          InputProps={inputProps}
-          inputProps={{
-            sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
-            },
-          }}
+          inputProps={inputProps}
         />
       );
     }
@@ -505,18 +526,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
               variant="outlined"
               disabled={loading}
               InputLabelProps={{ shrink: true, ...inputLabelProps }}
-              InputProps={inputProps}
-              inputProps={{
-              sx: {
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                color: "#F6F4FE",                    
-                outlineColor: "#777280",
-                borderColor: "#777280",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#777280",
-                },                    
-              },
-            }}
+              inputProps={inputProps}
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
@@ -530,21 +540,10 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
               variant="outlined"
               disabled={loading}
               InputLabelProps={{ shrink: true, ...inputLabelProps }}
-              InputProps={inputProps}
-              inputProps={{
-                sx: {
-                  fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",                    
-                  outlineColor: "#777280",
-                  borderColor: "#777280",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#777280",
-                  },                    
-                },
-              }}
+              inputProps={inputProps}
             />
           </Grid>
-          {["weekly", "monthly", "annually"].includes(formData.recurrenceType) && (
+          {["weekly", "monthly"].includes(formData.recurrenceType) && (
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
@@ -556,18 +555,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
                 variant="outlined"
                 disabled={loading}
                 InputLabelProps={{ shrink: true, ...inputLabelProps }}
-                InputProps={inputProps}
-                inputProps={{
-                  sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
-                  },
-                }}
+                inputProps={inputProps}
               />
             </Grid>
           )}
@@ -588,7 +576,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
       weekOrdinal = -1;
     }
     const byDateLabel = `${dayNum}${getOrdinalSuffix(dayNum)} of each month`;
-    const byWeekLabel = `${weekOrdinal === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][weekOrdinal - 1]} ${daysOfWeek[weekday]} of each month`;
+    const byWeekLabel = `${weekOrdinal === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][weekOrdinal - 1]
+      } ${daysOfWeek[weekday]} of each month`;
 
     return (
       <Dialog
@@ -609,12 +598,22 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
             value={monthlyOption}
             onChange={(e) => setMonthlyOption(e.target.value as "byDate" | "byWeek")}
           >
-            <FormControlLabel value="byDate" sx={{ color: "#F6F4FE" }} control={<Radio color="default" />} label={byDateLabel} />
-            <FormControlLabel value="byWeek" sx={{ color: "#F6F4FE" }} control={<Radio color="default" />} label={byWeekLabel} />
+            <FormControlLabel
+              value="byDate"
+              sx={{ color: "#F6F4FE" }}
+              control={<Radio color="default" />}
+              label={byDateLabel}
+            />
+            <FormControlLabel
+              value="byWeek"
+              sx={{ color: "#F6F4FE" }}
+              control={<Radio color="default" />}
+              label={byWeekLabel}
+            />
           </RadioGroup>
           {monthlyOption === "byWeek" && (
             <Box sx={{ mt: 2 }}>
-              <Typography sx={{ color: "#F6F4FE" }}>Add Another nth Weekday</Typography>
+              <Typography sx={{ color: "#F6F4FE" }}>Add Additional nth Weekday</Typography>
               <FormControl fullWidth sx={{ mt: 1 }}>
                 <InputLabel id="weekday-select-label" sx={inputLabelProps.sx}>
                   Weekday
@@ -641,10 +640,14 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
               <Box sx={{ mt: 1 }}>
                 {nthWeekdays.map((item, index) => (
                   <Typography key={index} sx={{ color: "#F6F4FE" }}>
-                    {item.nth === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][item.nth - 1]} {daysOfWeek[item.weekday]}
+                    {item.nth === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][item.nth - 1]}{" "}
+                    {daysOfWeek[item.weekday]}
                   </Typography>
                 ))}
               </Box>
+              {createProgramError && monthlyOption === "byWeek" && (
+                <Typography sx={{ color: "#FF6B6B", mt: 1 }}>{createProgramError}</Typography>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -670,109 +673,104 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
     );
   };
 
-  const renderCollectionInput = () => {
-    const [showAddCollection, setShowAddCollection] = useState(false);
-    const [tempNewCollection, setTempNewCollection] = useState("");
-    const [selectOpen, setSelectOpen] = useState(false);
-
-    const handleAddCollection = () => {
-      if (tempNewCollection.trim() === "") {
-        toast.error("Collection name cannot be empty.");
-        return;
-      }
-      if (collections.includes(tempNewCollection.trim())) {
-        toast.error("Collection already exists.");
-        return;
-      }
-      const updatedCollections = [
-        ...collections.filter((c) => c !== "No Collection"),
-        tempNewCollection.trim(),
-        "No Collection",
-      ];
-      setCollections(updatedCollections);
-      setFormData((prev) => ({ ...prev, collection: tempNewCollection.trim() }));
-      setTempNewCollection("");
-      setShowAddCollection(false);
-      setSelectOpen(false);
-      toast.success("Collection added successfully!");
-    };
-
-    return (
-      <Grid size={{ xs: 12 }}>
-        <FormControl fullWidth variant="outlined" disabled={loading}>
-          <InputLabel id="collection-label" sx={inputLabelProps.sx}>
-            Collection
-          </InputLabel>
-          <Select
-            labelId="collection-label"
-            name="collection"
-            value={formData.collection}
-            onChange={handleChange}
-            label="Collection"
-            open={selectOpen}
-            onOpen={() => setSelectOpen(true)}
-            onClose={() => {
-              if (showAddCollection) return;
-              setSelectOpen(false);
-              setShowAddCollection(false);
-              setTempNewCollection("");
-            }}
-            sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-            }}
-            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-          >
-            {collections.map((collection) => (
-              <MenuItem key={collection} value={collection}>
-                {collection}
+  const renderCollectionInput = () => (
+    <Grid size={{ xs: 12 }}>
+      <FormControl fullWidth variant="outlined" disabled={loading || addingCollection}>
+        <InputLabel id="collection-label" sx={inputLabelProps.sx}>
+          Collections
+        </InputLabel>
+        <Select
+          labelId="collection-label"
+          name="collectionIds"
+          multiple
+          value={formData.collectionIds}
+          onChange={handleCollectionChange}
+          label="Collections"
+          open={selectOpen}
+          onOpen={() => setSelectOpen(true)}
+          onClose={() => {
+            setSelectOpen(false);
+            setTempNewCollection("");
+          }}
+          renderValue={(selected) =>
+            selected
+              .map((id) => collections.find((col) => col._id === id)?.name || id)
+              .join(", ")
+          }
+          sx={{
+            fontSize: isLargeScreen ? "1rem" : undefined,
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          }}
+          MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+        >
+          {fetchingCollections ? (
+            <MenuItem disabled>
+              <CircularProgress size={24} />
+              <Typography sx={{ ml: 1 }}>Loading collections...</Typography>
+            </MenuItem>
+          ) : fetchCollectionsError ? (
+            <MenuItem disabled>
+              <Typography>{fetchCollectionsError}</Typography>
+            </MenuItem>
+          ) : collections.length > 0 ? (
+            collections.map((col) => (
+              <MenuItem key={col._id} value={col._id}>
+                <Checkbox checked={formData.collectionIds.includes(col._id)} />
+                <ListItemText primary={col.name} />
               </MenuItem>
-            ))}
-            <Divider />
-            <Box sx={{ p: 1, display: "flex", alignItems: "center", gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                autoFocus
-                value={tempNewCollection}
-                onChange={(e) => setTempNewCollection(e.target.value)}
-                placeholder="Enter new collection"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    handleAddCollection();
-                  }
-                }}
-                sx={{ "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" } }}
-              />
-              <IconButton
-                onClick={(e) => {
+            ))
+          ) : (
+            <MenuItem disabled>
+              <Typography>No collections available</Typography>
+            </MenuItem>
+          )}
+          <Divider />
+          <Box sx={{ p: 1, display: "flex", alignItems: "center", gap: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              autoFocus
+              value={tempNewCollection}
+              onChange={(e) => setTempNewCollection(e.target.value)}
+              placeholder="Enter new collection"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.stopPropagation();
                   handleAddCollection();
-                }}
-                disabled={!tempNewCollection.trim()}
-                size="small"
-                sx={{
-                  color: "#F6F4FE",
-                  backgroundColor: "#2C2C2C",
-                  borderRadius: 1,
-                  "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
-                }}
-              >
+                }
+              }}
+              disabled={addingCollection}
+              sx={{ "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" } }}
+            />
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddCollection();
+              }}
+              disabled={!tempNewCollection.trim() || addingCollection}
+              size="small"
+              sx={{
+                color: "#F6F4FE",
+                backgroundColor: "#2C2C2C",
+                borderRadius: 1,
+                "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
+              }}
+            >
+              {addingCollection ? (
+                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+              ) : (
                 <Add fontSize="small" />
-              </IconButton>
-            </Box>
-          </Select>
-        </FormControl>
-      </Grid>
-    );
-  };
+              )}
+            </IconButton>
+          </Box>
+        </Select>
+      </FormControl>
+    </Grid>
+  );
 
   const renderDepartmentInput = () => (
     <Grid size={{ xs: 12 }}>
-      <FormControl fullWidth variant="outlined" disabled={loading}>
+      <FormControl fullWidth variant="outlined" disabled={loading || fetchingDepartments}>
         <InputLabel id="department-label" sx={inputLabelProps.sx}>
           Expected Departments
         </InputLabel>
@@ -794,25 +792,42 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
           }}
+          MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
         >
           {fetchingDepartments ? (
             <MenuItem disabled>
-              <CircularProgress size={24} />
-              <Typography sx={{ ml: 1 }}>Loading departments...</Typography>
+              <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
+                <CircularProgress size={20} />
+                <Typography sx={{ ml: 1 }} variant="body2">
+                  Loading departments...
+                </Typography>
+              </Box>
+            </MenuItem>
+          ) : fetchDepartmentsError ? (
+            <MenuItem disabled>
+              <Typography variant="body2">{fetchDepartmentsError}</Typography>
             </MenuItem>
           ) : departments.length > 0 ? (
             departments.map((dept) => (
               <MenuItem key={dept._id} value={dept._id}>
-                <Checkbox checked={formData.departmentIds.indexOf(dept._id) > -1} />
+                <Checkbox checked={formData.departmentIds.includes(dept._id)} />
                 <ListItemText primary={dept.name} />
               </MenuItem>
             ))
           ) : (
             <MenuItem disabled>
-              <Typography>No departments available</Typography>
+              <Typography variant="body2">No departments available</Typography>
             </MenuItem>
           )}
         </Select>
+        {fetchDepartmentsError && !fetchingDepartments && (
+          <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
+            <Box component="span" sx={{ mr: 1 }}>
+              ⚠️
+            </Box>
+            {fetchDepartmentsError}
+          </Typography>
+        )}
       </FormControl>
     </Grid>
   );
@@ -838,9 +853,9 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
             Create Program
           </Typography>
           <IconButton onClick={onClose}>
-            <Close className="text-gray-300"/>
+            <Close className="text-gray-300" />
           </IconButton>
-        </Box>  
+        </Box>
       </DialogTitle>
 
       <DialogContent dividers>
@@ -856,8 +871,30 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
                 variant="outlined"
                 placeholder="Enter program title"
                 disabled={loading}
-                InputLabelProps={inputLabelProps}
-                InputProps={inputProps}
+                InputProps={{
+                  sx: {
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#777280",
+                    },
+                    fontSize: isMobile ? "0.875rem" : "1rem",
+                  },
+                }}
+                InputLabelProps={{
+                  sx: {
+                    color: "#F6F4FE",
+                    "&.Mui-focused": {
+                      color: "#F6F4FE",
+                    },
+                    fontSize: isMobile ? "0.875rem" : "1rem",
+                  },
+                }}
                 required
               />
             </Grid>
@@ -865,6 +902,11 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({
             {renderDateTimeInputs()}
             {renderDepartmentInput()}
             {renderCollectionInput()}
+            {createProgramError && (
+              <Grid size={{ xs: 12 }}>
+                <Typography sx={{ color: "#FF6B6B" }}>{createProgramError}</Typography>
+              </Grid>
+            )}
           </Grid>
         </Box>
       </DialogContent>

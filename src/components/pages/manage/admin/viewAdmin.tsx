@@ -25,11 +25,7 @@ import {
   Divider,
   useMediaQuery,
   Grid,
-  FormControl,
-  InputLabel,
   Select as MuiSelect,
-  FormControlLabel,
-  Checkbox,
   TextField,
   Drawer,
   CircularProgress,
@@ -84,6 +80,12 @@ interface Admin {
   unitIds?: string[];
   isDeleted?: boolean;
 }
+
+// interface Pagination {
+//   hasNextPage: boolean;
+//   nextCursor: string | null;
+//   nextPage: number | null;
+// }
 
 // Custom Pagination Component
 interface CustomPaginationProps {
@@ -212,6 +214,13 @@ const ViewAdmins: React.FC = () => {
     superAdminFilter: "",
     isSearching: false,
     searchError: null as string | null,
+    totalCount: 0,
+    nextCursor: null as string | null,
+    filteredNames: [] as Admin[],
+    isNameDropdownOpen: false,
+    editName: "",
+    editEmail: "",
+    editPhone: "",
   });
 
   const columnWidths = {
@@ -257,12 +266,14 @@ const ViewAdmins: React.FC = () => {
     }
   }, [state.selectedDepartment]);
 
-  // Fetch data
-  const fetchData = useCallback(async () => {
+  // Fetch data with pagination
+  const fetchData = useCallback(async (cursor: string | null = null) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
+      const params: { limit?: number; cursor?: string } = { limit: state.rowsPerPage };
+      if (cursor) params.cursor = cursor;
       const [adminsRes, branchesRes, departmentsRes] = await Promise.all([
-        Api.get("/church/view-admins"),
+        Api.get("/church/view-admins", { params }),
         Api.get("/church/get-branches"),
         Api.get("/church/get-departments"),
       ]);
@@ -271,6 +282,8 @@ const ViewAdmins: React.FC = () => {
         admins: adminsRes.data.admins || [],
         branches: branchesRes.data.branches || [],
         departments: departmentsRes.data.departments || [],
+        totalCount: adminsRes.data.pagination?.totalCount || adminsRes.data.admins.length,
+        nextCursor: adminsRes.data.pagination?.nextCursor || null,
       }));
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -279,43 +292,97 @@ const ViewAdmins: React.FC = () => {
     } finally {
       setState((prev) => ({ ...prev, loading: false }));
     }
-  }, []);
+  }, [state.rowsPerPage]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Update filtered names for dropdown
+  useEffect(() => {
+    if (state.searchTerm) {
+      const filtered = state.admins.filter((admin) =>
+        admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+        admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+        admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+      );
+      setState((prev) => ({ ...prev, filteredNames: filtered, isNameDropdownOpen: true }));
+    } else {
+      setState((prev) => ({ ...prev, filteredNames: [], isNameDropdownOpen: false }));
+    }
+  }, [state.searchTerm, state.admins]);
 
   // Handle search
   const handleSearch = async () => {
     setState((prev) => ({ ...prev, isSearching: true, searchError: null }));
     try {
       const params: { [key: string]: string } = {};
-      if (state.searchTerm) params.name = state.searchTerm;
+      if (state.searchTerm) params.search = state.searchTerm;
+      if (state.searchTerm) params.searchField = state.searchTerm;
       if (state.accessLevel) params.scopeLevel = state.accessLevel.toLowerCase();
-      if (state.assignLevel && state.accessLevel === "branch") params.branchId = state.assignLevel;
-      if (state.assignLevel && state.accessLevel === "department") params.departmentIds = state.assignLevel;
-      if (state.assignLevel && state.accessLevel === "unit") params.unitIds = state.assignLevel;
-      if (state.superAdminFilter) params.isSuperAdmin = state.superAdminFilter === "Yes" ? "true" : "false";
+      if (state.assignLevel) {
+        if (state.accessLevel === "branch") params.branchId = state.assignLevel;
+        if (state.accessLevel === "department") params.departmentId = state.assignLevel;
+        if (state.accessLevel === "unit") params.unitId = state.assignLevel;
+      }
+      // if (state.superAdminFilter) params.isSuperAdmin = state.superAdminFilter === "Yes" ? "true" : "false";
+      params.limit = state.rowsPerPage.toString();
 
       const response = await Api.get("/church/view-admins", { params });
-      setState((prev) => ({
-        ...prev,
-        admins: response.data.admins || [],
-      }));
+      if (response.data.admins.length === 0) {
+        const filtered = state.admins.filter((admin) =>
+          admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+          admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+          admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+        );
+        if (filtered.length === 0) {
+          throw new Error("No admins found matching the search criteria");
+        }
+        setState((prev) => ({
+          ...prev,
+          admins: filtered,
+          totalCount: filtered.length,
+          nextCursor: null,
+        }));
+      } else {
+        setState((prev) => ({
+          ...prev,
+          admins: response.data.admins || [],
+          totalCount: response.data.pagination?.totalCount || response.data.admins.length,
+          nextCursor: response.data.pagination?.nextCursor || null,
+        }));
+      }
       toast.success("Search completed successfully!", {
         position: isMobile ? "top-center" : "top-right",
       });
     } catch (error: any) {
       console.error("Error searching admins:", error);
-      setState((prev) => ({
-        ...prev,
-        searchError: error.response?.data.error.message || "Failed to search admins",
-      }));
-      toast.error(error.response?.data.error.message || "Failed to search admins", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      const filtered = state.admins.filter((admin) =>
+        admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+        admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+        admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+      );
+      if (filtered.length > 0) {
+        setState((prev) => ({
+          ...prev,
+          admins: filtered,
+          totalCount: filtered.length,
+          nextCursor: null,
+        }));
+        toast.info("No results from server, showing local filtered results", {
+          position: isMobile ? "top-center" : "top-right",
+        });
+      } else {
+        setState((prev) => ({
+          ...prev,
+          searchError: error.response?.data.error.message || "No admins found matching the search criteria",
+        }));
+        toast.error(error.response?.data.error.message || "No admins found matching the search criteria", {
+          position: isMobile ? "top-center" : "top-right",
+        });
+      }
     } finally {
-      setState((prev) => ({ ...prev, isSearching: false, isDrawerOpen: false }));
+      setState((prev) => ({ ...prev, isSearching: false, isDrawerOpen: false, page: 0, isNameDropdownOpen: false }));
     }
   };
 
@@ -327,10 +394,13 @@ const ViewAdmins: React.FC = () => {
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, admin: Admin) => {
     handleStateChange("anchorEl", event.currentTarget);
     handleStateChange("currentAdmin", admin);
-    handleStateChange("isSuperAdmin", admin.isSuperAdmin);
-    handleStateChange("selectedBranch", admin.branchId || "");
-    handleStateChange("selectedDepartment", admin.departmentIds?.[0] || "");
-    handleStateChange("selectedUnit", admin.unitIds?.[0] || "");
+    // handleStateChange("isSuperAdmin", admin.isSuperAdmin);
+    // handleStateChange("selectedBranch", admin.branchId || "");
+    // handleStateChange("selectedDepartment", admin.departmentIds?.[0] || "");
+    // handleStateChange("selectedUnit", admin.unitIds?.[0] || "");
+    handleStateChange("editName", admin.name);
+    handleStateChange("editEmail", admin.email);
+    handleStateChange("editPhone", admin.phone);
   };
 
   const handleMenuClose = () => handleStateChange("anchorEl", null);
@@ -345,10 +415,13 @@ const ViewAdmins: React.FC = () => {
   const handleEditClose = () => {
     handleStateChange("editModalOpen", false);
     handleStateChange("currentAdmin", null);
-    handleStateChange("selectedBranch", "");
-    handleStateChange("selectedDepartment", "");
-    handleStateChange("selectedUnit", "");
-    handleStateChange("isSuperAdmin", false);
+    // handleStateChange("selectedBranch", "");
+    // handleStateChange("selectedDepartment", "");
+    // handleStateChange("selectedUnit", "");
+    // handleStateChange("isSuperAdmin", false);
+    handleStateChange("editName", "");
+    handleStateChange("editEmail", "");
+    handleStateChange("editPhone", "");
   };
 
   const handleCloseModal = () => {
@@ -371,14 +444,29 @@ const ViewAdmins: React.FC = () => {
 
     try {
       handleStateChange("loading", true);
-      const payload: { isSuperAdmin: boolean; branchId?: string; departmentIds?: string[]; unitIds?: string[] } = {
+      const payload: {
+        name: string;
+        email: string;
+        phone: string;
+        isSuperAdmin: boolean;
+        branchId?: string;
+        departmentIds?: string[];
+        unitIds?: string[];
+      } = {
+        name: state.editName,
+        email: state.editEmail,
+        phone: state.editPhone,
         isSuperAdmin: state.isSuperAdmin,
       };
       if (state.currentAdmin.scopeLevel === "branch" && state.selectedBranch) {
         payload.branchId = state.selectedBranch.toString();
       }
-      if (state.currentAdmin.scopeLevel === "department") payload.departmentIds = state.selectedDepartment ? [state.selectedDepartment] : [];
-      if (state.currentAdmin.scopeLevel === "unit") payload.unitIds = state.selectedUnit ? [state.selectedUnit] : [];
+      if (state.currentAdmin.scopeLevel === "department" && state.selectedDepartment) {
+        payload.departmentIds = [state.selectedDepartment];
+      }
+      if (state.currentAdmin.scopeLevel === "unit" && state.selectedUnit) {
+        payload.unitIds = [state.selectedUnit];
+      }
 
       await Api.patch(`/church/edit-admin?id=${state.currentAdmin.id}`, payload);
 
@@ -388,19 +476,18 @@ const ViewAdmins: React.FC = () => {
           admin.id === state.currentAdmin?.id
             ? {
                 ...admin,
+                name: state.editName,
+                email: state.editEmail,
+                phone: state.editPhone,
                 isSuperAdmin: state.isSuperAdmin,
                 branchId: state.currentAdmin.scopeLevel === "branch" ? state.selectedBranch : admin.branchId,
                 departmentIds:
-                  state.currentAdmin.scopeLevel === "department"
-                    ? state.selectedDepartment
-                      ? [state.selectedDepartment]
-                      : []
+                  state.currentAdmin.scopeLevel === "department" && state.selectedDepartment
+                    ? [state.selectedDepartment]
                     : admin.departmentIds,
                 unitIds:
-                  state.currentAdmin.scopeLevel === "unit"
-                    ? state.selectedUnit
-                      ? [state.selectedUnit]
-                      : []
+                  state.currentAdmin.scopeLevel === "unit" && state.selectedUnit
+                    ? [state.selectedUnit]
                     : admin.unitIds,
               }
             : admin
@@ -431,6 +518,7 @@ const ViewAdmins: React.FC = () => {
         setState((prev) => ({
           ...prev,
           admins: prev.admins.filter((admin) => admin.id !== state.currentAdmin?.id),
+          totalCount: prev.totalCount - 1,
         }));
         toast.success("Admin deleted successfully!", {
           position: isMobile ? "top-center" : "top-right",
@@ -462,11 +550,17 @@ const ViewAdmins: React.FC = () => {
   };
 
   // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => handleStateChange("page", newPage);
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    if (newPage > state.page && state.nextCursor) {
+      fetchData(state.nextCursor);
+    }
+    handleStateChange("page", newPage);
+  };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     handleStateChange("rowsPerPage", parseInt(event.target.value, 10));
     handleStateChange("page", 0);
+    fetchData();
   };
 
   // Helper functions
@@ -486,74 +580,8 @@ const ViewAdmins: React.FC = () => {
       const unit = state.units.find((u) => admin.unitIds?.includes(u.id));
       return unit ? unit.name : "-";
     }
-    return "-";
+    return admin.scopeLevel || "-";
   };
-
-  // Filter admins based on search criteria
-  const filteredAdmins = state.admins.filter((admin) => {
-    const matchesSearch =
-      admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-      admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-      admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase());
-    const matchesAccess = !state.accessLevel || admin.scopeLevel === state.accessLevel.toLowerCase();
-    const matchesAssign =
-      !state.assignLevel ||
-      (state.accessLevel === "branch" && admin.branchId === state.assignLevel) ||
-      (state.accessLevel === "department" && admin.departmentIds?.includes(state.assignLevel)) ||
-      (state.accessLevel === "unit" && admin.unitIds?.includes(state.assignLevel));
-    const matchesSuperAdmin =
-      !state.superAdminFilter ||
-      (state.superAdminFilter === "Yes" && admin.isSuperAdmin) ||
-      (state.superAdminFilter === "No" && !admin.isSuperAdmin);
-
-    return matchesSearch && matchesAccess && matchesAssign && matchesSuperAdmin;
-  });
-
-  // Empty state component
-  const EmptyState = () => (
-    <Box
-      sx={{
-        textAlign: "center",
-        py: 8,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
-        gutterBottom
-        sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
-      >
-        No admins found
-      </Typography>
-      {state.error ? (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {state.error}
-        </Typography>
-      ) : null}
-      <Button
-        variant="contained"
-        onClick={() => handleStateChange("openModal", true)}
-        sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
-          mt: 2,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
-        }}
-      >
-        Create New Admin
-      </Button>
-    </Box>
-  );
 
   // Filter components
   const renderMobileFilters = () => (
@@ -576,7 +604,7 @@ const ViewAdmins: React.FC = () => {
         </IconButton>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, px: 2, pb: 2 }}>
-        <Box>
+        <Box sx={{ position: "relative" }}>
           <Typography
             variant="caption"
             sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
@@ -585,9 +613,9 @@ const ViewAdmins: React.FC = () => {
           </Typography>
           <TextField
             fullWidth
-            placeholder="Enter name to search"
             value={state.searchTerm}
             onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+            placeholder="Enter name to search"
             variant="outlined"
             size="small"
             sx={{
@@ -596,10 +624,49 @@ const ViewAdmins: React.FC = () => {
               "& .MuiOutlinedInput-root": {
                 color: "#F6F4FE",
                 "& fieldset": { borderColor: "transparent" },
-                "& input::placeholder": { color: "#777280", opacity: 1 },
               },
+              "& .MuiInputBase-input": { py: 1 },
             }}
+            onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
+            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
           />
+          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                maxHeight: "200px",
+                overflowY: "auto",
+                backgroundColor: "#2C2C2C",
+                borderRadius: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                zIndex: 1300,
+                mt: 1,
+              }}
+            >
+              {state.filteredNames.map((admin, index) => (
+                <Box
+                  key={admin.id}
+                  sx={{
+                    padding: "8px 16px",
+                    color: "#F6F4FE",
+                    cursor: "pointer",
+                    "&:hover": { backgroundColor: "#4d4d4e8e" },
+                    borderBottom:
+                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                  }}
+                  onClick={() => {
+                    handleStateChange("searchTerm", admin.name);
+                    handleStateChange("isNameDropdownOpen", false);
+                  }}
+                >
+                  {admin.name}
+                </Box>
+              ))}
+            </Box>
+          )}
         </Box>
         <Box>
           <Typography
@@ -638,7 +705,7 @@ const ViewAdmins: React.FC = () => {
             variant="caption"
             sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
           >
-            Assign level
+            Assign Area
           </Typography>
           <TextField
             select
@@ -663,19 +730,19 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="">All</MenuItem>
             {state.accessLevel === "branch" &&
               state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.name}>
+                <MenuItem key={branch.id} value={branch.id}>
                   {branch.name}
                 </MenuItem>
               ))}
             {(state.accessLevel === "department" || state.accessLevel === "unit") &&
               state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.name}>
+                <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
                 </MenuItem>
               ))}
             {state.accessLevel === "unit" &&
               state.units.map((unit) => (
-                <MenuItem key={unit.id} value={unit.name}>
+                <MenuItem key={unit.id} value={unit.id}>
                   {unit.name}
                 </MenuItem>
               ))}
@@ -740,27 +807,70 @@ const ViewAdmins: React.FC = () => {
           backgroundColor: "#4d4d4e8e",
           padding: "4px",
           width: "100%",
-          // gap: "8px",
           boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
           "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "200px", padding: "4px 16px" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "200px", padding: "4px 16px", position: "relative" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
             Who?
           </Typography>
           <TextField
-            variant="standard"
-            placeholder="Search by name or title"
             value={state.searchTerm}
             onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+            placeholder="Search by name or title"
+            variant="standard"
             sx={{
-              color: "#F6F4FE",
-              "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
-              flex: 1,
+              "& .MuiInputBase-input": {
+                color: state.searchTerm ? "#F6F4FE" : "#777280",
+                fontWeight: 500,
+                fontSize: "14px",
+                padding: "4px 8px",
+              },
+              "& .MuiInput-underline:before": { borderBottom: "none" },
+              "& .MuiInput-underline:after": { borderBottom: "none" },
+              "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
             }}
-            InputProps={{ disableUnderline: true }}
+            onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
+            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
           />
+          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                right: 0,
+                maxHeight: "200px",
+                overflowY: "auto",
+                backgroundColor: "#2C2C2C",
+                borderRadius: "8px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                zIndex: 1300,
+                mt: 1,
+              }}
+            >
+              {state.filteredNames.map((admin, index) => (
+                <Box
+                  key={admin.id}
+                  sx={{
+                    padding: "8px 16px",
+                    color: "#F6F4FE",
+                    cursor: "pointer",
+                    "&:hover": { backgroundColor: "#4d4d4e8e" },
+                    borderBottom:
+                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                  }}
+                  onClick={() => {
+                    handleStateChange("searchTerm", admin.name);
+                    handleStateChange("isNameDropdownOpen", false);
+                  }}
+                >
+                  {admin.name}
+                </Box>
+              ))}
+            </Box>
+          )}
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
@@ -796,7 +906,7 @@ const ViewAdmins: React.FC = () => {
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Assign level
+            Assign Area
           </Typography>
           <MuiSelect
             value={state.assignLevel}
@@ -816,7 +926,22 @@ const ViewAdmins: React.FC = () => {
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
             }}
-            renderValue={(selected) => selected || "Select Area"}
+            renderValue={(selected) => {
+              if (!selected) return "Select Area";
+              if (state.accessLevel === "branch") {
+                const branch = state.branches.find((b) => b.id === selected);
+                return branch ? branch.name : "Select Area";
+              }
+              if (state.accessLevel === "department" || state.accessLevel === "unit") {
+                const dept = state.departments.find((d) => d.id === selected);
+                return dept ? dept.name : "Select Area";
+              }
+              if (state.accessLevel === "unit") {
+                const unit = state.units.find((u) => u.id === selected);
+                return unit ? unit.name : "Select Area";
+              }
+              return "Select Area";
+            }}
             disabled={!state.accessLevel}
           >
             <MenuItem value="">All</MenuItem>
@@ -886,6 +1011,52 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
+  // Empty state component
+  const EmptyState = () => (
+    <Box
+      sx={{
+        textAlign: "center",
+        py: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <Typography
+        variant="h6"
+        color="rgba(255, 255, 255, 0.1)"
+        gutterBottom
+        sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
+      >
+        No admins found
+      </Typography>
+      {state.error ? (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {state.error}
+        </Typography>
+      ) : null}
+      <Button
+        variant="contained"
+        onClick={() => handleStateChange("openModal", true)}
+        sx={{
+          backgroundColor: "#363740",
+          px: { xs: 2, sm: 2 },
+          mt: 2,
+          fontSize: isLargeScreen ? "0.875rem" : undefined,
+          color: "var(--color-text-on-primary)",
+          "&:hover": {
+            backgroundColor: "#363740",
+            opacity: 0.9,
+          },
+        }}
+      >
+        Create New Admin
+      </Button>
+    </Box>
+  );
+
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
@@ -925,25 +1096,63 @@ const ViewAdmins: React.FC = () => {
                         "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                       }}
                     >
-                      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", padding: "4px 16px" }}>
+                      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", padding: "4px 16px", position: "relative" }}>
                         <TextField
-                          variant="standard"
-                          placeholder="Search by name"
                           value={state.searchTerm}
                           onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+                          placeholder="Search by name"
+                          variant="standard"
                           sx={{
-                            border: "none",
-                            color: "#F6F4FE",
                             "& .MuiInputBase-input": {
-                              color: "#F6F4FE",
+                              color: state.searchTerm ? "#F6F4FE" : "#777280",
                               fontWeight: 500,
                               fontSize: "14px",
-                              py: "4px",
+                              padding: "4px 8px",
                             },
-                            width: "100%",
+                            "& .MuiInput-underline:before": { borderBottom: "none" },
+                            "& .MuiInput-underline:after": { borderBottom: "none" },
+                            "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
                           }}
-                          InputProps={{ disableUnderline: true }}
+                          onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
+                          onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
                         />
+                        {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              maxHeight: "200px",
+                              overflowY: "auto",
+                              backgroundColor: "#2C2C2C",
+                              borderRadius: "8px",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                              zIndex: 1300,
+                              mt: 1,
+                            }}
+                          >
+                            {state.filteredNames.map((admin, index) => (
+                              <Box
+                                key={admin.id}
+                                sx={{
+                                  padding: "8px 16px",
+                                  color: "#F6F4FE",
+                                  cursor: "pointer",
+                                  "&:hover": { backgroundColor: "#4d4d4e8e" },
+                                  borderBottom:
+                                    index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                                }}
+                                onClick={() => {
+                                  handleStateChange("searchTerm", admin.name);
+                                  handleStateChange("isNameDropdownOpen", false);
+                                }}
+                              >
+                                {admin.name}
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
                       </Box>
                       <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
                       <IconButton
@@ -1024,9 +1233,9 @@ const ViewAdmins: React.FC = () => {
 
         {state.error && !state.loading && state.admins.length === 0 && <EmptyState />}
 
-        {!state.loading && !state.error && filteredAdmins.length === 0 && <EmptyState />}
+        {!state.loading && !state.error && state.admins.length === 0 && <EmptyState />}
 
-        {filteredAdmins.length > 0 && (
+        {state.admins.length > 0 && (
           <TableContainer sx={{ boxShadow: 9, overflowX: "auto", backgroundColor: "transparent" }}>
             <Table sx={{ minWidth: { xs: "auto", sm: 'auto' } }}>
               <TableHead>
@@ -1125,7 +1334,7 @@ const ViewAdmins: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAdmins
+                {state.admins
                   .slice(state.page * state.rowsPerPage, state.page * state.rowsPerPage + state.rowsPerPage)
                   .map((admin, index) => (
                     <TableRow
@@ -1152,7 +1361,7 @@ const ViewAdmins: React.FC = () => {
                           py: 2,
                         }}
                       >
-                        {(index + 1).toString().padStart(2, "0")}
+                        {(state.page * state.rowsPerPage + index + 1).toString().padStart(2, "0")}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -1265,7 +1474,7 @@ const ViewAdmins: React.FC = () => {
               </TableBody>
             </Table>
             <CustomPagination
-              count={filteredAdmins.length}
+              count={state.totalCount}
               rowsPerPage={state.rowsPerPage}
               page={state.page}
               onPageChange={handleChangePage}
@@ -1319,13 +1528,13 @@ const ViewAdmins: React.FC = () => {
         <Dialog open={state.editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
           sx={{
             "& .MuiDialog-paper": {
-              borderRadius:  2,
+              borderRadius: 2,
               bgcolor: '#2C2C2C',
               color: "#F6F4FE",
             },
           }}
         >
-          <ToastContainer/>
+          <ToastContainer />
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             <Box display="flex" justifyContent="space-between" alignItems="center">      
               <Typography
@@ -1346,13 +1555,52 @@ const ViewAdmins: React.FC = () => {
           <DialogContent>
             {state.currentAdmin && (
               <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  {state.currentAdmin.name}
-                </Typography>
-                <Typography variant="body2" color= "#F6F4FE" sx={{ mb: 2 }}>
-                  {state.currentAdmin.email}
-                </Typography>
-                {state.currentAdmin.scopeLevel === "branch" && (
+                <TextField
+                  fullWidth
+                  label="Name"
+                  value={state.editName}
+                  onChange={(e) => handleStateChange("editName", e.target.value)}
+                  variant="outlined"
+                  sx={{
+                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#777280" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Email"
+                  value={state.editEmail}
+                  onChange={(e) => handleStateChange("editEmail", e.target.value)}
+                  variant="outlined"
+                  sx={{
+                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#777280" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={state.editPhone}
+                  onChange={(e) => handleStateChange("editPhone", e.target.value)}
+                  variant="outlined"
+                  sx={{
+                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#777280" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    },
+                  }}
+                />
+                {/* {state.currentAdmin.scopeLevel === "branch" && (
                   <FormControl fullWidth>
                     <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                       Branch
@@ -1365,17 +1613,14 @@ const ViewAdmins: React.FC = () => {
                       onChange={(e) => handleStateChange("selectedBranch", e.target.value)}
                       onOpen={fetchBranches}
                       sx={{
-                        fontSize: isLargeScreen ? "1rem" : undefined,                
+                        fontSize: isLargeScreen ? "カップ" : undefined,
                         color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        "& .MuiSelect-select": {
-                            borderColor: "#777280",
-                            color: "#F6F4FE",
-                        },              
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                        "& .MuiSelect-select": { color: "#F6F4FE" },
+                      }}
+                      renderValue={(selected) => {
+                        const branch = state.branches.find((b) => b.id === selected);
+                        return branch ? `${branch.name} - ${branch.address}` : "Select Branch";
                       }}
                     >
                       {state.branches.length === 0 ? (
@@ -1405,17 +1650,14 @@ const ViewAdmins: React.FC = () => {
                       onChange={(e) => handleStateChange("selectedDepartment", e.target.value)}
                       onOpen={fetchDepartments}
                       sx={{
-                        fontSize: isLargeScreen ? "1rem" : undefined,                
+                        fontSize: isLargeScreen ? "1rem" : undefined,
                         color: "#F6F4FE",
-                        outlineColor: "#777280",
-                        borderColor: "#777280",
-                        "& .MuiOutlinedInput-notchedOutline": {
-                          borderColor: "#777280",
-                        },
-                        "& .MuiSelect-select": {
-                            borderColor: "#777280",
-                            color: "#F6F4FE",
-                        },              
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                        "& .MuiSelect-select": { color: "#F6F4FE" },
+                      }}
+                      renderValue={(selected) => {
+                        const dept = state.departments.find((d) => d.id === selected);
+                        return dept ? dept.name : "Select Department";
                       }}
                     >
                       {state.departments.length === 0 ? (
@@ -1450,17 +1692,14 @@ const ViewAdmins: React.FC = () => {
                         }}
                         onOpen={fetchDepartments}
                         sx={{
-                          fontSize: isLargeScreen ? "1rem" : undefined,                
+                          fontSize: isLargeScreen ? "1rem" : undefined,
                           color: "#F6F4FE",
-                          outlineColor: "#777280",
-                          borderColor: "#777280",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#777280",
-                          },
-                          "& .MuiSelect-select": {
-                              borderColor: "#777280",
-                              color: "#F6F4FE",
-                          },              
+                          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                          "& .MuiSelect-select": { color: "#F6F4FE" },
+                        }}
+                        renderValue={(selected) => {
+                          const dept = state.departments.find((d) => d.id === selected);
+                          return dept ? dept.name : "Select Department";
                         }}
                       >
                         {state.departments.length === 0 ? (
@@ -1488,17 +1727,10 @@ const ViewAdmins: React.FC = () => {
                         onChange={(e) => handleStateChange("selectedUnit", e.target.value)}
                         onOpen={fetchUnits}
                         sx={{
-                          fontSize: isLargeScreen ? "1rem" : undefined,                
+                          fontSize: isLargeScreen ? "1rem" : undefined,
                           color: "#F6F4FE",
-                          outlineColor: "#777280",
-                          borderColor: "#777280",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#777280",
-                          },
-                          "& .MuiSelect-select": {
-                              borderColor: "#777280",
-                              color: "#F6F4FE",
-                          },              
+                          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                          "& .MuiSelect-select": { color: "#F6F4FE" },
                         }}
                         disabled={!state.selectedDepartment}
                       >
@@ -1516,7 +1748,7 @@ const ViewAdmins: React.FC = () => {
                       </MuiSelect>
                     </FormControl>
                   </>
-                )}
+                )} 
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1531,16 +1763,16 @@ const ViewAdmins: React.FC = () => {
                       fontSize: isLargeScreen ? "0.875rem" : undefined,
                     },
                   }}
-                />
+                /> */}
               </Box>
             )}
           </DialogContent>
-          <DialogActions>     
+          <DialogActions>
             <Button
               onClick={handleEditSubmit}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",          
+                backgroundColor: "#F6F4FE",
                 px: { xs: 7, sm: 2 },
                 borderRadius: 50,
                 color: "#2C2C2C",
@@ -1555,7 +1787,7 @@ const ViewAdmins: React.FC = () => {
               variant="contained"
               disabled={state.loading}
             >
-              {state.loading ? <span className="text-gray-600">Saving...</span>  : "Save Changes"}
+              {state.loading ? <span className="text-gray-600">Saving...</span> : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>

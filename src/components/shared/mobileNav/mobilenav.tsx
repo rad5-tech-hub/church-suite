@@ -29,7 +29,7 @@ const buttons = [
   'Members',
   'Newcomers',
   'Finance',
-  'Program',
+  'Programs',
   'Settings',
 ];
 
@@ -39,7 +39,7 @@ const buttonIcons: { [key: string]: React.ReactNode } = {
   Members: <IoPeopleOutline className="text-2xl" />,
   Newcomers: <IoPersonAddOutline className="text-2xl" />,
   Finance: <IoWalletOutline className="text-2xl" />,
-  Program: <IoCalendarOutline className="text-2xl" />,
+  Programs: <IoCalendarOutline className="text-2xl" />,
   Settings: <IoSettingsOutline className="text-2xl" />,
 };
 
@@ -141,7 +141,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
             onClick={() => {
 
               navigate(item.to);
-            }}
+            }}        
             sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -175,13 +175,19 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
       {clickedSubmenu && (
         <Box
           sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: '70px',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1199,
+          position: 'fixed',
+          bottom: '70px',
+          left: '0',
+          right: '0',
+          backgroundColor: '#2C2C2C',
+          borderRadius: '8px',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+          padding: '8px',
+          zIndex: 1200,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '8px',
+          margin: '0 16px'
           }}
           onClick={() => setClickedSubmenu(null)}
         />
@@ -194,7 +200,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
       {/* Main navigation */}
       <Box
         sx={{
-          display: { xs: 'flex', md: 'none' },
+          display: { xs: 'flex', md: 'none', },
           position: 'fixed',
           bottom: 0,
           left: 0,
@@ -211,6 +217,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
             display: 'none',
           },
           scrollbarWidth: 'none',
+          justifyContent: { xs: 'flex-start !important', sm: 'center !important' },
         }}
         ref={scrollRef}
       >
@@ -242,7 +249,8 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
         {buttons.map((label) => (
           <Box
             key={label}
-            sx={{ position: 'relative', display: 'inline-flex' }}
+            sx={{ position: 'relative', display: 'inline-flex'             
+            }}
           >
             <Button
               onClick={() => {
@@ -259,18 +267,18 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
                 alignItems: 'center',
                 justifyContent: 'center',
                 minWidth: '80px',
-                width: '80px',
-                padding: '8px',
+                width: '83px',
+                padding: '7px',
                 margin: '0 4px',
-                borderRadius: '16px',
+                borderRadius: 50,
                 color: activeButton === label ? '#F6F4FE' : '#777280',
                 textTransform: 'none',
                 fontSize: '0.75rem',
                 fontWeight: '600',
                 transition: 'all 0.3s ease',
                 '&:hover': {
-                  backgroundColor: '#F6F4FE',
-                  color: '#160F38',
+                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                  color: '#F6F4FE',
                 },
               }}
               aria-label={label}
