@@ -304,7 +304,7 @@ const ViewServices: React.FC = () => {
     <DashboardManager>
       <ToastContainer/>
       <Box sx={{ p: 4, minHeight: "100vh" }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 7fr" }, gap: 4 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 7fr" }, gap: 2 }}>
           {/* Sidebar */}
           <Box sx={{ borderRadius: 2, boxShadow: 1 }}>
             <Button

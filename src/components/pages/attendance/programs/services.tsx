@@ -717,7 +717,18 @@ const handleAddService = async () => {
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
           }}
-          MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+          MenuProps={{ 
+            PaperProps: { sx: { maxHeight: 300 } },
+            disableAutoFocus: true,
+            disableEnforceFocus: true,
+            // Additional props to prevent keyboard navigation interference
+            onKeyDown: (e) => {
+              // Prevent Select from capturing keyboard events in the text field
+              if ((e.target as HTMLElement).tagName === 'INPUT') {
+                e.stopPropagation();
+              }
+            }
+          }}
         >
           {fetchingCollections ? (
             <MenuItem disabled>
@@ -731,7 +742,9 @@ const handleAddService = async () => {
           ) : collections.length > 0 ? (
             collections.map((col) => (
               <MenuItem key={col.id} value={col.id}>
-                <Checkbox checked={formData.collectionIds.includes(col.id)} />
+                <Checkbox checked={formData.collectionIds.includes(col.id)} 
+                  sx={{ color: "var(--color-primary)", "&.Mui-checked": { color: "var(--color-primary)" } }}
+                />
                 <ListItemText primary={col.name} />
               </MenuItem>
             ))
@@ -740,44 +753,68 @@ const handleAddService = async () => {
               <Typography>No collections available</Typography>
             </MenuItem>
           )}
+          
           <Divider />
-          <Box sx={{ p: 1, display: "flex", alignItems: "center", gap: 1 }}>
-            <TextField
-              fullWidth
-              size="small"
-              autoFocus
-              value={tempNewCollection}
-              onChange={(e) => setTempNewCollection(e.target.value)}
-              placeholder="Enter new collection"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
+          
+          {/* Add New Collection Section - Modified to prevent interference */}
+          <Box sx={{ p: 1 }} onClick={(e) => e.stopPropagation()}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Add New Collection
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                value={tempNewCollection}
+                onChange={(e) => setTempNewCollection(e.target.value)}
+                placeholder="Enter new collection name"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    handleAddCollection();
+                  }
+                  // Stop propagation for all key events
+                  e.stopPropagation();
+                }}
+                onKeyUp={(e) => e.stopPropagation()}
+                onKeyPress={(e) => e.stopPropagation()}
+                disabled={addingCollection}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck="false"
+                sx={{ 
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },                 
+                }}
+                inputProps={{
+                  // Additional attributes to prevent browser auto-complete
+                  autocomplete: "new-password",
+                  form: {
+                    autocomplete: "off",
+                  },
+                }}
+              />
+              <IconButton
+                onClick={(e) => {
                   e.stopPropagation();
                   handleAddCollection();
-                }
-              }}
-              disabled={addingCollection}
-              sx={{ "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" } }}
-            />
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddCollection();
-              }}
-              disabled={!tempNewCollection.trim() || addingCollection}
-              size="small"
-              sx={{
-                color: "#F6F4FE",
-                backgroundColor: "#2C2C2C",
-                borderRadius: 1,
-                "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
-              }}
-            >
-              {addingCollection ? (
-                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-              ) : (
-                <Add fontSize="small" />
-              )}
-            </IconButton>
+                }}
+                disabled={!tempNewCollection.trim() || addingCollection}
+                size="small"
+                sx={{
+                  color: "#F6F4FE",
+                  backgroundColor: "#2C2C2C",
+                  borderRadius: 1,
+                  "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
+                  "&:disabled": { opacity: 0.5 },
+                }}
+              >
+                {addingCollection ? (
+                  <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+                ) : (
+                  <Add fontSize="small" />
+                )}
+              </IconButton>
+            </Box>
           </Box>
         </Select>
       </FormControl>
