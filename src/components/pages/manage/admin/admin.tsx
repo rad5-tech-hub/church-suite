@@ -252,9 +252,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     if (!/(?=.*[a-z])/.test(password)) {
       return { isValid: false, message: "Password must contain at least one lowercase letter" };
     }
-    if (!/(?=.*\d)/.test(password)) {
-      return { isValid: false, message: "Password must contain at least one number" };
-    }
     return { isValid: true, message: "" };
   };
 

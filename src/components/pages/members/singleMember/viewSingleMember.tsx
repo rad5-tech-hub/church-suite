@@ -9,6 +9,7 @@ import {
   Container,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from "@mui/material";
 import { 
   Phone as PhoneIcon, 
@@ -151,7 +152,6 @@ const ViewSingleMember: React.FC = () => {
 
   // Parse address into components
   const addressParts = member.address?.split('\n') || [];
-  const streetAddress = addressParts[0] || '';
   const cityState = addressParts[1]?.split(',') || [];
   const city = cityState[0] || '';
   const stateFromAddress = cityState[1] || '';
@@ -348,7 +348,9 @@ const ViewSingleMember: React.FC = () => {
                     Street Address
                   </Typography>
                   <Typography variant="body1">
-                    {streetAddress || "N/A"}
+                      <Tooltip title={member.address && member.address.length > 30 ? member.address : ""} placement="top" arrow>
+                        <span>{member.address && member.address.length > 30 ? `${member.address.slice(0, 30)}...` : member.address || "N/A"}</span>
+                      </Tooltip>
                   </Typography>
                 </Box>
                 

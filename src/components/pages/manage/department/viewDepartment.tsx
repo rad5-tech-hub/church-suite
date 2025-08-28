@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
-import DashboardManager from "../../../shared/dashboardManager";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { toast, ToastContainer } from "react-toastify";
 import {
   Box,
   Button,
@@ -37,12 +39,10 @@ import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
+import DashboardManager from "../../../shared/dashboardManager";
+import DepartmentModal from "./department";
 import Api from "../../../shared/api/api";
-import { toast, ToastContainer } from "react-toastify";
-import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
-import DepartmentModal from "./department"; // Corrected import path
-import { useNavigate } from "react-router-dom";
 
 interface Department {
   id: string;
@@ -53,361 +53,531 @@ interface Department {
   isDeleted?: boolean;
 }
 
+interface Pagination {
+  hasNextPage: boolean;
+  nextCursor: string | null;
+  nextPage: string | null;
+}
+
+interface FetchDepartmentsResponse {
+  message?: string;
+  pagination: Pagination;
+  departments: Department[];
+}
+
 interface AuthData {
   isHeadquarter?: boolean;
   isSuperAdmin?: boolean;
 }
 
 interface CustomPaginationProps {
-  count: number;
-  rowsPerPage: number;
-  page: number;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: "next" | "prev") => void;
+  currentPage: number;
   isLargeScreen: boolean;
+  isLoading: boolean;
 }
 
-const CustomPagination: React.FC<CustomPaginationProps> = ({
-  count,
-  rowsPerPage,
-  page,
-  onPageChange,
-  isLargeScreen,
-}) => {
-  const totalPages = Math.ceil(count / rowsPerPage);
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
+interface State {
+  departments: Department[];
+  filteredDepartments: Department[];
+  pagination: Pagination;
+  currentPage: number;
+  pageHistory: string[];
+  loading: boolean;
+  error: string | null;
+  isSearching: boolean;
+  editModalOpen: boolean;
+  confirmModalOpen: boolean;
+  isModalOpen: boolean;
+  currentDepartment: Department | null;
+  actionType: "delete" | "suspend" | null;
+  anchorEl: HTMLElement | null;
+  editFormData: Omit<Department, "id">;
+  searchTerm: string;
+  nameError: string | null;
+  typeFilter: "" | "Department" | "Outreach";
+}
 
+// Type guard for FetchDepartmentsResponse
+const isFetchDepartmentsResponse = (data: unknown): data is FetchDepartmentsResponse => {
+  // First check if data is an object and not null
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  // Now TypeScript knows data is an object
+  const obj = data as Record<string, unknown>;
+
+  // Check message (optional property)
+  if ("message" in obj && typeof obj.message !== "string") {
+    return false;
+  }
+
+  // Check departments
+  if (!("departments" in obj) || !Array.isArray(obj.departments)) {
+    return false;
+  }
+
+  // Check pagination
+  if (!("pagination" in obj) || typeof obj.pagination !== "object" || obj.pagination === null) {
+    return false;
+  }
+
+  // Now check pagination properties
+  const pagination = obj.pagination as Record<string, unknown>;
+  
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        py: 2,
-        px: { xs: 2, sm: 3 },
-        color: "#777280",
-        gap: 2,
-        flexWrap: "wrap",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          sx={{
-            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
-          }}
-        >
-          {`${page * rowsPerPage + 1}–${Math.min(
-            (page + 1) * rowsPerPage,
-            count
-          )} of ${count}`}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          onClick={() => onPageChange(null, page - 1)}
-          disabled={isFirstPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isFirstPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          onClick={() => onPageChange(null, page + 1)}
-          disabled={isLastPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isLastPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronRight />
-        </Button>
-      </Box>
-    </Box>
+    "hasNextPage" in pagination &&
+    typeof pagination.hasNextPage === "boolean" &&
+    "nextCursor" in pagination &&
+    (typeof pagination.nextCursor === "string" || pagination.nextCursor === null) &&
+    "nextPage" in pagination &&
+    (typeof pagination.nextPage === "string" || pagination.nextPage === null)
   );
 };
+// Custom Pagination Component
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  hasNextPage,
+  hasPrevPage,
+  onPageChange,
+  currentPage,
+  isLargeScreen,
+  isLoading,
+}) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      py: 2,
+      px: { xs: 2, sm: 3 },
+      color: "#777280",
+      gap: 2,
+      flexWrap: "wrap",
+    }}
+  >
+    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "#777280" }}>
+      Page {currentPage}
+    </Typography>
+    <Box sx={{ display: "flex", gap: 1 }}>
+      <Button
+        onClick={() => onPageChange("prev")}
+        disabled={!hasPrevPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Previous page"
+      >
+        <ChevronLeft />
+      </Button>
+      <Button
+        onClick={() => onPageChange("next")}
+        disabled={!hasNextPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Next page"
+      >
+        <ChevronRight />
+      </Button>
+    </Box>
+  </Box>
+);
+
+// Empty State Component
+const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLargeScreen: boolean }> = ({
+  error,
+  openModal,
+  isLargeScreen,
+}) => (
+  <Box
+    sx={{
+      textAlign: "center",
+      py: 8,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <Typography
+      variant="h6"
+      color="rgba(255, 255, 255, 0.1)"
+      gutterBottom
+      sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
+    >
+      No departments found
+    </Typography>
+    {error && (
+      <Typography color="error" sx={{ mb: 2 }}>
+        {error}
+      </Typography>
+    )}
+    <Button
+      variant="contained"
+      onClick={openModal}
+      sx={{
+        backgroundColor: "#363740",
+        px: { xs: 2, sm: 2 },
+        py: 1,
+        mt: 2,
+        fontWeight: 500,
+        textTransform: "none",
+        color: "var(--color-text-on-primary)",
+        fontSize: isLargeScreen ? "1rem" : undefined,
+        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+      }}
+      aria-label="Create new department"
+    >
+      Create New Department
+    </Button>
+  </Box>
+);
 
 const ViewDepartment: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData as AuthData | undefined);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null);
-  const [actionType, setActionType] = useState<"delete" | "suspend" | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [editFormData, setEditFormData] = useState<Omit<Department, "id">>({
-    name: "",
-    description: "",
-    type: "Department",
-    isActive: true,
-  });
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const navigate = useNavigate();
 
-  // Fetch departments with error handling
-  const fetchDepartments = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await Api.get("/church/get-departments");
-      setDepartments(response.data.departments || []);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again later.";
-      console.error("Failed to fetch departments:", error);
-      setError(errorMessage);
-      toast.error(errorMessage, { position: "top-right" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [state, setState] = useState<State>({
+    departments: [],
+    filteredDepartments: [],
+    pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
+    currentPage: 1,
+    pageHistory: [],
+    loading: false,
+    error: null,
+    isSearching: false,
+    editModalOpen: false,
+    confirmModalOpen: false,
+    isModalOpen: false,
+    currentDepartment: null,
+    actionType: null,
+    anchorEl: null,
+    editFormData: { name: "", description: "", type: "Department", isActive: true },
+    searchTerm: "",
+    nameError: null,
+    typeFilter: "",
+  });
 
-  useEffect(() => {
-    fetchDepartments();
+  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
+    setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Handle search to apply filters and reset pagination
-  const handleSearch = () => {
-    setIsSearching(true);
-    setTimeout(() => {
-      setIsSearching(false);
-    }, 500); // Simulate a brief loading state
-    setPage(0);
-    toast.success("Filters applied successfully!", { position: "top-right" });
-  };
+  // Fetch departments with server-side pagination
+  const fetchDepartments = useCallback(
+    async (url: string | null = "/church/get-departments"): Promise<FetchDepartmentsResponse> => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        // Handle null URL before making the API call
+        const apiUrl = url || "/church/get-departments";
+        const response = await Api.get<FetchDepartmentsResponse>(apiUrl);
+        const data: unknown = response.data;
+        if (!isFetchDepartmentsResponse(data)) {
+          throw new Error("Invalid response structure");
+        }
+        handleStateChange("loading", false);
+        return data;
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again later.";
+        console.error("Failed to fetch departments:", error);
+        handleStateChange("error", errorMessage);
+        handleStateChange("loading", false);
+        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+        throw error;
+      }
+    },
+    [handleStateChange, isMobile]
+  );
 
-  // Filter departments based on search and type
-  const filteredDepartments = useMemo(() => {
-    return departments.filter((dept) => {
-      const matchesSearch = dept.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType =
-        typeFilter === "" ||
-        (typeFilter === "Department" && dept.type === "Department") ||
-        (typeFilter === "Outreach" && dept.type === "Outreach");
-      return matchesSearch && matchesType;
-    });
-  }, [departments, searchTerm, typeFilter]);
+  // Search departments with filters
+  const searchDepartments = useCallback(
+    async (url: string | null = "/church/search-departments", searchTerm: string, typeFilter: string) => {
+      handleStateChange("isSearching", true);
+      try {
+        const params = new URLSearchParams();
+        if (searchTerm) params.append("name", searchTerm);
+        if (typeFilter) params.append("type", typeFilter);
+        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const response = await Api.get<FetchDepartmentsResponse>(fullUrl);
+        const data: unknown = response.data;
+        if (!isFetchDepartmentsResponse(data)) {
+          throw new Error("Invalid response structure");
+        }
+        handleStateChange("isSearching", false);
+        toast.success("Search completed successfully!", { position: isMobile ? "top-center" : "top-right" });
+        return data;
+      } catch (error: any) {
+        console.error("Error searching departments:", error);
+        toast.warn("Server search failed, applying local filter", { position: isMobile ? "top-center" : "top-right" });
+        throw error;
+      }
+    },
+    [handleStateChange, isMobile]
+  );
 
-  // Calculate counts
-  // const activeCount = filteredDepartments.filter((dept) => dept.isActive).length;
-  // const inactiveCount = filteredDepartments.filter((dept) => !dept.isActive).length;
-  // const departmentCount = filteredDepartments.filter((dept) => dept.type === "Department").length;
-  // const outreachCount = filteredDepartments.filter((dept) => dept.type === "Outreach").length;
+  // Refresh departments
+  const refreshDepartments = useCallback(async () => {
+    try {
+      const data = await fetchDepartments();
+      setState((prev) => ({
+        ...prev,
+        departments: data.departments,
+        filteredDepartments: data.departments,
+        pagination: data.pagination,
+        currentPage: 1,
+        pageHistory: [],
+        loading: false,
+      }));
+    } catch (error) {
+      handleStateChange("loading", false);
+    }
+  }, [fetchDepartments, handleStateChange]);
+
+  // Initial data load
+  useEffect(() => {
+    let isMounted = true;
+    const loadInitialData = async () => {
+      try {
+        const data = await fetchDepartments();
+        if (isMounted) {
+          setState((prev) => ({
+            ...prev,
+            departments: data.departments,
+            filteredDepartments: data.departments,
+            pagination: data.pagination,
+            currentPage: 1,
+            pageHistory: [],
+            loading: false,
+          }));
+        }
+      } catch (error) {
+        if (isMounted) handleStateChange("loading", false);
+      }
+    };
+    loadInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchDepartments, handleStateChange]);
+
+  // Handle pagination navigation
+  const handlePageChange = useCallback(
+    async (direction: "next" | "prev") => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        const url =
+          direction === "next"
+            ? state.pagination.nextPage
+            : state.pageHistory.length > 0
+            ? state.pageHistory[state.pageHistory.length - 2] || "/church/get-departments"
+            : null;
+        if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
+        const data = state.searchTerm || state.typeFilter ? await searchDepartments(url, state.searchTerm, state.typeFilter) : await fetchDepartments(url);
+        setState((prev) => ({
+          ...prev,
+          filteredDepartments: data.departments,
+          pagination: data.pagination,
+          pageHistory: direction === "next" ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
+          currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
+          loading: false,
+        }));
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || "Failed to load page";
+        console.error(`Error fetching ${direction} page:`, error);
+        handleStateChange("error", errorMessage);
+        handleStateChange("loading", false);
+        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+      }
+    },
+    [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.typeFilter, fetchDepartments, searchDepartments, handleStateChange, isMobile]
+  );
+
+  // Handle search
+  const handleSearch = useCallback(() => {
+    handleStateChange("isSearching", true);
+    handleStateChange("currentPage", 1);
+    handleStateChange("pageHistory", []);
+    if (state.searchTerm || state.typeFilter) {
+      searchDepartments("/church/search-departments", state.searchTerm, state.typeFilter)
+        .then((data) => {
+          setState((prev) => ({
+            ...prev,
+            filteredDepartments: data.departments,
+            pagination: data.pagination,
+            isSearching: false,
+          }));
+        })
+        .catch(() => {
+          const filtered = state.departments
+            .filter((dept) => (state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true))
+            .filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
+          setState((prev) => ({
+            ...prev,
+            filteredDepartments: filtered,
+            pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
+            currentPage: 1,
+            pageHistory: [],
+            isSearching: false,
+          }));
+        });
+    } else {
+      refreshDepartments();
+    }
+  }, [refreshDepartments, searchDepartments, state.departments, state.searchTerm, state.typeFilter]);
 
   // Action handlers
-  // const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, department: Department) => {
-  //   setAnchorEl(event.currentTarget);
-  //   setCurrentDepartment(department);
-  // };
+  const handleMenuClose = useCallback(() => handleStateChange("anchorEl", null), [handleStateChange]);
 
-  const handleMenuClose = () => setAnchorEl(null);
-
-  const handleEditOpen = () => {
-    if (currentDepartment) {
-      setEditFormData({
-        name: currentDepartment.name,
-        description: currentDepartment.description || "",
-        type: currentDepartment.type,
-        isActive: currentDepartment.isActive,
+  const handleEditOpen = useCallback(() => {
+    if (state.currentDepartment) {
+      handleStateChange("editFormData", {
+        name: state.currentDepartment.name,
+        description: state.currentDepartment.description || "",
+        type: state.currentDepartment.type,
+        isActive: state.currentDepartment.isActive,
       });
-      setNameError(null);
-      setEditModalOpen(true);
+      handleStateChange("editModalOpen", true);
+      handleStateChange("nameError", null);
     }
     handleMenuClose();
-  };
+  }, [state.currentDepartment, handleStateChange]);
 
-  const showConfirmation = (action: "delete" | "suspend") => {
-    setActionType(action);
-    setConfirmModalOpen(true);
-    handleMenuClose();
-  };
+  const showConfirmation = useCallback(
+    (action: "delete" | "suspend") => {
+      handleStateChange("actionType", action);
+      handleStateChange("confirmModalOpen", true);
+      handleMenuClose();
+    },
+    [handleStateChange]
+  );
 
-  const handleEditClose = () => {
-    setEditModalOpen(false);
-    setCurrentDepartment(null);
-    setNameError(null);
-  };
+  const handleEditChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      handleStateChange("editFormData", { ...state.editFormData, [name]: value });
+      if (name === "name") {
+        handleStateChange("nameError", value.trim() ? null : "Department name is required");
+      }
+    },
+    [state.editFormData, handleStateChange]
+  );
 
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditFormData((prev) => ({ ...prev, [name]: value }));
-    if (name === "name") {
-      setNameError(value.trim() ? null : "Department name is required");
-    }
-  };
+  const handleTypeChange = useCallback(
+    (e: SelectChangeEvent<"Department" | "Outreach">) => {
+      handleStateChange("editFormData", { ...state.editFormData, type: e.target.value as "Department" | "Outreach" });
+    },
+    [state.editFormData, handleStateChange]
+  );
 
-  const handleTypeChange = (e: SelectChangeEvent<"Department" | "Outreach">) => {
-    setEditFormData((prev) => ({ ...prev, type: e.target.value as "Department" | "Outreach" }));
-  };
-
-  const handleEditSubmit = async () => {
-    if (!currentDepartment?.id) {
-      toast.error("Invalid department data", { position: "top-right" });
+  const handleEditSubmit = useCallback(async () => {
+    if (!state.currentDepartment?.id) {
+      toast.error("Invalid department data", { position: isMobile ? "top-center" : "top-right" });
       return;
     }
-    if (!editFormData.name.trim()) {
-      setNameError("Department name is required");
+    if (!state.editFormData.name.trim()) {
+      handleStateChange("nameError", "Department name is required");
       return;
     }
-
     try {
-      setLoading(true);
-      await Api.patch(`/church/edit-dept/${currentDepartment.id}`, {
-        ...editFormData,
-        description: editFormData.description || null,
+      handleStateChange("loading", true);
+      await Api.patch(`/church/edit-dept/${state.currentDepartment.id}`, {
+        ...state.editFormData,
+        description: state.editFormData.description || null,
       });
-      setDepartments(
-        departments.map((dept) =>
-          dept.id === currentDepartment.id ? { ...dept, ...editFormData } : dept
-        )
-      );
-      toast.success("Department updated successfully!", { position: "top-right" });
-      handleEditClose();
+      setState((prev) => ({
+        ...prev,
+        departments: prev.departments.map((dept) =>
+          dept.id === prev.currentDepartment!.id ? { ...dept, ...prev.editFormData } : dept
+        ),
+        filteredDepartments: prev.filteredDepartments.map((dept) =>
+          dept.id === prev.currentDepartment!.id ? { ...dept, ...prev.editFormData } : dept
+        ),
+      }));
+      toast.success("Department updated successfully!", { position: isMobile ? "top-center" : "top-right" });
+      handleStateChange("editModalOpen", false);
+      handleStateChange("currentDepartment", null);
+      handleStateChange("nameError", null);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Failed to update department";
       console.error("Update error:", error);
-      toast.error(errorMessage, { position: "top-right" });
+      toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
     } finally {
-      setLoading(false);
+      handleStateChange("loading", false);
     }
-  };
+  }, [state.currentDepartment, state.editFormData, handleStateChange, isMobile]);
 
-  const handleConfirmedAction = async () => {
-    if (!currentDepartment || !actionType) return;
-
+  const handleConfirmedAction = useCallback(async () => {
+    if (!state.currentDepartment || !state.actionType) return;
     try {
-      setLoading(true);
-      if (actionType === "delete") {
-        await Api.delete(`/church/delete-dept/${currentDepartment.id}`);
-        setDepartments(departments.filter((dept) => dept.id !== currentDepartment.id));
-        toast.success("Department deleted successfully!", { position: "top-right" });
-      } else if (actionType === "suspend") {
-        const newStatus = !currentDepartment.isActive;
-        await Api.patch(`/church/suspend-dept/${currentDepartment.id}`, {
-          isActive: newStatus,
-        });
-        setDepartments(
-          departments.map((dept) =>
-            dept.id === currentDepartment.id ? { ...dept, isActive: newStatus } : dept
-          )
-        );
+      handleStateChange("loading", true);
+      if (state.actionType === "delete") {
+        await Api.delete(`/church/delete-dept/${state.currentDepartment.id}`);
+        setState((prev) => ({
+          ...prev,
+          departments: prev.departments.filter((dept) => dept.id !== prev.currentDepartment!.id),
+          filteredDepartments: prev.filteredDepartments.filter((dept) => dept.id !== prev.currentDepartment!.id),
+          pagination: { ...prev.pagination, hasNextPage: prev.filteredDepartments.length > 1 },
+          pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
+          currentPage: prev.currentPage > 1 && prev.filteredDepartments.length === 1 ? prev.currentPage - 1 : prev.currentPage,
+        }));
+        toast.success("Department deleted successfully!", { position: isMobile ? "top-center" : "top-right" });
+      } else if (state.actionType === "suspend") {
+        const newStatus = !state.currentDepartment.isActive;
+        await Api.patch(`/church/suspend-dept/${state.currentDepartment.id}`, { isActive: newStatus });
+        setState((prev) => ({
+          ...prev,
+          departments: prev.departments.map((dept) =>
+            dept.id === prev.currentDepartment!.id ? { ...dept, isActive: newStatus } : dept
+          ),
+          filteredDepartments: prev.filteredDepartments.map((dept) =>
+            dept.id === prev.currentDepartment!.id ? { ...dept, isActive: newStatus } : dept
+          ),
+        }));
         toast.success(`Department ${newStatus ? "activated" : "suspended"} successfully!`, {
-          position: "top-right",
+          position: isMobile ? "top-center" : "top-right",
         });
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || `Failed to ${actionType} department`;
+      const errorMessage = error.response?.data?.message || `Failed to ${state.actionType} department`;
       console.error("Action error:", error);
-      toast.error(errorMessage, { position: "top-right" });
+      toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
     } finally {
-      setLoading(false);
-      setConfirmModalOpen(false);
-      setActionType(null);
-      setCurrentDepartment(null);
+      handleStateChange("loading", false);
+      handleStateChange("confirmModalOpen", false);
+      handleStateChange("actionType", null);
+      handleStateChange("currentDepartment", null);
     }
-  };
+  }, [state.currentDepartment, state.actionType, handleStateChange, isMobile]);
 
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Helper functions
-  // const truncateDescription = (description: string | null, maxLength = 25) => {
-  //   if (!description) return "-";
-  //   return description.length <= maxLength
-  //     ? description
-  //     : `${description.substring(0, maxLength)}...`;
-  // };
-
-  // Empty state component
-  const EmptyState = () => (
-    <Box
-      sx={{
-        textAlign: "center",
-        py: 8,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
-        gutterBottom
-        sx={{
-          fontSize: isLargeScreen ? "1.25rem" : undefined,
-        }}
-      >
-        No departments found
-      </Typography>
-      {error && (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {error}
-        </Typography>
-      )}
-      <Button
-        variant="contained"
-        onClick={() => setIsModalOpen(true)}
-        sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
-          py: 1,
-          mt: 2,
-          fontWeight: 500,
-          textTransform: "none",
-          color: "var(--color-text-on-primary)",
-          fontSize: isLargeScreen ? "1rem" : undefined,
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
-        }}
-      >
-        Create New Department
-      </Button>
-    </Box>
-  );
+  // Local filtering for fallback
+  const filteredDepartments = useMemo(() => {
+    if (state.searchTerm || state.typeFilter) {
+      return state.filteredDepartments.filter((dept) =>
+        state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true
+      ).filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
+    }
+    return state.filteredDepartments;
+  }, [state.filteredDepartments, state.searchTerm, state.typeFilter]);
 
   return (
     <DashboardManager>
@@ -427,112 +597,100 @@ const ViewDepartment: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 marginBottom: 2,
-                gap: 1,                
+                gap: 1,
               }}
             >
               <span className="text-[#777280]">Manage</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
               <span className="text-[#F6F4FE]">Department</span>
             </Typography>
-            <Box>
-              <Box
-                sx={{
-                  border: "1px solid #4d4d4e8e",
-                  borderRadius: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  backgroundColor: "#4d4d4e8e",
-                  padding: "4px",
-                  width: "100%",
-                  gap: "8px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                  "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
-                }}
-              >
-                <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-                  >
-                    Name
-                  </Typography>
-                  <TextField
-                    variant="standard"
-                    placeholder="Search by name"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{
-                      "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
-                      flex: 1,
-                    }}
-                    InputProps={{ disableUnderline: true }}
-                  />
-                </Box>
-                <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-                <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-                  >
-                    Type
-                  </Typography>
-                  <Select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    displayEmpty
-                    sx={{
-                      color: typeFilter ? "#F6F4FE" : "#777280",
-                      fontWeight: 500,
-                      fontSize: "14px",
-                      ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-                      ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                      "& .MuiSelect-icon": { display: "none" },
-                    }}
-                    renderValue={(selected) => selected || "Select Type"}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="Department">Department</MenuItem>
-                    <MenuItem value="Outreach">Outreach</MenuItem>
-                  </Select>
-                </Box>
-                <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
-                  <Button
-                    onClick={handleSearch}
-                    aria-label="Search departments"
-                    sx={{
-                      backgroundColor: "transparent",
-                      border: "1px solid #777280",
-                      color: "white",
-                      borderRadius: "50%",
-                      minWidth: "48px",
-                      height: "48px",
-                      padding: 0,
-                      "&:hover": { backgroundColor: "#777280" },
-                    }}
-                    disabled={loading || isSearching}
-                  >
-                    {isSearching ? (
-                      <CircularProgress size={20} color="inherit" />
-                    ) : (
-                      <SearchIcon sx={{ fontSize: "20px" }} />
-                    )}
-                  </Button>              
-                </Box>
+            <Box
+              sx={{
+                border: "1px solid #4d4d4e8e",
+                borderRadius: "32px",
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "#4d4d4e8e",
+                padding: "4px",
+                width: "100%",
+                gap: "8px",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
+              }}
+            >
+              <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                >
+                  Name
+                </Typography>
+                <TextField
+                  variant="standard"
+                  placeholder="Search by name"
+                  value={state.searchTerm}
+                  onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+                  sx={{
+                    "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
+                    flex: 1,
+                  }}
+                  InputProps={{ disableUnderline: true }}
+                  aria-label="Search departments by name"
+                />
+              </Box>
+              <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+              <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                >
+                  Type
+                </Typography>
+                <Select
+                  value={state.typeFilter}
+                  onChange={(e) => handleStateChange("typeFilter", e.target.value as "" | "Department" | "Outreach")}
+                  displayEmpty
+                  sx={{
+                    color: state.typeFilter ? "#F6F4FE" : "#777280",
+                    fontWeight: 500,
+                    fontSize: "14px",
+                    ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                    ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                    "& .MuiSelect-icon": { display: "none" },
+                  }}
+                  renderValue={(selected) => (selected ? selected : "Select Type")}
+                  aria-label="Filter departments by type"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="Department">Department</MenuItem>
+                  <MenuItem value="Outreach">Outreach</MenuItem>
+                </Select>
+              </Box>
+              <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
+                <Button
+                  onClick={handleSearch}
+                  sx={{
+                    backgroundColor: "transparent",
+                    border: "1px solid #777280",
+                    color: "white",
+                    borderRadius: "50%",
+                    minWidth: "48px",
+                    height: "48px",
+                    padding: 0,
+                    "&:hover": { backgroundColor: "#777280" },
+                  }}
+                  disabled={state.loading || state.isSearching}
+                  aria-label="Search departments"
+                >
+                  {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <SearchIcon sx={{ fontSize: "20px" }} />}
+                </Button>
               </Box>
             </Box>
           </Grid>
-          <Grid
-            size={{ xs: 12, md: 7 }}
-            sx={{
-              display: "flex",
-              justifyContent: { xs: "flex-end", md: "flex-end" },
-              alignItems: "center",
-            }}
-          >
+          <Grid size={{ xs: 12, md: 7 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
-              onClick={() => setIsModalOpen(true)}
-              size="medium"
+              onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
                 backgroundColor: "#363740",
                 px: { xs: 2, sm: 2 },
@@ -542,12 +700,10 @@ const ViewDepartment: React.FC = () => {
                 textTransform: "none",
                 color: "var(--color-text-on-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "#363740",
-                  opacity: 0.9,
-                },
+                "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
               }}
               disabled={!authData?.isSuperAdmin}
+              aria-label="Create new department"
             >
               Create Department +
             </Button>
@@ -555,221 +711,185 @@ const ViewDepartment: React.FC = () => {
         </Grid>
 
         {/* Loading State */}
-        {loading && departments.length === 0 && (
+        {state.loading && state.filteredDepartments.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
-        {/* Error State */}
-        {error && !loading && departments.length === 0 && <EmptyState />}
-
-        {/* Empty State */}
-        {!loading && !error && filteredDepartments.length === 0 && <EmptyState />}
+        {/* Error or Empty State */}
+        {(!state.loading || state.error) && filteredDepartments.length === 0 && (
+          <EmptyState error={state.error} openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} />
+        )}
 
         {/* Data Cards */}
         {filteredDepartments.length > 0 && (
-          <>         
+          <>
             <Grid container spacing={2}>
-              {filteredDepartments
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((dept) => (
-                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
-                    <Card
-                      component="div"
-                      onClick={() => {
-                        navigate(`/departments/${dept.id}`);
-                      }}
-                      sx={{
-                        borderRadius: '10.267px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                        boxShadow: '0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)',
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        opacity: dept.isDeleted ? 0.7 : 1,
-                        "&:hover": {
-                          cursor: 'pointer',
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{marginBottom: 3, display: 'flex', justifyContent: 'space-between'}}>
-                          <Box>
-                            <IconButton sx={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                              color: '#E1E1E1',
-                              display: 'flex',
-                              flexDirection: 'column',                           
-                              borderRadius: 1,
-                              textAlign: 'center'
-                            }}>
-                              <PiChurch  size={30}/>
-                              <span className="text-[10px]">
-                                Department
-                              </span>
-                            </IconButton>
-                          </Box>
-                          <Box>
-                            <IconButton
-                              aria-label="Department actions"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCurrentDepartment(dept);
-                                setAnchorEl(e.currentTarget);
-                              }}                  
-                              sx={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                                color: '#777280',                                
-                                padding: '8px',
-                                borderRadius: 1,
-                                textAlign: 'center'
-                              }}
+              {filteredDepartments.map((dept) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
+                  <Card
+                    component="div"
+                    onClick={() => navigate(`/departments/${dept.id}`)}
+                    sx={{
+                      borderRadius: "10.267px",
+                      backgroundColor: "rgba(255, 255, 255, 0.06)",
+                      boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      opacity: dept.isDeleted ? 0.7 : 1,
+                      "&:hover": { cursor: "pointer", backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
+                        <IconButton
+                          sx={{
+                            backgroundColor: "rgba(255, 255, 255, 0.06)",
+                            color: "#E1E1E1",                            
+                            flexDirection: "column",
+                            borderRadius: 1,
+                            textAlign: "center",
+                          }}
+                          aria-label={`Department icon for ${dept.name}`}
+                        >
+                          <PiChurch size={30} />
+                          <span className="text-[10px]">Department</span>
+                        </IconButton>
+                        <IconButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStateChange("currentDepartment", dept);
+                            handleStateChange("anchorEl", e.currentTarget);
+                          }}
+                          sx={{
+                            backgroundColor: "rgba(255, 255, 255, 0.06)",
+                            color: "#777280",
+                            padding: "8px",
+                            borderRadius: 1,
+                            textAlign: "center",
+                          }}
+                          aria-label={`More options for ${dept.name}`}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={600}
+                          sx={{
+                            textDecoration: dept.isDeleted ? "line-through" : "none",
+                            color: dept.isDeleted ? "gray" : "#E1E1E1",
+                          }}
+                        >
+                          {dept.name}
+                          {dept.type === "Outreach" && (
+                            <Typography
+                              component="span"
+                              sx={{ ml: 1, fontSize: "0.75rem", color: "#10b981", fontWeight: 500 }}
                             >
-                              <MoreVertIcon />
-                            </IconButton> 
-                          </Box>
-                        </Box>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                          <Typography
-                            variant="subtitle1"
-                            fontWeight={600}
-                            sx={{
-                              textDecoration: dept.isDeleted ? "line-through" : "none",
-                              color: dept.isDeleted ? "gray" : "#E1E1E1",
-                            }}
-                          >
-                            {dept.name}
-                            {dept.type === "Outreach" && (
-                              <Typography
-                                component="span"
-                                sx={{
-                                  ml: 1,
-                                  fontSize: "0.75rem",
-                                  color: "#10b981",
-                                  fontWeight: 500,
-                                }}
-                              >
-                                (Outreach)
-                              </Typography>
-                            )}
-                          </Typography>
-
-                          {/* {authData?.isSuperAdmin && (
-                            <IconButton
-                              aria-label="Department actions"
-                              aria-controls="department-menu"
-                              onClick={(e) => handleMenuOpen(e, dept)}
-                              disabled={loading}
-                              size="small"
-                              sx={{
-                                borderRadius: 1,
-                                backgroundColor: "#E1E1E1",
-                                "&:hover": {
-                                  backgroundColor: "var(--color-primary)",
-                                  color: "var(--color-text-on-primary)",
-                                },
-                              }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          )} */}
-                        </Box>
-
-                        <Box mt={2}>
-                          {dept.description && (
-                            <Box display="flex" alignItems="flex-start" mb={1}>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  textDecoration: dept.isDeleted ? "line-through" : "none",
-                                  color: dept.isDeleted ? "gray" : "#777280",
-                                }}
-                              >                            
-                                <span>{dept.description}</span>
-                                {/* <span>{truncateDescription(dept.description)}</span> */}                              
-                              </Typography>
-                            </Box>
+                              (Outreach)
+                            </Typography>
                           )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
+                        </Typography>
+                      </Box>
+                      <Box mt={2}>
+                        {dept.description && (
+                          <Box display="flex" alignItems="flex-start" mb={1}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                textDecoration: dept.isDeleted ? "line-through" : "none",
+                                color: dept.isDeleted ? "gray" : "#777280",
+                              }}
+                            >
+                              {dept.description}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
 
             {/* Custom Pagination */}
             <CustomPagination
-              count={filteredDepartments.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
+              hasNextPage={state.pagination.hasNextPage}
+              hasPrevPage={state.currentPage > 1}
+              onPageChange={handlePageChange}
+              currentPage={state.currentPage}
               isLargeScreen={isLargeScreen}
-            />        
+              isLoading={state.loading}
+            />
           </>
         )}
 
         {/* Action Menu */}
         <Menu
           id="department-menu"
-          anchorEl={anchorEl}
+          anchorEl={state.anchorEl}
           keepMounted
-          open={Boolean(anchorEl)}
+          open={Boolean(state.anchorEl)}
           onClose={handleMenuClose}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            sx: {
-              "& .MuiMenuItem-root": {
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              },
-            },
-          }}
+          PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
         >
-          <MenuItem onClick={handleEditOpen} disabled={currentDepartment?.isDeleted || loading}>
+          <MenuItem onClick={handleEditOpen} disabled={state.currentDepartment?.isDeleted || state.loading}>
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("suspend")} disabled={loading}>
-            {currentDepartment?.isActive ? (
+          <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.loading}>
+            {state.currentDepartment?.isActive ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                {loading && actionType === "suspend" ? "Suspending..." : "Suspend"}
+                {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
               </>
             ) : (
               <>
                 <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {loading && actionType === "suspend" ? "Activating..." : "Activate"}
+                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
               </>
             )}
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("delete")} disabled={loading}>
+          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.loading}>
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
           </MenuItem>
         </Menu>
 
         {/* Edit Department Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
-          sx={{
-            "& .MuiDialog-paper": {
-              borderRadius:  2,
-              bgcolor: '#2C2C2C',
-              color: "#F6F4FE",
-            },
+        <Dialog
+          open={state.editModalOpen}
+          onClose={() => {
+            handleStateChange("editModalOpen", false);
+            handleStateChange("currentDepartment", null);
+            handleStateChange("nameError", null);
           }}
+          maxWidth="sm"
+          fullWidth
+          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-             <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" fontWeight={600}>
-                  Edit Department
-                </Typography>
-                <IconButton onClick={handleEditClose}>
-                  <Close className="text-gray-300"/>
-                </IconButton>
-              </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6" fontWeight={600}>
+                Edit Department
+              </Typography>
+              <IconButton
+                onClick={() => {
+                  handleStateChange("editModalOpen", false);
+                  handleStateChange("currentDepartment", null);
+                  handleStateChange("nameError", null);
+                }}
+                aria-label="Close edit modal"
+              >
+                <Close className="text-gray-300" />
+              </IconButton>
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -777,56 +897,39 @@ const ViewDepartment: React.FC = () => {
                 fullWidth
                 label="Department Name"
                 name="name"
-                value={editFormData.name}
+                value={state.editFormData.name}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                error={!!nameError}
-                helperText={nameError}
-                InputProps={{                 
+                error={!!state.nameError}
+                helperText={state.nameError}
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
-                  sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
-                  },
+                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" },
                 }}
+                aria-label="Department name"
               />
               <FormControl fullWidth margin="normal">
                 <InputLabel sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                   Type
                 </InputLabel>
                 <Select
-                  value={editFormData.type}
+                  value={state.editFormData.type}
                   onChange={handleTypeChange}
                   label="Type"
                   sx={{
-                    fontSize: isLargeScreen ? "1rem" : undefined,                
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
-                    "& .MuiSelect-select": {
-                        borderColor: "#777280",
-                        color: "#F6F4FE",
-                    },              
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "& .MuiSelect-select": { color: "#F6F4FE" },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
+                  aria-label="Department type"
                 >
                   <MenuItem value="Department" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                     Department
@@ -840,34 +943,23 @@ const ViewDepartment: React.FC = () => {
                 fullWidth
                 label="Description"
                 name="description"
-                value={editFormData.description}
+                value={state.editFormData.description}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
                 multiline
                 rows={4}
-                InputProps={{                 
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
-                  sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
-                  },
+                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" },
                 }}
+                aria-label="Department description"
               />
             </Box>
           </DialogContent>
@@ -883,59 +975,61 @@ const ViewDepartment: React.FC = () => {
                 fontWeight: "semibold",
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "#F6F4FE",
-                  opacity: 0.9,
-                },
+                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
               }}
               variant="contained"
-              disabled={loading || !!nameError}
+              disabled={state.loading || !!state.nameError}
+              aria-label="Save department changes"
             >
-              {loading ? "Saving..." : "Save Changes"}
+              {state.loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* Create Department Modal */}
         <DepartmentModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={fetchDepartments}
+          open={state.isModalOpen}
+          onClose={() => handleStateChange("isModalOpen", false)}
+          onSuccess={refreshDepartments}
         />
 
         {/* Confirmation Modal */}
-        <Dialog open={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} maxWidth="xs">
+        <Dialog
+          open={state.confirmModalOpen}
+          onClose={() => handleStateChange("confirmModalOpen", false)}
+          maxWidth="xs"
+        >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            {actionType === "delete"
+            {state.actionType === "delete"
               ? "Delete Department"
-              : actionType === "suspend"
-              ? currentDepartment?.isActive
-                ? "Suspend Department"
-                : "Activate Department"
-              : ""}
+              : state.currentDepartment?.isActive
+              ? "Suspend Department"
+              : "Activate Department"}
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              {actionType === "delete"
-                ? `Are you sure you want to delete "${currentDepartment?.name}"?`
-                : `Are you sure you want to ${currentDepartment?.isActive ? "suspend" : "activate"} "${currentDepartment?.name}"?`}
+              {state.actionType === "delete"
+                ? `Are you sure you want to delete "${state.currentDepartment?.name}"?`
+                : `Are you sure you want to ${state.currentDepartment?.isActive ? "suspend" : "activate"} "${state.currentDepartment?.name}"?`}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={() => setConfirmModalOpen(false)}
+              onClick={() => handleStateChange("confirmModalOpen", false)}
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+              aria-label="Cancel action"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmedAction}
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              color={actionType === "delete" ? "error" : "primary"}
+              color={state.actionType === "delete" ? "error" : "primary"}
               variant="contained"
-              disabled={loading}
+              disabled={state.loading}
+              aria-label={state.actionType === "delete" ? "Delete department" : "Confirm action"}
             >
-              {loading ? "Processing..." : actionType === "delete" ? "Delete" : "Confirm"}
+              {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Confirm"}
             </Button>
           </DialogActions>
         </Dialog>

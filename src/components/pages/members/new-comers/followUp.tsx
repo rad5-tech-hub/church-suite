@@ -643,3 +643,5 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
 };
 
 export default RegistrationModal;
+
+

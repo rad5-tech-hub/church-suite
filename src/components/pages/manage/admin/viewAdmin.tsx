@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { IoMdAttach, IoMdClose } from "react-icons/io";
@@ -29,6 +29,10 @@ import {
   TextField,
   Drawer,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
@@ -79,35 +83,111 @@ interface Admin {
   departmentIds?: string[];
   unitIds?: string[];
   isDeleted?: boolean;
+  departments?: Department[];
+  units?: Unit[];
+  branch?: Branch;
 }
 
-// interface Pagination {
-//   hasNextPage: boolean;
-//   nextCursor: string | null;
-//   nextPage: number | null;
-// }
+interface State {
+  admins: Admin[];
+  pagination: Pagination;
+  currentPage: number;
+  pageHistory: string[];
+  loading: boolean;
+  error: string | null;
+  openModal: boolean;
+  editModalOpen: boolean;
+  confirmModalOpen: boolean;
+  currentAdmin: Admin | null;
+  actionType: string | null;
+  anchorEl: HTMLElement | null;
+  branches: Branch[];
+  departments: Department[];
+  units: Unit[];
+  selectedBranch: number | string;
+  selectedDepartment: string;
+  selectedUnit: string;
+  isSuperAdmin: boolean;
+  searchTerm: string;
+  accessLevel: string;
+  assignLevel: string;
+  superAdminFilter: string;
+  isSearching: boolean;
+  isDrawerOpen: boolean;
+  editName: string;
+  editEmail: string;
+  editPhone: string;
+  isNameDropdownOpen: boolean;
+  searchError: string | null;
+}
 
-// Custom Pagination Component
+interface Pagination {
+  hasNextPage: boolean;
+  nextCursor: string | null;
+  nextPage: string | null;
+}
+
+interface FetchAdminsResponse {
+  message: string;
+  pagination: Pagination;
+  admins: Admin[];
+}
+
 interface CustomPaginationProps {
-  count: number;
-  rowsPerPage: number;
-  page: number;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: 'next' | 'prev') => void;
+  currentPage: number;
   isLargeScreen: boolean;
+  isLoading?: boolean;
 }
+
+
+const initialState: State = {
+  admins: [],
+  pagination: {
+    hasNextPage: false,
+    nextCursor: null,
+    nextPage: null,
+  },
+  currentPage: 1,
+  pageHistory: [],
+  loading: false,
+  error: null,
+  openModal: false,
+  editModalOpen: false,
+  confirmModalOpen: false,
+  currentAdmin: null,
+  actionType: null,
+  anchorEl: null,
+  branches: [],
+  departments: [],
+  units: [],
+  selectedBranch: "",
+  selectedDepartment: "",
+  selectedUnit: "",
+  isSuperAdmin: false,
+  searchTerm: "",
+  accessLevel: "",
+  assignLevel: "",
+  superAdminFilter: "",
+  isSearching: false,
+  isDrawerOpen: false,
+  editName: "",
+  editEmail: "",
+  editPhone: "",
+  isNameDropdownOpen: false,
+  searchError: null,
+};
 
 const CustomPagination: React.FC<CustomPaginationProps> = ({
-  count,
-  rowsPerPage,
-  page,
+  hasNextPage,
+  hasPrevPage,
   onPageChange,
+  currentPage,
   isLargeScreen,
+  isLoading = false,
 }) => {
-  const totalPages = Math.ceil(count / rowsPerPage);
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
-
   return (
     <Box
       sx={{
@@ -128,22 +208,19 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             color: "#777280",
           }}
         >
-          {`${page * rowsPerPage + 1}–${Math.min(
-            (page + 1) * rowsPerPage,
-            count
-          )} of ${count}`}
+          Page {currentPage}
         </Typography>
       </Box>
       <Box sx={{ display: "flex", gap: 1 }}>
         <Button
-          onClick={() => onPageChange(null, page - 1)}
-          disabled={isFirstPage}
+          onClick={() => onPageChange('prev')}
+          disabled={!hasPrevPage || isLoading}
           sx={{
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isFirstPage ? "#777280" : "#160F38",
+            backgroundColor: (!hasPrevPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
+            color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
             "&:hover": {
               backgroundColor: "#F6F4FE",
               opacity: 0.9,
@@ -157,14 +234,14 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           <ChevronLeft />
         </Button>
         <Button
-          onClick={() => onPageChange(null, page + 1)}
-          disabled={isLastPage}
+          onClick={() => onPageChange('next')}
+          disabled={!hasNextPage || isLoading}
           sx={{
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isLastPage ? "#777280" : "#160F38",
+            backgroundColor: (!hasNextPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
+            color: (!hasNextPage || isLoading) ? "#777280" : "#160F38",
             "&:hover": {
               backgroundColor: "#F6F4FE",
               opacity: 0.9,
@@ -188,42 +265,13 @@ const ViewAdmins: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
-  const [state, setState] = useState({
-    openModal: false,
-    admins: [] as Admin[],
-    loading: false,
-    error: null as string | null,
-    editModalOpen: false,
-    confirmModalOpen: false,
-    currentAdmin: null as Admin | null,
-    actionType: null as string | null,
-    anchorEl: null as HTMLElement | null,
-    branches: [] as Branch[],
-    departments: [] as Department[],
-    units: [] as Unit[],
-    isSuperAdmin: false,
-    selectedBranch: "" as number | string,
-    selectedDepartment: "" as string,
-    selectedUnit: "" as string,
-    page: 0,
-    rowsPerPage: 5,
-    isDrawerOpen: false,
-    searchTerm: "",
-    accessLevel: "",
-    assignLevel: "",
-    superAdminFilter: "",
-    isSearching: false,
-    searchError: null as string | null,
-    totalCount: 0,
-    nextCursor: null as string | null,
-    filteredNames: [] as Admin[],
-    isNameDropdownOpen: false,
-    editName: "",
-    editEmail: "",
-    editPhone: "",
-  });
+  const [state, setState] = useState<State>(initialState);
 
-  const columnWidths = {
+  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
+    setState((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const columnWidths = useMemo(() => ({
     number: "2%",
     name: "21%",
     email: "15%",
@@ -232,9 +280,61 @@ const ViewAdmins: React.FC = () => {
     phone: "14%",
     superAdmin: "10%",
     actions: "10%",
-  };
+  }), []);
 
-  // Fetch branches, departments, and units for assignLevel dropdown
+  const filteredNames = useMemo(() => {
+    if (!state.searchTerm) return [];
+    return state.admins.filter((admin) =>
+      admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+    );
+  }, [state.searchTerm, state.admins]);
+
+  // Fetch admins function
+  const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
+    const response = await (url ? Api.get(url) : Api.get("/church/view-admins"));
+    return response.data;
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const data = await fetchAdmins();
+        if (isMounted) {
+          setState((prev) => ({
+            ...prev,
+            admins: data.admins || [],
+            pagination: {
+              hasNextPage: data.pagination?.hasNextPage || false,
+              nextCursor: data.pagination?.nextCursor || null,
+              nextPage: data.pagination?.nextPage || null,
+            },
+            currentPage: 1,
+            pageHistory: [],
+            loading: false,
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading initial admins:", error);
+        const errorMessage = "Failed to load admins";
+        setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
+        toast.error(errorMessage);
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchAdmins]);
+
+  // Fetch supporting data
   const fetchBranches = useCallback(async () => {
     try {
       const response = await Api.get("/church/get-branches");
@@ -266,198 +366,187 @@ const ViewAdmins: React.FC = () => {
     }
   }, [state.selectedDepartment]);
 
-  // Fetch data with pagination
-  const fetchData = useCallback(async (cursor: string | null = null) => {
+  // Pagination handlers
+  const handlePageChange = useCallback(async (direction: 'next' | 'prev') => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const params: { limit?: number; cursor?: string } = { limit: state.rowsPerPage };
-      if (cursor) params.cursor = cursor;
-      const [adminsRes, branchesRes, departmentsRes] = await Promise.all([
-        Api.get("/church/view-admins", { params }),
-        Api.get("/church/get-branches"),
-        Api.get("/church/get-departments"),
-      ]);
-      setState((prev) => ({
-        ...prev,
-        admins: adminsRes.data.admins || [],
-        branches: branchesRes.data.branches || [],
-        departments: departmentsRes.data.departments || [],
-        totalCount: adminsRes.data.pagination?.totalCount || adminsRes.data.admins.length,
-        nextCursor: adminsRes.data.pagination?.nextCursor || null,
-      }));
+      if (direction === 'next') {
+        const url = state.pagination.nextPage;
+        if (!url) throw new Error("No next page available");
+        const data = await fetchAdmins(url);
+        setState((prev) => ({
+          ...prev,
+          admins: data.admins || [],
+          pagination: {
+            hasNextPage: data.pagination?.hasNextPage || false,
+            nextCursor: data.pagination?.nextCursor || null,
+            nextPage: data.pagination?.nextPage || null,
+          },
+          pageHistory: [...prev.pageHistory, url],
+          currentPage: prev.currentPage + 1,
+          loading: false,
+        }));
+      } else if (direction === 'prev') {
+        if (state.pageHistory.length === 0) throw new Error("No previous page available");
+        const prevIndex = state.pageHistory.length - 2;
+        const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : null;
+        const data = await fetchAdmins(url);
+        setState((prev) => ({
+          ...prev,
+          admins: data.admins || [],
+          pagination: {
+            hasNextPage: data.pagination?.hasNextPage || false,
+            nextCursor: data.pagination?.nextCursor || null,
+            nextPage: data.pagination?.nextPage || null,
+          },
+          pageHistory: prev.pageHistory.slice(0, -1),
+          currentPage: prev.currentPage - 1,
+          loading: false,
+        }));
+      }
     } catch (error) {
-      console.error("Error fetching data:", error);
-      setState((prev) => ({ ...prev, error: "Failed to load admins. Please try again later." }));
-      toast.error("Failed to load admins");
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
+      console.error(`Error fetching ${direction} page:`, error);
+      const errorMessage = "Failed to load page";
+      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
+      toast.error(errorMessage);
     }
-  }, [state.rowsPerPage]);
+  }, [state.pagination.nextPage, state.pageHistory, fetchAdmins]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // Update filtered names for dropdown
-  useEffect(() => {
-    if (state.searchTerm) {
-      const filtered = state.admins.filter((admin) =>
-        admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-        admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-        admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
-      );
-      setState((prev) => ({ ...prev, filteredNames: filtered, isNameDropdownOpen: true }));
-    } else {
-      setState((prev) => ({ ...prev, filteredNames: [], isNameDropdownOpen: false }));
-    }
-  }, [state.searchTerm, state.admins]);
-
-  // Handle search
-  const handleSearch = async () => {
-    setState((prev) => ({ ...prev, isSearching: true, searchError: null }));
+  const handleSearch = useCallback(async () => {
+    handleStateChange("isSearching", true);
+    handleStateChange("searchError", null);
     try {
-      const params: { [key: string]: string } = {};
-      if (state.searchTerm) params.search = state.searchTerm;
-      if (state.searchTerm) params.searchField = state.searchTerm;
+      const params: { [key: string]: string | boolean } = {};
+      if (state.searchTerm) {
+        params.search = state.searchTerm;
+        params.searchField = 'name';
+      }
       if (state.accessLevel) params.scopeLevel = state.accessLevel.toLowerCase();
       if (state.assignLevel) {
         if (state.accessLevel === "branch") params.branchId = state.assignLevel;
         if (state.accessLevel === "department") params.departmentId = state.assignLevel;
         if (state.accessLevel === "unit") params.unitId = state.assignLevel;
       }
-      // if (state.superAdminFilter) params.isSuperAdmin = state.superAdminFilter === "Yes" ? "true" : "false";
-      params.limit = state.rowsPerPage.toString();
+      if (state.superAdminFilter) {
+        params.isSuperAdmin = state.superAdminFilter === 'Yes';
+      }
 
       const response = await Api.get("/church/view-admins", { params });
+      
       if (response.data.admins.length === 0) {
-        const filtered = state.admins.filter((admin) =>
-          admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-          admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-          admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
-        );
+        // Client-side fallback filtering
+        const filtered = state.admins.filter((admin) => {
+          let match: boolean = true; // Explicitly typed as boolean
+          if (state.searchTerm) {
+            match && (
+              admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+              admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+              admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+            ) || false;
+          }
+          if (state.accessLevel) {
+            match = match && (admin.scopeLevel === state.accessLevel.toLowerCase());
+          }
+          if (state.assignLevel) {
+            if (state.accessLevel === "branch") match = match && (admin.branchId === state.assignLevel);
+            if (state.accessLevel === "department") match = match && (admin.departmentIds?.includes(state.assignLevel) ?? false);
+            if (state.accessLevel === "unit") match = match && (admin.unitIds?.includes(state.assignLevel) ?? false);
+          }
+          if (state.superAdminFilter) {
+            match = match && (admin.isSuperAdmin === (state.superAdminFilter === 'Yes'));
+          }
+          return match;
+        });
+
         if (filtered.length === 0) {
           throw new Error("No admins found matching the search criteria");
         }
+
         setState((prev) => ({
           ...prev,
           admins: filtered,
-          totalCount: filtered.length,
-          nextCursor: null,
+          pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
         }));
       } else {
         setState((prev) => ({
           ...prev,
           admins: response.data.admins || [],
-          totalCount: response.data.pagination?.totalCount || response.data.admins.length,
-          nextCursor: response.data.pagination?.nextCursor || null,
+          pagination: {
+            hasNextPage: response.data.pagination?.hasNextPage || false,
+            nextCursor: response.data.pagination?.nextCursor || null,
+            nextPage: response.data.pagination?.nextPage || null,
+          },
         }));
       }
-      toast.success("Search completed successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+
+      handleStateChange("currentPage", 1);
+      handleStateChange("pageHistory", []);
+      toast.success("Search completed successfully!");
     } catch (error: any) {
       console.error("Error searching admins:", error);
-      const filtered = state.admins.filter((admin) =>
-        admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-        admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-        admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
-      );
-      if (filtered.length > 0) {
-        setState((prev) => ({
-          ...prev,
-          admins: filtered,
-          totalCount: filtered.length,
-          nextCursor: null,
-        }));
-        toast.info("No results from server, showing local filtered results", {
-          position: isMobile ? "top-center" : "top-right",
-        });
-      } else {
-        setState((prev) => ({
-          ...prev,
-          searchError: error.response?.data.error.message || "No admins found matching the search criteria",
-        }));
-        toast.error(error.response?.data.error.message || "No admins found matching the search criteria", {
-          position: isMobile ? "top-center" : "top-right",
-        });
-      }
+      const errorMessage = error.response?.data.error.message || "No admins found matching the search criteria";
+      handleStateChange("searchError", errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setState((prev) => ({ ...prev, isSearching: false, isDrawerOpen: false, page: 0, isNameDropdownOpen: false }));
+      handleStateChange("isSearching", false);
+      handleStateChange("isDrawerOpen", false);
     }
-  };
+  }, [state.searchTerm, state.accessLevel, state.assignLevel, state.superAdminFilter, state.admins]);
 
-  // Handlers
-  const handleStateChange = (key: keyof typeof state, value: any) => {
-    setState((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, admin: Admin) => {
+  // Menu handlers
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, admin: Admin) => {
     handleStateChange("anchorEl", event.currentTarget);
     handleStateChange("currentAdmin", admin);
-    // handleStateChange("isSuperAdmin", admin.isSuperAdmin);
-    // handleStateChange("selectedBranch", admin.branchId || "");
-    // handleStateChange("selectedDepartment", admin.departmentIds?.[0] || "");
-    // handleStateChange("selectedUnit", admin.unitIds?.[0] || "");
     handleStateChange("editName", admin.name);
     handleStateChange("editEmail", admin.email);
     handleStateChange("editPhone", admin.phone);
-  };
+    handleStateChange("isSuperAdmin", admin.isSuperAdmin);
+    handleStateChange("selectedBranch", admin.branchId || "");
+    handleStateChange("selectedDepartment", admin.departments?.[0]?.id || "");
+    handleStateChange("selectedUnit", admin.units?.[0]?.id || "");
+  }, []);
 
-  const handleMenuClose = () => handleStateChange("anchorEl", null);
+  const handleMenuClose = useCallback(() => {
+    handleStateChange("anchorEl", null);
+  }, []);
 
-  const handleEditOpen = () => {
+  // Edit handlers
+  const handleEditOpen = useCallback(() => {
     if (state.currentAdmin) {
       handleStateChange("editModalOpen", true);
+      if (state.currentAdmin.scopeLevel === "branch") fetchBranches();
+      if (state.currentAdmin.scopeLevel === "department" || state.currentAdmin.scopeLevel === "unit") fetchDepartments();
     }
     handleMenuClose();
-  };
+  }, [state.currentAdmin, fetchBranches, fetchDepartments, handleMenuClose]);
 
-  const handleEditClose = () => {
+  const handleEditClose = useCallback(() => {
     handleStateChange("editModalOpen", false);
     handleStateChange("currentAdmin", null);
-    // handleStateChange("selectedBranch", "");
-    // handleStateChange("selectedDepartment", "");
-    // handleStateChange("selectedUnit", "");
-    // handleStateChange("isSuperAdmin", false);
+    handleStateChange("selectedBranch", "");
+    handleStateChange("selectedDepartment", "");
+    handleStateChange("selectedUnit", "");
+    handleStateChange("isSuperAdmin", false);
     handleStateChange("editName", "");
     handleStateChange("editEmail", "");
     handleStateChange("editPhone", "");
-  };
+  }, []);
 
-  const handleCloseModal = () => {
-    handleStateChange("openModal", false);
-    fetchData();
-  };
-
-  const showConfirmation = (action: string) => {
-    handleStateChange("actionType", action);
-    handleStateChange("confirmModalOpen", true);
-    handleMenuClose();
-  };
-
-  const handleEditSubmit = async () => {
+  const handleEditSubmit = useCallback(async () => {
     if (!state.currentAdmin?.id) {
-      console.error("Admin ID is undefined");
       toast.error("Invalid admin data");
       return;
     }
 
+    setState((prev) => ({ ...prev, loading: true }));
     try {
-      handleStateChange("loading", true);
-      const payload: {
-        name: string;
-        email: string;
-        phone: string;
-        isSuperAdmin: boolean;
-        branchId?: string;
-        departmentIds?: string[];
-        unitIds?: string[];
-      } = {
+      const payload: any = {
         name: state.editName,
         email: state.editEmail,
         phone: state.editPhone,
         isSuperAdmin: state.isSuperAdmin,
       };
+
       if (state.currentAdmin.scopeLevel === "branch" && state.selectedBranch) {
         payload.branchId = state.selectedBranch.toString();
       }
@@ -480,49 +569,47 @@ const ViewAdmins: React.FC = () => {
                 email: state.editEmail,
                 phone: state.editPhone,
                 isSuperAdmin: state.isSuperAdmin,
-                branchId: state.currentAdmin.scopeLevel === "branch" ? state.selectedBranch : admin.branchId,
-                departmentIds:
-                  state.currentAdmin.scopeLevel === "department" && state.selectedDepartment
-                    ? [state.selectedDepartment]
-                    : admin.departmentIds,
-                unitIds:
-                  state.currentAdmin.scopeLevel === "unit" && state.selectedUnit
-                    ? [state.selectedUnit]
-                    : admin.unitIds,
+                branchId: state.currentAdmin?.scopeLevel === "branch" ? state.selectedBranch : admin.branchId,
+                departments: state.currentAdmin?.scopeLevel === "department" && state.selectedDepartment
+                  ? state.departments.filter((d) => d.id === state.selectedDepartment)
+                  : admin.departments,
+                units: state.currentAdmin?.scopeLevel === "unit" && state.selectedUnit
+                  ? state.units.filter((u) => u.id === state.selectedUnit)
+                  : admin.units,
               }
             : admin
         ),
+        loading: false,
       }));
 
-      toast.success("Admin updated successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      toast.success("Admin updated successfully!");
       handleEditClose();
     } catch (error) {
       console.error("Update error:", error);
-      toast.error("Failed to update admin", {
-        position: isMobile ? "top-center" : "top-right",
-      });
-    } finally {
-      handleStateChange("loading", false);
+      toast.error("Failed to update admin");
+      setState((prev) => ({ ...prev, loading: false }));
     }
-  };
+  }, [state.currentAdmin, state.editName, state.editEmail, state.editPhone, state.isSuperAdmin, state.selectedBranch, state.selectedDepartment, state.selectedUnit, state.departments, state.units, handleEditClose]);
 
-  const handleConfirmedAction = async () => {
+  // Action confirmation handlers
+  const showConfirmation = useCallback((action: string) => {
+    handleStateChange("actionType", action);
+    handleStateChange("confirmModalOpen", true);
+    handleMenuClose();
+  }, [handleMenuClose]);
+
+  const handleConfirmedAction = useCallback(async () => {
     if (!state.currentAdmin || !state.actionType) return;
 
+    setState((prev) => ({ ...prev, loading: true }));
     try {
-      handleStateChange("loading", true);
       if (state.actionType === "delete") {
         await Api.delete(`/church/delete-admin/${state.currentAdmin.id}`);
         setState((prev) => ({
           ...prev,
           admins: prev.admins.filter((admin) => admin.id !== state.currentAdmin?.id),
-          totalCount: prev.totalCount - 1,
         }));
-        toast.success("Admin deleted successfully!", {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        toast.success("Admin deleted successfully!");
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentAdmin.isSuspended;
         await Api.patch(`/church/${newStatus ? "suspend" : "activate"}-admin/${state.currentAdmin.id}`);
@@ -532,42 +619,47 @@ const ViewAdmins: React.FC = () => {
             admin.id === state.currentAdmin?.id ? { ...admin, isSuspended: newStatus } : admin
           ),
         }));
-        toast.success(`Admin ${newStatus ? "suspended" : "activated"} successfully!`, {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        toast.success(`Admin ${newStatus ? "suspended" : "activated"} successfully!`);
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} admin`, {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      toast.error(`Failed to ${state.actionType} admin`);
     } finally {
-      handleStateChange("loading", false);
-      handleStateChange("confirmModalOpen", false);
-      handleStateChange("actionType", null);
-      handleStateChange("currentAdmin", null);
+      setState((prev) => ({ ...prev, loading: false, confirmModalOpen: false, actionType: null, currentAdmin: null }));
     }
-  };
+  }, [state.currentAdmin, state.actionType]);
 
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    if (newPage > state.page && state.nextCursor) {
-      fetchData(state.nextCursor);
+  // Modal handlers
+  const handleCloseModal = useCallback(async () => {
+    handleStateChange("openModal", false);
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    try {
+      const data = await fetchAdmins();
+      setState((prev) => ({
+        ...prev,
+        admins: data.admins || [],
+        pagination: {
+          hasNextPage: data.pagination?.hasNextPage || false,
+          nextCursor: data.pagination?.nextCursor || null,
+          nextPage: data.pagination?.nextPage || null,
+        },
+        currentPage: 1,
+        pageHistory: [],
+        loading: false,
+      }));
+    } catch (error) {
+      console.error("Error refreshing admins after modal close:", error);
+      const errorMessage = "Failed to refresh admins";
+      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
+      toast.error(errorMessage);
     }
-    handleStateChange("page", newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    handleStateChange("rowsPerPage", parseInt(event.target.value, 10));
-    handleStateChange("page", 0);
-    fetchData();
-  };
+  }, [fetchAdmins]);
 
   // Helper functions
-  const truncateText = (text: string | null | undefined, maxLength = 30) => {
+  const truncateText = useCallback((text: string | null | undefined, maxLength = 30) => {
     if (!text) return "-";
     return text.length <= maxLength ? text : `${text.substring(0, maxLength)}...`;
-  };
+  }, []);
 
   const getAssignLevelText = (admin: Admin) => {
     if (admin.scopeLevel === "branch") {
@@ -583,7 +675,7 @@ const ViewAdmins: React.FC = () => {
     return admin.scopeLevel || "-";
   };
 
-  // Filter components
+  // Filter components (mobile)
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -627,47 +719,9 @@ const ViewAdmins: React.FC = () => {
               },
               "& .MuiInputBase-input": { py: 1 },
             }}
-            onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
-            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
           />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                maxHeight: "200px",
-                overflowY: "auto",
-                backgroundColor: "#2C2C2C",
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                zIndex: 1300,
-                mt: 1,
-              }}
-            >
-              {state.filteredNames.map((admin, index) => (
-                <Box
-                  key={admin.id}
-                  sx={{
-                    padding: "8px 16px",
-                    color: "#F6F4FE",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#4d4d4e8e" },
-                    borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
-                  }}
-                  onClick={() => {
-                    handleStateChange("searchTerm", admin.name);
-                    handleStateChange("isNameDropdownOpen", false);
-                  }}
-                >
-                  {admin.name}
-                </Box>
-              ))}
-            </Box>
-          )}
         </Box>
+        
         <Box>
           <Typography
             variant="caption"
@@ -683,8 +737,7 @@ const ViewAdmins: React.FC = () => {
               handleStateChange("accessLevel", e.target.value);
               handleStateChange("assignLevel", "");
               if (e.target.value === "branch") fetchBranches();
-              if (e.target.value === "department") fetchDepartments();
-              if (e.target.value === "unit") fetchDepartments();
+              if (e.target.value === "department" || e.target.value === "unit") fetchDepartments();
             }}
             variant="outlined"
             size="small"
@@ -694,12 +747,13 @@ const ViewAdmins: React.FC = () => {
               "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
             }}
           >
-            <MenuItem value="">All</MenuItem>
+            <MenuItem value="">None</MenuItem>
             <MenuItem value="branch">Branch</MenuItem>
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
           </TextField>
         </Box>
+
         <Box>
           <Typography
             variant="caption"
@@ -727,7 +781,7 @@ const ViewAdmins: React.FC = () => {
             }}
             disabled={!state.accessLevel}
           >
-            <MenuItem value="">All</MenuItem>
+            <MenuItem value="">None</MenuItem>
             {state.accessLevel === "branch" &&
               state.branches.map((branch) => (
                 <MenuItem key={branch.id} value={branch.id}>
@@ -748,6 +802,7 @@ const ViewAdmins: React.FC = () => {
               ))}
           </TextField>
         </Box>
+
         <Box>
           <Typography
             variant="caption"
@@ -773,6 +828,7 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="No">No</MenuItem>
           </TextField>
         </Box>
+
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button
             variant="contained"
@@ -834,7 +890,7 @@ const ViewAdmins: React.FC = () => {
             onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
             onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
           />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
+          {state.isNameDropdownOpen && filteredNames.length > 0 && (
             <Box
               sx={{
                 position: "absolute",
@@ -850,7 +906,7 @@ const ViewAdmins: React.FC = () => {
                 mt: 1,
               }}
             >
-              {state.filteredNames.map((admin, index) => (
+              {filteredNames.map((admin, index) => (
                 <Box
                   key={admin.id}
                   sx={{
@@ -859,7 +915,7 @@ const ViewAdmins: React.FC = () => {
                     cursor: "pointer",
                     "&:hover": { backgroundColor: "#4d4d4e8e" },
                     borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                      index < filteredNames.length - 1 ? "1px solid #777280" : "none",
                   }}
                   onClick={() => {
                     handleStateChange("searchTerm", admin.name);
@@ -880,11 +936,8 @@ const ViewAdmins: React.FC = () => {
           <MuiSelect
             value={state.accessLevel}
             onChange={(e) => {
-              handleStateChange("accessLevel", e.target.value);
+              handleStateChange("accessLevel", e.target.value as string);
               handleStateChange("assignLevel", "");
-              if (e.target.value === "branch") fetchBranches();
-              if (e.target.value === "department") fetchDepartments();
-              if (e.target.value === "unit") fetchDepartments();
             }}
             displayEmpty
             sx={{
@@ -897,7 +950,7 @@ const ViewAdmins: React.FC = () => {
             }}
             renderValue={(selected) => selected || "Select Level"}
           >
-            <MenuItem value="">All</MenuItem>
+            <MenuItem value="">None</MenuItem>
             <MenuItem value="branch">Branch</MenuItem>
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
@@ -911,9 +964,12 @@ const ViewAdmins: React.FC = () => {
           <MuiSelect
             value={state.assignLevel}
             onChange={(e) => {
-              handleStateChange("assignLevel", e.target.value);
-              if (state.accessLevel === "unit") {
-                handleStateChange("selectedDepartment", e.target.value);
+              const newValue = e.target.value as string;
+              handleStateChange("assignLevel", newValue);
+              if (state.accessLevel === "unit" && state.departments.some((dept) => dept.id === newValue)) {
+                // If a department is selected when accessLevel is "unit", update selectedDepartment and fetch units
+                handleStateChange("selectedDepartment", newValue);
+                handleStateChange("assignLevel", ""); // Reset assignLevel to force unit selection
                 fetchUnits();
               }
             }}
@@ -932,7 +988,7 @@ const ViewAdmins: React.FC = () => {
                 const branch = state.branches.find((b) => b.id === selected);
                 return branch ? branch.name : "Select Area";
               }
-              if (state.accessLevel === "department" || state.accessLevel === "unit") {
+              if (state.accessLevel === "department") {
                 const dept = state.departments.find((d) => d.id === selected);
                 return dept ? dept.name : "Select Area";
               }
@@ -951,7 +1007,7 @@ const ViewAdmins: React.FC = () => {
                   {branch.name}
                 </MenuItem>
               ))}
-            {(state.accessLevel === "department" || state.accessLevel === "unit") &&
+            {state.accessLevel === "department" &&
               state.departments.map((dept) => (
                 <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
@@ -972,7 +1028,7 @@ const ViewAdmins: React.FC = () => {
           </Typography>
           <MuiSelect
             value={state.superAdminFilter}
-            onChange={(e) => handleStateChange("superAdminFilter", e.target.value)}
+            onChange={(e) => handleStateChange("superAdminFilter", e.target.value as string)}
             displayEmpty
             sx={{
               color: state.superAdminFilter ? "#F6F4FE" : "#777280",
@@ -1116,7 +1172,7 @@ const ViewAdmins: React.FC = () => {
                           onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
                           onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
                         />
-                        {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
+                        {state.isNameDropdownOpen && filteredNames.length > 0 && (
                           <Box
                             sx={{
                               position: "absolute",
@@ -1132,7 +1188,7 @@ const ViewAdmins: React.FC = () => {
                               mt: 1,
                             }}
                           >
-                            {state.filteredNames.map((admin, index) => (
+                            {filteredNames.map((admin, index) => (
                               <Box
                                 key={admin.id}
                                 sx={{
@@ -1141,7 +1197,7 @@ const ViewAdmins: React.FC = () => {
                                   cursor: "pointer",
                                   "&:hover": { backgroundColor: "#4d4d4e8e" },
                                   borderBottom:
-                                    index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                                    index < filteredNames.length - 1 ? "1px solid #777280" : "none",
                                 }}
                                 onClick={() => {
                                   handleStateChange("searchTerm", admin.name);
@@ -1334,152 +1390,150 @@ const ViewAdmins: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {state.admins
-                  .slice(state.page * state.rowsPerPage, state.page * state.rowsPerPage + state.rowsPerPage)
-                  .map((admin, index) => (
-                    <TableRow
-                      key={admin.id}
+                {state.admins.map((admin, index) => (
+                  <TableRow
+                    key={admin.id}
+                    sx={{
+                      "& td": { border: "none" },
+                      backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+                      borderRadius: "4px",
+                      "&:hover": {
+                        backgroundColor: "#4d4d4e8e",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                      },
+                      transition: "all 0.2s ease",
+                      mb: 2,
+                    }}
+                  >
+                    <TableCell
                       sx={{
-                        "& td": { border: "none" },
-                        backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
-                        borderRadius: "4px",
-                        "&:hover": {
-                          backgroundColor: "#4d4d4e8e",
-                          transform: "translateY(-2px)",
-                          boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                        },
-                        transition: "all 0.2s ease",
-                        mb: 2,
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.number,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
                       }}
                     >
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.number,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                        }}
-                      >
-                        {(state.page * state.rowsPerPage + index + 1).toString().padStart(2, "0")}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                          flex: 1,
-                        }}
-                      >
-                        <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-                          {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
+                      {(state.currentPage - 1) * 5 + index + 1}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                        flex: 1,
+                      }}
+                    >
+                      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+                        {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
+                      </Box>
+                      <Box>
+                        {admin.name}
+                        <br />
+                        <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
+                      </Box>
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.email,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                      }}
+                    >
+                      <Tooltip title={admin.email || "-"} arrow>
+                        <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+                          {truncateText(admin.email)}
                         </Box>
-                        <Box>
-                          {admin.name}
-                          <br />
-                          <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
-                        </Box>
-                      </TableCell>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.phone,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                      }}
+                    >
+                      {admin.phone || "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.access,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                      }}
+                    >
+                      {admin.scopeLevel || "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.assign,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                      }}
+                    >
+                      {getAssignLevelText(admin)}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        textDecoration: admin.isDeleted ? "line-through" : "none",
+                        color: admin.isDeleted ? "gray" : "#F6F4FE",
+                        width: columnWidths.superAdmin,
+                        fontSize: isLargeScreen ? "0.875rem" : undefined,
+                        py: 2,
+                      }}
+                    >
+                      {admin.isSuperAdmin ? "Yes" : "No"}
+                    </TableCell>
+                    {authData?.isSuperAdmin && (
                       <TableCell
                         sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.email,
+                          width: columnWidths.actions,
+                          textAlign: "center",
                           fontSize: isLargeScreen ? "0.875rem" : undefined,
                           py: 2,
+                          borderTopRightRadius: "8px",
+                          borderBottomRightRadius: "8px",
                         }}
                       >
-                        <Tooltip title={admin.email || "-"} arrow>
-                          <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                            {truncateText(admin.email)}
-                          </Box>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.phone,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                        }}
-                      >
-                        {admin.phone || "-"}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.access,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                        }}
-                      >
-                        {admin.scopeLevel || "-"}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.assign,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                        }}
-                      >
-                        {getAssignLevelText(admin)}
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          textDecoration: admin.isDeleted ? "line-through" : "none",
-                          color: admin.isDeleted ? "gray" : "#F6F4FE",
-                          width: columnWidths.superAdmin,
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                        }}
-                      >
-                        {admin.isSuperAdmin ? "Yes" : "No"}
-                      </TableCell>
-                      {authData?.isSuperAdmin && (
-                        <TableCell
+                        <IconButton
+                          aria-label="more"
+                          onClick={(e) => handleMenuOpen(e, admin)}
+                          disabled={state.loading}
+                          size="small"
                           sx={{
-                            width: columnWidths.actions,
-                            textAlign: "center",
-                            fontSize: isLargeScreen ? "0.875rem" : undefined,
-                            py: 2,
-                            borderTopRightRadius: "8px",
-                            borderBottomRightRadius: "8px",
+                            borderRadius: 1,
+                            bgcolor: "#E1E1E1",
+                            "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
                           }}
                         >
-                          <IconButton
-                            aria-label="more"
-                            onClick={(e) => handleMenuOpen(e, admin)}
-                            disabled={state.loading}
-                            size="small"
-                            sx={{
-                              borderRadius: 1,
-                              bgcolor: "#E1E1E1",
-                              "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
-                            }}
-                          >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
             <CustomPagination
-              count={state.totalCount}
-              rowsPerPage={state.rowsPerPage}
-              page={state.page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
+              hasNextPage={state.pagination.hasNextPage}
+              hasPrevPage={state.pageHistory.length > 0}
+              onPageChange={handlePageChange}
+              currentPage={state.currentPage}
               isLargeScreen={isLargeScreen}
+              isLoading={state.loading}
             />
           </TableContainer>
         )}
@@ -1600,7 +1654,7 @@ const ViewAdmins: React.FC = () => {
                     },
                   }}
                 />
-                {/* {state.currentAdmin.scopeLevel === "branch" && (
+                {state.currentAdmin.scopeLevel === "branch" && (
                   <FormControl fullWidth>
                     <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
                       Branch
@@ -1610,10 +1664,9 @@ const ViewAdmins: React.FC = () => {
                       id="branch-select"
                       value={state.selectedBranch}
                       label="Branch"
-                      onChange={(e) => handleStateChange("selectedBranch", e.target.value)}
+                      onChange={(e) => handleStateChange("selectedBranch", e.target.value as number | string)}
                       onOpen={fetchBranches}
                       sx={{
-                        fontSize: isLargeScreen ? "カップ" : undefined,
                         color: "#F6F4FE",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                         "& .MuiSelect-select": { color: "#F6F4FE" },
@@ -1647,10 +1700,9 @@ const ViewAdmins: React.FC = () => {
                       id="department-select"
                       value={state.selectedDepartment}
                       label="Department"
-                      onChange={(e) => handleStateChange("selectedDepartment", e.target.value)}
+                      onChange={(e) => handleStateChange("selectedDepartment", e.target.value as string)}
                       onOpen={fetchDepartments}
                       sx={{
-                        fontSize: isLargeScreen ? "1rem" : undefined,
                         color: "#F6F4FE",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                         "& .MuiSelect-select": { color: "#F6F4FE" },
@@ -1686,13 +1738,12 @@ const ViewAdmins: React.FC = () => {
                         value={state.selectedDepartment}
                         label="Department"
                         onChange={(e) => {
-                          handleStateChange("selectedDepartment", e.target.value);
+                          handleStateChange("selectedDepartment", e.target.value as string);
                           handleStateChange("selectedUnit", "");
                           fetchUnits();
                         }}
                         onOpen={fetchDepartments}
                         sx={{
-                          fontSize: isLargeScreen ? "1rem" : undefined,
                           color: "#F6F4FE",
                           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                           "& .MuiSelect-select": { color: "#F6F4FE" },
@@ -1724,10 +1775,9 @@ const ViewAdmins: React.FC = () => {
                         id="unit-select"
                         value={state.selectedUnit}
                         label="Unit"
-                        onChange={(e) => handleStateChange("selectedUnit", e.target.value)}
+                        onChange={(e) => handleStateChange("selectedUnit", e.target.value as string)}
                         onOpen={fetchUnits}
                         sx={{
-                          fontSize: isLargeScreen ? "1rem" : undefined,
                           color: "#F6F4FE",
                           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                           "& .MuiSelect-select": { color: "#F6F4FE" },
@@ -1763,7 +1813,7 @@ const ViewAdmins: React.FC = () => {
                       fontSize: isLargeScreen ? "0.875rem" : undefined,
                     },
                   }}
-                /> */}
+                />
               </Box>
             )}
           </DialogContent>

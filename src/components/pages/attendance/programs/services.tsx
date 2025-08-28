@@ -32,6 +32,7 @@ import {
 import { CachedOutlined, CalendarTodayOutlined, Add, Delete, Close } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import moment from "moment";
+import { toast, ToastContainer } from "react-toastify";
 
 interface ServiceFormData {
   title: string;
@@ -48,12 +49,13 @@ interface ServiceFormData {
 }
 
 interface Department {
-  _id: string;
+  id: string;
   name: string;
+  type: string;
 }
 
 interface Collection {
-  _id: string;
+  id: string;
   name: string;
 }
 
@@ -171,7 +173,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string | string[]>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -188,22 +190,24 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-  const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
+  const handleDepartmentChange = (event: SelectChangeEvent<typeof formData.departmentIds>) => {
     const { value } = event.target;
-    const selectedIds = typeof value === "string" ? value.split(",") : value;
+    
+    // For multi-select, value is always an array
     setFormData((prev) => ({
       ...prev,
-      departmentIds: selectedIds,
+      departmentIds: value as string[],
     }));
     setCreateProgramError(null);
   };
 
-  const handleCollectionChange = (event: SelectChangeEvent<string[]>) => {
+  const handleCollectionChange = (event: SelectChangeEvent<typeof formData.collectionIds>) => {
     const { value } = event.target;
-    const selectedIds = typeof value === "string" ? value.split(",") : value;
+    
+    // For multi-select, value is always an array
     setFormData((prev) => ({
       ...prev,
-      collectionIds: selectedIds,
+      collectionIds: value as string[],
     }));
     setCreateProgramError(null);
   };
@@ -293,63 +297,65 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-  const handleAddService = async () => {
-    if (!formData.title.trim()) {
-      setCreateProgramError("Program title is required.");
-      return;
+const handleAddService = async () => {
+  if (!formData.title.trim()) {
+    toast.error("Program title is required.", {
+      position: isMobile ? "top-center" : "top-right",
+    });
+    return;
+  }
+
+  try {
+    setLoading(true);
+    let payload: any = { ...formData };
+
+    if (formData.recurrenceType === "none") {
+      payload = {
+        ...payload,
+        date: formData.date,
+        startTime: undefined,
+        endTime: undefined,
+      };
     }
 
-    try {
-      setLoading(true);
-      setCreateProgramError(null);
-      let payload: any = { ...formData };
-
-      if (formData.recurrenceType === "none") {
-        const startDateTime = moment(`${formData.date} ${formData.startTime}`).toISOString();
-        const endDateTime = moment(`${formData.date} ${formData.endTime}`).toISOString();
-        payload = {
-          ...payload,
-          startDateTime,
-          endDateTime,
-          date: undefined,
-          startTime: undefined,
-          endTime: undefined,
-        };
-      }
-
-      if (["weekly", "monthly"].includes(formData.recurrenceType) && !formData.endDate) {
-        const defaultEndDate = moment(formData.date).add(3, "months").format("YYYY-MM-DD");
-        payload.endDate = defaultEndDate;
-      }
-
-      if (formData.recurrenceType === "weekly") {
-        const startDateStr = moment(formData.date).format("YYYY-MM-DD");
-        payload.date = startDateStr;
-      }
-
-      if (formData.recurrenceType === "monthly" && monthlyOption === "byDate") {
-        const selectedDate = moment(formData.date);
-        const dayNum = selectedDate.date();
-        payload.recurrenceType = "monthly";
-        payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
-      }
-
-      const response = await Api.post("/church/create-event", payload);
-
-      setCreateProgramError(
-        `Program "${response.data.event?.title || formData.title}" created successfully!`
-      );
-      resetForm();
-      onSuccess?.();
-    } catch (error: any) {
-      console.error("Program creation error:", error);
-      setCreateProgramError(
-        error.response?.data?.message || "Failed to create program. Please try again."
-      );
-    } finally {
-      setLoading(false);
+    if (["weekly", "monthly"].includes(formData.recurrenceType) && !formData.endDate) {
+      const defaultEndDate = moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+      payload.endDate = defaultEndDate;
     }
-  };
+
+    if (formData.recurrenceType === "weekly") {
+      payload.date = formData.date;
+    }
+
+    if (formData.recurrenceType === "monthly" && monthlyOption === "byDate") {
+      const selectedDate = moment(formData.date);
+      const dayNum = selectedDate.date();
+      payload.recurrenceType = "monthly";
+      payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
+    }
+
+    const response = await Api.post("/church/create-event", payload);
+
+    toast.success(
+      `Program "${response.data.event?.title || formData.title}" created successfully!`,
+      {
+        position: isMobile ? "top-center" : "top-right",
+      }
+    );
+    resetForm();
+    onSuccess?.();
+    setTimeout(() => {
+      onClose();
+    }, 1000);
+  } catch (error: any) {
+    console.error("Program creation error:", error);
+    toast.error(error.response?.data?.message || "Failed to create program. Please try again.", {
+      position: isMobile ? "top-center" : "top-right",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const resetForm = () => {
     setFormData({
@@ -431,90 +437,96 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   );
 
   const renderDateTimeInputs = () => {
-    let dateInput;
-    if (formData.recurrenceType === "weekly") {
-      dateInput = (
-        <FormControl fullWidth variant="outlined">
-          <InputLabel id="weekday-label" sx={inputLabelProps.sx}>
-            Days of the Week
-          </InputLabel>
-          <Select
-            labelId="weekday-label"
-            multiple
-            value={selectedWeekdays}
-            onChange={handleWeekdayChange}
-            label="Days of the Week"
-            renderValue={(selected) => selected.join(", ")}
-            sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-            }}
-          >
-            {daysOfWeek.map((day) => (
-              <MenuItem key={day} value={day}>
-                <Checkbox checked={selectedWeekdays.indexOf(day) > -1} />
-                <ListItemText primary={day} />
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      );
-    } else if (formData.recurrenceType === "custom") {
-      dateInput = (
-        <Box>
-          <TextField
-            fullWidth
-            label="Add Custom Date"
-            type="date"
-            onChange={(e) => handleAddCustomDate(e.target.value)}
-            variant="outlined"
-            disabled={loading}
-            InputLabelProps={{ shrink: true, ...inputLabelProps }}
-            inputProps={inputProps}
-          />
-          <List sx={{ maxHeight: 150, overflow: "auto" }}>
-            {customDates.map((date, index) => (
-              <ListItem key={index} sx={{ color: "#F6F4FE", border: "0.5px solid #777280", borderRadius: 1 }}>
-                <ListItemText primary={moment(date).format("MMMM D, YYYY")} />
-                <ListItemSecondaryAction>
-                  <IconButton
-                    edge="end"
-                    onClick={() => handleRemoveCustomDate(date)}
-                    disabled={loading}
-                    sx={{ color: "#F6F4FE" }}
-                    aria-label={`Remove date ${moment(date).format("MMMM D, YYYY")}`}
-                  >
-                    <Delete />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      );
-    } else {
-      dateInput = (
-        <TextField
-          fullWidth
-          label="Date"
-          name="date"
-          type="date"
-          value={formData.date}
-          onChange={handleDateChange}
-          variant="outlined"
-          disabled={loading}
-          InputLabelProps={{ shrink: true, ...inputLabelProps }}
-          inputProps={inputProps}
-        />
-      );
-    }
-
     return (
       <Grid size={{ xs: 12 }}>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 6 }}>{dateInput}</Grid>
+          {/* Date input for all recurrence types except custom */}
+          {formData.recurrenceType !== "custom" && (
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Start Date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={handleDateChange}
+                variant="outlined"
+                disabled={loading}
+                InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                inputProps={inputProps}
+              />
+            </Grid>
+          )}
+
+          {/* Days of Week selector only for weekly recurrence */}
+          {formData.recurrenceType === "weekly" && (
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel id="weekday-label" sx={inputLabelProps.sx}>
+                  Days of the Week
+                </InputLabel>
+                <Select
+                  labelId="weekday-label"
+                  multiple
+                  value={selectedWeekdays}
+                  onChange={handleWeekdayChange}
+                  label="Days of the Week"
+                  renderValue={(selected) => selected.join(", ")}
+                  sx={{
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+                  }}
+                >
+                  {daysOfWeek.map((day) => (
+                    <MenuItem key={day} value={day}>
+                      <Checkbox checked={selectedWeekdays.indexOf(day) > -1} />
+                      <ListItemText primary={day} />
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+
+          {/* Custom date input for custom recurrence */}
+          {formData.recurrenceType === "custom" && (
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Box>
+                <TextField
+                  fullWidth
+                  label="Add Custom Date"
+                  type="date"
+                  onChange={(e) => handleAddCustomDate(e.target.value)}
+                  variant="outlined"
+                  disabled={loading}
+                  InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                  inputProps={inputProps}
+                />
+                <List sx={{ maxHeight: 150, overflow: "auto", mt: 1 }}>
+                  {customDates.map((date, index) => (
+                    <ListItem key={index} sx={{ color: "#F6F4FE", border: "0.5px solid #777280", borderRadius: 1, mb: 1 }}>
+                      <ListItemText primary={moment(date).format("MMMM D, YYYY")} />
+                      <ListItemSecondaryAction>
+                        <IconButton
+                          edge="end"
+                          onClick={() => handleRemoveCustomDate(date)}
+                          disabled={loading}
+                          sx={{ color: "#F6F4FE" }}
+                          aria-label={`Remove date ${moment(date).format("MMMM D, YYYY")}`}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            </Grid>
+          )}
+
+          {/* Time inputs */}
           <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               fullWidth
@@ -543,6 +555,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               inputProps={inputProps}
             />
           </Grid>
+
+          {/* End Date for weekly and monthly recurrence */}
           {["weekly", "monthly"].includes(formData.recurrenceType) && (
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
@@ -694,12 +708,14 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           }}
           renderValue={(selected) =>
             selected
-              .map((id) => collections.find((col) => col._id === id)?.name || id)
+              .map((id) => collections.find((col) => col.id === id)?.name || id)
               .join(", ")
           }
           sx={{
             fontSize: isLargeScreen ? "1rem" : undefined,
+            color: "#F6F4FE",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+            "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
           }}
           MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
         >
@@ -714,8 +730,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </MenuItem>
           ) : collections.length > 0 ? (
             collections.map((col) => (
-              <MenuItem key={col._id} value={col._id}>
-                <Checkbox checked={formData.collectionIds.includes(col._id)} />
+              <MenuItem key={col.id} value={col.id}>
+                <Checkbox checked={formData.collectionIds.includes(col.id)} />
                 <ListItemText primary={col.name} />
               </MenuItem>
             ))
@@ -768,69 +784,67 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     </Grid>
   );
 
-  const renderDepartmentInput = () => (
-    <Grid size={{ xs: 12 }}>
-      <FormControl fullWidth variant="outlined" disabled={loading || fetchingDepartments}>
-        <InputLabel id="department-label" sx={inputLabelProps.sx}>
-          Expected Departments
-        </InputLabel>
-        <Select
-          labelId="department-label"
-          name="departmentIds"
-          multiple
-          value={formData.departmentIds}
-          onChange={handleDepartmentChange}
-          label="Expected Departments"
-          renderValue={(selected) =>
-            selected
-              .map((id) => departments.find((dept) => dept._id === id)?.name || id)
-              .join(", ")
-          }
-          sx={{
-            fontSize: isLargeScreen ? "1rem" : undefined,
-            color: "#F6F4FE",
-            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-          }}
-          MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-        >
-          {fetchingDepartments ? (
-            <MenuItem disabled>
-              <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
-                <CircularProgress size={20} />
-                <Typography sx={{ ml: 1 }} variant="body2">
-                  Loading departments...
-                </Typography>
-              </Box>
-            </MenuItem>
-          ) : fetchDepartmentsError ? (
-            <MenuItem disabled>
-              <Typography variant="body2">{fetchDepartmentsError}</Typography>
-            </MenuItem>
-          ) : departments.length > 0 ? (
-            departments.map((dept) => (
-              <MenuItem key={dept._id} value={dept._id}>
-                <Checkbox checked={formData.departmentIds.includes(dept._id)} />
-                <ListItemText primary={dept.name} />
+  const renderDepartmentInput = () => {
+    return (
+      <Grid size={{ xs: 12 }}>
+        <FormControl fullWidth variant="outlined">
+          <InputLabel id="department-label" sx={inputLabelProps.sx}>
+            Expected Departments
+          </InputLabel>
+          <Select
+            labelId="department-label"
+            name="departmentIds"
+            multiple
+            value={formData.departmentIds}
+            onChange={handleDepartmentChange}
+            renderValue={(selected) =>
+              (selected as string[])
+                .map((id) => departments.find((dept) => dept.id === id)?.name || id)
+                .join(", ")
+            }
+            sx={{
+              fontSize: isLargeScreen ? "1rem" : undefined,
+              color: "#F6F4FE",
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+            }}
+            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+          >
+            {fetchingDepartments ? (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
+                  <CircularProgress size={20} />
+                  <Typography sx={{ ml: 1 }} variant="body2">
+                    Loading departments...
+                  </Typography>
+                </Box>
               </MenuItem>
-            ))
-          ) : (
-            <MenuItem disabled>
-              <Typography variant="body2">No departments available</Typography>
-            </MenuItem>
-          )}
-        </Select>
-        {fetchDepartmentsError && !fetchingDepartments && (
-          <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
-            <Box component="span" sx={{ mr: 1 }}>
-              ⚠️
-            </Box>
-            {fetchDepartmentsError}
-          </Typography>
-        )}
-      </FormControl>
-    </Grid>
-  );
+            ) : fetchDepartmentsError ? (
+              <MenuItem disabled>
+                <Typography variant="body2">{fetchDepartmentsError}</Typography>
+              </MenuItem>
+            ) : departments.length > 0 ? (
+              departments.map((dept: any) => {                                             
+                return (
+                  <MenuItem key={dept.id} value={dept.id}>
+                    <Checkbox
+                      checked={formData.departmentIds.includes(dept.id)}
+                      sx={{ color: "var(--color-primary)", "&.Mui-checked": { color: "var(--color-primary)" } }}
+                    />
+                    <ListItemText primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} />
+                  </MenuItem>
+                );
+              })
+            ) : (
+              <MenuItem disabled>
+                <Typography variant="body2">No departments available</Typography>
+              </MenuItem>
+            )}
+          </Select>
+        </FormControl>
+      </Grid>
+    );
+  };
 
   return (
     <Dialog
@@ -847,6 +861,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
         },
       }}
     >
+      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" color="#F6F4FE" fontWeight={600}>

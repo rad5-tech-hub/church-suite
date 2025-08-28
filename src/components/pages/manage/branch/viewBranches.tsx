@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
 import { Navigate } from "react-router-dom";
 import BranchModal from "./branch";
@@ -24,7 +24,7 @@ import {
   Grid,
 } from "@mui/material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
-import { 
+import {
   Block as BlockIcon,
   MoreVert as MoreVertIcon,
   ChevronLeft,
@@ -52,26 +52,84 @@ interface Branch {
   isDeleted?: boolean;
 }
 
-interface CustomPaginationProps {
-  count: number;
-  rowsPerPage: number;
-  page: number;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  isLargeScreen: boolean;
+interface Pagination {
+  hasNextPage: boolean;
+  nextCursor: string | null;
+  nextPage: string | null;
 }
 
-const CustomPagination: React.FC<CustomPaginationProps> = ({
-  count,
-  rowsPerPage,
-  page,
-  onPageChange,
-  isLargeScreen,
-}) => {
-  const totalPages = Math.ceil(count / rowsPerPage);
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
+interface FetchBranchesResponse {
+  message: string;
+  pagination: Pagination;
+  branches: Branch[];
+}
 
+interface CustomPaginationProps {
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: "next" | "prev") => void;
+  currentPage: number;
+  isLargeScreen: boolean;
+  isLoading?: boolean;
+}
+
+interface State {
+  branches: Branch[];
+  filteredBranches: Branch[];
+  pagination: Pagination;
+  currentPage: number;
+  pageHistory: string[];
+  loading: boolean;
+  error: string | null;
+  isSearching: boolean;
+  editModalOpen: boolean;
+  confirmModalOpen: boolean;
+  isModalOpen: boolean;
+  currentBranch: Branch | null;
+  actionType: string | null;
+  anchorEl: HTMLElement | null;
+  editFormData: Partial<Pick<Branch, "name" | "email" | "phone" | "address">>;
+  searchTerm: string;
+  locationFilter: string;
+}
+
+const initialState: State = {
+  branches: [],
+  filteredBranches: [],
+  pagination: {
+    hasNextPage: false,
+    nextCursor: null,
+    nextPage: null,
+  },
+  currentPage: 1,
+  pageHistory: [],
+  loading: false,
+  error: null,
+  isSearching: false,
+  editModalOpen: false,
+  confirmModalOpen: false,
+  isModalOpen: false,
+  currentBranch: null,
+  actionType: null,
+  anchorEl: null,
+  editFormData: {
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+  },
+  searchTerm: "",
+  locationFilter: "",
+};
+
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  hasNextPage,
+  hasPrevPage,
+  onPageChange,
+  currentPage,
+  isLargeScreen,
+  isLoading = false,
+}) => {
   return (
     <Box
       sx={{
@@ -92,22 +150,19 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             color: "#777280",
           }}
         >
-          {`${page * rowsPerPage + 1}–${Math.min(
-            (page + 1) * rowsPerPage,
-            count
-          )} of ${count}`}
+          Page {currentPage}
         </Typography>
       </Box>
       <Box sx={{ display: "flex", gap: 1 }}>
         <Button
-          onClick={() => onPageChange(null, page - 1)}
-          disabled={isFirstPage}
+          onClick={() => onPageChange("prev")}
+          disabled={!hasPrevPage || isLoading}
           sx={{
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isFirstPage ? "#777280" : "#160F38",
+            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
             "&:hover": {
               backgroundColor: "#F6F4FE",
               opacity: 0.9,
@@ -117,18 +172,19 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
               color: "#777280",
             },
           }}
+          aria-label="Previous page"
         >
           <ChevronLeft />
         </Button>
         <Button
-          onClick={() => onPageChange(null, page + 1)}
-          disabled={isLastPage}
+          onClick={() => onPageChange("next")}
+          disabled={!hasNextPage || isLoading}
           sx={{
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isLastPage ? "#777280" : "#160F38",
+            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
             "&:hover": {
               backgroundColor: "#F6F4FE",
               opacity: 0.9,
@@ -138,6 +194,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
               color: "#777280",
             },
           }}
+          aria-label="Next page"
         >
           <ChevronRight />
         </Button>
@@ -148,188 +205,352 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 
 const ViewBranches: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
-  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);;
-  const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
-  const [actionType, setActionType] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [editFormData, setEditFormData] = useState<Omit<Branch, "id" | "isHeadQuarter" | "isActive">>({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-  });
-  const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [locationFilter, setLocationFilter] = useState<string>("");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
-  // Fetch branches with error handling
-  const fetchBranches = async () => {
-    setLoading(true);
-    setError(null);
+  const [state, setState] = useState<State>(initialState);
+
+  const handleStateChange = useCallback(
+    <K extends keyof State>(key: K, value: State[K]) => {
+      setState((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+const fetchBranches = useCallback(
+  async (url: string | null = "/church/get-branches") => {
+    handleStateChange("loading", true);
+    handleStateChange("error", null);
     try {
-      const response = await Api.get("/church/get-branches");
-      setBranches(response.data.branches || []);
+      let response;
+      
+      if (url) {
+        response = await Api.get<FetchBranchesResponse>(url);
+      } else {
+        response = await Api.get<FetchBranchesResponse>("/church/get-branches");
+      }
+      
+      const data = response.data;
+      
+      if (!data?.branches) {
+        throw new Error("Invalid response structure");
+      }
+      return data;
     } catch (error) {
       console.error("Failed to fetch branches:", error);
-      setError("Failed to load branches. Please try again later.");
+      handleStateChange("error", "Failed to load branches. Please try again later.");
+      handleStateChange("loading", false);
       toast.error("Failed to load branches");
-    } finally {
-      setLoading(false);
+      throw error;
     }
-  };
+  },
+  [handleStateChange]
+);
 
-  if (authData?.isHeadQuarter === false) {
-    return <Navigate to="/manage/view-admins" replace />;
-  }
+  const searchBranches = useCallback(
+    async (url: string | null = "/church/search-branches") => {
+      handleStateChange("isSearching", true);
+      try {
+        const params = new URLSearchParams();
+        if (state.searchTerm) params.append("name", state.searchTerm);
+        if (state.locationFilter) params.append("location", state.locationFilter);
+        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const response = await Api.get<FetchBranchesResponse>(fullUrl);
+        const data = response.data;
+        if (!data || !data.branches) {
+          throw new Error("Invalid response structure");
+        }
+        handleStateChange("isSearching", false);
+        toast.success("Search completed successfully!", {
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return data;
+      } catch (error) {
+        console.error("Error searching branches:", error);
+        toast.warn("Server search failed, applying local filter", {
+          position: isMobile ? "top-center" : "top-right",
+        });
+
+        let filtered = [...state.branches];
+        if (state.searchTerm) {
+          filtered = filtered.filter((branch) =>
+            branch.name.toLowerCase().includes(state.searchTerm.toLowerCase())
+          );
+        }
+        if (state.locationFilter) {
+          filtered = filtered.filter(
+            (branch) =>
+              state.locationFilter === "" ||
+              (state.locationFilter === "branch" && !branch.isHeadQuarter) ||
+              (state.locationFilter === "hq" && branch.isHeadQuarter)
+          );
+        }
+        setState((prev) => ({
+          ...prev,
+          filteredBranches: filtered,
+          pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
+          currentPage: 1,
+          pageHistory: [],
+          isSearching: false,
+        }));
+        throw error;
+      }
+    },
+    [state.branches, state.searchTerm, state.locationFilter, isMobile, handleStateChange]
+  );
+
+  const refreshBranches = useCallback(async () => {
+    try {
+      const response = await fetchBranches();
+      const data = response as unknown as FetchBranchesResponse;
+      setState((prev) => ({
+        ...prev,
+        branches: data.branches || [],
+        filteredBranches: data.branches || [],
+        pagination: {
+          hasNextPage: data.pagination?.hasNextPage || false,
+          nextCursor: data.pagination?.nextCursor || null,
+          nextPage: data.pagination?.nextPage || null,
+        },
+        currentPage: 1,
+        pageHistory: [],
+        loading: false,
+      }));
+    } catch (error) {
+      handleStateChange("loading", false);
+    }
+  }, [fetchBranches, handleStateChange]);
 
   useEffect(() => {
-    fetchBranches();
-  }, []);
+    let isMounted = true;
 
-  // Handle search to apply filters and reset pagination
-  const handleSearch = () => {
-    setIsSearching(true);
-    setPage(0); // Reset to first page when applying filters
-    // Filtering is handled by filteredBranches, so no additional API call is needed
-    toast.success("Filters applied successfully!", {
-      position: isMobile ? "top-center" : "top-right",
-    });
-    setIsSearching(false);
-  };
+    const loadInitialData = async () => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        const response = await fetchBranches();
+        const data = response as unknown as FetchBranchesResponse;
+        if (isMounted) {
+          setState((prev) => ({
+            ...prev,
+            branches: data.branches || [],
+            filteredBranches: data.branches || [],
+            pagination: {
+              hasNextPage: data.pagination?.hasNextPage || false,
+              nextCursor: data.pagination?.nextCursor || null,
+              nextPage: data.pagination?.nextPage || null,
+            },
+            currentPage: 1,
+            pageHistory: [],
+            loading: false,
+          }));
+        }
+      } catch (error) {
+        if (isMounted) {
+          handleStateChange("loading", false);
+        }
+      }
+    };
 
-  // Filter branches based on search and location
-  const filteredBranches = branches.filter((branch) => {
-    const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLocation =
-      locationFilter === "" ||
-      (locationFilter === "branch" && !branch.isHeadQuarter) ||
-      (locationFilter === "hq" && branch.isHeadQuarter);
-    return matchesSearch && matchesLocation;
-  });
+    loadInitialData();
 
-  // Calculate counts
-  // const activeCount = filteredBranches.filter((branch) => branch.isActive && !branch.isDeleted).length;
-  // const inactiveCount = filteredBranches.filter((branch) => !branch.isActive && !branch.isDeleted).length;
-  // const hqCount = filteredBranches.filter((branch) => branch.isHeadQuarter).length;
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchBranches, handleStateChange]);
 
-  const handleMenuClose = () => setAnchorEl(null);
+  const handlePageChange = useCallback(
+    async (direction: "next" | "prev") => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        if (direction === "next") {
+          const url = state.pagination.nextPage;
+          if (!url) throw new Error("No next page available");
+          const response = state.searchTerm || state.locationFilter 
+            ? await searchBranches(url) 
+            : await fetchBranches(url);
+
+          const data = response as FetchBranchesResponse;
+          setState((prev) => ({
+            ...prev,
+            filteredBranches: data.branches || [],
+            pagination: {
+              hasNextPage: data.pagination?.hasNextPage || false,
+              nextCursor: data.pagination?.nextCursor || null,
+              nextPage: data.pagination?.nextPage || null,
+            },
+            pageHistory: [...prev.pageHistory, url],
+            currentPage: prev.currentPage + 1,
+            loading: false,
+          }));
+        } else if (direction === "prev") {
+          if (state.pageHistory.length === 0) throw new Error("No previous page available");
+          const prevIndex = state.pageHistory.length - 2;
+          const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : "/church/get-branches";
+          const response = state.searchTerm || state.locationFilter 
+            ? await searchBranches(url) 
+            : await fetchBranches(url);
+
+          const data = response as FetchBranchesResponse;
+          setState((prev) => ({
+            ...prev,
+            filteredBranches: data.branches || [],
+            pagination: {
+              hasNextPage: data.pagination?.hasNextPage || false,
+              nextCursor: data.pagination?.nextCursor || null,
+              nextPage: data.pagination?.nextPage || null,
+            },
+            pageHistory: prev.pageHistory.slice(0, -1),
+            currentPage: prev.currentPage - 1,
+            loading: false,
+          }));
+        }
+      } catch (error) {
+        console.error(`Error fetching ${direction} page:`, error);
+        const errorMessage = "Failed to load page";
+        handleStateChange("error", errorMessage);
+        handleStateChange("loading", false);
+        toast.error(errorMessage);
+      }
+    },
+    [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.locationFilter, fetchBranches, searchBranches, handleStateChange]
+  );
+
+  const handleSearch = useCallback(() => {
+    handleStateChange("isSearching", true);
+    handleStateChange("currentPage", 1);
+    handleStateChange("pageHistory", []);
+    if (state.searchTerm || state.locationFilter) {
+      searchBranches("/church/search-branches").then((data) => {
+        if (data) {
+          setState((prev) => ({
+            ...prev,
+            filteredBranches: data.branches || [],
+            pagination: {
+              hasNextPage: data.pagination?.hasNextPage || false,
+              nextCursor: data.pagination?.nextCursor || null,
+              nextPage: data.pagination?.nextPage || null,
+            },
+            isSearching: false,
+          }));
+        }
+      });
+    } else {
+      refreshBranches();
+    }
+  }, [refreshBranches, searchBranches, handleStateChange]);
+
+  const handleMenuClose = () => handleStateChange("anchorEl", null);
 
   const handleEditOpen = () => {
-    if (currentBranch) {
-      setEditFormData({
-        name: currentBranch.name,
-        email: currentBranch.email,
-        phone: currentBranch.phone,
-        address: currentBranch.address,
+    if (state.currentBranch) {
+      handleStateChange("editFormData", {
+        name: state.currentBranch.name,
+        email: state.currentBranch.email,
+        phone: state.currentBranch.phone,
+        address: state.currentBranch.address,
       });
-      setEditModalOpen(true);
+      handleStateChange("editModalOpen", true);
     }
     handleMenuClose();
   };
 
-  const handleEditClose = () => {
-    setEditModalOpen(false);
-    setCurrentBranch(null);
-  };
-
   const showConfirmation = (action: string) => {
-    setActionType(action);
-    setConfirmModalOpen(true);
+    handleStateChange("actionType", action);
+    handleStateChange("confirmModalOpen", true);
     handleMenuClose();
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setEditFormData((prev) => ({ ...prev, [name]: value }));
+    handleStateChange("editFormData", { ...state.editFormData, [name]: value });
   };
 
   const handleEditSubmit = async () => {
-    if (!currentBranch?.id) {
+    if (!state.currentBranch?.id) {
       console.error("Branch ID is undefined");
       toast.error("Invalid branch data");
       return;
     }
 
     try {
-      setLoading(true);
-      await Api.patch(`/church/edit-branch/${currentBranch.id}`, editFormData);
+      handleStateChange("loading", true);
+      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, state.editFormData);
 
-      setBranches(
-        branches.map((branch) =>
-          branch.id === currentBranch.id ? { ...branch, ...editFormData } : branch
-        )
-      );
+      setState((prev) => ({
+        ...prev,
+        branches: prev.branches.map((branch) =>
+          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+        ),
+        filteredBranches: prev.filteredBranches.map((branch) =>
+          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+        ),
+      }));
 
       toast.success("Branch updated successfully!", {
         position: isMobile ? "top-center" : "top-right",
       });
-      handleEditClose();
+      handleStateChange("editModalOpen", false);
+      handleStateChange("currentBranch", null);
     } catch (error) {
       console.error("Update error:", error);
       toast.error("Failed to update branch", {
         position: isMobile ? "top-center" : "top-right",
       });
     } finally {
-      setLoading(false);
+      handleStateChange("loading", false);
     }
   };
 
   const handleConfirmedAction = async () => {
-    if (!currentBranch || !actionType) return;
+    if (!state.currentBranch || !state.actionType) return;
 
     try {
-      setLoading(true);
-      if (actionType === "delete") {
-        await Api.delete(`/church/delete-branch/${currentBranch.id}`);
-        setBranches(branches.filter((branch) => branch.id !== currentBranch.id));
+      handleStateChange("loading", true);
+      if (state.actionType === "delete") {
+        await Api.delete(`/church/delete-branch/${state.currentBranch.id}`);
+        setState((prev) => ({
+          ...prev,
+          branches: prev.branches.filter((branch) => branch.id !== prev.currentBranch!.id),
+          filteredBranches: prev.filteredBranches.filter((branch) => branch.id !== prev.currentBranch!.id),
+          pagination: { ...prev.pagination, hasNextPage: prev.filteredBranches.length > 1 },
+          pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
+          currentPage: prev.currentPage > 1 && prev.filteredBranches.length === 1 ? prev.currentPage - 1 : prev.currentPage,
+        }));
         toast.success("Branch deleted successfully!", {
           position: isMobile ? "top-center" : "top-right",
         });
-      } else if (actionType === "suspend") {
-        const newStatus = !currentBranch.isActive;
-        await Api.patch(`/church/${newStatus ? "activate" : "suspend"}-branch/${currentBranch.id}`);
-        setBranches(
-          branches.map((branch) =>
-            branch.id === currentBranch.id ? { ...branch, isActive: newStatus } : branch
-          )
-        );
+      } else if (state.actionType === "suspend") {
+        const newStatus = !state.currentBranch.isActive;
+        await Api.patch(`/church/${newStatus ? "activate" : "suspend"}-branch/${state.currentBranch.id}`);
+        setState((prev) => ({
+          ...prev,
+          branches: prev.branches.map((branch) =>
+            branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
+          ),
+          filteredBranches: prev.filteredBranches.map((branch) =>
+            branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
+          ),
+        }));
         toast.success(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, {
           position: isMobile ? "top-center" : "top-right",
         });
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error(`Failed to ${actionType} branch`, {
+      toast.error(`Failed to ${state.actionType} branch`, {
         position: isMobile ? "top-center" : "top-right",
       });
     } finally {
-      setLoading(false);
-      setConfirmModalOpen(false);
-      setActionType(null);
-      setCurrentBranch(null);
+      handleStateChange("loading", false);
+      handleStateChange("confirmModalOpen", false);
+      handleStateChange("actionType", null);
+      handleStateChange("currentBranch", null);
     }
   };
 
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-
-  // Empty state component
   const EmptyState = () => (
     <Box
       sx={{
@@ -352,14 +573,14 @@ const ViewBranches: React.FC = () => {
       >
         No branches found
       </Typography>
-      {error ? (
+      {state.error ? (
         <Typography color="error" sx={{ mb: 2 }}>
-          {error}
+          {state.error}
         </Typography>
       ) : null}
       <Button
         variant="contained"
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => handleStateChange("isModalOpen", true)}
         sx={{
           backgroundColor: "#363740",
           px: { xs: 2, sm: 2 },
@@ -369,19 +590,23 @@ const ViewBranches: React.FC = () => {
           "&:hover": {
             backgroundColor: "#363740",
             opacity: 0.9,
-          },                              
+          },
         }}
+        aria-label="Create new branch"
       >
         Create New Branch
       </Button>
     </Box>
   );
 
+  if (authData?.isHeadQuarter === false) {
+    return <Navigate to="/manage/view-admins" replace />;
+  }
+
   return (
     <DashboardManager>
       <ToastContainer />
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 5 }}>
             <Typography
@@ -426,14 +651,15 @@ const ViewBranches: React.FC = () => {
                   <TextField
                     variant="standard"
                     placeholder="Search by name"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={state.searchTerm}
+                    onChange={(e) => handleStateChange("searchTerm", e.target.value)}
                     sx={{
                       color: "#F6F4FE",
                       "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
                       flex: 1,
                     }}
                     InputProps={{ disableUnderline: true }}
+                    aria-label="Search branches by name"
                   />
                 </Box>
                 <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
@@ -445,11 +671,11 @@ const ViewBranches: React.FC = () => {
                     Location
                   </Typography>
                   <MuiSelect
-                    value={locationFilter}
-                    onChange={(e) => setLocationFilter(e.target.value)}
+                    value={state.locationFilter}
+                    onChange={(e) => handleStateChange("locationFilter", e.target.value)}
                     displayEmpty
                     sx={{
-                      color: locationFilter ? "#F6F4FE" : "#777280",
+                      color: state.locationFilter ? "#F6F4FE" : "#777280",
                       fontWeight: 500,
                       fontSize: "14px",
                       ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -457,6 +683,7 @@ const ViewBranches: React.FC = () => {
                       "& .MuiSelect-icon": { display: "none" },
                     }}
                     renderValue={(selected) => selected || "Select Location"}
+                    aria-label="Filter branches by location"
                   >
                     <MenuItem value="">All</MenuItem>
                     <MenuItem value="branch">Branch</MenuItem>
@@ -469,16 +696,17 @@ const ViewBranches: React.FC = () => {
                     sx={{
                       backgroundColor: "transparent",
                       border: "1px solid #777280",
-                      color: "white",       
+                      color: "white",
                       borderRadius: "50%",
                       minWidth: "48px",
                       height: "48px",
                       padding: 0,
                       "&:hover": { backgroundColor: "#777280" },
                     }}
-                    disabled={loading || isSearching}
+                    disabled={state.loading || state.isSearching}
+                    aria-label="Search branches"
                   >
-                    {isSearching ? (
+                    {state.isSearching ? (
                       <CircularProgress size={20} color="inherit" />
                     ) : (
                       <SearchIcon sx={{ fontSize: "20px" }} />
@@ -498,7 +726,7 @@ const ViewBranches: React.FC = () => {
           >
             <Button
               variant="contained"
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => handleStateChange("isModalOpen", true)}
               size="medium"
               sx={{
                 backgroundColor: "#363740",
@@ -514,134 +742,126 @@ const ViewBranches: React.FC = () => {
                   opacity: 0.9,
                 },
               }}
+              aria-label="Create new branch"
             >
               Create Branch +
             </Button>
           </Grid>
         </Grid>
 
-        {/* Loading State */}
-        {loading && branches.length === 0 && (
+        {state.loading && state.filteredBranches.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
-        {/* Error State */}
-        {error && !loading && branches.length === 0 && <EmptyState />}
+        {state.error && !state.loading && state.filteredBranches.length === 0 && <EmptyState />}
 
-        {/* Empty State */}
-        {!loading && !error && filteredBranches.length === 0 && <EmptyState />}
+        {!state.loading && !state.error && state.filteredBranches.length === 0 && <EmptyState />}
 
-        {/* Data Table */}
-        {filteredBranches.length > 0 && (
-          <>           
+        {state.filteredBranches.length > 0 && (
+          <>
             <Grid container spacing={2}>
-              {filteredBranches
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((branch) => (
-                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={branch.id}>
-                    <Card                
-                      sx={{
-                        borderRadius: '10.267px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                        boxShadow: '0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)',
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        opacity: branch.isDeleted ? 0.7 : 1,
-                        "&:hover": {                        
-                          backgroundColor: 'rgba(255, 255, 255, 0.)',
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{marginBottom: 3, display: 'flex', justifyContent: 'space-between' }}>
-                          <Box>
-                            <IconButton sx={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                              color: '#777280',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              padding: '15px',
+              {state.filteredBranches.map((branch) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={branch.id}>
+                  <Card
+                    sx={{
+                      borderRadius: "10.267px",
+                      backgroundColor: "rgba(255, 255, 255, 0.06)",
+                      boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      opacity: branch.isDeleted ? 0.7 : 1,
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      },
+                    }}
+                  >
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
+                        <Box>
+                          <IconButton
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#777280",
+                              display: "flex",
+                              flexDirection: "column",
+                              padding: "15px",
                               borderRadius: 1,
-                              textAlign: 'center'
-                            }}>                            
-                              <span className="border-2 rounded-md border-[#777280] p-1 ">
-                                <TbArrowFork  size={30}/>
-                              </span>
-                            </IconButton>
-                          </Box>
-                          <Box>
-                            <IconButton
-                              onClick={(e) => {
-                                setCurrentBranch(branch);
-                                setAnchorEl(e.currentTarget);
-                              }}
-                              sx={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                                color: '#777280',                                
-                                padding: '8px',
-                                borderRadius: 1,
-                                textAlign: 'center'
-                              }}
-                            >
-                              <MoreVertIcon />
-                            </IconButton> 
-                          </Box>
+                              textAlign: "center",
+                            }}
+                            aria-label={`Branch icon for ${branch.name}`}
+                          >
+                            <span className="border-2 rounded-md border-[#777280] p-1">
+                              <TbArrowFork size={30} />
+                            </span>
+                          </IconButton>
                         </Box>
-                        <Box display="flex" flexDirection={"column"} justifyContent="space-between" alignItems="flex-start">                                              
-                          
+                        <Box>
+                          <IconButton
+                            onClick={(e) => {
+                              handleStateChange("currentBranch", branch);
+                              handleStateChange("anchorEl", e.currentTarget);
+                            }}
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#777280",
+                              padding: "8px",
+                              borderRadius: 1,
+                              textAlign: "center",
+                            }}
+                            aria-label={`More options for ${branch.name}`}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            textDecoration: branch.isDeleted ? "line-through" : "none",
+                            color: branch.isDeleted ? "gray" : "#777280",
+                          }}
+                        >
+                          {branch.name}
+                        </Typography>
+                        {branch.address && (
                           <Typography
-                            variant="body2"
+                            variant="h6"
+                            fontWeight={600}
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#777280",
+                              color: branch.isDeleted ? "gray" : "#E1E1E1",
                             }}
                           >
-                            {branch.name}
-                          </Typography>      
-                          
-                          {branch.address && (                          
-                            <Typography
-                              variant="h6"
-                              fontWeight={600}
-                              sx={{
-                                textDecoration: branch.isDeleted ? "line-through" : "none",
-                                color: branch.isDeleted ? "gray" : "#E1E1E1",
-                                
-                              }}
-                            >
-                              {branch.address}         
-                            </Typography>
-                            
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
+                            {branch.address}
+                          </Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
 
-
-            {/* Custom Pagination */}
             <CustomPagination
-              count={filteredBranches.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
+              hasNextPage={state.pagination.hasNextPage}
+              hasPrevPage={state.currentPage > 1}
+              onPageChange={handlePageChange}
+              currentPage={state.currentPage}
               isLargeScreen={isLargeScreen}
-            />            
+              isLoading={state.loading}
+            />
           </>
         )}
 
-        {/* Action Menu */}
         <Menu
           id="branch-menu"
-          anchorEl={anchorEl}
+          anchorEl={state.anchorEl}
           keepMounted
-          open={Boolean(anchorEl)}
+          open={Boolean(state.anchorEl)}
           onClose={handleMenuClose}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
@@ -653,35 +873,50 @@ const ViewBranches: React.FC = () => {
             },
           }}
         >
-          <MenuItem onClick={handleEditOpen} disabled={currentBranch?.isDeleted || currentBranch?.isHeadQuarter}>
+          <MenuItem
+            onClick={handleEditOpen}
+            disabled={state.currentBranch?.isDeleted || state.currentBranch?.isHeadQuarter}
+          >
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("suspend")} disabled={loading || currentBranch?.isHeadQuarter}>
-            {currentBranch?.isActive ? (
+          <MenuItem
+            onClick={() => showConfirmation("suspend")}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+          >
+            {state.currentBranch?.isActive ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                {loading && actionType === "suspend" ? "Suspending..." : "Suspend"}
+                {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
               </>
             ) : (
               <>
                 <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {loading && actionType === "suspend" ? "Activating..." : "Activate"}
+                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
               </>
             )}
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("delete")} disabled={loading || currentBranch?.isHeadQuarter}>
+          <MenuItem
+            onClick={() => showConfirmation("delete")}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+          >
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
           </MenuItem>
         </Menu>
 
-        {/* Edit Branch Modal */}
-        <Dialog open={editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth 
+        <Dialog
+          open={state.editModalOpen}
+          onClose={() => {
+            handleStateChange("editModalOpen", false);
+            handleStateChange("currentBranch", null);
+          }}
+          maxWidth="sm"
+          fullWidth
           sx={{
             "& .MuiDialog-paper": {
-              borderRadius:  2,
-              bgcolor: '#2C2C2C',
+              borderRadius: 2,
+              bgcolor: "#2C2C2C",
               color: "#F6F4FE",
             },
           }}
@@ -691,8 +926,14 @@ const ViewBranches: React.FC = () => {
               <Typography variant="h6" fontWeight={600}>
                 Edit Branch
               </Typography>
-              <IconButton onClick={handleEditClose}>
-                <Close className="text-gray-300"/>
+              <IconButton
+                onClick={() => {
+                  handleStateChange("editModalOpen", false);
+                  handleStateChange("currentBranch", null);
+                }}
+                aria-label="Close edit modal"
+              >
+                <Close className="text-gray-300" />
               </IconButton>
             </Box>
           </DialogTitle>
@@ -702,128 +943,96 @@ const ViewBranches: React.FC = () => {
                 fullWidth
                 label="Branch Name"
                 name="name"
-                value={editFormData.name}
+                value={state.editFormData.name}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputProps={{                 
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
+                    color: "#F6F4FE",
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
                   },
                 }}
+                aria-label="Branch name"
               />
               <TextField
                 fullWidth
                 label="Email"
                 name="email"
-                value={editFormData.email}
+                value={state.editFormData.email}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputProps={{                 
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
+                    color: "#F6F4FE",
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
                   },
                 }}
+                aria-label="Branch email"
               />
               <TextField
                 fullWidth
                 label="Phone"
                 name="phone"
                 type="tel"
-                value={editFormData.phone}
+                value={state.editFormData.phone}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
-                InputProps={{                 
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
+                    color: "#F6F4FE",
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
                   },
                 }}
+                aria-label="Branch phone"
               />
               <TextField
                 fullWidth
                 label="Address"
                 name="address"
-                value={editFormData.address}
+                value={state.editFormData.address}
                 onChange={handleEditChange}
                 margin="normal"
                 variant="outlined"
                 multiline
                 rows={4}
-                InputProps={{                 
+                InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
+                    color: "#F6F4FE",
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",                    
-                    outlineColor: "#777280",
-                    borderColor: "#777280",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },                    
                   },
                 }}
+                aria-label="Branch address"
               />
             </Box>
           </DialogContent>
@@ -845,54 +1054,59 @@ const ViewBranches: React.FC = () => {
                 },
               }}
               variant="contained"
-              disabled={loading}
+              disabled={state.loading}
+              aria-label="Save branch changes"
             >
-              {loading ? "Saving..." : "Save Changes"}
+              {state.loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Create Branch Modal */}
-         <BranchModal
-          open={isModalOpen}
-          onClose={() => {setIsModalOpen(false), fetchBranches()}}
-          onSuccess={fetchBranches}
+        <BranchModal
+          open={state.isModalOpen}
+          onClose={() => handleStateChange("isModalOpen", false)}
+          onSuccess={refreshBranches}
         />
 
-        {/* Confirmation Modal */}
-        <Dialog open={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} maxWidth="xs">
+        <Dialog
+          open={state.confirmModalOpen}
+          onClose={() => handleStateChange("confirmModalOpen", false)}
+          maxWidth="xs"
+        >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            {actionType === "delete"
+            {state.actionType === "delete"
               ? "Delete Branch"
-              : actionType === "suspend"
-              ? currentBranch?.isActive
+              : state.actionType === "suspend"
+              ? state.currentBranch?.isActive
                 ? "Suspend Branch"
                 : "Activate Branch"
               : ""}
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              {actionType === "delete"
-                ? `Are you sure you want to delete "${currentBranch?.name}"?`
-                : `Are you sure you want to ${currentBranch?.isActive ? "suspend" : "activate"} "${currentBranch?.name}"?`}
-              {currentBranch?.isHeadQuarter && actionType === "delete" && " Headquarters branch cannot be deleted."}
+              {state.actionType === "delete"
+                ? `Are you sure you want to delete "${state.currentBranch?.name}"?`
+                : `Are you sure you want to ${state.currentBranch?.isActive ? "suspend" : "activate"} "${state.currentBranch?.name}"?`}
+              {state.currentBranch?.isHeadQuarter && state.actionType === "delete" && " Headquarters branch cannot be deleted."}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button
-              onClick={() => setConfirmModalOpen(false)}
+              onClick={() => handleStateChange("confirmModalOpen", false)}
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+              aria-label="Cancel action"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmedAction}
               sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              color={actionType === "delete" ? "error" : "primary"}
+              color={state.actionType === "delete" ? "error" : "primary"}
               variant="contained"
-              disabled={loading || (actionType === "delete" && currentBranch?.isHeadQuarter)}
+              disabled={state.loading || (state.actionType === "delete" && state.currentBranch?.isHeadQuarter)}
+              aria-label={state.actionType === "delete" ? "Delete branch" : "Confirm action"}
             >
-              {loading ? "Processing..." : actionType === "delete" ? "Delete" : "Confirm"}
+              {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Confirm"}
             </Button>
           </DialogActions>
         </Dialog>

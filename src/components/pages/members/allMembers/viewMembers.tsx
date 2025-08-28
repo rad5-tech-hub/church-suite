@@ -39,17 +39,17 @@ import {
   Search,
   AttachFile,
   PersonOutline,
+  SentimentVeryDissatisfied as EmptyIcon,
 } from "@mui/icons-material";
-import { MdOutlineFileUpload } from "react-icons/md";
-import { LiaLongArrowAltRightSolid } from "react-icons/lia";
-import { MdRefresh } from "react-icons/md";
+import { MdOutlineFileUpload, MdRefresh } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
-import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { IoMdClose } from "react-icons/io";
+import { PiDownloadThin } from "react-icons/pi";
+import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import Api from "../../../shared/api/api";
 import { toast, ToastContainer } from "react-toastify";
-import { PiDownloadThin } from "react-icons/pi";
 
+// Type Definitions
 interface Member {
   id: string;
   memberId: string;
@@ -66,137 +66,127 @@ interface Department {
   name: string;
 }
 
-interface CustomPaginationProps {
-  count: number;
-  rowsPerPage: number;
-  page: number;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  isLargeScreen: boolean;
+interface Pagination {
+  hasNextPage: boolean;
+  nextPage: string | null;
 }
 
-const CustomPagination: React.FC<CustomPaginationProps> = ({
-  count,
-  rowsPerPage,
-  page,
-  onPageChange,
-  isLargeScreen,
-}) => {
-  const totalPages = Math.ceil(count / rowsPerPage);
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
+interface FetchMembersResponse {
+  success: boolean;
+  pagination: Pagination;
+  data: Member[];
+}
 
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        py: 2,
-        px: { xs: 2, sm: 3 },
-        color: "#777280",
-        gap: 2,
-        flexWrap: "wrap",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          sx={{
-            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
-          }}
-        >
-          {`${page * rowsPerPage + 1}–${Math.min(
-            (page + 1) * rowsPerPage,
-            count
-          )} of ${count}`}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          onClick={() => onPageChange(null, page - 1)}
-          disabled={isFirstPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isFirstPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          onClick={() => onPageChange(null, page + 1)}
-          disabled={isLastPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isLastPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronRight />
-        </Button>
-      </Box>
+interface CustomPaginationProps {
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: "next" | "prev") => void;
+  currentPage: number;
+  isLargeScreen: boolean;
+  isLoading: boolean;
+}
+
+// Custom Pagination Component
+const CustomPagination: React.FC<CustomPaginationProps> = ({
+  hasNextPage,
+  hasPrevPage,
+  onPageChange,
+  currentPage,
+  isLargeScreen,
+  isLoading,
+}) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      py: 2,
+      px: { xs: 2, sm: 3 },
+      color: "#777280",
+      gap: 2,
+      flexWrap: "wrap",
+    }}
+  >
+    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "#777280" }}>
+      Page {currentPage}
+    </Typography>
+    <Box sx={{ display: "flex", gap: 1 }}>
+      <Button
+        onClick={() => onPageChange("prev")}
+        disabled={!hasPrevPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Previous page"
+      >
+        <ChevronLeft />
+      </Button>
+      <Button
+        onClick={() => onPageChange("next")}
+        disabled={!hasNextPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Next page"
+      >
+        <ChevronRight />
+      </Button>
     </Box>
-  );
-};
+  </Box>
+);
 
 const ViewMembers: React.FC = () => {
+  // Hooks
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const authData = useSelector((state: RootState) => state.auth?.authData);
 
+  // State
   const [state, setState] = useState({
     members: [] as Member[],
     filteredMembers: [] as Member[],
     filteredNames: [] as Member[],
-    loading: true,
-    exportLoading: false,
-    error: null as string | null,
-    confirmModalOpen: false,
-    currentMember: null as Member | null,
-    actionType: null as string | null,
-    anchorEl: null as HTMLElement | null,
+    departments: [] as Department[],
+    pagination: { hasNextPage: false, nextPage: null } as Pagination,
+    pageHistory: [] as string[],
+    currentPage: 1,
     page: 0,
-    rowsPerPage: 5,
-    openDialog: false,
-    selectedFile: null as File | null,
-    isDragging: false,
-    isLoading: false,
-    isModalOpen: false,
-    isDrawerOpen: false,
     searchName: "",
     searchDepartment: "" as string,
     searchAddress: "" as string,
-    departments: [] as Department[],
+    loading: true,
+    exportLoading: false,
+    isLoading: false,
     isSearching: false,
+    error: null as string | null,
+    confirmModalOpen: false,
+    isModalOpen: false,
+    isDrawerOpen: false,
     isNameDropdownOpen: false,
+    openDialog: false,
+    selectedFile: null as File | null,
+    isDragging: false,
+    currentMember: null as Member | null,
+    actionType: null as string | null,
+    anchorEl: null as HTMLElement | null,
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const authData = useSelector((state: RootState) => state.auth?.authData);
-
-  // Helper to update state
+  // State Handlers
   const handleStateChange = useCallback(
     <K extends keyof typeof state>(key: K, value: (typeof state)[K]) => {
       setState((prev) => {
@@ -214,53 +204,88 @@ const ViewMembers: React.FC = () => {
     []
   );
 
-  // Fetch members from API
-  const fetchMembers = useCallback(async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    // Data Fetching Handlers
+  const fetchMembers = useCallback(async (url: string | null = "/member/all-members") => {
+    handleStateChange("loading", true);
+    handleStateChange("error", null);
     try {
-      const response = await Api.get("/member/all-members");
+      const apiUrl = url || "/member/all-members";
+      const response = await Api.get<FetchMembersResponse>(apiUrl);
+      
+      const data = {
+        members: response.data.data || [],
+        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+      };
+
       setState((prev) => ({
         ...prev,
-        members: response.data.data || [],
-        filteredMembers: response.data.data || [],
-        filteredNames: response.data.data || [],
+        members: data.members,
+        filteredMembers: data.members,
+        filteredNames: data.members,
+        pagination: data.pagination,
+        loading: false,
       }));
+
+      return data; // Return the data for use in refreshMembers
     } catch (error) {
       console.error("Failed to fetch members:", error);
-      setState((prev) => ({ ...prev, error: "Failed to load members. Please try again later." }));
+      handleStateChange("error", "Failed to load members. Please try again later.");
+      handleStateChange("loading", false);
       toast.error("Failed to load members");
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
+      return { members: [], pagination: { hasNextPage: false, nextPage: null } }; // Return default values on error
     }
-  }, []);
+  }, [handleStateChange]);
 
-  // Fetch departments for autocomplete
   const fetchDepartments = useCallback(async () => {
     try {
       const response = await Api.get("/church/get-departments");
-      setState((prev) => ({ ...prev, departments: response.data.departments || [] }));
+      handleStateChange("departments", response.data.departments || []);
     } catch (error) {
       console.error("Error fetching departments:", error);
       toast.error("Failed to load departments");
     }
-  }, []);
+  }, [handleStateChange]);
 
-  // Search members via API with fallback to client-side filtering
+  const refreshMembers = useCallback(async () => {
+    try {
+      const data = await fetchMembers();
+      setState((prev) => ({
+        ...prev,
+        members: data.members,
+        filteredMembers: data.members,
+        pagination: data.pagination,
+        currentPage: 1,
+        pageHistory: [],
+        loading: false,
+      }));
+    } catch (error) {
+      handleStateChange("loading", false);
+    }
+  }, [fetchMembers, handleStateChange]);
+
+  // Search Handlers
   const searchMembers = useCallback(async () => {
-    setState((prev) => ({ ...prev, isSearching: true }));
+    handleStateChange("isSearching", true);
+    handleStateChange("currentPage", 1);
+    handleStateChange("pageHistory", []);
+    
     try {
       const params = new URLSearchParams();
       if (state.searchName) params.append("name", state.searchName);
       if (state.searchDepartment) params.append("departmentId", state.searchDepartment);
       if (state.searchAddress) params.append("address", state.searchAddress);
 
-      const response = await Api.get(`/member/search?${params.toString()}`);
+      const response = await Api.get<FetchMembersResponse>(`/member/search?${params.toString()}`);
+      
       setState((prev) => ({
         ...prev,
         filteredMembers: response.data.data || [],
+        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
         page: 0,
         isDrawerOpen: false,
+        isSearching: false,
       }));
+      
       toast.success("Search completed successfully!", {
         position: isMobile ? "top-center" : "top-right",
       });
@@ -270,7 +295,6 @@ const ViewMembers: React.FC = () => {
         position: isMobile ? "top-center" : "top-right",
       });
 
-      // Fallback to client-side filtering
       let filtered = [...state.members];
       if (state.searchName) {
         filtered = filtered.filter((member) =>
@@ -291,23 +315,136 @@ const ViewMembers: React.FC = () => {
           member.address.toLowerCase().includes(state.searchAddress.toLowerCase())
         );
       }
+      
       setState((prev) => ({
         ...prev,
         filteredMembers: filtered,
-        page: 0,
+        pagination: { hasNextPage: false, nextPage: null },
+        currentPage: 1,
+        pageHistory: [],
         isDrawerOpen: false,
+        isSearching: false,
       }));
-    } finally {
-      setState((prev) => ({ ...prev, isSearching: false }));
     }
-  }, [state.members, state.searchName, state.searchDepartment, state.searchAddress, state.departments, isMobile]);
+  }, [state.members, state.searchName, state.searchDepartment, state.searchAddress, state.departments, isMobile, handleStateChange]);
 
-  useEffect(() => {
-    fetchMembers();
-    fetchDepartments();
-  }, [fetchMembers, fetchDepartments]);
+  const searchMembersWithPagination = useCallback(
+    async (url: string, searchName: string, searchDepartment: string, searchAddress: string) => {
+      try {
+        const params = new URLSearchParams();
+        if (searchName) params.append("name", searchName);
+        if (searchDepartment) params.append("departmentId", searchDepartment);
+        if (searchAddress) params.append("address", searchAddress);
 
-  // Handle Excel export
+        const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const response = await Api.get<FetchMembersResponse>(fullUrl);
+        
+        return {
+          members: response.data.data || [],
+          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        };
+      } catch (error) {
+        console.error("Error searching members with pagination:", error);
+        throw error;
+      }
+    },
+    []
+  );
+
+  // Pagination Handlers
+  const handlePageChange = useCallback(
+    async (direction: "next" | "prev") => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        const url =
+          direction === "next"
+            ? state.pagination.nextPage
+            : state.pageHistory.length > 0
+            ? state.pageHistory[state.pageHistory.length - 2] || "/member/all-members"
+            : null;
+            
+        if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
+        
+        const data = state.searchName || state.searchDepartment || state.searchAddress
+          ? await searchMembersWithPagination(url, state.searchName, state.searchDepartment, state.searchAddress)
+          : await fetchMembers(url);
+          
+        setState((prev) => ({
+          ...prev,
+          filteredMembers: data.members,
+          pagination: data.pagination,
+          pageHistory: direction === "next" ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
+          currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
+          loading: false,
+        }));
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || "Failed to load page";
+        console.error(`Error fetching ${direction} page:`, error);
+        handleStateChange("error", errorMessage);
+        handleStateChange("loading", false);
+        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+      }
+    },
+    [
+      state.pagination.nextPage,
+      state.pageHistory,
+      state.searchName,
+      state.searchDepartment,
+      state.searchAddress,
+      fetchMembers,
+      handleStateChange,
+      isMobile,
+    ]
+  );
+
+  // Action Handlers
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: Member) => {
+    setState((prev) => ({ ...prev, anchorEl: event.currentTarget, currentMember: member }));
+  };
+
+  const handleMenuClose = () => setState((prev) => ({ ...prev, anchorEl: null }));
+
+  const showConfirmation = (action: string) => {
+    setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
+    handleMenuClose();
+  };
+
+  const handleConfirmedAction = async () => {
+    if (!state.currentMember || !state.actionType) return;
+
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      if (state.actionType === "delete") {
+        await Api.delete(`/member/delete-member/${state.currentMember.id}`);
+        setState((prev) => ({
+          ...prev,
+          members: prev.members.filter((member) => member.id !== state.currentMember!.id),
+          filteredMembers: prev.filteredMembers.filter(
+            (member) => member.id !== state.currentMember!.id
+          ),
+        }));
+        toast.success("Member deleted successfully!");
+      } else if (state.actionType === "suspend") {
+        await Api.patch(`/member/suspend-member/${state.currentMember.id}`);
+        toast.success("Member suspended successfully!");
+        fetchMembers();
+      }
+    } catch (error) {
+      console.error("Action error:", error);
+      toast.error(`Failed to ${state.actionType} member`);
+    } finally {
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        confirmModalOpen: false,
+        actionType: null,
+        currentMember: null,
+      }));
+    }
+  };
+
+  // File Import/Export Handlers
   const handleExportExcel = async () => {
     setState((prev) => ({ ...prev, exportLoading: true }));
     try {
@@ -356,125 +493,6 @@ const ViewMembers: React.FC = () => {
     }
   };
 
-  // Table column widths
-  const columnWidths = {
-    snumber: "3%",
-    name: "25%",
-    contact: "15%",
-    address: "25%",
-    whatsapp: "15%",
-    actions: "17%",
-  };
-
-  // Action handlers
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: Member) => {
-    setState((prev) => ({ ...prev, anchorEl: event.currentTarget, currentMember: member }));
-  };
-
-  const handleMenuClose = () => setState((prev) => ({ ...prev, anchorEl: null }));
-
-  const showConfirmation = (action: string) => {
-    setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
-    handleMenuClose();
-  };
-
-  const handleConfirmedAction = async () => {
-    if (!state.currentMember || !state.actionType) return;
-
-    try {
-      setState((prev) => ({ ...prev, loading: true }));
-      if (state.actionType === "delete") {
-        await Api.delete(`/member/delete-member/${state.currentMember.id}`);
-        setState((prev) => ({
-          ...prev,
-          members: prev.members.filter((member) => member.id !== state.currentMember!.id),
-          filteredMembers: prev.filteredMembers.filter(
-            (member) => member.id !== state.currentMember!.id
-          ),
-        }));
-        toast.success("Member deleted successfully!");
-      } else if (state.actionType === "suspend") {
-        await Api.patch(`/member/suspend-member/${state.currentMember.id}`);
-        toast.success("Member suspended successfully!");
-        fetchMembers();
-      }
-    } catch (error) {
-      console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} member`);
-    } finally {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        confirmModalOpen: false,
-        actionType: null,
-        currentMember: null,
-      }));
-    }
-  };
-
-  // Pagination handlers
-  const handleChangePage = (_event: unknown, newPage: number) =>
-    setState((prev) => ({ ...prev, page: newPage }));
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setState((prev) => ({
-      ...prev,
-      rowsPerPage: parseInt(event.target.value, 10),
-      page: 0,
-    }));
-  };
-
-  // Empty state component
-  const EmptyState = () => (
-    <Box
-      sx={{
-        textAlign: "center",
-        py: 8,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
-        gutterBottom
-        sx={{
-          fontSize: isLargeScreen ? "1.25rem" : undefined,
-        }}
-      >
-        No Workers found
-      </Typography>
-      {state.error ? (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {state.error}
-        </Typography>
-      ) : null}
-      <Button
-        variant="contained"
-        onClick={() => setState((prev) => ({ ...prev, isModalOpen: true }))}
-        sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
-          mt: 2,
-          borderRadius: 50,
-          py: 1,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
-        }}
-      >
-        Add New Worker
-      </Button>
-    </Box>
-  );
-
-  // Handle Excel import
   const handleImportExcel = () => {
     setState((prev) => ({ ...prev, openDialog: true }));
   };
@@ -565,7 +583,56 @@ const ViewMembers: React.FC = () => {
     setState((prev) => ({ ...prev, openDialog: false, selectedFile: null, isDragging: false }));
   };
 
-  // Filter components
+  // UI Components
+  const EmptyState = () => (
+    <Box
+      sx={{
+        textAlign: "center",
+        py: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <Typography
+        variant="h6"
+        color="rgba(255, 255, 255, 0.1)"
+        gutterBottom
+        sx={{
+          fontSize: isLargeScreen ? "1.25rem" : undefined,
+        }}
+      >
+        No Workers found
+      </Typography>
+      {state.error ? (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {state.error}
+        </Typography>
+      ) : null}
+      <Button
+        variant="contained"
+        onClick={() => setState((prev) => ({ ...prev, isModalOpen: true }))}
+        sx={{
+          backgroundColor: "#363740",
+          px: { xs: 2, sm: 2 },
+          mt: 2,
+          borderRadius: 50,
+          py: 1,
+          fontSize: isLargeScreen ? "0.875rem" : undefined,
+          color: "var(--color-text-on-primary)",
+          "&:hover": {
+            backgroundColor: "#363740",
+            opacity: 0.9,
+          },
+        }}
+      >
+        Add New Worker
+      </Button>
+    </Box>
+  );
+
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -887,6 +954,23 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
+  // Table column widths
+  const columnWidths = {
+    snumber: "3%",
+    name: "25%",
+    contact: "15%",
+    address: "25%",
+    whatsapp: "15%",
+    actions: "17%",
+  };
+
+  // Effects
+  useEffect(() => {
+    fetchMembers();
+    fetchDepartments();
+  }, [fetchMembers, fetchDepartments]);
+
+  // Main Render
   return (
     <DashboardManager>
       <ToastContainer />
@@ -1089,20 +1173,15 @@ const ViewMembers: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Loading State */}
         {state.loading && state.filteredMembers.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
-        {/* Error State */}
         {state.error && !state.loading && state.filteredMembers.length === 0 && <EmptyState />}
-
-        {/* Empty State */}
         {!state.loading && !state.error && state.filteredMembers.length === 0 && <EmptyState />}
 
-        {/* Data Table */}
         {state.filteredMembers.length > 0 && (
           <>
             <TableContainer
@@ -1179,9 +1258,7 @@ const ViewMembers: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {state.filteredMembers
-                    .slice(state.page * state.rowsPerPage, state.page * state.rowsPerPage + state.rowsPerPage)
-                    .map((member, index) => (
+                  {state.members.map((member, index) => (
                       <TableRow
                         key={member.id}
                         sx={{
@@ -1244,7 +1321,7 @@ const ViewMembers: React.FC = () => {
                             fontSize: isLargeScreen ? "0.875rem" : undefined,
                             color: member.isDeleted ? "gray" : "#F6F4FE",
                             textDecoration: member.isDeleted ? "line-through" : "none",
-                            maxWidth: 0, // Ensures the cell respects the width constraint
+                            maxWidth: 0,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -1293,14 +1370,14 @@ const ViewMembers: React.FC = () => {
                     ))}
                 </TableBody>
               </Table>
-              <CustomPagination
-                count={state.filteredMembers.length}
-                rowsPerPage={state.rowsPerPage}
-                page={state.page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                isLargeScreen={isLargeScreen}
-              />
+            <CustomPagination
+              hasNextPage={state.pagination.hasNextPage}
+              hasPrevPage={state.currentPage > 1}
+              onPageChange={handlePageChange}
+              currentPage={state.currentPage}
+              isLargeScreen={isLargeScreen}
+              isLoading={state.loading}
+            />
             </TableContainer>
             <Box
               sx={{
@@ -1347,7 +1424,6 @@ const ViewMembers: React.FC = () => {
           </>
         )}
 
-        {/* Action Menu */}
         <Menu
           id="member-menu"
           anchorEl={state.anchorEl}
@@ -1390,7 +1466,6 @@ const ViewMembers: React.FC = () => {
           </MenuItem>
         </Menu>
 
-        {/* Confirmation Modal */}
         <Dialog
           open={state.confirmModalOpen}
           onClose={() => setState((prev) => ({ ...prev, confirmModalOpen: false }))}
@@ -1423,7 +1498,6 @@ const ViewMembers: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Import Excel Dialog */}
         <Dialog
           open={state.openDialog}
           onClose={handleCloseDialog}
@@ -1500,10 +1574,9 @@ const ViewMembers: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Member Modal */}
         <MemberModal
           open={state.isModalOpen}
-          onClose={() => setState((prev) => ({ ...prev, isModalOpen: false }))}
+          onClose={() => {setState((prev) => ({ ...prev, isModalOpen: false })); refreshMembers();}}
           onSuccess={fetchMembers}
         />
       </Box>

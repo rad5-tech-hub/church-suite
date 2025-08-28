@@ -904,8 +904,7 @@ const fetchLocations = useCallback(async () => {
                 borderColor: "#777280",
               },                    
             },
-          }}
-          required
+          }}        
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
