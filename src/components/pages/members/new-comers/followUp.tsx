@@ -180,12 +180,24 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
           onClose();
         }, 1500);
     } catch (error: any) {
-      console.error("Error creating newcomer:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to create New Comer. Please try again.";
+      console.error("Error creating branch:", error.response?.data || error.message);
+      let errorMessage = "Failed to create branch. Please try again.";
+            
+      if (error.response?.data?.error?.message) {
+        errorMessage = `${error.response.data.error.message} Please try again.`;
+      } else if (error.response?.data?.message) {
+         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(", ");
+        } else {
+          errorMessage = `${error.response.data.message} Please try again.`;
+        }
+      } else if (error.response?.data?.errors) {
+        // Handle validation errors array
+        errorMessage = error.response.data.errors.join(", ");
+      }
+      
       toast.error(errorMessage, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
+        autoClose: 5000,
       });
     } finally {
       setIsLoading(false);
@@ -212,8 +224,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
         <Box
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { xs: 'center', md: 'start' },
+            alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
@@ -361,6 +372,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   labelId="gender-label"
                   id="sex"
                   name="sex"
+                  required
                   value={formData.sex}
                   label="Gender"
                   onChange={handleChange}

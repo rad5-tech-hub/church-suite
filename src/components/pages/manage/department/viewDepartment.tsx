@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import {
@@ -254,8 +253,6 @@ const ViewDepartment: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  const navigate = useNavigate();
-
   const [state, setState] = useState<State>({
     departments: [],
     filteredDepartments: [],
@@ -729,8 +726,7 @@ const ViewDepartment: React.FC = () => {
               {filteredDepartments.map((dept) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
                   <Card
-                    component="div"
-                    onClick={() => navigate(`/departments/${dept.id}`)}
+                    component="div"                   
                     sx={{
                       borderRadius: "10.267px",
                       backgroundColor: "rgba(255, 255, 255, 0.06)",
@@ -744,36 +740,40 @@ const ViewDepartment: React.FC = () => {
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
-                        <IconButton
-                          sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#E1E1E1",                            
-                            flexDirection: "column",
-                            borderRadius: 1,
-                            textAlign: "center",
-                          }}
-                          aria-label={`Department icon for ${dept.name}`}
-                        >
-                          <PiChurch size={30} />
-                          <span className="text-[10px]">Department</span>
-                        </IconButton>
-                        <IconButton
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStateChange("currentDepartment", dept);
-                            handleStateChange("anchorEl", e.currentTarget);
-                          }}
-                          sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#777280",
-                            padding: "8px",
-                            borderRadius: 1,
-                            textAlign: "center",
-                          }}
-                          aria-label={`More options for ${dept.name}`}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Box>
+                          <IconButton
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#E1E1E1",                            
+                              flexDirection: "column",
+                              borderRadius: 1,
+                              textAlign: "center",
+                            }}
+                            aria-label={`Department icon for ${dept.name}`}
+                          >
+                            <PiChurch size={30} />
+                            <span className="text-[10px]">Department</span>
+                          </IconButton>
+                        </Box>
+                        <Box>
+                          <IconButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStateChange("currentDepartment", dept);
+                              handleStateChange("anchorEl", e.currentTarget);
+                            }}
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#777280",
+                              padding: "8px",
+                              borderRadius: 1,
+                              textAlign: "center",
+                            }}
+                            aria-label={`More options for ${dept.name}`}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                         <Typography

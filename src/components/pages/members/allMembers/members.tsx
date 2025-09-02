@@ -164,65 +164,57 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1960 + 1 }, (_, i) => 1960 + i);
 
-// Fetch Departments
-const fetchDepartments = useCallback(async () => {
-  if (hasFetchedDepartments || isFetchingDepartments) return;
-  setIsFetchingDepartments(true);
-  setDepartmentsError('');
-  try {
-    const response = await Api.get('/church/get-departments');
-    setDepartments(response.data.departments || []);
-    setHasFetchedDepartments(true);
-  } catch (error: any) {
-    setDepartmentsError('Failed to load departments. Please try again.');
-  } finally {
-    setIsFetchingDepartments(false);
-  }
-}, [hasFetchedDepartments, isFetchingDepartments]);
-
-// Fetch Units
-const fetchUnits = useCallback(async (deptId: string) => {
-  if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
-  setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
-  setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
-  try {
-    const response = await Api.get(`/church/a-department/${deptId}`);
-    const units = (response.data.department.units || []).map((unit: Unit) => ({
-      ...unit,
-      departmentId: deptId,
-    }));
-    setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
-    setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
-  } catch (error: any) {
-    setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-  } finally {
-    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
-  }
-}, [hasFetchedUnits, isFetchingUnits]);
-
-// Fetch Locations (Countries)
-const fetchLocations = useCallback(async () => {
-  if (hasFetchedCountries || isFetchingCountries) return;
-  setIsFetchingCountries(true);
-  try {
-    const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
-    const result = await response.json();
-    setCountries(result.data || []);
-    setHasFetchedCountries(true);
-  } catch (error: any) {
-    console.error('Error fetching locations:', error);
-  } finally {
-    setIsFetchingCountries(false);
-  }
-}, [hasFetchedCountries, isFetchingCountries]);
-
-  // Trigger fetching when modal opens
-  useEffect(() => {
-    if (open) { // Assuming `open` prop from CreateProgramModal
-      fetchDepartments();
-      fetchLocations();
+  // Fetch Units
+  const fetchUnits = useCallback(async (deptId: string) => {
+    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+    setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
+    try {
+      const response = await Api.get(`/church/a-department/${deptId}`);
+      const units = (response.data.department.units || []).map((unit: Unit) => ({
+        ...unit,
+        departmentId: deptId,
+      }));
+      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+    } catch (error: any) {
+      setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+    } finally {
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
     }
-  }, [open, fetchDepartments, fetchLocations]);
+  }, [hasFetchedUnits, isFetchingUnits]);
+
+  // Fetch Departments - remove the early return condition
+  const fetchDepartments = useCallback(async () => {
+    if (isFetchingDepartments) return;
+    setIsFetchingDepartments(true);
+    setDepartmentsError('');
+    try {
+      const response = await Api.get('/church/get-departments');
+      setDepartments(response.data.departments || []);
+      setHasFetchedDepartments(true);
+    } catch (error: any) {
+      setDepartmentsError('Failed to load departments. Please try again.');
+    } finally {
+      setIsFetchingDepartments(false);
+    }
+  }, [isFetchingDepartments]);
+
+  // Fetch Locations (Countries) - remove the early return condition
+  const fetchLocations = useCallback(async () => {
+    if (isFetchingCountries) return;
+    setIsFetchingCountries(true);
+    try {
+      const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
+      const result = await response.json();
+      setCountries(result.data || []);
+      setHasFetchedCountries(true);
+    } catch (error: any) {
+      console.error('Error fetching locations:', error);
+    } finally {
+      setIsFetchingCountries(false);
+    }
+  }, [isFetchingCountries]);
 
   useEffect(() => {
     const fetchStates = async () => {
@@ -245,11 +237,6 @@ const fetchLocations = useCallback(async () => {
     };
     fetchStates();
   }, [formData.nationality]);
-
-  useEffect(() => {
-    fetchDepartments();
-    fetchLocations();
-  }, [fetchDepartments, fetchLocations]);
 
   // Handlers
   const handleChange = (
@@ -340,8 +327,7 @@ const fetchLocations = useCallback(async () => {
         !formData.phoneNo ||
         !formData.birthMonth ||
         !formData.birthDay ||
-        !formData.state ||
-        !formData.LGA ||
+        !formData.state ||      
         !formData.nationality
       ) {
         throw new Error("Please fill in all required fields");
@@ -379,8 +365,25 @@ const fetchLocations = useCallback(async () => {
         onClose()
       }, 1500);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Failed to create Worker. Please try again.";
-      toast.error(errorMessage, { autoClose: 3000, position: isMobile ? "top-center" : "top-right" });
+      console.error("Error creating branch:", error.response?.data || error.message);
+      let errorMessage = "Failed to create branch. Please try again.";
+            
+      if (error.response?.data?.error?.message) {
+        errorMessage = `${error.response.data.error.message} Please try again.`;
+      } else if (error.response?.data?.message) {
+         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(", ");
+        } else {
+          errorMessage = `${error.response.data.message} Please try again.`;
+        }
+      } else if (error.response?.data?.errors) {
+        // Handle validation errors array
+        errorMessage = error.response.data.errors.join(", ");
+      }
+      
+      toast.error(errorMessage, {
+        autoClose: 5000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -771,6 +774,11 @@ const fetchLocations = useCallback(async () => {
         <Autocomplete
           id="nationality"
           options={countries}
+          onOpen={() => {
+            if (!hasFetchedCountries && !isFetchingCountries) {
+              fetchLocations();
+            }
+          }}
           getOptionLabel={(option: Countries) => option.name}
           value={countries.find(c => c.name === formData.nationality) || null}
           onChange={(_event, newValue: Countries | null) => {
@@ -910,12 +918,16 @@ const fetchLocations = useCallback(async () => {
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
           <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", }}>Departments</InputLabel>
-          <Select
+          <Select        
             name="departmentIds"
             multiple
             value={formData.departmentIds}
             onChange={handleDepartmentChange}
-            onOpen={fetchDepartments}
+            onOpen={() => {
+              if (!hasFetchedDepartments && !isFetchingDepartments) {
+                fetchDepartments();
+              }
+            }}
             disabled={isLoading || isFetchingDepartments}
             label="Departments"
             renderValue={(selected) =>
@@ -925,8 +937,6 @@ const fetchLocations = useCallback(async () => {
             }
             sx={{
               fontSize: isLargeScreen ? '1rem' : undefined,
-              '& .MuiSelect-icon': {              
-              },                            
               color: "#F6F4FE",
               outlineColor: "#777280",
               borderColor: "#777280",
@@ -1098,10 +1108,10 @@ const fetchLocations = useCallback(async () => {
     <DialogTitle>
       <Box display="flex" justifyContent="space-between" alignItems="center">            
         <Typography
-          variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+          variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
           fontWeight={600}
           gutterBottom
-          sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.5rem" : undefined }}
+          sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "0.5rem" : undefined }}
         >
           Add New Worker
         </Typography>

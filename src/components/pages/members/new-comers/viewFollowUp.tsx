@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -26,19 +26,27 @@ import {
   TextField,
   Select as MuiSelect,
   Divider,
-} from '@mui/material';
-import { MoreVert as MoreVertIcon, SentimentVeryDissatisfied as EmptyIcon, PersonOutline, ChevronRight, ChevronLeft, Search, AttachFile } from '@mui/icons-material';
-import { LiaLongArrowAltRightSolid } from 'react-icons/lia';
-import { AiOutlineDelete } from 'react-icons/ai';
-import { PiDownloadThin } from 'react-icons/pi';
-import { toast, ToastContainer } from 'react-toastify';
-import { IoMdClose } from 'react-icons/io';
-import Select from '@mui/material/Select';
-import DashboardManager from '../../../shared/dashboardManager';
-import Api from '../../../shared/api/api';
-import { RootState } from '../../../reduxstore/redux';
-import RegistrationModal from './followUp';
-import { MdOutlineFileUpload } from 'react-icons/md';
+} from "@mui/material";
+import {
+  MoreVert as MoreVertIcon,
+  SentimentVeryDissatisfied as EmptyIcon,
+  PersonOutline,
+  ChevronRight,
+  ChevronLeft,
+  Search,
+  AttachFile,
+} from "@mui/icons-material";
+import { LiaLongArrowAltRightSolid } from "react-icons/lia";
+import { AiOutlineDelete } from "react-icons/ai";
+import { PiDownloadThin } from "react-icons/pi";
+import { toast, ToastContainer } from "react-toastify";
+import { IoMdClose } from "react-icons/io";
+import Select from "@mui/material/Select";
+import DashboardManager from "../../../shared/dashboardManager";
+import Api from "../../../shared/api/api";
+import { RootState } from "../../../reduxstore/redux";
+import RegistrationModal from "./followUp";
+import { MdOutlineFileUpload } from "react-icons/md";
 
 // Types
 interface FollowUp {
@@ -55,6 +63,17 @@ interface FollowUp {
   isDeleted: boolean;
 }
 
+interface Pagination {
+  hasNextPage: boolean;
+  nextPage: string | null;
+}
+
+interface FetchFollowUpsResponse {
+  message: string;
+  pagination: Pagination;
+  results: FollowUp[];
+}
+
 interface TableColumnWidths {
   snumber: string;
   name: string;
@@ -65,106 +84,81 @@ interface TableColumnWidths {
 
 // Constants
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
-  snumber: '3%',
-  name: '25%',
-  contact: '15%',
-  address: '25%',
-  actions: '17%',
+  snumber: "3%",
+  name: "25%",
+  contact: "15%",
+  address: "25%",
+  actions: "17%",
 };
 
 interface CustomPaginationProps {
-  count: number;
-  rowsPerPage: number;
-  page: number;
-  onPageChange: (event: unknown, newPage: number) => void;
-  onRowsPerPageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: "next" | "prev") => void;
+  currentPage: number;
   isLargeScreen: boolean;
+  isLoading: boolean;
 }
 
 const CustomPagination: React.FC<CustomPaginationProps> = ({
-  count,
-  rowsPerPage,
-  page,
+  hasNextPage,
+  hasPrevPage,
   onPageChange,
+  currentPage,
   isLargeScreen,
-}) => {
-  const totalPages = Math.ceil(count / rowsPerPage);
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        py: 2,
-        px: { xs: 2, sm: 3 },
-        color: "#777280",
-        gap: 2,
-        flexWrap: "wrap",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          sx={{
-            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
-          }}
-        >
-          {`${page * rowsPerPage + 1}–${Math.min(
-            (page + 1) * rowsPerPage,
-            count
-          )} of ${count}`}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          onClick={() => onPageChange(null, page - 1)}
-          disabled={isFirstPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isFirstPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isFirstPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          onClick={() => onPageChange(null, page + 1)}
-          disabled={isLastPage}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: isLastPage ? "#4d4d4e8e" : "#F6F4FE",
-            color: isLastPage ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronRight />
-        </Button>
-      </Box>
+  isLoading,
+}) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      py: 2,
+      px: { xs: 2, sm: 3 },
+      color: "#777280",
+      gap: 2,
+      flexWrap: "wrap",
+    }}
+  >
+    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "#777280" }}>
+      Page {currentPage}
+    </Typography>
+    <Box sx={{ display: "flex", gap: 1 }}>
+      <Button
+        onClick={() => onPageChange("prev")}
+        disabled={!hasPrevPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Previous page"
+      >
+        <ChevronLeft />
+      </Button>
+      <Button
+        onClick={() => onPageChange("next")}
+        disabled={!hasNextPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+        aria-label="Next page"
+      >
+        <ChevronRight />
+      </Button>
     </Box>
-  );
-};
+  </Box>
+);
 
 // Components
 interface EmptyStateProps {
@@ -174,9 +168,9 @@ interface EmptyStateProps {
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
-  <Box sx={{ textAlign: 'center', py: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-    <EmptyIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
-    <Typography variant="h6" color="#F6F4FE" sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+  <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <Typography variant="h6" color="#F6F4FE" sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       No Newcomers found
     </Typography>
     {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
@@ -184,14 +178,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeSc
       variant="contained"
       onClick={onAddFollowUp}
       sx={{
-        backgroundColor: '#363740',
+        backgroundColor: "#363740",
         px: { xs: 2, sm: 2 },
         mt: 2,
         borderRadius: 50,
         py: 1,
-        fontSize: isLargeScreen ? '0.875rem' : undefined,
-        color: 'var(--color-text-on-primary)',
-        '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
+        fontSize: isLargeScreen ? "0.875rem" : undefined,
+        color: "var(--color-text-on-primary)",
+        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
       }}
     >
       Add Newcomer
@@ -210,41 +204,41 @@ interface FollowUpRowProps {
 const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, onMenuOpen, isLargeScreen, loading }) => (
   <TableRow
     sx={{
-      backgroundColor: followUp.isDeleted ? 'rgba(0, 0, 0, 0.04)' : '#4d4d4e8e',
-      '&:hover': {
-        backgroundColor: '#4d4d4e8e',
-        transform: 'translateY(-2px)',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+      backgroundColor: followUp.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+      "&:hover": {
+        backgroundColor: "#4d4d4e8e",
+        transform: "translateY(-2px)",
+        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
       },
-      transition: 'all 0.2s ease',
+      transition: "all 0.2s ease",
       mb: 1,
     }}
   >
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
-      {(index + 1).toString().padStart(2, '0')}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
+      {(index + 1).toString().padStart(2, "0")}
     </TableCell>
-    <TableCell sx={{ color: followUp.isDeleted ? 'gray' : '#F6F4FE', display: 'flex', alignItems: 'center', gap: 1, fontSize: isLargeScreen ? '0.875rem' : undefined, py: 2 }}>
+    <TableCell sx={{ color: followUp.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
       <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-        {followUp.name.split(' ').map((name) => name.charAt(0)).join('')}
+        {followUp.name.split(" ").map((name) => name.charAt(0)).join("")}
       </Box>
       <Box>
         {followUp.name}
-        <Typography component="span" sx={{ display: 'block', fontSize: '13px', color: '#777280' }}>
-          {followUp.sex || '-'}
+        <Typography component="span" sx={{ display: "block", fontSize: "13px", color: "#777280" }}>
+          {followUp.sex || "-"}
         </Typography>
       </Box>
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
-      {followUp.phoneNo || 'N/A'}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
+      {followUp.phoneNo || "N/A"}
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
-      {followUp.address || 'N/A'}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
+      {followUp.address || "N/A"}
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: 'center', fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
       <IconButton
         onClick={(e) => onMenuOpen(e, followUp)}
         disabled={loading || followUp.isDeleted}
-        sx={{ borderRadius: 1, backgroundColor: '#e1e1e1', '&:hover': { backgroundColor: 'var(--color-primary)', opacity: 0.9, color: '#ffffff' } }}
+        sx={{ borderRadius: 1, backgroundColor: "#e1e1e1", "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9, color: "#ffffff" } }}
         size="small"
       >
         <MoreVertIcon fontSize="small" />
@@ -268,16 +262,16 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, on
     anchorEl={anchorEl}
     open={Boolean(anchorEl)}
     onClose={onClose}
-    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-    PaperProps={{ sx: { '& .MuiMenuItem-root': { fontSize: isLargeScreen ? '0.875rem' : undefined } } }}
+    anchorOrigin={{ vertical: "top", horizontal: "right" }}
+    transformOrigin={{ vertical: "top", horizontal: "right" }}
+    PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
   >
     <MenuItem onClick={onView} disabled={loading}>
-      <PersonOutline sx={{ mr: 1, fontSize: '1rem' }} />
+      <PersonOutline sx={{ mr: 1, fontSize: "1rem" }} />
       Profile
     </MenuItem>
-    <MenuItem onClick={() => onAction('delete')} disabled={loading}>
-      <AiOutlineDelete style={{ marginRight: '8px', fontSize: '1rem' }} />
+    <MenuItem onClick={() => onAction("delete")} disabled={loading}>
+      <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
       Delete
     </MenuItem>
   </Menu>
@@ -295,16 +289,16 @@ interface ConfirmationDialogProps {
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, onConfirm, followUpName, isLargeScreen, loading }) => (
   <Dialog open={open} onClose={onClose} maxWidth="xs">
-    <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+    <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       Delete Newcomer
     </DialogTitle>
     <DialogContent>
-      <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
+      <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
         Are you sure you want to delete {followUpName}?
       </Typography>
     </DialogContent>
     <DialogActions>
-      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }} disabled={loading}>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
         Cancel
       </Button>
       <Button
@@ -312,9 +306,9 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
         color="error"
         variant="contained"
         disabled={loading}
-        sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
+        sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
       >
-        {loading ? 'Processing...' : 'Delete'}
+        {loading ? "Processing..." : "Delete"}
       </Button>
     </DialogActions>
   </Dialog>
@@ -323,88 +317,299 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
 // Main Component
 const ViewFollowUp: React.FC = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState) => state.auth?.authData);
-
-  // State
-  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [exportLoading, setExportLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
-  const [currentFollowUp, setCurrentFollowUp] = useState<FollowUp | null>(null);
-  const [actionType, setActionType] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(5);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [openExcelDialog, setOpenExcelDialog] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [state, setState] = useState<{
-    isDrawerOpen: boolean;
-    searchName: string;
-    searchType: string;
-    searchAddress: string;
-    isNameDropdownOpen: boolean;
-    filteredNames: FollowUp[];
-    types: { id: string; name: string }[];
-    members: FollowUp[];
-    isSearching: boolean;
-  }>({
-    isDrawerOpen: false,
-    searchName: '',
-    searchType: '',
-    searchAddress: '',
-    isNameDropdownOpen: false,
-    filteredNames: [],
-    types: [],
-    members: [],
-    isSearching: false,
-  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // State
+  const [state, setState] = useState({
+    followUps: [] as FollowUp[],
+    filteredFollowUps: [] as FollowUp[],
+    filteredNames: [] as FollowUp[],
+    pagination: { hasNextPage: false, nextPage: null } as Pagination,
+    pageHistory: [] as string[],
+    currentPage: 1,
+    loading: true,
+    exportLoading: false,
+    isLoading: false,
+    isSearching: false,
+    error: null as string | null,
+    confirmModalOpen: false,
+    isModalOpen: false,
+    isDrawerOpen: false,
+    isNameDropdownOpen: false,
+    openExcelDialog: false,
+    selectedFile: null as File | null,
+    isDragging: false,
+    currentFollowUp: null as FollowUp | null,
+    actionType: null as string | null,
+    anchorEl: null as HTMLElement | null,
+    searchName: "",
+    searchType: "",
+    searchAddress: "",
+    types: [] as { id: string; name: string }[],
+  });
+
+  // State Handlers
+  const handleStateChange = useCallback(
+    <K extends keyof typeof state>(key: K, value: (typeof state)[K]) => {
+      setState((prev) => {
+        const newState = { ...prev, [key]: value };
+        if (key === "searchName") {
+          const searchTerm = (value as string).toLowerCase();
+          newState.filteredNames = prev.followUps.filter((followUp) =>
+            followUp.name.toLowerCase().includes(searchTerm)
+          );
+          newState.isNameDropdownOpen = !!searchTerm && newState.filteredNames.length > 0;
+        }
+        return newState;
+      });
+    },
+    []
+  );
+
   // Data fetching
-  const fetchFollowUps = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchFollowUps = useCallback(async (url: string | null = "/member/get-follow-up") => {
+    handleStateChange("loading", true);
+    handleStateChange("error", null);
     try {
-      const response = await Api.get('/member/get-follow-up');
-      setFollowUps(response.data.results || []);
-      setState((prev:any) => ({
+      const apiUrl = url || "/member/get-follow-up";
+      const response = await Api.get<FetchFollowUpsResponse>(apiUrl);
+      
+      const data = {
+        followUps: response.data.results || [],
+        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+      };
+
+      setState((prev) => ({
         ...prev,
-        members: response.data.results || [],
-        filteredNames: response.data.results || [],
-        types: [...new Set((response.data.results || []).map((m: FollowUp) => m.phoneNo))].map((type, index) => ({
+        followUps: data.followUps,
+        filteredFollowUps: data.followUps,
+        filteredNames: data.followUps,
+        pagination: data.pagination,
+        loading: false,
+        types: [...new Set((data.followUps || []).map((m: FollowUp) => m.phoneNo))].map((type, index) => ({
           id: index.toString(),
           name: type,
         })),
       }));
+
+      return data;
     } catch (error) {
-      console.error('Failed to fetch Newcomers:', error);
-      setError('Failed to load Newcomers. Please try again later.');
-      toast.error('Failed to load Newcomers', {
+      console.error("Failed to fetch Newcomers:", error);
+      handleStateChange("error", "Failed to load Newcomers. Please try again later.");
+      handleStateChange("loading", false);
+      toast.error("Failed to load Newcomers", {
         autoClose: 3000,
-        position: isMobile ? 'top-center' : 'top-right',
+        position: isMobile ? "top-center" : "top-right",
+      });
+      return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
+    }
+  }, [handleStateChange, isMobile]);
+
+  const refreshFollowUps = useCallback(async () => {
+    try {
+      const data = await fetchFollowUps();
+      setState((prev) => ({
+        ...prev,
+        followUps: data.followUps,
+        filteredFollowUps: data.followUps,
+        pagination: data.pagination,
+        currentPage: 1,
+        pageHistory: [],
+        loading: false,
+      }));
+    } catch (error) {
+      handleStateChange("loading", false);
+    }
+  }, [fetchFollowUps, handleStateChange]);
+
+  // Search handlers
+  const searchFollowUps = useCallback(async () => {
+    handleStateChange("isSearching", true);
+    handleStateChange("currentPage", 1);
+    handleStateChange("pageHistory", []);
+    
+    try {
+      const params = new URLSearchParams();
+      if (state.searchName) params.append("name", state.searchName);
+      if (state.searchType) params.append("type", state.searchType);
+      if (state.searchAddress) params.append("address", state.searchAddress);
+
+      const response = await Api.get<FetchFollowUpsResponse>(`/member/search-follow-up?${params.toString()}`);
+      
+      setState((prev) => ({
+        ...prev,
+        filteredFollowUps: response.data.results || [],
+        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        isDrawerOpen: false,
+        isSearching: false,
+      }));
+      
+      toast.success("Search completed successfully!", {
+        position: isMobile ? "top-center" : "top-right",
+      });
+    } catch (error) {
+      console.error("Error searching Newcomers:", error);
+      toast.warn("Server search failed, applying local filter", {
+        position: isMobile ? "top-center" : "top-right",
+      });
+
+      let filtered = [...state.followUps];
+      if (state.searchName) {
+        filtered = filtered.filter((followUp) =>
+          followUp.name.toLowerCase().includes(state.searchName.toLowerCase())
+        );
+      }
+      if (state.searchType) {
+        filtered = filtered.filter((followUp) =>
+          followUp.phoneNo === state.searchType
+        );
+      }
+      if (state.searchAddress) {
+        filtered = filtered.filter((followUp) =>
+          followUp.address.toLowerCase().includes(state.searchAddress.toLowerCase())
+        );
+      }
+      
+      setState((prev) => ({
+        ...prev,
+        filteredFollowUps: filtered,
+        pagination: { hasNextPage: false, nextPage: null },
+        currentPage: 1,
+        pageHistory: [],
+        isDrawerOpen: false,
+        isSearching: false,
+      }));
+    }
+  }, [state.followUps, state.searchName, state.searchType, state.searchAddress, isMobile, handleStateChange]);
+
+  const searchFollowUpsWithPagination = useCallback(
+    async (url: string, searchName: string, searchType: string, searchAddress: string) => {
+      try {
+        const params = new URLSearchParams();
+        if (searchName) params.append("name", searchName);
+        if (searchType) params.append("type", searchType);
+        if (searchAddress) params.append("address", searchAddress);
+
+        const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const response = await Api.get<FetchFollowUpsResponse>(fullUrl);
+        
+        return {
+          followUps: response.data.results || [],
+          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        };
+      } catch (error) {
+        console.error("Error searching Newcomers with pagination:", error);
+        throw error;
+      }
+    },
+    []
+  );
+
+  // Pagination handlers
+  const handlePageChange = useCallback(
+    async (direction: "next" | "prev") => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+      try {
+        const url =
+          direction === "next"
+            ? state.pagination.nextPage
+            : state.pageHistory.length > 0
+            ? state.pageHistory[state.pageHistory.length - 2] || "/member/get-follow-up"
+            : null;
+            
+        if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
+        
+        const data = state.searchName || state.searchType || state.searchAddress
+          ? await searchFollowUpsWithPagination(url, state.searchName, state.searchType, state.searchAddress)
+          : await fetchFollowUps(url);
+          
+        setState((prev) => ({
+          ...prev,
+          filteredFollowUps: data.followUps,
+          pagination: data.pagination,
+          pageHistory: direction === "next" ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
+          currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
+          loading: false,
+        }));
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.message || "Failed to load page";
+        console.error(`Error fetching ${direction} page:`, error);
+        handleStateChange("error", errorMessage);
+        handleStateChange("loading", false);
+        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+      }
+    },
+    [
+      state.pagination.nextPage,
+      state.pageHistory,
+      state.searchName,
+      state.searchType,
+      state.searchAddress,
+      fetchFollowUps,
+      handleStateChange,
+      isMobile,
+    ]
+  );
+
+  // Action handlers
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, followUp: FollowUp) => {
+    setState((prev) => ({ ...prev, anchorEl: event.currentTarget, currentFollowUp: followUp }));
+  };
+
+  const handleMenuClose = () => setState((prev) => ({ ...prev, anchorEl: null }));
+
+  const showConfirmation = (action: string) => {
+    setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
+    handleMenuClose();
+  };
+
+  const handleConfirmedAction = async () => {
+    if (!state.currentFollowUp || !state.actionType) return;
+
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+      if (state.actionType === "delete") {
+        await Api.delete(`/followUp/delete-followup/${state.currentFollowUp.id}`);
+        setState((prev) => ({
+          ...prev,
+          followUps: prev.followUps.filter((followUp) => followUp.id !== state.currentFollowUp!.id),
+          filteredFollowUps: prev.filteredFollowUps.filter(
+            (followUp) => followUp.id !== state.currentFollowUp!.id
+          ),
+        }));
+        toast.success("Newcomer deleted successfully!", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+      }
+    } catch (error) {
+      console.error("Action error:", error);
+      toast.error(`Failed to ${state.actionType} Newcomer`, {
+        autoClose: 3000,
+        position: isMobile ? "top-center" : "top-right",
       });
     } finally {
-      setLoading(false);
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        confirmModalOpen: false,
+        actionType: null,
+        currentFollowUp: null,
+      }));
     }
-  }, [isMobile]);
-
-  useEffect(() => {
-    fetchFollowUps();
-  }, [fetchFollowUps]);
+  };
 
   // Export to Excel
   const handleExportExcel = useCallback(async () => {
-    setExportLoading(true);
+    setState((prev) => ({ ...prev, exportLoading: true }));
     try {
-      const response = await Api.get('/member/export-followup', { responseType: 'blob' });
-      const contentDisposition = response.headers['content-disposition'];
-      let filename = 'newcomers_export.xlsx';
+      const response = await Api.get("/member/export-followup", { responseType: "blob" });
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = "newcomers_export.xlsx";
       
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
@@ -414,10 +619,10 @@ const ViewFollowUp: React.FC = () => {
       }
 
       const blob = new Blob([response.data], {
-        type: response.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
@@ -425,93 +630,24 @@ const ViewFollowUp: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success('Excel file exported successfully!', {
+      toast.success("Excel file exported successfully!", {
         autoClose: 3000,
-        position: isMobile ? 'top-center' : 'top-right',
+        position: isMobile ? "top-center" : "top-right",
       });
     } catch (error: any) {
-      console.error('Failed to export Newcomers:', error);
-      toast.error(error.response?.data?.message || 'Failed to export Excel file. Please try again.', {
+      console.error("Failed to export Newcomers:", error);
+      toast.error(error.response?.data?.message || "Failed to export Excel file. Please try again.", {
         autoClose: 3000,
-        position: isMobile ? 'top-center' : 'top-right',
+        position: isMobile ? "top-center" : "top-right",
       });
     } finally {
-      setExportLoading(false);
+      setState((prev) => ({ ...prev, exportLoading: false }));
     }
   }, [isMobile]);
 
-  // Action handlers
-  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, followUp: FollowUp) => {
-    setAnchorEl(event.currentTarget);
-    setCurrentFollowUp(followUp);
-  }, []);
-
-  const handleMenuClose = useCallback(() => {
-    setAnchorEl(null);
-  }, []);
-
-  const showConfirmation = useCallback((action: string) => {
-    setActionType(action);
-    setConfirmModalOpen(true);
-    handleMenuClose();
-  }, [handleMenuClose]);
-
-  const handleConfirmedAction = useCallback(async () => {
-    if (!currentFollowUp || !actionType) return;
-
-    try {
-      setLoading(true);
-      if (actionType === 'delete') {
-        await Api.delete(`/followUp/delete-followup/${currentFollowUp.id}`);
-        setFollowUps(followUps.filter((followUp) => followUp.id !== currentFollowUp.id));
-        toast.success('Newcomer deleted successfully!', {
-          autoClose: 3000,
-          position: isMobile ? 'top-center' : 'top-right',
-        });
-      }
-    } catch (error) {
-      console.error('Action error:', error);
-      toast.error(`Failed to ${actionType} Newcomer`, {
-        autoClose: 3000,
-        position: isMobile ? 'top-center' : 'top-right',
-      });
-    } finally {
-      setLoading(false);
-      setConfirmModalOpen(false);
-      setActionType(null);
-      setCurrentFollowUp(null);
-    }
-  }, [currentFollowUp, actionType, followUps, isMobile]);
-
-  // Pagination handlers
-  const handleChangePage = useCallback((_: unknown, newPage: number) => {
-    setPage(newPage);
-  }, []);
-
-  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  }, []);
-
-  // Modal handler
-  const handleAddFollowUp = useCallback(() => {
-    setIsModalOpen(true);
-  }, []);
-
-  const handleViewFollowUp = useCallback(() => {
-    if (currentFollowUp) {
-      window.location.href = `/view/single-follower/${currentFollowUp.id}`;
-      handleMenuClose();
-    }
-  }, [currentFollowUp, handleMenuClose]);
-
-  // Paginated data
-  const paginatedFollowUps = useMemo(() => {
-    return followUps.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [followUps, page, rowsPerPage]);
-
+  // File Import Handlers
   const handleImportExcel = () => {
-    setOpenExcelDialog(true);
+    setState((prev) => ({ ...prev, openExcelDialog: true }));
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -521,57 +657,56 @@ const ViewFollowUp: React.FC = () => {
       (file.type === "application/vnd.ms-excel" ||
         file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) {
-      setSelectedFile(file);
+      setState((prev) => ({ ...prev, selectedFile: file }));
     } else {
       toast.error("Please select a valid Excel file (.xlsx or .xls)", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
-      setSelectedFile(null);
+      setState((prev) => ({ ...prev, selectedFile: null }));
     }
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setIsDragging(false);
+    setState((prev) => ({ ...prev, isDragging: false }));
     const file = event.dataTransfer.files?.[0];
     if (
       file &&
       (file.type === "application/vnd.ms-excel" ||
         file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     ) {
-      setSelectedFile(file);
+      setState((prev) => ({ ...prev, selectedFile: file }));
     } else {
       toast.error("Please drop a valid Excel file (.xlsx or .xls)", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
-      setSelectedFile(null);
+      setState((prev) => ({ ...prev, selectedFile: null }));
     }
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setIsDragging(true);
+    setState((prev) => ({ ...prev, isDragging: true }));
   };
 
   const handleDragLeave = () => {
-    setIsDragging(false);
+    setState((prev) => ({ ...prev, isDragging: false }));
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
+    if (!state.selectedFile) {
       toast.error("Please select an Excel file to upload", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
       return;
     }
-
-    setIsLoading(true);
+    setState((prev) => ({ ...prev, isLoading: true }));
     try {
       const uploadFormData = new FormData();
-      uploadFormData.append("file", selectedFile);
+      uploadFormData.append("file", state.selectedFile);
       const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
       await Api.post(
         `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
@@ -586,8 +721,10 @@ const ViewFollowUp: React.FC = () => {
         position: isMobile ? "top-center" : "top-right",
       });
 
-      setOpenExcelDialog(false);
-      setSelectedFile(null);
+      setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null }));
+      setTimeout(() => {
+        fetchFollowUps();
+      }, 1500);
     } catch (error: any) {
       console.error("Error uploading file:", error);
       const errorMessage =
@@ -597,60 +734,24 @@ const ViewFollowUp: React.FC = () => {
         position: isMobile ? "top-center" : "top-right",
       });
     } finally {
-      setIsLoading(false);
+      setState((prev) => ({ ...prev, isLoading: false }));
     }
   };
 
   const handleCloseExcelDialog = () => {
-    setOpenExcelDialog(false);
-    setSelectedFile(null);
-    setIsDragging(false);
+    setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null, isDragging: false }));
   };
 
-  const handleStateChange = useCallback((key: string, value: any) => {
-    setState((prev) => ({
-      ...prev,
-      [key]: value,
-      ...(key === 'searchName' && {
-        filteredNames: value
-          ? prev.members.filter((member) =>
-              member.name.toLowerCase().includes(value.toLowerCase())
-            )
-          : prev.members,
-      }),
-    }));
-  }, []);
-
-  const searchMembers = useCallback(async () => {
-    setState((prev) => ({ ...prev, isSearching: true }));
-    try {
-      const response = await Api.get('/member/get-follow-up', {
-        params: {
-          name: state.searchName,
-          type: state.searchType,
-          address: state.searchAddress,
-        },
-      });
-      setFollowUps(response.data.results || []);
-      setState((prev) => ({
-        ...prev,
-        members: response.data.results || [],
-        filteredNames: state.searchName
-          ? (response.data.results || []).filter((member: FollowUp) =>
-              member.name.toLowerCase().includes(state.searchName.toLowerCase())
-            )
-          : response.data.results || [],
-      }));
-    } catch (error) {
-      console.error('Failed to search Newcomers:', error);
-      toast.error('Failed to search Newcomers', {
-        autoClose: 3000,
-        position: isMobile ? 'top-center' : 'top-right',
-      });
-    } finally {
-      setState((prev) => ({ ...prev, isSearching: false }));
+  const handleViewFollowUp = useCallback(() => {
+    if (state.currentFollowUp) {
+      window.location.href = `/view/single-follower/${state.currentFollowUp.id}`;
+      handleMenuClose();
     }
-  }, [state.searchName, state.searchType, state.searchAddress, isMobile]);
+  }, [state.currentFollowUp]);
+
+  const handleAddFollowUp = useCallback(() => {
+    setState((prev) => ({ ...prev, isModalOpen: true }));
+  }, []);
 
   // Filter components
   const renderMobileFilters = () => (
@@ -709,9 +810,9 @@ const ViewFollowUp: React.FC = () => {
                 mt: 1,
               }}
             >
-              {state.filteredNames.map((member, index) => (
+              {state.filteredNames.map((followUp, index) => (
                 <Box
-                  key={member.id}
+                  key={followUp.id}
                   sx={{
                     padding: "8px 16px",
                     color: "#F6F4FE",
@@ -721,11 +822,11 @@ const ViewFollowUp: React.FC = () => {
                       index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
                   }}
                   onClick={() => {
-                    handleStateChange("searchName", member.name);
+                    handleStateChange("searchName", followUp.name);
                     handleStateChange("isNameDropdownOpen", false);
                   }}
                 >
-                  {member.name}
+                  {followUp.name}
                 </Box>
               ))}
             </Box>
@@ -784,7 +885,7 @@ const ViewFollowUp: React.FC = () => {
             renderValue={(selected) => (selected ? selected : "Select Address")}
           >
             <MenuItem value="">All</MenuItem>
-            {[...new Set(state.members.map((m) => m.address))].map((address) => (
+            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
               <MenuItem key={address} value={address}>
                 {address}
               </MenuItem>
@@ -794,7 +895,7 @@ const ViewFollowUp: React.FC = () => {
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button
             variant="contained"
-            onClick={searchMembers}
+            onClick={searchFollowUps}
             sx={{
               backgroundColor: "#F6F4FE",
               color: "#4d4d4e8e",
@@ -868,9 +969,9 @@ const ViewFollowUp: React.FC = () => {
                 mt: 1,
               }}
             >
-              {state.filteredNames.map((member, index) => (
+              {state.filteredNames.map((followUp, index) => (
                 <Box
-                  key={member.id}
+                  key={followUp.id}
                   sx={{
                     padding: "8px 16px",
                     color: "#F6F4FE",
@@ -880,11 +981,11 @@ const ViewFollowUp: React.FC = () => {
                       index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
                   }}
                   onClick={() => {
-                    handleStateChange("searchName", member.name);
+                    handleStateChange("searchName", followUp.name);
                     handleStateChange("isNameDropdownOpen", false);
                   }}
                 >
-                  {member.name}
+                  {followUp.name}
                 </Box>
               ))}
             </Box>
@@ -900,7 +1001,7 @@ const ViewFollowUp: React.FC = () => {
             onChange={(e) => handleStateChange("searchType", e.target.value as string)}
             displayEmpty
             sx={{
-              color: "#F6F4FE",
+              color: state.searchType ? "#F6F4FE" : "#777280",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -941,7 +1042,7 @@ const ViewFollowUp: React.FC = () => {
             renderValue={(selected) => (selected ? selected : "Select Address")}
           >
             <MenuItem value="">All</MenuItem>
-            {[...new Set(state.members.map((m) => m.address))].map((address) => (
+            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
               <MenuItem key={address} value={address}>
                 {address}
               </MenuItem>
@@ -950,7 +1051,7 @@ const ViewFollowUp: React.FC = () => {
         </Box>
         <Box>
           <Button
-            onClick={searchMembers}
+            onClick={searchFollowUps}
             sx={{
               backgroundColor: "transparent",
               border: "1px solid #777280",
@@ -974,17 +1075,21 @@ const ViewFollowUp: React.FC = () => {
     </Box>
   );
 
+  useEffect(() => {
+    fetchFollowUps();
+  }, [fetchFollowUps]);
+
   return (
     <DashboardManager>
       <ToastContainer />
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: '100%' }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Typography
-              variant={isMobile ? 'h5' : 'h5'}
+              variant={isMobile ? "h5" : "h5"}
               component="h4"
-              sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.1rem' : undefined }}
+              sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined }}
             >
               <span className="text-[#777280]">Members</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
@@ -1042,9 +1147,9 @@ const ViewFollowUp: React.FC = () => {
                           mt: 1,
                         }}
                       >
-                        {state.filteredNames.map((member, index) => (
+                        {state.filteredNames.map((followUp, index) => (
                           <Box
-                            key={member.id}
+                            key={followUp.id}
                             sx={{
                               padding: "8px 16px",
                               color: "#F6F4FE",
@@ -1054,11 +1159,11 @@ const ViewFollowUp: React.FC = () => {
                                 index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
                             }}
                             onClick={() => {
-                              handleStateChange("searchName", member.name);
+                              handleStateChange("searchName", followUp.name);
                               handleStateChange("isNameDropdownOpen", false);
                             }}
                           >
-                            {member.name}
+                            {followUp.name}
                           </Box>
                         ))}
                       </Box>
@@ -1073,7 +1178,7 @@ const ViewFollowUp: React.FC = () => {
                   </IconButton>
                   <Box sx={{ pr: "8px" }}>
                     <Button
-                      onClick={searchMembers}
+                      onClick={searchFollowUps}
                       sx={{
                         backgroundColor: "transparent",
                         border: "1px solid #777280",
@@ -1085,7 +1190,7 @@ const ViewFollowUp: React.FC = () => {
                         "&:hover": { backgroundColor: "transparent" },
                       }}
                       disabled={state.isSearching}
-                    >
+                      >
                       {state.isSearching ? (
                         <CircularProgress size={20} color="inherit" />
                       ) : (
@@ -1120,7 +1225,7 @@ const ViewFollowUp: React.FC = () => {
               <Button
                 variant="contained"
                 onClick={handleImportExcel}
-                disabled={isLoading}
+                disabled={state.isLoading}
                 sx={{
                   py: 1,
                   backgroundColor: "#363740",
@@ -1132,14 +1237,14 @@ const ViewFollowUp: React.FC = () => {
                   fontSize: { xs: "1rem", sm: "1rem" },
                   "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                   width: { xs: "100%", sm: "auto" },
-                  minWidth: 'max-content'
+                  minWidth: "max-content"
                 }}
               >
                 Upload Newcomers <MdOutlineFileUpload className="ml-1" />
               </Button>
               <Button
                 variant="contained"
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => setState((prev) => ({ ...prev, isModalOpen: true }))}
                 size="medium"
                 sx={{
                   backgroundColor: "#363740",
@@ -1155,7 +1260,7 @@ const ViewFollowUp: React.FC = () => {
                     opacity: 0.9,
                   },
                   width: { xs: "100%", sm: "auto" },
-                  minWidth: 'max-content'
+                  minWidth: "max-content"
                 }}
               >
                 Add Newcomer +
@@ -1165,44 +1270,44 @@ const ViewFollowUp: React.FC = () => {
         </Grid>
 
         {/* Loading State */}
-        {loading && followUps.length === 0 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress size={40} sx={{ color: '#777280' }} />
+        {state.loading && state.filteredFollowUps.length === 0 && (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress size={40} sx={{ color: "#777280" }} />
           </Box>
         )}
 
         {/* Empty/Error State */}
-        {!loading && (error || followUps.length === 0) && (
-          <EmptyState error={error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
+        {!state.loading && (state.error || state.filteredFollowUps.length === 0) && (
+          <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
         )}
 
         {/* Table */}
-        {followUps.length > 0 && (
+        {state.filteredFollowUps.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: 'auto' }}>
-              <Table sx={{ minWidth: { xs: 'auto', sm: 650 }, '& td, & th': { border: 'none' } }}>
+            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
+              <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
                 <TableHead>
                   <TableRow>
-                    {(['snumber', 'name', 'contact', 'address', 'actions'] as const).map((key) => (
+                    {(["snumber", "name", "contact", "address", "actions"] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{
                           fontWeight: 600,
                           width: TABLE_COLUMN_WIDTHS[key],
-                          fontSize: isLargeScreen ? '0.875rem' : undefined,
-                          color: '#777280',
-                          textAlign: key === 'actions' ? 'center' : 'left',
-                          ...(key === 'address' && {
+                          fontSize: isLargeScreen ? "0.875rem" : undefined,
+                          color: "#777280",
+                          textAlign: key === "actions" ? "center" : "left",
+                          ...(key === "address" && {
                             maxWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }),
                         }}
                       >
-                        {key === 'address' ? (
+                        {key === "address" ? (
                           <Tooltip
-                            title={(key.charAt(0).toUpperCase() + key.slice(1)).length > 30 ? key.charAt(0).toUpperCase() + key.slice(1) : ''}
+                            title={(key.charAt(0).toUpperCase() + key.slice(1)).length > 30 ? key.charAt(0).toUpperCase() + key.slice(1) : ""}
                             placement="top"
                             arrow
                           >
@@ -1212,8 +1317,8 @@ const ViewFollowUp: React.FC = () => {
                                 : key.charAt(0).toUpperCase() + key.slice(1)}
                             </span>
                           </Tooltip>
-                        ) : key === 'snumber' ? (
-                          '#'
+                        ) : key === "snumber" ? (
+                          "#"
                         ) : (
                           key.charAt(0).toUpperCase() + key.slice(1)
                         )}
@@ -1222,48 +1327,48 @@ const ViewFollowUp: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedFollowUps.map((followUp, index) => (
+                  {state.filteredFollowUps.map((followUp, index) => (
                     <FollowUpRow
                       key={followUp.id}
                       followUp={followUp}
-                      index={page * rowsPerPage + index}
+                      index={index}
                       onMenuOpen={handleMenuOpen}
                       isLargeScreen={isLargeScreen}
-                      loading={loading}
+                      loading={state.loading}
                     />
                   ))}
                 </TableBody>
               </Table>
               <CustomPagination
-                count={followUps.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
+                hasNextPage={state.pagination.hasNextPage}
+                hasPrevPage={state.currentPage > 1}
+                onPageChange={handlePageChange}
+                currentPage={state.currentPage}
                 isLargeScreen={isLargeScreen}
+                isLoading={state.loading}
               />
             </TableContainer>
-            <Box sx={{ p: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ p: 3, display: "flex", justifyContent: "flex-end" }}>
               <Tooltip title="Download Newcomers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
-                  disabled={exportLoading}
+                  disabled={state.exportLoading}
                   size="medium"
                   sx={{
-                    backgroundColor: '#363740',
+                    backgroundColor: "#363740",
                     px: { xs: 2, sm: 2 },
                     py: 1,
                     borderRadius: 1,
                     fontWeight: 500,
-                    textTransform: 'none',
-                    color: 'var(--color-text-on-primary)',
-                    fontSize: isLargeScreen ? '1rem' : undefined,
-                    '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
+                    textTransform: "none",
+                    color: "var(--color-text-on-primary)",
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                   }}
                 >
-                  {exportLoading ? (
-                    <span className='text-gray-500'>
-                      <CircularProgress size={18} sx={{ color: 'var(--color-text-on-primary)', mr: 1 }} />
+                  {state.exportLoading ? (
+                    <span className="text-gray-500">
+                      <CircularProgress size={18} sx={{ color: "var(--color-text-on-primary)", mr: 1 }} />
                       Downloading...
                     </span>
                   ) : (
@@ -1277,47 +1382,47 @@ const ViewFollowUp: React.FC = () => {
 
         {/* Action Menu */}
         <ActionMenu
-          anchorEl={anchorEl}
-          currentFollowUp={currentFollowUp}
+          anchorEl={state.anchorEl}
+          currentFollowUp={state.currentFollowUp}
           onClose={handleMenuClose}
           onAction={showConfirmation}
           onView={handleViewFollowUp}
           isLargeScreen={isLargeScreen}
-          loading={loading}
+          loading={state.loading}
         />
 
         {/* Confirmation Dialog */}
         <ConfirmationDialog
-          open={confirmModalOpen}
-          onClose={() => setConfirmModalOpen(false)}
+          open={state.confirmModalOpen}
+          onClose={() => setState((prev) => ({ ...prev, confirmModalOpen: false }))}
           onConfirm={handleConfirmedAction}
-          actionType={actionType}
-          followUpName={currentFollowUp?.name}
+          actionType={state.actionType}
+          followUpName={state.currentFollowUp?.name}
           isLargeScreen={isLargeScreen}
-          loading={loading}
+          loading={state.loading}
         />
 
         {/* Registration Modal */}
         <RegistrationModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          open={state.isModalOpen}
+          onClose={() => setState((prev) => ({ ...prev, isModalOpen: false }))}
           onSuccess={() => {
-            fetchFollowUps();
-            setIsModalOpen(false);
+            refreshFollowUps();
+            setState((prev) => ({ ...prev, isModalOpen: false }));
           }}
         />
       </Box>
       {/* Excel Import Dialog */}
-      <Dialog open={openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth>
+      <Dialog open={state.openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Import Excel File</DialogTitle>
         <DialogContent>
           <Box
             sx={{
-              border: `2px dashed ${isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
+              border: `2px dashed ${state.isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
               borderRadius: 2,
               p: 4,
               textAlign: "center",
-              bgcolor: isDragging ? theme.palette.grey[100] : "transparent",
+              bgcolor: state.isDragging ? theme.palette.grey[100] : "transparent",
               transition: "all 0.2s",
             }}
             onDrop={handleDrop}
@@ -1349,21 +1454,21 @@ const ViewFollowUp: React.FC = () => {
                 ref={fileInputRef}
               />
             </Button>
-            {selectedFile && (
+            {state.selectedFile && (
               <Typography variant="body2" sx={{ mt: 2 }}>
-                Selected file: {selectedFile.name}
+                Selected file: {state.selectedFile.name}
               </Typography>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseExcelDialog} disabled={isLoading}>
+          <Button onClick={handleCloseExcelDialog} disabled={state.isLoading}>
             Cancel
           </Button>
           <Button
             onClick={handleUpload}
             variant="contained"
-            disabled={isLoading || !selectedFile}
+            disabled={state.isLoading || !state.selectedFile}
             sx={{
               backgroundColor: "#777280",
               color: "var(--color-text-on-primary)",
@@ -1373,7 +1478,7 @@ const ViewFollowUp: React.FC = () => {
               },
             }}
           >
-            {isLoading ? (
+            {state.isLoading ? (
               <>
                 <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
                 Uploading...

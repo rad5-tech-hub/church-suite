@@ -78,8 +78,23 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
 
     } catch (error: any) {
       console.error("Error creating branch:", error.response?.data || error.message);
-      toast.error(`${error.response?.data?.error.message} Please try again.` || "Failed to create branch. Please try again.", {
-        autoClose: 3000,
+      let errorMessage = "Failed to create branch. Please try again.";
+            
+      if (error.response?.data?.error?.message) {
+        errorMessage = `${error.response.data.error.message} Please try again.`;
+      } else if (error.response?.data?.message) {
+         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(", ");
+        } else {
+          errorMessage = `${error.response.data.message} Please try again.`;
+        }
+      } else if (error.response?.data?.errors) {
+        // Handle validation errors array
+        errorMessage = error.response.data.errors.join(", ");
+      }
+      
+      toast.error(errorMessage, {
+        autoClose: 5000,
       });
     } finally {
       setLoading(false);

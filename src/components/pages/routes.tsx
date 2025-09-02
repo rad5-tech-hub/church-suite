@@ -27,8 +27,6 @@ const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingPro
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));
-const RecordAttendance = React.lazy(() => import("./attendance/records/records"));
-const ViewRecords = React.lazy(() => import("./attendance/records/viewRecords"));
 const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 
 // Private Route Component
@@ -120,21 +118,6 @@ const AppRoutes: React.FC = () => {
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>
-            </PrivateRoute>
-          } />
-          <Route path="/attendance/record:eventId" element={
-            <PrivateRoute>
-              <RecordAttendance/>
-            </PrivateRoute>
-          } />
-          <Route path="/attendance/record" element={
-            <PrivateRoute>
-              <RecordAttendance/>
-            </PrivateRoute>
-          } />
-          <Route path="/attendance/records/:programId" element={
-            <PrivateRoute>
-              <ViewRecords/>
             </PrivateRoute>
           } />
            <Route path="/qrcodes" element={

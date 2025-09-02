@@ -837,38 +837,42 @@ const ViewUnit: React.FC = () => {
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
-                        <IconButton
-                          sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#E1E1E1",
-                            display: "flex",
-                            flexDirection: "column",
-                            paddingX: "15px",
-                            borderRadius: 1,
-                            textAlign: "center",
-                          }}
-                          aria-label="Unit icon"
-                        >
-                          <PiChurch size={30} />
-                          <span className="text-[10px]">unit</span>
-                        </IconButton>
-                        <IconButton
-                          aria-label="Unit actions"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStateChange("currentUnit", unit);
-                            handleStateChange("anchorEl", e.currentTarget);
-                          }}
-                          sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#777280",
-                            // padding: "8px",
-                            borderRadius: 1,
-                            textAlign: "center",
-                          }}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
+                        <Box>
+                          <IconButton
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#E1E1E1",
+                              display: "flex",
+                              flexDirection: "column",
+                              paddingX: "15px",
+                              borderRadius: 1,
+                              textAlign: "center",
+                            }}
+                            aria-label="Unit icon"
+                          >
+                            <PiChurch size={30} />
+                            <span className="text-[10px]">unit</span>
+                          </IconButton>
+                        </Box>
+                        <Box>
+                          <IconButton
+                            aria-label="Unit actions"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStateChange("currentUnit", unit);
+                              handleStateChange("anchorEl", e.currentTarget);
+                            }}
+                            sx={{
+                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              color: "#777280",
+                              padding: "8px",
+                              borderRadius: 1,
+                              textAlign: "center",
+                            }}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                        </Box>
                       </Box>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                         <Typography

@@ -1323,12 +1323,29 @@ const ViewMembers: React.FC = () => {
                             textDecoration: member.isDeleted ? "line-through" : "none",
                             maxWidth: 0,
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            whiteSpace: 'normal',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
                           }}
                         >
-                          <Tooltip title={member.address && member.address.length > 30 ? member.address : ""} placement="top" arrow>
-                            <span>{member.address && member.address.length > 30 ? `${member.address.slice(0, 30)}...` : member.address || "N/A"}</span>
+                          <Tooltip 
+                            title={member.address} 
+                            placement="top" 
+                            arrow
+                            enterDelay={500}
+                          >
+                            <Box 
+                              component="span"
+                              sx={{
+                                // Visual indicator that there's more content
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {member.address || "N/A"}
+                            </Box>
                           </Tooltip>
                         </TableCell>
                         <TableCell

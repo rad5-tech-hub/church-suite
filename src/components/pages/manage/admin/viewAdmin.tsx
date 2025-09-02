@@ -271,6 +271,13 @@ const ViewAdmins: React.FC = () => {
     setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // Add loading states to your state management
+  const [loadingStates, setLoadingStates] = useState({
+    branches: false,
+    departments: false,
+    units: false,
+  });
+
   const columnWidths = useMemo(() => ({
     number: "2%",
     name: "21%",
@@ -334,37 +341,66 @@ const ViewAdmins: React.FC = () => {
     };
   }, [fetchAdmins]);
 
-  // Fetch supporting data
+  // Update your fetch functions to include loading states
   const fetchBranches = useCallback(async () => {
     try {
+      setLoadingStates(prev => ({ ...prev, branches: true }));
       const response = await Api.get("/church/get-branches");
       setState((prev) => ({ ...prev, branches: response.data.branches || [] }));
     } catch (error) {
       console.error("Error fetching branches:", error);
       toast.error("Failed to load branches");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, branches: false }));
     }
   }, []);
 
   const fetchDepartments = useCallback(async () => {
     try {
+      setLoadingStates(prev => ({ ...prev, departments: true }));
       const response = await Api.get("/church/get-departments");
       setState((prev) => ({ ...prev, departments: response.data.departments || [] }));
     } catch (error) {
       console.error("Error fetching departments:", error);
       toast.error("Failed to load departments");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, departments: false }));
     }
   }, []);
 
   const fetchUnits = useCallback(async () => {
-    if (!state.selectedDepartment) return;
     try {
-      const response = await Api.get(`/church/a-department/${state.selectedDepartment}`);
-      setState((prev) => ({ ...prev, units: response.data.department.units || [] }));
+      setLoadingStates(prev => ({ ...prev, units: true }));
+      const response = await Api.get(`/church/all-units`);
+      setState((prev) => ({ ...prev, units: response.data.units || [] }));
     } catch (error) {
       console.error("Error fetching units:", error);
       toast.error("Failed to load units");
+    } finally {
+      setLoadingStates(prev => ({ ...prev, units: false }));
     }
-  }, [state.selectedDepartment]);
+  }, []);
+
+  useEffect(() => {
+    const loadDataForAccessLevel = async () => {
+      switch (state.accessLevel) {
+        case "branch":
+          await fetchBranches();
+          break;
+        case "department":        
+          await fetchDepartments();
+          break;
+        case "unit":          
+          await fetchUnits();       
+          break;
+        default:
+          break;
+      }
+    };
+
+    loadDataForAccessLevel();
+  }, [state.accessLevel,  fetchBranches, fetchDepartments, fetchUnits]);
+
 
   // Pagination handlers
   const handlePageChange = useCallback(async (direction: 'next' | 'prev') => {
@@ -427,10 +463,6 @@ const ViewAdmins: React.FC = () => {
         if (state.accessLevel === "department") params.departmentId = state.assignLevel;
         if (state.accessLevel === "unit") params.unitId = state.assignLevel;
       }
-      if (state.superAdminFilter) {
-        params.isSuperAdmin = state.superAdminFilter === 'Yes';
-      }
-
       const response = await Api.get("/church/view-admins", { params });
       
       if (response.data.admins.length === 0) {
@@ -675,6 +707,7 @@ const ViewAdmins: React.FC = () => {
     return admin.scopeLevel || "-";
   };
 
+
   // Filter components (mobile)
   const renderMobileFilters = () => (
     <Drawer
@@ -767,10 +800,6 @@ const ViewAdmins: React.FC = () => {
             value={state.assignLevel}
             onChange={(e) => {
               handleStateChange("assignLevel", e.target.value);
-              if (state.accessLevel === "unit") {
-                handleStateChange("selectedDepartment", e.target.value);
-                fetchUnits();
-              }
             }}
             variant="outlined"
             size="small"
@@ -781,14 +810,47 @@ const ViewAdmins: React.FC = () => {
             }}
             disabled={!state.accessLevel}
           >
-            <MenuItem value="">None</MenuItem>
+            
+            {state.accessLevel === "branch" && loadingStates.branches && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16}  />
+                  <Typography variant="body2" >
+                    Loading branches...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+
+            {state.accessLevel === "department" && loadingStates.departments && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2" >
+                    Loading departments...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+
+            {state.accessLevel === "unit" && loadingStates.units && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16}  />
+                  <Typography variant="body2" >
+                    Loading units...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+            
             {state.accessLevel === "branch" &&
               state.branches.map((branch) => (
                 <MenuItem key={branch.id} value={branch.id}>
                   {branch.name}
                 </MenuItem>
               ))}
-            {(state.accessLevel === "department" || state.accessLevel === "unit") &&
+            {(state.accessLevel === "department") &&
               state.departments.map((dept) => (
                 <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
@@ -999,8 +1061,41 @@ const ViewAdmins: React.FC = () => {
               return "Select Area";
             }}
             disabled={!state.accessLevel}
-          >
-            <MenuItem value="">All</MenuItem>
+          >       
+
+            {state.accessLevel === "branch" && loadingStates.branches && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16}  />
+                  <Typography variant="body2" >
+                    Loading branches...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+
+            {state.accessLevel === "department" && loadingStates.departments && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2" >
+                    Loading departments...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+
+            {state.accessLevel === "unit" && loadingStates.units && (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16}  />
+                  <Typography variant="body2" >
+                    Loading units...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+
             {state.accessLevel === "branch" &&
               state.branches.map((branch) => (
                 <MenuItem key={branch.id} value={branch.id}>
@@ -1066,6 +1161,7 @@ const ViewAdmins: React.FC = () => {
       </Box>
     </Box>
   );
+
 
   // Empty state component
   const EmptyState = () => (

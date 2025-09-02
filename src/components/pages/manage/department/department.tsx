@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Api from "../../../shared/api/api";
 import { toast, ToastContainer } from "react-toastify";
 import { useSelector } from "react-redux";
@@ -27,6 +27,12 @@ interface DepartmentFormData {
   name: string;
   type: 'Department' | 'Outreach';
   description: string;
+  branchId?: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface DepartmentModalProps {
@@ -39,13 +45,36 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const [formData, setFormData] = useState<DepartmentFormData>({ 
     name: "",
     type: 'Department',
-    description: ""
+    description: "",
+    branchId: ""
   });
   const [loading, setLoading] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+
+  const isSuperAdmin = authData?.isSuperAdmin === true;
+
+  useEffect(() => {
+    if (open && isSuperAdmin) {
+      fetchBranches();
+    }
+  }, [open, isSuperAdmin]);
+
+  const fetchBranches = async () => {
+    try {
+      setBranchesLoading(true);
+      const response = await Api.get('/church/get-branches');
+      setBranches(response.data.branches || []);
+    } catch (error: any) {
+      console.error("Error fetching branches:", error);
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -82,21 +111,27 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   
     try {
       setLoading(true);
+      
       const response = await Api.post(
-        `/church/create-dept${authData?.branchId ? `/${authData.branchId}` : ''}`, 
+        `/church/create-dept`, 
         formData
       );
       
       toast.success(response.data.message || `Department "${response.data.Department.name}" created successfully!`, {
-        autoClose: 2000,
+        autoClose: 1000,
         position: isMobile ? "top-center" : "top-right"
       });
       
-      setFormData({ name: "", type: 'Department', description: "" });
+      setFormData({ 
+        name: "", 
+        type: 'Department', 
+        description: "",
+        branchId: isSuperAdmin ? "" : undefined
+      });
       onSuccess?.();
-      setTimeout(()=>{
+      setTimeout(() => {
         onClose();
-      }, 2000)
+      }, 2000);
       
     } catch (error: any) {
       console.error("Department creation error:", error);
@@ -138,6 +173,58 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
 
       <DialogContent dividers>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, py: 2 }}>
+          {/* Branch Selection for Super Admin */}
+          {isSuperAdmin && (
+            <FormControl fullWidth size="medium">
+              <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? '1rem' : undefined, color: "#F6F4FE"}}>
+                Branch *
+              </InputLabel>
+              <Select
+                labelId="branch-label"
+                id="branchId"
+                name="branchId"
+                value={formData.branchId || ''}
+                onChange={handleSelectChange}
+                label="Branch *"
+                disabled={loading}
+                sx={{
+                  fontSize: isLargeScreen ? "1rem" : undefined,                
+                  color: "#F6F4FE",
+                  outlineColor: "#777280",
+                  borderColor: "#777280",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#777280",
+                  },
+                  "& .MuiSelect-select": {
+                      borderColor: "#777280",
+                      color: "#F6F4FE",
+                  },              
+                }}
+              >
+                {branchesLoading && (
+                  <MenuItem value="" disabled>
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                    Loading branches...
+                  </MenuItem>
+                )}
+                {!branchesLoading && branches.map((branch) => (
+                  <MenuItem 
+                    key={branch.id} 
+                    value={branch.id}
+                    sx={{ fontSize: isLargeScreen ? '1rem' : undefined }}
+                  >
+                    {branch.name}
+                  </MenuItem>
+                ))}
+                {!branchesLoading && branches.length === 0 && (
+                  <MenuItem value="" disabled>
+                    No branches available
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>
+          )}
+
           {/* Name Field */}
           <TextField
             fullWidth
@@ -152,9 +239,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             size="medium"
             InputLabelProps={{
               sx: {
-                color: "#F6F4FE", // This changes the label color
+                color: "#F6F4FE",
                 "&.Mui-focused": {
-                  color: "#F6F4FE", // Keeps the same color when focused (optional)
+                  color: "#F6F4FE",
                 },
               },
             }}
@@ -234,9 +321,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             size="medium"
             InputLabelProps={{
               sx: {
-                color: "#F6F4FE", // This changes the label color
+                color: "#F6F4FE",
                 "&.Mui-focused": {
-                  color: "#F6F4FE", // Keeps the same color when focused (optional)
+                  color: "#F6F4FE",
                 },
               },
             }}

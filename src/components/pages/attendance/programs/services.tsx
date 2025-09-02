@@ -59,10 +59,35 @@ interface Collection {
   name: string;
 }
 
+interface Event {
+  id: string;
+  title: string;
+}
+
+interface EventOccurrence {
+  id: string;
+  eventId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isCancelled: boolean;
+  hasAttendance: boolean;
+  dayOfWeek: string;
+  createdAt: string;
+  collections: Collection[];
+  event: Event;
+}
+
 interface CreateProgramModalProps {
+  eventId?: string;
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+}
+
+interface EventResponse {
+  message: string;
+  eventOccurrence: EventOccurrence;
 }
 
 const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -87,10 +112,12 @@ const fetchCollections = async (
   }
 };
 
-const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, onSuccess }) => {
+const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, onSuccess, eventId }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+
+  const isEdit = !!eventId;
 
   const [formData, setFormData] = useState<ServiceFormData>({
     title: "",
@@ -117,6 +144,41 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [tempNewCollection, setTempNewCollection] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
+  const [eventData, setEventData] = useState<EventOccurrence | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (open && eventId) {
+      const fetchEventData = async () => {
+        try {
+          setLoadingEdit(true);
+          const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
+          setEventData(response.data.eventOccurrence);
+        } catch (err) {
+          toast.error('Failed to fetch event data');
+          console.error('Error fetching event data:', err);
+        } finally {
+          setLoadingEdit(false);
+        }
+      };
+
+      fetchEventData();
+    }
+  }, [eventId, open]);
+
+  useEffect(() => {
+    if (eventData) {
+      setFormData({
+        title: eventData.event.title,
+        date: moment(eventData.date).format("YYYY-MM-DD"),
+        startTime: eventData.startTime,
+        endTime: eventData.endTime,
+        departmentIds: [], // Assuming no departments in response; adjust if API includes them
+        collectionIds:  eventData.collections ? eventData.collections.map((col) => col.id) : [],
+        recurrenceType: "none",
+      });
+    }
+  }, [eventData]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -192,8 +254,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
   const handleDepartmentChange = (event: SelectChangeEvent<typeof formData.departmentIds>) => {
     const { value } = event.target;
-    
-    // For multi-select, value is always an array
     setFormData((prev) => ({
       ...prev,
       departmentIds: value as string[],
@@ -203,11 +263,12 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
   const handleCollectionChange = (event: SelectChangeEvent<typeof formData.collectionIds>) => {
     const { value } = event.target;
-    
-    // For multi-select, value is always an array
+    const cleanedValue = Array.isArray(value)
+      ? value.filter(id => id !== null && id !== undefined && id !== '')
+      : [];
     setFormData((prev) => ({
       ...prev,
-      collectionIds: value as string[],
+      collectionIds: cleanedValue,
     }));
     setCreateProgramError(null);
   };
@@ -297,65 +358,91 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-const handleAddService = async () => {
-  if (!formData.title.trim()) {
-    toast.error("Program title is required.", {
-      position: isMobile ? "top-center" : "top-right",
-    });
-    return;
-  }
-
-  try {
-    setLoading(true);
-    let payload: any = { ...formData };
-
-    if (formData.recurrenceType === "none") {
-      payload = {
-        ...payload,
-        date: formData.date,
-        startTime: undefined,
-        endTime: undefined,
-      };
-    }
-
-    if (["weekly", "monthly"].includes(formData.recurrenceType) && !formData.endDate) {
-      const defaultEndDate = moment(formData.date).add(3, "months").format("YYYY-MM-DD");
-      payload.endDate = defaultEndDate;
-    }
-
-    if (formData.recurrenceType === "weekly") {
-      payload.date = formData.date;
-    }
-
-    if (formData.recurrenceType === "monthly" && monthlyOption === "byDate") {
-      const selectedDate = moment(formData.date);
-      const dayNum = selectedDate.date();
-      payload.recurrenceType = "monthly";
-      payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
-    }
-
-    const response = await Api.post("/church/create-event", payload);
-
-    toast.success(
-      `Program "${response.data.event?.title || formData.title}" created successfully!`,
-      {
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      toast.error("Program title is required.", {
         position: isMobile ? "top-center" : "top-right",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      let payload: any = { ...formData };
+
+      if (!isEdit) {
+        // Create mode logic
+        if (["weekly", "monthly"].includes(formData.recurrenceType) && !formData.endDate) {
+          const defaultEndDate = moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+          payload.endDate = defaultEndDate;
+        }
+
+        if (formData.recurrenceType === "weekly") {
+          payload.date = formData.date;
+        }
+
+        if (formData.recurrenceType === "monthly" && monthlyOption === "byDate") {
+          const selectedDate = moment(formData.date);
+          const dayNum = selectedDate.date();
+          payload.recurrenceType = "monthly";
+          payload.nthWeekdays = [{ weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) }];
+        }
+
+        const response = await Api.post("/church/create-event", payload);
+        toast.success(
+          `Program "${response.data.event?.title || formData.title}" created successfully!`,
+          {
+            position: isMobile ? "top-center" : "top-right",
+          }
+        );
+      } else {
+        // Edit mode logic (simplified payload without recurrence)
+        payload = {
+          title: formData.title,
+          date: formData.date,
+          startTime: formData.startTime,
+          endTime: formData.endTime,
+          departmentIds: formData.departmentIds,
+          collectionIds: formData.collectionIds,
+        };
+
+        await Api.put(`/church/update-event/${eventId}`, payload);
+        toast.success(
+          `Program "${formData.title}" updated successfully!`,
+          {
+            position: isMobile ? "top-center" : "top-right",
+          }
+        );
       }
-    );
-    resetForm();
-    onSuccess?.();
-    setTimeout(() => {
-      onClose();
-    }, 1000);
-  } catch (error: any) {
-    console.error("Program creation error:", error);
-    toast.error(error.response?.data?.message || "Failed to create program. Please try again.", {
-      position: isMobile ? "top-center" : "top-right",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+
+      resetForm();
+      onSuccess?.();
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (error: any) {
+      console.error("Error processing program:", error.response?.data || error.message);
+      let errorMessage = "Failed to process program. Please try again.";
+
+      if (error.response?.data?.error?.message) {
+        errorMessage = `${error.response.data.error.message} Please try again.`;
+      } else if (error.response?.data?.message) {
+        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(", ");
+        } else {
+          errorMessage = `${error.response.data.message} Please try again.`;
+        }
+      } else if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.join(", ");
+      }
+
+      toast.error(errorMessage, {
+        autoClose: 5000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -374,7 +461,7 @@ const handleAddService = async () => {
     setTempNewCollection("");
     setSelectOpen(false);
     setCreateProgramError(null);
-    onClose();
+    setEventData(null);
   };
 
   const renderProgramType = () => (
@@ -428,6 +515,7 @@ const handleAddService = async () => {
               padding: "4px 8px",
               mb: 2,
               borderRadius: 1,
+              "& .MuiRadio-icon": { color: "#F6F4FE" },
             }}
             color="default"
           />
@@ -454,6 +542,23 @@ const handleAddService = async () => {
                 disabled={loading}
                 InputLabelProps={{ shrink: true, ...inputLabelProps }}
                 inputProps={inputProps}
+                sx={{
+                  backgroundColor: '#4d4d4e8e',
+                  borderRadius: '8px',
+                  '& .MuiOutlinedInput-root': {
+                    color: '#F6F4FE',
+                    '& fieldset': { borderColor: 'transparent' },
+                    '&:hover fieldset': { borderColor: '#F6F4FE' },
+                    '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                    '&.Mui-disabled': {
+                      color: '#777280',
+                      '& fieldset': { borderColor: 'transparent' },
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#F6F4FE',
+                  },
+                }}
               />
             </Grid>
           )}
@@ -477,6 +582,22 @@ const handleAddService = async () => {
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    backgroundColor: '#4d4d4e8e',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-root': {
+                      color: '#F6F4FE',
+                      '& fieldset': { borderColor: 'transparent' },
+                      '&:hover fieldset': { borderColor: '#F6F4FE' },
+                      '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                      '&.Mui-disabled': {
+                        color: '#777280',
+                        '& fieldset': { borderColor: 'transparent' },
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#F6F4FE',
+                    },
                   }}
                 >
                   {daysOfWeek.map((day) => (
@@ -503,6 +624,23 @@ const handleAddService = async () => {
                   disabled={loading}
                   InputLabelProps={{ shrink: true, ...inputLabelProps }}
                   inputProps={inputProps}
+                  sx={{
+                    backgroundColor: '#4d4d4e8e',
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-root': {
+                      color: '#F6F4FE',
+                      '& fieldset': { borderColor: 'transparent' },
+                      '&:hover fieldset': { borderColor: '#F6F4FE' },
+                      '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                      '&.Mui-disabled': {
+                        color: '#777280',
+                        '& fieldset': { borderColor: 'transparent' },
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#F6F4FE',
+                    },
+                  }}
                 />
                 <List sx={{ maxHeight: 150, overflow: "auto", mt: 1 }}>
                   {customDates.map((date, index) => (
@@ -527,16 +665,34 @@ const handleAddService = async () => {
           )}
 
           {/* Time inputs */}
+          {formData.recurrenceType !== 'none' && (<> 
           <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               fullWidth
               label="Start Time"
               name="startTime"
               type="time"
-              value={formData.startTime}
+              value={formData.date}
               onChange={handleChange}
               variant="outlined"
               disabled={loading}
+              sx={{
+                backgroundColor: '#4d4d4e8e',
+                borderRadius: '8px',
+                '& .MuiOutlinedInput-root': {
+                  color: '#F6F4FE',
+                  '& fieldset': { borderColor: 'transparent' },
+                  '&:hover fieldset': { borderColor: '#F6F4FE' },
+                  '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                  '&.Mui-disabled': {
+                    color: '#777280',
+                    '& fieldset': { borderColor: 'transparent' },
+                  },
+                },
+                '& .MuiInputBase-input': {
+                  color: '#F6F4FE',
+                },
+              }}
               InputLabelProps={{ shrink: true, ...inputLabelProps }}
               inputProps={inputProps}
             />
@@ -547,14 +703,31 @@ const handleAddService = async () => {
               label="End Time"
               name="endTime"
               type="time"
-              value={formData.endTime}
+              value={formData.endTime ?? ""}
               onChange={handleChange}
               variant="outlined"
               disabled={loading}
+              sx={{
+                backgroundColor: '#4d4d4e8e',
+                borderRadius: '8px',
+                '& .MuiOutlinedInput-root': {
+                  color: '#F6F4FE',
+                  '& fieldset': { borderColor: 'transparent' },
+                  '&:hover fieldset': { borderColor: '#F6F4FE' },
+                  '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                  '&.Mui-disabled': {
+                    color: '#777280',
+                    '& fieldset': { borderColor: 'transparent' },
+                  },
+                },
+                '& .MuiInputBase-input': {
+                  color: '#F6F4FE',
+                },
+              }}
               InputLabelProps={{ shrink: true, ...inputLabelProps }}
               inputProps={inputProps}
             />
-          </Grid>
+          </Grid> </>)}
 
           {/* End Date for weekly and monthly recurrence */}
           {["weekly", "monthly"].includes(formData.recurrenceType) && (
@@ -564,10 +737,27 @@ const handleAddService = async () => {
                 label="End Date"
                 name="endDate"
                 type="date"
-                value={formData.endDate || ""}
+                value={formData.endDate}
                 onChange={handleChange}
                 variant="outlined"
                 disabled={loading}
+                sx={{
+                  backgroundColor: '#4d4d4e8e',
+                  borderRadius: '8px',
+                  '& .MuiOutlinedInput-root': {
+                    color: '#F6F4FE',
+                    '& fieldset': { borderColor: 'transparent' },
+                    '&:hover fieldset': { borderColor: '#F6F4FE' },
+                    '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                    '&.Mui-disabled': {
+                      color: '#777280',
+                      '& fieldset': { borderColor: 'transparent' },
+                    },
+                  },
+                  '& .MuiInputBase-input': {
+                    color: '#F6F4FE',
+                  },
+                }}
                 InputLabelProps={{ shrink: true, ...inputLabelProps }}
                 inputProps={inputProps}
               />
@@ -708,6 +898,7 @@ const handleAddService = async () => {
           }}
           renderValue={(selected) =>
             selected
+              .filter(id => id !== null && id !== undefined)
               .map((id) => collections.find((col) => col.id === id)?.name || id)
               .join(", ")
           }
@@ -716,14 +907,13 @@ const handleAddService = async () => {
             color: "#F6F4FE",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+            "& .MuiSelect-icon": { color: "#F6F4FE" },
           }}
           MenuProps={{ 
             PaperProps: { sx: { maxHeight: 300 } },
             disableAutoFocus: true,
             disableEnforceFocus: true,
-            // Additional props to prevent keyboard navigation interference
             onKeyDown: (e) => {
-              // Prevent Select from capturing keyboard events in the text field
               if ((e.target as HTMLElement).tagName === 'INPUT') {
                 e.stopPropagation();
               }
@@ -756,7 +946,6 @@ const handleAddService = async () => {
           
           <Divider />
           
-          {/* Add New Collection Section - Modified to prevent interference */}
           <Box sx={{ p: 1 }} onClick={(e) => e.stopPropagation()}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Add New Collection
@@ -773,7 +962,6 @@ const handleAddService = async () => {
                     e.stopPropagation();
                     handleAddCollection();
                   }
-                  // Stop propagation for all key events
                   e.stopPropagation();
                 }}
                 onKeyUp={(e) => e.stopPropagation()}
@@ -786,7 +974,6 @@ const handleAddService = async () => {
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },                 
                 }}
                 inputProps={{
-                  // Additional attributes to prevent browser auto-complete
                   autocomplete: "new-password",
                   form: {
                     autocomplete: "off",
@@ -844,6 +1031,7 @@ const handleAddService = async () => {
               color: "#F6F4FE",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -886,7 +1074,7 @@ const handleAddService = async () => {
   return (
     <Dialog
       open={open}
-      onClose={resetForm}
+      onClose={() => { resetForm(); onClose(); }}
       fullWidth
       maxWidth="md"
       sx={{
@@ -902,72 +1090,78 @@ const handleAddService = async () => {
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" color="#F6F4FE" fontWeight={600}>
-            Create Program
+            {isEdit ? "Edit Program" : "Create Program"}
           </Typography>
-          <IconButton onClick={onClose}>
+          <IconButton onClick={() => { resetForm(); onClose(); }}>
             <Close className="text-gray-300" />
           </IconButton>
         </Box>
       </DialogTitle>
 
       <DialogContent dividers>
-        <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <Grid container spacing={4}>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Program Title *"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                variant="outlined"
-                placeholder="Enter program title"
-                disabled={loading}
-                InputProps={{
-                  sx: {
-                    color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#777280",
-                    },
-                    fontSize: isMobile ? "0.875rem" : "1rem",
-                  },
-                }}
-                InputLabelProps={{
-                  sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": {
-                      color: "#F6F4FE",
-                    },
-                    fontSize: isMobile ? "0.875rem" : "1rem",
-                  },
-                }}
-                required
-              />
-            </Grid>
-            {renderProgramType()}
-            {renderDateTimeInputs()}
-            {renderDepartmentInput()}
-            {renderCollectionInput()}
-            {createProgramError && (
+        {isEdit && loadingEdit ? (
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px" }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Grid container spacing={4}>
               <Grid size={{ xs: 12 }}>
-                <Typography sx={{ color: "#FF6B6B" }}>{createProgramError}</Typography>
+                <TextField
+                  fullWidth
+                  label="Program Title *"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  variant="outlined"
+                  placeholder="Enter program title"
+                  disabled={loading}
+                  InputProps={{
+                    sx: {
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
+                      },
+                      fontSize: isMobile ? "0.875rem" : "1rem",
+                    },
+                  }}
+                  InputLabelProps={{
+                    sx: {
+                      color: "#F6F4FE",
+                      "&.Mui-focused": {
+                        color: "#F6F4FE",
+                      },
+                      fontSize: isMobile ? "0.875rem" : "1rem",
+                    },
+                  }}
+                  required
+                />
               </Grid>
-            )}
-          </Grid>
-        </Box>
+              {!isEdit && renderProgramType()}
+              {renderDateTimeInputs()}
+              {renderDepartmentInput()}
+              {renderCollectionInput()}
+              {createProgramError && (
+                <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ color: "#FF6B6B" }}>{createProgramError}</Typography>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button
           variant="contained"
-          onClick={handleAddService}
-          disabled={loading}
+          onClick={handleSubmit}
+          disabled={loading || (isEdit && loadingEdit)}
           sx={{
             py: 1,
             backgroundColor: "#F6F4FE",
@@ -983,10 +1177,10 @@ const handleAddService = async () => {
           {loading ? (
             <>
               <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-              Creating...
+              {isEdit ? "Updating..." : "Creating..."}
             </>
           ) : (
-            "Create Program"
+            isEdit ? "Update Program" : "Create Program"
           )}
         </Button>
       </DialogActions>
