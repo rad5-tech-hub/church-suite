@@ -1,88 +1,109 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Login from './login';
-import '@testing-library/jest-dom';
-import { store } from '../../reduxstore/redux';
 import { Provider } from 'react-redux';
-import { BrowserRouter as Router } from 'react-router-dom';
+import { store } from '../../reduxstore/redux';
+import Login from './login';
+import { toast } from 'react-toastify';
+import { MemoryRouter } from 'react-router-dom';
 
-// Mock external dependencies
-jest.mock('react-icons/io5', () => ({
-  IoMailOutline: () => <div>mail-icon</div>,
-  SlLock: () => <div>lock-icon</div>,
+// Fix for global type
+declare const global: typeof globalThis;
+
+// Mock react-toastify
+jest.mock('react-toastify', () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
-jest.mock('react-icons/pi', () => ({
-  PiEye: () => <div>eye-icon</div>,
-  PiEyeClosed: () => <div>eye-closed-icon</div>,
-}));
-
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
-    <a href={to}>{children}</a>
-  ),
-  useLocation: () => ({
-    pathname: '/'
-  })
-}));
-
-// Mock fetch
-(globalThis as any).fetch = jest.fn() as jest.Mock;
+// Mock the fetch API
+global.fetch = jest.fn() as jest.Mock;
 
 describe('Login Component', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    (fetch as jest.Mock).mockReset();
+    // Mock sessionStorage
+    Storage.prototype.setItem = jest.fn();
   });
 
-  test('renders login form', () => {
+  test('renders login form correctly', () => {
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
-    
-    // Test left section
+
     expect(screen.getByText('Log in')).toBeInTheDocument();
-    expect(screen.getByText(/Welcome, Kindly login to your account/i)).toBeInTheDocument();
-    
-    // Test right section
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Continue/i })).toBeInTheDocument();
-    expect(screen.getByText(/Don't have account?/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Sign Up/i })).toBeInTheDocument();
+    expect(screen.getByLabelText('Email *')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password *')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Account' })).toBeInTheDocument();
+    expect(screen.getByText("Don't have an Account?")).toBeInTheDocument();
+    expect(screen.getByText('Forgot Password?')).toBeInTheDocument();
   });
 
   test('toggles password visibility', () => {
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
-    
-    const passwordInput = screen.getByLabelText('Password');
-    const toggleButton = screen.getByRole('button', { name: /toggle password visibility/i });
-    
-    // Initial state
-    expect(passwordInput).toHaveAttribute('type', 'password');
-    
-    // After click
+
+    const passwordInput = screen.getByPlaceholderText('........') as HTMLInputElement;
+    const toggleButton = screen.getByRole('button', { name: '' }); // The eye icon button
+
+    // Initially should be password type
+    expect(passwordInput.type).toBe('password');
+
+    // Click to show password
     fireEvent.click(toggleButton);
-    expect(passwordInput).toHaveAttribute('type', 'text');
-    
-    // Click again
+    expect(passwordInput.type).toBe('text');
+
+    // Click again to hide password
     fireEvent.click(toggleButton);
-    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(passwordInput.type).toBe('password');
   });
 
-  test('handles form submission successfully', async () => {
+  test('handles form input changes', () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Login />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const emailInput = screen.getByPlaceholderText('email@gmail.com') as HTMLInputElement;
+    const passwordInput = screen.getByPlaceholderText('........') as HTMLInputElement;
+
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+
+    expect(emailInput.value).toBe('test@example.com');
+    expect(passwordInput.value).toBe('password123');
+  });
+
+  test('shows forgot password modal when clicked', () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Login />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const forgotPasswordButton = screen.getByText('Forgot Password?');
+    fireEvent.click(forgotPasswordButton);
+
+    expect(screen.getByText('Reset Password')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
+  });
+
+  test('submits login form successfully', async () => {
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({}),
@@ -90,89 +111,78 @@ describe('Login Component', () => {
 
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
 
     // Fill out the form
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByPlaceholderText('email@gmail.com'), {
       target: { value: 'test@example.com' },
     });
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByPlaceholderText('........'), {
       target: { value: 'password123' },
     });
 
     // Submit the form
-    fireEvent.click(screen.getByRole('button', { name: /Log in/i }));
-
-    // Check loading state
-    expect(screen.getByText(/Loging in.../i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
-      // Check for success notification
-      expect(screen.getByText('Welcome Back!')).toBeInTheDocument();
-      expect(screen.getByText(/You have successfully logged in!/i)).toBeInTheDocument();
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/church/login'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: 'test@example.com',
+            password: 'password123',
+          }),
+        })
+      );
+
+      expect(toast.success).toHaveBeenCalledWith(
+        'Login successful! Redirecting to verification...',
+        expect.anything()
+      );
+      expect(sessionStorage.setItem).toHaveBeenCalledWith('email', 'test@example.com');
     });
   });
 
-  test('handles form submission error', async () => {
+  test('handles login failure', async () => {
     const errorMessage = 'Invalid credentials';
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
-      json: () => Promise.resolve({ error: { message: errorMessage } }),
+      json: () => Promise.resolve({ error: { message: errorMessage, code: 401 } }),
     });
 
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
 
     // Fill out the form
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByPlaceholderText('email@gmail.com'), {
       target: { value: 'test@example.com' },
     });
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByPlaceholderText('........'), {
       target: { value: 'wrongpassword' },
     });
 
     // Submit the form
-    fireEvent.click(screen.getByRole('button', { name: /Log in/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+      expect(toast.error).toHaveBeenCalledWith(errorMessage, expect.anything());
     });
   });
 
-  test('opens and closes forgot password modal', async () => {
-    render(
-      <Provider store={store}>
-        <Router>
-          <Login />
-        </Router>
-      </Provider>
-    );
-
-    // Click forgot password
-    fireEvent.click(screen.getByText('Forgot Password?'));
-
-    // Check modal is open
-    expect(screen.getByText('Reset Password')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email Address')).toBeInTheDocument();
-
-    // Close modal
-    fireEvent.click(screen.getByRole('button', { name: /close/i }));
-    
-    await waitFor(() => {
-      expect(screen.queryByText('Reset Password')).not.toBeInTheDocument();
-    });
-  });
-
-  test('handles forgot password submission successfully', async () => {
+  test('submits forgot password form successfully', async () => {
     (fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({}),
@@ -180,85 +190,75 @@ describe('Login Component', () => {
 
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
 
     // Open forgot password modal
     fireEvent.click(screen.getByText('Forgot Password?'));
 
-    // Fill out email
-    fireEvent.change(screen.getByLabelText('Email Address'), {
+    // Fill out the email
+    fireEvent.change(screen.getByPlaceholderText('Enter your email'), {
       target: { value: 'test@example.com' },
     });
 
-    // Submit
-    fireEvent.click(screen.getByRole('button', { name: /Send Reset Link/i }));
+    // Submit the form
+    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Link' }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Password reset link has been sent to your email!/i)).toBeInTheDocument();
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/church/forgot-password'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: 'test@example.com',
+          }),
+        })
+      );
+
+      expect(toast.success).toHaveBeenCalledWith(
+        'Password reset link has been sent to your email!',
+        expect.anything()
+      );
     });
   });
 
-  test('handles forgot password submission error', async () => {
-    const errorMessage = 'Email not found';
+  test('clears form data on successful login', async () => {
     (fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ error: { message: errorMessage } }),
+      ok: true,
+      json: () => Promise.resolve({}),
     });
 
     render(
       <Provider store={store}>
-        <Router>
+        <MemoryRouter>
           <Login />
-        </Router>
+        </MemoryRouter>
       </Provider>
     );
 
-    // Open forgot password modal
-    fireEvent.click(screen.getByText('Forgot Password?'));
+    const emailInput = screen.getByPlaceholderText('email@gmail.com') as HTMLInputElement;
+    const passwordInput = screen.getByPlaceholderText('........') as HTMLInputElement;
 
-    // Fill out email
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'nonexistent@example.com' },
+    // Fill out the form
+    fireEvent.change(emailInput, {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.change(passwordInput, {
+      target: { value: 'password123' },
     });
 
-    // Submit
-    fireEvent.click(screen.getByRole('button', { name: /Send Reset Link/i }));
+    // Submit the form
+    fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    });
-  });
-
-  test('clears notifications when dismissed', async () => {
-    (fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      json: () => Promise.resolve({ error: { message: 'Test error' } }),
-    });
-
-    render(
-      <Provider store={store}>
-        <Router>
-          <Login />
-        </Router>
-      </Provider>
-    );
-
-    // Submit form to trigger error notification
-    fireEvent.click(screen.getByRole('button', { name: /Log in/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Test error')).toBeInTheDocument();
-    });
-
-    // Dismiss notification
-    fireEvent.click(screen.getByRole('button', { name: /close notification/i }));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Test error')).not.toBeInTheDocument();
+      expect(emailInput.value).toBe('');
+      expect(passwordInput.value).toBe('');
     });
   });
 });

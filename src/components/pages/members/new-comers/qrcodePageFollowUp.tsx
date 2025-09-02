@@ -179,7 +179,7 @@ const RightSection: React.FC<RightSectionProps> = ({
       >
         <Box>
           <Typography variant="h5" fontWeight={600} gutterBottom sx={{ color: "text.primary" }}>
-            Register Follow Up
+            Register Newcomer
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Welcome to our church! We're excited to get to know you better.
@@ -240,8 +240,7 @@ const RightSection: React.FC<RightSectionProps> = ({
               name="sex"
               value={formData.sex}
               label="Gender"
-              onChange={handleSelectChange}
-              required
+              onChange={handleSelectChange}              
             >
               <MenuItem value="" disabled>
                 Select gender
@@ -257,8 +256,7 @@ const RightSection: React.FC<RightSectionProps> = ({
               name="address"
               value={formData.address}
               onChange={handleInputChange}
-              placeholder="Enter address"
-              required
+              placeholder="Enter address"            
               InputProps={{
                 startAdornment: (
                   <Box sx={{ mr: 1, display: "flex", alignItems: "center" }}>
@@ -285,8 +283,7 @@ const RightSection: React.FC<RightSectionProps> = ({
                 name="birthMonth"
                 value={formData.birthMonth}
                 label="Birth Month"
-                onChange={handleSelectChange}
-                required
+                onChange={handleSelectChange}            
               >
                 <MenuItem value="" disabled>
                   Select Month
@@ -306,8 +303,7 @@ const RightSection: React.FC<RightSectionProps> = ({
                 name="birthDay"
                 value={formData.birthDay}
                 label="Birth Day"
-                onChange={handleSelectChange}
-                required
+                onChange={handleSelectChange}          
               >
                 <MenuItem value="" disabled>
                   Select Day
@@ -332,7 +328,7 @@ const RightSection: React.FC<RightSectionProps> = ({
               <MenuItem value="" disabled>
                 Select how many times you have been here
               </MenuItem>
-              {Array.from({ length: 50 }, (_, i) => (
+              {Array.from({ length: 10 }, (_, i) => (
                 <MenuItem key={i + 1} value={i + 1}>
                   {i + 1} {i + 1 === 1 ? "Time" : "Times"}
                 </MenuItem>

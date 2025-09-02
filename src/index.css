@@ -1,12 +1,10 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Overlock:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Overlock:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap'); */
 
 :root {
-  --color-primary: #111827; /* Default dark blue */
+  --color-primary: '#4d4d4e8e'; /* Default dark blue */
   --color-text-on-primary: #f0f0f0; /* White text for dark backgrounds */
 }
-
-/* Custom transitions for smoother color changes */
-* {
-  transition: background-color 0.3s ease, color 0.3s ease;
+.rbc-time-gutter {
+  display: none !important;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { SlCloudUpload } from "react-icons/sl";
-import { IoArrowForward } from "react-icons/io5";
+import { IoArrowForward, IoCheckmarkCircle } from "react-icons/io5"; // Added IoCheckmarkCircle
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import { setChurchData } from "../../../reduxstore/datamanager";
@@ -8,14 +8,14 @@ import { RootState } from "../../../reduxstore/redux";
 
 // File Upload Component
 interface FileUploadProps {
-  type: 'logo' | 'background';
+  type: "logo" | "background";
   preview: string | null;
-  onFileUpload: (type: 'logo' | 'background', base64String: string) => void;
-  error?: boolean; // Added for error border feedback
+  onFileUpload: (type: "logo" | "background", base64String: string) => void;
+  error?: boolean;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, error }) => {
-  const label = type === 'logo' ? 'Logo' : 'Background Image';
+  const label = type === "logo" ? "Logo" : "Banner Image";
   const id = `${type}-upload`;
 
   const handleChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,22 +26,22 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, er
       const base64String = await fileToBase64(file);
       onFileUpload(type, base64String);
     } catch (error) {
-      console.error('Error converting file to base64:', error);
+      console.error("Error converting file to base64:", error);
     }
   };
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 relative"> {/* Added relative positioning for the container */}
       <label htmlFor={id} className="block text-base text-gray-700 font-medium mb-2">
-        Upload {label}
+        Upload {label }
       </label>
       <div
         className={`file-upload input-shadow flex flex-col items-center justify-center border border-gray-300 rounded-md py-6 cursor-pointer relative ${
           error
-          ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-          : preview
-          ? "border-light-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
-          : "border-gray-300"
+            ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+            : preview
+            ? "border-light-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+            : "border-gray-300"
         }`}
       >
         <input
@@ -52,13 +52,20 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, er
           onChange={handleChange}
         />
         {preview ? (
-          <img
-            src={preview}
-            alt={`${label} Preview`}
-            className={`${
-              type === "logo" ? "h-20 w-20 object-cover rounded-full" : "h-60 w-full object-contain rounded-md"
-            }`}
-          />
+          <>
+            <img
+              src={preview}
+              alt={`${label} Preview`}
+              className={`${
+                type === "logo" ? "h-20 w-20 object-cover rounded-full" : "h-60 w-full object-contain rounded-md"
+              }`}
+            />
+            {/* Green Checkmark in Top-Left Corner */}
+            <IoCheckmarkCircle
+              className="absolute top-2 right-2 text-green-500 w-6 h-6"
+              aria-label="Upload successful"
+            />
+          </>
         ) : (
           <div className="w-12 h-12 bg-gradient-to-r from-gray-100 to-gray-100 rounded-full flex items-center justify-center">
             <div className="w-9 h-9 bg-[#B7CBD0] rounded-full flex items-center justify-center">
@@ -78,7 +85,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ type, preview, onFileUpload, er
           Please upload a {label.toLowerCase()}.
         </p>
       )}
-    </div>    
+    </div>
   );
 };
 
@@ -88,7 +95,7 @@ const fileToBase64 = (file: File): Promise<string> => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
+    reader.onerror = (error) => reject(error);
   });
 };
 
@@ -98,7 +105,7 @@ const SetupStep2: React.FC = () => {
   const navigate = useNavigate();
   const churchData = useSelector((state: RootState) => state.church);
   const [loading, setLoading] = useState(false);
-  const [logoError, setLogoError] = useState<boolean>(false); // New state for logo error
+  const [logoError, setLogoError] = useState<boolean>(false);
 
   const [logoPreview, setLogoPreview] = useState<string | null>(churchData.logoPreview || null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(churchData.backgroundPreview || null);
@@ -108,65 +115,89 @@ const SetupStep2: React.FC = () => {
     setBackgroundPreview(churchData.backgroundPreview || null);
   }, [churchData.logoPreview, churchData.backgroundPreview]);
 
-  const handleFileUpload = useCallback((type: 'logo' | 'background', base64String: string) => {
-    dispatch(setChurchData({
-      [`${type}Preview`]: base64String
-    }));
+  const handleFileUpload = useCallback(
+    (type: "logo" | "background", base64String: string) => {
+      dispatch(
+        setChurchData({
+          [`${type}Preview`]: base64String,
+        })
+      );
 
-    if (type === 'logo') {
-      setLogoPreview(base64String);
-      setLogoError(false); // Clear error when logo is uploaded
-    } else {
-      setBackgroundPreview(base64String);
-    }
-  }, [dispatch]);
+      if (type === "logo") {
+        setLogoPreview(base64String);
+        setLogoError(false);
+      } else {
+        setBackgroundPreview(base64String);
+      }
+    },
+    [dispatch]
+  );
 
   const handleContinue = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Validate logo upload
     if (!logoPreview) {
-      setLogoError(true); // Show error border
+      setLogoError(true);
       setLoading(false);
       return;
-    }else {
-      setLogoError(false); // Clear error if logo is uploaded
+    } else {
+      setLogoError(false);
       setTimeout(() => {
-      setLoading(false);
-      navigate("/admin-account");
+        setLoading(false);
+        navigate("/admin-account");
       }, 2000);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="flex flex-col lg:flex-row w-full max-w-full p-4 md:p-6 min-h-screen">
-        {/* Left Section - Welcome Message */}
-        <div  className="image-section flex-1 bg-[#111827] bg-no-repeat bg-center bg-cover text-white rounded-lg p-8 md:p-10 flex flex-col justify-center">
-          <div className="lg:w-9/12 py-8">
-            <p className="mb-2 text-sm text-gray-200">Step 2 of 3</p>
-            <h1 className="text-3xl lg:text-5xl font-bold mb-2">Image Uploads</h1>
-            <p className="text-lg lg:text-xl text-gray-300">
-              Upload your logo and background image to complete the setup.
+    <div className="bg-[#F6F4FE] min-h-screen ">
+      {/* SVG Pattern at the top */}
+      <div 
+        className="fixed top-0 left-0 w-full h-[200px] z-0"
+        style={{
+          background: `
+            radial-gradient(at top left, #2A1B45 100%, transparent 10%),
+            radial-gradient(at top right, #2A1B45 70%, transparent 0%),
+            radial-gradient(at bottom left, #1E0D2E 90%, transparent 0%),
+            radial-gradient(at bottom right, #D778C4 100%, transparent 1%),
+            #120B1B
+          `,
+        }}
+      >
+        <div className="w-full relative overflow-hidden" style={{ height: '350px', flexShrink: 0 }}> 
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="1440" 
+            height="350" 
+            viewBox="0 60 1440 350" 
+            preserveAspectRatio="none"
+            className="w-full h-full"
+          >
+            <path 
+              fillRule="evenodd" 
+              clipRule="evenodd" 
+              d="M0 0H1440V306L0 370V0Z" 
+              fill="#120B1B"
+            />
+          </svg>    
+        </div>
+      </div>
+
+      {/* Login Form Container */}
+      <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+        {/* Right Section - Form */}
+        <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
+          <div className="text-center mb-5">
+            <p className="mb-2 text-gray-600 text-end">Step 2 of 3</p>
+            <h1 className="text-2xl font-bold mb-2">Image Uploads</h1>
+            <p className="text-gray-600 lg:w-11/12 ">
+              Upload Church logo and banner to optimize setup.
             </p>
           </div>
-        </div>
-
-        {/* Right Section - Form */}
-        <div className="form-section flex-1 bg-white w-full rounded-b-lg md:rounded-r-lg md:rounded-b-none px-6 lg:px-12 py-10 justify-center flex flex-col">
           <form className="flex flex-col" onSubmit={handleContinue}>
-            <FileUpload 
-              type="logo" 
-              preview={logoPreview} 
-              onFileUpload={handleFileUpload} 
-              error={logoError} // Pass error state
-            />
-            <FileUpload 
-              type="background" 
-              preview={backgroundPreview} 
-              onFileUpload={handleFileUpload} 
-            />
+            <FileUpload type="logo" preview={logoPreview} onFileUpload={handleFileUpload} error={logoError} />
+            <FileUpload type="background" preview={backgroundPreview} onFileUpload={handleFileUpload} />
 
             {/* Form Actions */}
             <div className="flex flex-col-reverse lg:flex-row lg:justify-between gap-3 pt-5">
@@ -183,7 +214,7 @@ const SetupStep2: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="h-12 px-10 mb-5 lg:w-auto w-full bg-[#111827] text-white rounded-full text-base font-semibold hover:bg-[#111827] disabled:opacity-50"
+                className="h-12 px-10 mb-5 lg:w-auto w-full  bg-gradient-to-b from-[#120B1B] to-[#1E0D2E] text-white rounded-full text-base font-semibold hover:bg-[#111827] disabled:opacity-50"
               >
                 {logoError ? "Continue" : loading ? "Continuing..." : "Continue"}
               </button>

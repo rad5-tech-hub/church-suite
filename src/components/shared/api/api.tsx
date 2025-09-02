@@ -141,18 +141,10 @@ Api.interceptors.response.use(
             window.location.href = "/";
           },
         });
-      } else if (error.response.status === 403) {
-        toast.error("Forbidden: You don't have permission to access this resource.", {
-          autoClose: 5000,
-        });
       }
     } else if (error.request) {
-      toast.error(
-        "Network error: Failed to connect to the server. Please check your connection.",
-        { autoClose: 5000 }
-      );
-    } else {
-      toast.error("An unexpected error occurred. Please try again.", {
+      // Handle network errors
+      toast.error("Network error. Please check your connection.", {
         autoClose: 5000,
       });
     }

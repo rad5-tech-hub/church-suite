@@ -40,8 +40,7 @@ const ChangeColorButton: React.FC = () => {
           value={primaryColor}
           onChange={handlePrimaryColorChange}
           className="w-12 h-12 cursor-pointer"
-        />
-        <span className="text-gray-700">{primaryColor}</span>
+        />      
       </div>
     </div>      
   );

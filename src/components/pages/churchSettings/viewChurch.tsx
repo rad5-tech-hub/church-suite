@@ -413,7 +413,7 @@ const ViewAdmin: React.FC = () => {
                       objectFit: 'cover'
                     }}
                   />
-                  <figcaption className="text-gray-500 text-sm m-1"> Background Image</figcaption>
+                  <figcaption className="text-gray-500 text-sm m-1"> Banner Image</figcaption>
                 </figure>                
               </Box>
             </Box>

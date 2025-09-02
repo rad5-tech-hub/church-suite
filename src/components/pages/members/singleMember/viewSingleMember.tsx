@@ -9,6 +9,7 @@ import {
   Container,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from "@mui/material";
 import { 
   Phone as PhoneIcon, 
@@ -151,7 +152,6 @@ const ViewSingleMember: React.FC = () => {
 
   // Parse address into components
   const addressParts = member.address?.split('\n') || [];
-  const streetAddress = addressParts[0] || '';
   const cityState = addressParts[1]?.split(',') || [];
   const city = cityState[0] || '';
   const stateFromAddress = cityState[1] || '';
@@ -167,8 +167,9 @@ const ViewSingleMember: React.FC = () => {
                 component="h1" 
                 fontWeight={600}
                 gutterBottom
+                
                 sx={{ 
-                  color: theme.palette.text.primary,
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
@@ -179,6 +180,7 @@ const ViewSingleMember: React.FC = () => {
                 color="text.secondary"
                 sx={{
                   fontSize: isLargeScreen ? '0.875rem' : undefined
+                  
                 }}
               >
                 View and manage your profile information.
@@ -346,7 +348,9 @@ const ViewSingleMember: React.FC = () => {
                     Street Address
                   </Typography>
                   <Typography variant="body1">
-                    {streetAddress || "N/A"}
+                      <Tooltip title={member.address && member.address.length > 30 ? member.address : ""} placement="top" arrow>
+                        <span>{member.address && member.address.length > 30 ? `${member.address.slice(0, 30)}...` : member.address || "N/A"}</span>
+                      </Tooltip>
                   </Typography>
                 </Box>
                 
@@ -397,7 +401,7 @@ const ViewSingleMember: React.FC = () => {
                   </Typography>
                 </Box>
               </Grid>
-            </Grid>
+            </Grid>            
           </Box>
         </Box>
       </Container>

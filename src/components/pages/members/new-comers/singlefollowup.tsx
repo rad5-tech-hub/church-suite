@@ -97,7 +97,7 @@ const ViewSingleFollowUp: React.FC = () => {
                     fontSize: '1.25rem'
                   }}
                 >
-                   This Follow Up not found!
+                   This Newcomer not found!
                 </Typography>
                 {error ? (
                   <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
@@ -117,7 +117,7 @@ const ViewSingleFollowUp: React.FC = () => {
                     },
                   }}
                 >
-                  View All Follow Ups
+                  View All Newcomers
                 </Button>
             </Box>
         </Box>
@@ -142,7 +142,7 @@ const ViewSingleFollowUp: React.FC = () => {
                   fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
-                A Follow Up Profile
+                A Newcomer Profile
               </Typography>
               <Typography 
                 variant="body2" 
@@ -180,7 +180,7 @@ const ViewSingleFollowUp: React.FC = () => {
                   },
                 }}
               >
-                Move To Member
+                Move To Worker
               </Button>
             </Grid>
           </Grid>

@@ -150,13 +150,13 @@ const MemberForm: React.FC = () => {
       const branchIdParam = branchId ? `&branchId=${branchId}` : "";
       await Api.post(`/member//add-member?churchId=${churchId}${branchIdParam}`, formData);
 
-      toast.success("Member information submitted successfully!", {
+      toast.success("Worker information submitted successfully!", {
         autoClose: 3000,
       });
 
     } catch (error: any) {
       console.error("Error creating member:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to submit member information. Please try again.", {
+      toast.error(error.response?.data?.message || "Failed to submit Worker information. Please try again.", {
         autoClose: 3000,
       });
     } finally {
@@ -192,7 +192,7 @@ const MemberForm: React.FC = () => {
               }}
             >
               <Typography variant="h5" fontWeight={600} gutterBottom sx={{ color: "text.primary" }}>
-                {currentStep === 0 ? "Member's Personal Information" : "Member's Additional Details"}                
+                {currentStep === 0 ? "Worker's Personal Information" : "Worker's Additional Details"}                
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mb: 1}}>
                 {currentStep === 0 

@@ -1,31 +1,82 @@
-import React, { useState } from "react";
+
+
+import React, { useState, useEffect } from "react";
 import { IoNotificationsOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
-import { TbMenuDeep } from "react-icons/tb";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import Popover from "@mui/material/Popover";
 import { FiLogOut } from "react-icons/fi";
+import { Tooltip } from "@mui/material";
 import { IoSettingsOutline } from "react-icons/io5";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import { store } from "../../reduxstore/redux";
 import { clearAuth } from "../../reduxstore/authstore";
-import { useNavigate } from "react-router-dom";
+import MobileNav from "../mobileNav/mobilenav";
+import { useNavigate, useLocation } from "react-router-dom";
 
-// Interface for component props
 interface HeaderProps {
-  toggleSidebar: () => void; // Function to toggle the sidebar
+  toggleSidebar: () => void;
 }
 
-// Component Code
-const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
+const Header: React.FC<HeaderProps> = () => {
+  const [activeButton, setActiveButton] = useState('Dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Map button labels to route patterns
+  const buttonRoutePatterns: { [key: string]: RegExp } = {
+    Dashboard: /^\/dashboard(\/|$)/,
+    Manage: /^\/manage(\/|$)/,
+    Members: /^\/members(\/|$)/,
+    Message: /^\/message(\/|$)/,
+    Finance: /^\/finance(\/|$)/,
+    Programs: /^\/programs(\/|$)/,
+    Settings: /^\/settings(\/|$)/
+  };
+
+  const buttons = [
+    'Dashboard',
+    'Manage',
+    'Members',
+    'Message',
+    'Finance',
+    'Programs',
+    'Settings',
+  ];
+
+  // Default routes for each button
+  const defaultRoutes: { [key: string]: string } = {
+    Dashboard: '/dashboard',
+    Manage: '/manage/view-admins',
+    Members: '/members/view-workers',
+    Message: '/message',
+    Finance: '/finance',
+    Programs: '/programs',
+    Settings: '/settings'
+  };
+
+  // Sync activeButton with current route
+  useEffect(() => {
+    const currentPath = location.pathname;
+    
+    // Find the first button whose route pattern matches the current path
+    const activeLabel = Object.keys(buttonRoutePatterns).find(
+      (label) => buttonRoutePatterns[label].test(currentPath)
+    );
+    
+    if (activeLabel && activeLabel !== activeButton) {
+      setActiveButton(activeLabel);
+    }
+  }, [location.pathname, activeButton, buttonRoutePatterns]);
+
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
-  const navigate = useNavigate();
 
   const handleProfileClick = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
@@ -37,7 +88,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
   const handleOpenLogoutModal = () => {
     setOpenLogoutModal(true);
-    handleClose(); // Close the profile popover
+    handleClose();
   };
 
   const handleCloseLogoutModal = () => {
@@ -45,9 +96,14 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   };
 
   const handleConfirmLogout = () => {
-    // Dispatch action to clear auth store    
     handleCloseLogoutModal();
     store.dispatch(clearAuth());
+    navigate('/login');
+  };
+
+  const handleButtonClick = (label: string) => {
+    setActiveButton(label);
+    navigate(defaultRoutes[label]);
   };
 
   const open = Boolean(anchorEl);
@@ -55,43 +111,98 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
-      {/* Left Section: Menu Button */}
-      <div className="flex items-center gap-4">
-        <button
-          className="text-xl lg:hidden"
-          onClick={toggleSidebar}
-          aria-label="Toggle menu"
-        >
-          <TbMenuDeep className="text-xl" />
-        </button>
-        <h1 className="text-xl font-bold"></h1>
+      <div className="flex items-center lg:gap-17 gap-4 py-2">
+        <Tooltip title={authData?.church_name || ""} arrow>
+          {authData?.logo ? <img
+            src={authData?.logo || undefined}
+            alt={`${authData?.church_name} logo`}
+            className="h-12 w-12 object-contain rounded-full"
+          /> : <div className="h-12 w-12 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
+                  {authData?.church_name ? authData.church_name.charAt(0).toUpperCase() : "C"}
+                </div>
+            }
+        </Tooltip>
+
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          <ButtonGroup
+            sx={{
+              backgroundColor: '#4d4d4e8e',
+              border: 'none',
+              borderRadius: '9999px',
+              padding: '0.5px',
+              overflow: 'hidden',
+              boxShadow: 'none',
+              '& .MuiButtonGroup-grouped': {
+                border: 'none',
+                '&:not(:last-of-type)': {
+                  borderRight: 'none',
+                },
+              },
+            }}
+            size="large"
+            aria-label="Large button group"
+          >
+            {buttons.map((label, index) => (
+              <Button
+                key={label}
+                onClick={() => handleButtonClick(label)}
+                sx={{
+                  color: activeButton === label ? '#160F38' : '#777280',
+                  backgroundColor: activeButton === label ? '#F6F4FE' : '#363740',
+                  border: 'none',
+                  textTransform: 'none',
+                  padding: '12px 18px',
+                  fontSize: '0.875rem',
+                  borderRadius: '9999px !important',
+                  ...(index === 0 && {
+                    borderTopLeftRadius: '9999px !important',
+                    borderBottomLeftRadius: '9999px !important',
+                  }),
+                  ...(index === buttons.length - 1 && {
+                    borderTopRightRadius: '9999px !important',
+                    borderBottomRightRadius: '9999px !important',
+                  }),
+                  '&:hover': {
+                    backgroundColor: '#F6F4FE',
+                    borderRadius: '9999px',
+                    color: '#160F38',
+                  },
+                  transition: 'all 0.3s ease',
+                  fontWeight: '600',
+                }}
+              >
+                {label}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Box>
       </div>
 
-      {/* Right Section: Notifications and Profile */}
       <div className="flex items-center gap-6">
-        <button className="relative" aria-label="Notifications">
+        <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
           <IoNotificationsOutline className="text-2xl" />
           <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             3
           </span>
         </button>
 
-        {/* Profile Section with Popover */}
         <div className="relative">
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={handleProfileClick}
           >
-            <div className="p-2 border border-[var(--color-text-on-primary)] rounded-full" title={`${authData?.name || ''} ${authData?.email || ''}`}>
+            <div
+              className="p-2 border border-[var(--color-text-on-primary)] rounded-full"
+              title={`${authData?.name || ''} ${authData?.email || ''}`}
+            >
               <BsPerson className="text-xl" aria-label="Person" />
             </div>
             <span className="hidden lg:block text-sm font-medium">
-              <span className="block">{authData?.name || ""}</span> {/* Name on one row */}
-              <span className="block text-[10px] ">{authData?.email || ""}</span> {/* Email on another row */}
+              <span className="block">{authData?.name || ""}</span>
+              <span className="block text-[10px]">{authData?.email || ""}</span>
             </span>
           </div>
 
-          {/* Material-UI Popover */}
           <Popover
             id={id}
             open={open}
@@ -107,7 +218,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             }}
           >
             <div className="m-1 my-2">
-              {/* Logout Option */}
               <div
                 className="flex items-center gap-2 px-5 py-2 m-1 cursor-pointer hover:bg-gray-100 rounded-md"
                 onClick={handleOpenLogoutModal}
@@ -117,10 +227,8 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                   Logout
                 </Typography>
               </div>
-
-              {/* Settings Option */}
               <div
-                className="flex items-center gap-2  px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
+                className="flex items-center gap-2 px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
                 onClick={() => {
                   navigate('/settings');
                   handleClose();
@@ -136,7 +244,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </div>
       </div>
 
-      {/* Logout Confirmation Modal */}
       <Modal
         open={openLogoutModal}
         onClose={handleCloseLogoutModal}
@@ -153,20 +260,20 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           sx={{
             position: "relative",
             width: {
-              xs: "90%",   // 90% width on extra small screens (mobile)
-              sm: "400px",  // fixed 400px on small screens and up
+              xs: "90%",
+              sm: "400px",
             },
-            maxWidth: "95vw", // Ensure it doesn't touch screen edges
+            maxWidth: "95vw",
             bgcolor: "background.paper",
             boxShadow: 24,
             p: {
-              xs: 2,       // Smaller padding on mobile
-              sm: 4,       // Larger padding on larger screens
+              xs: 2,
+              sm: 4,
             },
             border: "none",
             borderRadius: 1,
-            mx: "auto",    // Center horizontally
-            my: "auto",    // Center vertically
+            mx: "auto",
+            my: "auto",
           }}
         >
           <Typography id="logout-modal-title" variant="h6" component="h2">
@@ -175,20 +282,20 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           <Typography id="logout-modal-description" sx={{ mt: 2 }}>
             Are you sure you want to logout?
           </Typography>
-          <Box 
-            sx={{ 
-              display: "flex", 
-              justifyContent: "flex-end", 
-              mt: 3, 
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              mt: 3,
               gap: 2,
               flexDirection: {
-                xs: "column", // Stack buttons vertically on mobile
-                sm: "row",    // Side by side on larger screens
-              }
+                xs: "column",
+                sm: "row",
+              },
             }}
           >
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={handleCloseLogoutModal}
               sx={{
                 borderColor: 'gray',
@@ -197,11 +304,11 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                   borderColor: 'darkgray',
                 },
                 width: {
-                  xs: '100%', // Full width on mobile
-                  sm: 'auto', // Auto width on larger screens
-                }
+                  xs: '100%',
+                  sm: 'auto',
+                },
               }}
-              fullWidth // Ensures full width on mobile
+              fullWidth
             >
               Cancel
             </Button>
@@ -209,25 +316,26 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
               variant="contained"
               onClick={handleConfirmLogout}
               sx={{
-                backgroundColor: '#111827',
+                backgroundColor: '#FB2C36',
                 color: 'white',
                 '&:hover': {
-                  backgroundColor: '#1f2937',
+                  backgroundColor: '#FF6467',
                 },
                 border: 'none',
                 boxShadow: 'none',
                 width: {
-                  xs: '100%', // Full width on mobile
-                  sm: 'auto', // Auto width on larger screens
-                }
+                  xs: '100%',
+                  sm: 'auto',
+                },
               }}
-              fullWidth // Ensures full width on mobile
+              fullWidth
             >
               Logout
             </Button>
           </Box>
         </Box>
       </Modal>
+      <MobileNav activeButton={activeButton} handleButtonClick={handleButtonClick} />
     </header>
   );
 };
