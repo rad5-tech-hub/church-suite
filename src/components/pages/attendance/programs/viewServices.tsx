@@ -66,7 +66,7 @@ interface CalendarEvent {
     recurrenceType: string;
     eventId: string;
     occurrenceId: string;
-    status: string; // Added status property
+    status: string;
   };
   rrule?: {
     freq: number;
@@ -101,7 +101,6 @@ const ViewServices: React.FC = () => {
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
   
-  // Define a consistent color scheme for event statuses (matching the legend)
   const eventStatusColors = {
     ongoing: "green",
     pending: "orange",
@@ -109,7 +108,6 @@ const ViewServices: React.FC = () => {
     past: "gray",
   };
 
-  // Function to determine event status based on current date/time
   const getEventStatus = (start: Date, end: Date): keyof typeof eventStatusColors => {
     const now = new Date();
     
@@ -120,7 +118,6 @@ const ViewServices: React.FC = () => {
     return "upcoming";
   };
 
-  // Create a mapping of event status to colors for consistency
   const getEventColor = (event: CalendarEvent): string => {
     return eventStatusColors[event.extendedProps.status as keyof typeof eventStatusColors] || eventStatusColors.upcoming;
   };
@@ -130,7 +127,6 @@ const ViewServices: React.FC = () => {
     try {
       let url = "/church/get-events";
       
-      // Build URL based on view type
       if (viewType === "month") {
         const startOfMonth = moment(date).startOf('month').format('YYYY-MM-DD');
         const endOfMonth = moment(date).endOf('month').format('YYYY-MM-DD');
@@ -226,13 +222,26 @@ const ViewServices: React.FC = () => {
     [events]
   );
 
+  // Custom event component to show time
+  const EventComponent = ({ event }: { event: CalendarEvent }) => {
+    const formatTime = (date: Date) => moment(date).format("h:mm A");
+    
+    return (
+      <div style={{ padding: "2px", overflow: "hidden" }}>
+        <div style={{ fontSize: "10px", fontWeight: "bold" }}>
+          {formatTime(event.start)} - {formatTime(event.end)}
+        </div>
+        <div style={{ fontSize: "12px" }}>{event.title}</div>
+      </div>
+    );
+  };
+
   return (
     <DashboardManager>
       <ToastContainer/>
       <Box sx={{ minHeight: "100vh", py:3, px:1 }}>
         <Grid container spacing={2}>
-          {/* Sidebar - Legend Section */}
-          <Grid size={{xs:12 , lg: 2}}>
+          <Grid size={{xs:12 , lg: 1.5}}>
             <Box sx={{ borderRadius: 2, boxShadow: {lg: 0, sm: 1},            
               display: 'flex', 
               flexDirection: 'column',
@@ -281,8 +290,7 @@ const ViewServices: React.FC = () => {
             </Box>
           </Grid>
 
-          {/* Main Calendar */}
-          <Grid size={{xs:12 , lg: 10}}>
+          <Grid size={{xs:12 , lg: 10.5}}>
             <Box sx={{ borderRadius: 2, boxShadow: 1, p: 2 }}>
               <Box sx={{ 
                 display: "flex", 
@@ -322,7 +330,6 @@ const ViewServices: React.FC = () => {
                 </Button>
                 </Box>
                 
-                {/* View Selector */}
                 <Box sx={{ display: "flex", gap: 0.5, alignItems:'center'}}>   
                   <Typography variant="body2" sx={{ color: '#777280' }}>Program for the</Typography>               
                   {["month", "week", "day"].map((viewType) => (
@@ -356,13 +363,14 @@ const ViewServices: React.FC = () => {
                   eventPropGetter={(event) => ({
                     style: {                  
                       color: "#000",
-                      padding: "2px 4px",
-                      borderRadius: "3px",
-                      maxHeight: '50px',
-                      fontSize: "12px",
                       backgroundColor: getEventColor(event as CalendarEvent),
+                      borderRadius: "3px",
+                      border: "none",
                     },
                   })}
+                  components={{
+                    event: EventComponent
+                  }}
                   onSelectEvent={handleSelectEvent}    
                   selectable
                   popup
@@ -387,7 +395,6 @@ const ViewServices: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Action Menu */}
         <EventSummaryDialog
           eventId={currentOccurrence?.id || ""}
           open={summaryDialogOpen}

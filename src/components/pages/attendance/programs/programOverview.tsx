@@ -338,7 +338,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
       maxWidth: 120
     }}>
       <Box sx={{ bgcolor: '#211930', borderRadius: '10%', mb: 1 }} >
-        <CiMoneyBill size={54} style={{ color: '#F6F4FE', margin: '4px' }} />
+        <CiMoneyBill size={54} style={{ color: '#F6F4FE', margin: '3px 8px' }} />
       </Box>
       <Typography variant="body2" sx={{ color: 'grey.800', fontWeight: 'semibold', textAlign: 'center' }}>
         {title}

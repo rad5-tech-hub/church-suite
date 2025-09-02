@@ -411,8 +411,13 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           `Program "${formData.title}" updated successfully!`,
           {
             position: isMobile ? "top-center" : "top-right",
+            autoClose: 500, // 1000ms = 1 second
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
           }
-        );
+      );
       }
 
       resetForm();

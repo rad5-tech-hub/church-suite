@@ -42,7 +42,7 @@ interface EventOccurrence {
   updatedAt: string;
   attendances: any[];
   event: Event;
-  collection: CollectionItem[]; // Updated to match the new structure
+  collection: CollectionItem[];
 }
 
 interface EventResponse {
@@ -66,10 +66,9 @@ interface AttendanceData {
 }
 
 interface CollectionData {
-  [key: string]: string; // collectionId: amount
+  [key: string]: string;
 }
 
-// Define input configuration with proper mapping
 interface InputField {
   label: string;
   key: keyof AttendanceData;
@@ -80,7 +79,6 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   open,
   onClose,
 }) => {
-  // Define input fields with proper mapping between labels and data keys
   const inputFields: InputField[] = [
     { label: "Men", key: "male" },
     { label: "Women", key: "female" },
@@ -111,14 +109,12 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
           const eventOccurrence = response.data.eventOccurrence;
           setEventData(eventOccurrence);
           
-          // Initialize collection data with current amounts
           const initialCollectionData: CollectionData = {};
           eventOccurrence.collection.forEach(item => {
-            initialCollectionData[item.collection.id] = item.amount;
+            initialCollectionData[item.id] = item.amount; // Use item.id instead of collection.id
           });
           setCollectionData(initialCollectionData);
           
-          // Update attendanceData with the eventId
           setAttendanceData(prev => ({
             ...prev,
             eventId: eventId
@@ -137,7 +133,6 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   }, [eventId, open]);
 
   const handleInputChange = (field: keyof AttendanceData, value: string) => {
-    // Only allow numbers and empty string
     if (value === '' || /^\d+$/.test(value)) {
       setAttendanceData(prev => ({
         ...prev,
@@ -146,12 +141,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     }
   };
 
-  const handleCollectionChange = (collectionId: string, value: string) => {
-    // Only allow numbers, decimal point, and empty string
+  const handleCollectionChange = (collectionItemId: string, value: string) => {
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setCollectionData(prev => ({
         ...prev,
-        [collectionId]: value
+        [collectionItemId]: value
       }));
     }
   };
@@ -160,49 +154,58 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     try {
       setSubmitting(true);
       
-      // Create attendance payload object with only fields that have values
+      // Create attendance payload
       const attendancePayload: any = {};
-      
-      // Only add fields that have non-empty values
       if (attendanceData.total) attendancePayload.total = parseInt(attendanceData.total);
       if (attendanceData.male) attendancePayload.male = parseInt(attendanceData.male);
       if (attendanceData.female) attendancePayload.female = parseInt(attendanceData.female);
       if (attendanceData.children) attendancePayload.children = parseInt(attendanceData.children);
       
-      // Create collection payload
-      const collectionPayload: any = {};
-      Object.entries(collectionData).forEach(([collectionId, amount]) => {
-        if (amount !== '' && amount !== '0.00') {
-          collectionPayload[collectionId] = parseFloat(amount);
+      // Create collection payload in the correct format
+      const collectionUpdates = [];
+      for (const [collectionItemId, amount] of Object.entries(collectionData)) {
+        if (amount && amount !== '' && amount !== '0.00') {
+          collectionUpdates.push({
+            id: collectionItemId, // This should be the collection item ID
+            amount: parseFloat(amount) || 0
+          });
         }
-      });
+      }
       
       // Check if both payloads are empty
-      if (Object.keys(attendancePayload).length === 0 && Object.keys(collectionPayload).length === 0) {
+      if (Object.keys(attendancePayload).length === 0 && collectionUpdates.length === 0) {
         toast.error('Please enter at least one attendance or collection value');
         return;
       }
       
       // Save attendance if there are values
+      let attendanceSuccess = false;
+      let collectionSuccess = false;
+      
       if (Object.keys(attendancePayload).length > 0) {
         await Api.post(`/church/create-attendance/${attendanceData.eventId}`, attendancePayload);
+        attendanceSuccess = true;
       }
       
       // Save collections if there are values
-      if (Object.keys(collectionPayload).length > 0) {
-        await Api.post(`/church/update-collections/${eventId}`, collectionPayload);
+      if (collectionUpdates.length > 0) {
+        await Api.post(`/church/event-collections/${eventId}`, {
+          updates: collectionUpdates
+        });
+        collectionSuccess = true;
       }
       
-      toast.success('Records saved successfully!', {
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-      });
+      // Show appropriate success message
+      if (attendanceSuccess && collectionSuccess) {
+        toast.success('Attendance and collections saved successfully!', {autoClose: 1000});
+      } else if (attendanceSuccess) {
+        toast.success('Attendance saved successfully!');
+      } else if (collectionSuccess) {
+        toast.success('Collections updated successfully!');
+      }
       
       setTimeout(() => {
         onClose();
-        // Reset form after closing
         setAttendanceData({
           eventId: eventId,
           total: '',
@@ -214,26 +217,30 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     } catch (err: any) {
       console.error('Save error:', err);
       
-      // Extract error message from the API response structure
       let errorMessage = 'Error saving records';
       
+      // Handle different error response structures
       if (err.response?.data?.error?.message) {
-        // Handle the specific error structure you provided
         errorMessage = err.response.data.error.message;
       } else if (err.response?.data?.message) {
-        // Handle other potential error structures
         errorMessage = err.response.data.message;
       } else if (err.message) {
         errorMessage = err.message;
       }
       
-      toast.error(errorMessage);
+      // Show specific error messages based on the endpoint
+      if (err.config?.url?.includes('create-attendance')) {
+        toast.error(`Attendance Error: ${errorMessage}`);
+      } else if (err.config?.url?.includes('event-collections')) {
+        toast.error(`Collections Error: ${errorMessage}`);
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Show loading state
   if (loading) {
     return (
       <Dialog
@@ -280,7 +287,6 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     );
   }
 
-  // Show error state if fetching failed
   if (fetchError) {
     return (
       <Dialog
@@ -352,7 +358,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
         color: '#F6F4FE'
       }}>
         <Typography variant="h5" component="h2" fontWeight="bold">
-          {eventData ? `Manage Record for ${eventData.event.title}` : 'Manage Record'}
+          {eventData && eventData.event.title}
         </Typography>
         <IconButton 
           onClick={onClose} 
@@ -393,8 +399,8 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                       variant="outlined"
                       value={attendanceData[field.key]}
                       onChange={(e) => handleInputChange(field.key, e.target.value)}
-                      type="text" // Changed to text to allow empty input
-                      inputMode="numeric" // Shows numeric keyboard on mobile
+                      type="text"
+                      inputMode="numeric"
                       sx={{ 
                         width: { xs: 90, sm: 95, md: 100 },
                         justifyContent: 'center',
@@ -439,7 +445,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
             </Grid>                
           </Box>
 
-          {/* Collections Records Section - Only show if collections exist */}
+          {/* Collections Records Section */}
           {eventData?.collection && eventData.collection.length > 0 && (
             <Box sx={{ 
               display: 'flex', 
@@ -467,8 +473,8 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                     }}>
                       <TextField
                         variant="outlined"
-                        value={collectionData[item.collection.id] || item.amount}
-                        onChange={(e) => handleCollectionChange(item.collection.id, e.target.value)}
+                        value={collectionData[item.id] || item.amount}
+                        onChange={(e) => handleCollectionChange(item.id, e.target.value)}
                         type="text"
                         inputMode="decimal"
                         sx={{ 
@@ -535,7 +541,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                 "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
               }}
             >
-              Save Record
+              Save Information
             </Button>
           </Box>
         </Box>
