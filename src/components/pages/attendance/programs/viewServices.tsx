@@ -66,6 +66,7 @@ interface CalendarEvent {
     recurrenceType: string;
     eventId: string;
     occurrenceId: string;
+    status: string; // Added status property
   };
   rrule?: {
     freq: number;
@@ -100,27 +101,28 @@ const ViewServices: React.FC = () => {
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
   
-  // Define a consistent color scheme for event types
-  const eventTypeColors = {
-    default: "#98FB98", // Pale green
-    recurring: "#DDA0DD", // Plum
-    special: "#FFDAB9", // Peach puff
-    meeting: "#ADD8E6", // Light blue
+  // Define a consistent color scheme for event statuses (matching the legend)
+  const eventStatusColors = {
+    ongoing: "green",
+    pending: "orange",
+    upcoming: "purple",
+    past: "gray",
   };
 
-  // Create a mapping of event titles to colors for consistency
-  const getEventColor = (event: Event): string => {
-    const title = event.title.toLowerCase();
+  // Function to determine event status based on current date/time
+  const getEventStatus = (start: Date, end: Date): keyof typeof eventStatusColors => {
+    const now = new Date();
     
-    if (title.includes('meeting') || title.includes('gathering')) {
-      return eventTypeColors.meeting;
-    } else if (event.recurrenceType !== 'none') {
-      return eventTypeColors.recurring;
-    } else if (title.includes('special') || title.includes('event')) {
-      return eventTypeColors.special;
-    }
+    if (now > end) return "past";
+    if (now >= start && now <= end) return "ongoing";
+    if (now < start && (start.getTime() - now.getTime()) <= 24 * 60 * 60 * 1000) return "pending";
     
-    return eventTypeColors.default;
+    return "upcoming";
+  };
+
+  // Create a mapping of event status to colors for consistency
+  const getEventColor = (event: CalendarEvent): string => {
+    return eventStatusColors[event.extendedProps.status as keyof typeof eventStatusColors] || eventStatusColors.upcoming;
   };
 
   const fetchEvents = useCallback(async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
@@ -173,23 +175,26 @@ const ViewServices: React.FC = () => {
     e.occurrences.map((occ) => {
       const startDateTime = occ.startTime 
         ? moment(`${occ.date.split("T")[0]}T${occ.startTime}`).toDate()
-        : moment(occ.date).toDate();
+        : moment(occ.date).startOf('day').toDate();
       
       const endDateTime = occ.endTime 
         ? moment(`${occ.date.split("T")[0]}T${occ.endTime}`).toDate()
-        : moment(occ.date).add(1, 'hour').toDate();
+        : moment(occ.date).endOf('day').toDate();
+      
+      const eventStatus = getEventStatus(startDateTime, endDateTime);
       
       return {
         id: `${e.id}-${occ.id}`,
         title: e.title,
         start: startDateTime,
         end: endDateTime,
-        color: getEventColor(e),
+        color: eventStatusColors[eventStatus],
         extendedProps: {
           description: e.description,
           recurrenceType: e.recurrenceType,
           eventId: e.id,
           occurrenceId: occ.id,
+          status: eventStatus,
         },
         rrule: e.recurrenceType && e.recurrenceType !== "none"
           ? {
@@ -253,18 +258,13 @@ const ViewServices: React.FC = () => {
                   padding: 0,
                 }}
               >
-                {[
-                  { label: "Ongoing", color: "green" },
-                  { label: "Pending", color: "orange" },
-                  { label: "Upcoming", color: "purple" },
-                  { label: "Past", color: "gray" },
-                ].map((item) => (
-                  <ListItem key={item.label} sx={{ color: "white" }}>
+                {Object.entries(eventStatusColors).map(([status, color]) => (
+                  <ListItem key={status} sx={{ color: "white" }}>
                     <IconButton
                       size="small"
                       sx={{
                         borderRadius: "50%",
-                        bgcolor: item.color,
+                        bgcolor: color,
                         mr: 1,
                         width: 25,
                         height: 25,
@@ -272,7 +272,9 @@ const ViewServices: React.FC = () => {
                     >
                       <Check sx={{ fontSize: "20px" }} />
                     </IconButton>
-                    <span className="text-sm">{item.label}</span>
+                    <span className="text-sm" style={{ textTransform: 'capitalize' }}>
+                      {status}
+                    </span>
                   </ListItem>
                 ))}
               </List>
@@ -328,7 +330,12 @@ const ViewServices: React.FC = () => {
                       key={viewType}
                       label={viewType.charAt(0).toUpperCase() + viewType.slice(1)}
                       onClick={() => handleViewChange(viewType as "month" | "week" | "day")}                      
-                      sx={{p:2, color: view === viewType ? "grey" : "#777280", bgcolor: view === viewType ? '#f6f4fe' :  'none', cursor: 'pointer'}}
+                      sx={{
+                        p: 2, 
+                        color: view === viewType ? "grey" : "#777280", 
+                        bgcolor: view === viewType ? '#f6f4fe' : 'none', 
+                        cursor: 'pointer'
+                      }}
                       variant={view === viewType ? "filled" : "outlined"}
                       size="small"
                     />
@@ -337,41 +344,44 @@ const ViewServices: React.FC = () => {
               </Box>
               
               <Box sx={{backgroundColor: '#f6f4fe', borderRadius: 2, p:1}}>
-              <Calendar
-                localizer={localizer}
-                events={calendarEvents}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ 
-                  height: "calc(100vh - 180px)",
-                  minHeight: "600px"
-                }}
-                eventPropGetter={(event) => ({
-                  style: {                  
-                    color: "#000",
-                    height: '',                 
-                    backgroundColor: `${event.color}`,
-                  },
-                })}
-                onSelectEvent={handleSelectEvent}    
-                selectable
-                popup
-                view={view}
-                onView={(newView) => {
-                  if (["month", "week", "day"].includes(newView)) {
-                    handleViewChange(newView as "month" | "week" | "day");
-                  }
-                }}
-                date={currentDate}
-                onNavigate={handleNavigate}        
-                dayLayoutAlgorithm="no-overlap"
-                showMultiDayTimes
-                step={15}
-                timeslots={isMobile ? 2 : 4}
-                views={["month", "week", "day"]}
-                min={new Date(2025, 7, 1, 6, 0)}
-                max={new Date(2025, 7, 1, 22, 0)}
-              />
+                <Calendar
+                  localizer={localizer}
+                  events={calendarEvents}
+                  startAccessor="start"
+                  endAccessor="end"
+                  style={{ 
+                    height: "calc(100vh - 180px)",
+                    minHeight: "600px"
+                  }}
+                  eventPropGetter={(event) => ({
+                    style: {                  
+                      color: "#000",
+                      padding: "2px 4px",
+                      borderRadius: "3px",
+                      maxHeight: '50px',
+                      fontSize: "12px",
+                      backgroundColor: getEventColor(event as CalendarEvent),
+                    },
+                  })}
+                  onSelectEvent={handleSelectEvent}    
+                  selectable
+                  popup
+                  view={view}
+                  onView={(newView) => {
+                    if (["month", "week", "day"].includes(newView)) {
+                      handleViewChange(newView as "month" | "week" | "day");
+                    }
+                  }}
+                  date={currentDate}
+                  onNavigate={handleNavigate}        
+                  dayLayoutAlgorithm="no-overlap"
+                  showMultiDayTimes
+                  step={15}
+                  timeslots={isMobile ? 2 : 4}
+                  views={["month", "week", "day"]}
+                  min={new Date(2025, 7, 1, 6, 0)}
+                  max={new Date(2025, 7, 1, 22, 0)}
+                />
               </Box>
             </Box>
           </Grid>
