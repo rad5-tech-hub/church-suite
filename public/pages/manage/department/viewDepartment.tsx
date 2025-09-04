@@ -50,7 +50,6 @@ interface Department {
   type: "Department" | "Outreach";
   isActive: boolean;
   isDeleted?: boolean;
-  branch?: {name: string}
 }
 
 interface Pagination {
@@ -786,14 +785,6 @@ const ViewDepartment: React.FC = () => {
                           }}
                         >
                           {dept.name}
-                          {dept.branch && (
-                            <Typography
-                              component="span"
-                              sx={{ ml: 1, fontSize: "0.75rem", color: "orange", fontWeight: 500 }}
-                            >
-                              {`(${dept.branch.name})`}
-                            </Typography>
-                          )}
                           {dept.type === "Outreach" && (
                             <Typography
                               component="span"

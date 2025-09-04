@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useSelector } from "react-redux";
-import { toast, ToastContainer } from "react-toastify";
+import React, { useState, useEffect, useCallback } from "react";
+import { useTheme, useMediaQuery, SelectChangeEvent } from "@mui/material";
 import {
   Box,
   Button,
@@ -13,24 +12,21 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  SelectChangeEvent,
+  Tooltip,
   Menu,
-  useTheme,
-  useMediaQuery,
+  MenuItem,
   Grid,
   Divider,
   CircularProgress,
+  Select,
+  FormControl,
 } from "@mui/material";
 import {
-  MoreVert as MoreVertIcon,
   Block as BlockIcon,
-  Search as SearchIcon,
+  MoreVert as MoreVertIcon,
   ChevronLeft,
   ChevronRight,
+  Search as SearchIcon,
   Close,
 } from "@mui/icons-material";
 import { PiChurch } from "react-icons/pi";
@@ -38,36 +34,35 @@ import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
+import { toast } from "react-toastify";
 import DashboardManager from "../../../shared/dashboardManager";
-import DepartmentModal from "./department";
+import UnitModal from "./unit";
 import Api from "../../../shared/api/api";
-import { RootState } from "../../../reduxstore/redux";
 
 interface Department {
   id: string;
   name: string;
+}
+
+interface Unit {
+  id: string;
+  name: string;
   description: string | null;
-  type: "Department" | "Outreach";
   isActive: boolean;
   isDeleted?: boolean;
-  branch?: {name: string}
+  branchId: string | null;
+  departmentId: string | null;
 }
 
 interface Pagination {
   hasNextPage: boolean;
-  nextCursor: string | null;
   nextPage: string | null;
 }
 
-interface FetchDepartmentsResponse {
-  message?: string;
+interface FetchUnitsResponse {
+  success: boolean;
   pagination: Pagination;
-  departments: Department[];
-}
-
-interface AuthData {
-  isHeadquarter?: boolean;
-  isSuperAdmin?: boolean;
+  units: Unit[];
 }
 
 interface CustomPaginationProps {
@@ -79,65 +74,25 @@ interface CustomPaginationProps {
   isLoading: boolean;
 }
 
-interface State {
-  departments: Department[];
-  filteredDepartments: Department[];
-  pagination: Pagination;
-  currentPage: number;
-  pageHistory: string[];
-  loading: boolean;
-  error: string | null;
-  isSearching: boolean;
-  editModalOpen: boolean;
-  confirmModalOpen: boolean;
-  isModalOpen: boolean;
-  currentDepartment: Department | null;
-  actionType: "delete" | "suspend" | null;
-  anchorEl: HTMLElement | null;
-  editFormData: Omit<Department, "id">;
-  searchTerm: string;
-  nameError: string | null;
-  typeFilter: "" | "Department" | "Outreach";
-}
-
-// Type guard for FetchDepartmentsResponse
-const isFetchDepartmentsResponse = (data: unknown): data is FetchDepartmentsResponse => {
-  // First check if data is an object and not null
-  if (!data || typeof data !== "object") {
-    return false;
-  }
-
-  // Now TypeScript knows data is an object
+const isFetchUnitsResponse = (data: unknown): data is FetchUnitsResponse => {
+  if (!data || typeof data !== "object") return false;
   const obj = data as Record<string, unknown>;
-
-  // Check message (optional property)
-  if ("message" in obj && typeof obj.message !== "string") {
-    return false;
-  }
-
-  // Check departments
-  if (!("departments" in obj) || !Array.isArray(obj.departments)) {
-    return false;
-  }
-
-  // Check pagination
-  if (!("pagination" in obj) || typeof obj.pagination !== "object" || obj.pagination === null) {
-    return false;
-  }
-
-  // Now check pagination properties
-  const pagination = obj.pagination as Record<string, unknown>;
-  
   return (
-    "hasNextPage" in pagination &&
-    typeof pagination.hasNextPage === "boolean" &&
-    "nextCursor" in pagination &&
-    (typeof pagination.nextCursor === "string" || pagination.nextCursor === null) &&
-    "nextPage" in pagination &&
-    (typeof pagination.nextPage === "string" || pagination.nextPage === null)
+    "success" in obj &&
+    typeof obj.success === "boolean" &&
+    "units" in obj &&
+    Array.isArray(obj.units) &&
+    "pagination" in obj &&
+    typeof obj.pagination === "object" &&
+    obj.pagination !== null &&
+    "hasNextPage" in (obj.pagination as Record<string, unknown>) &&
+    typeof (obj.pagination as Record<string, unknown>).hasNextPage === "boolean" &&
+    "nextPage" in (obj.pagination as Record<string, unknown>) &&
+    (typeof (obj.pagination as Record<string, unknown>).nextPage === "string" ||
+      (obj.pagination as Record<string, unknown>).nextPage === null)
   );
 };
-// Custom Pagination Component
+
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
   hasPrevPage,
@@ -198,12 +153,13 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   </Box>
 );
 
-// Empty State Component
-const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLargeScreen: boolean }> = ({
-  error,
-  openModal,
-  isLargeScreen,
-}) => (
+const EmptyState: React.FC<{
+  error: string | null;
+  openModal: () => void;
+  isLargeScreen: boolean;
+  searchTerm: string;
+  handleClearSearch: () => void;
+}> = ({ error, openModal, isLargeScreen, searchTerm, handleClearSearch }) => (
   <Box
     sx={{
       textAlign: "center",
@@ -221,7 +177,7 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      No departments found
+      {searchTerm ? "No units found matching your search" : "No units available"}
     </Typography>
     {error && (
       <Typography color="error" sx={{ mb: 2 }}>
@@ -242,61 +198,102 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
         fontSize: isLargeScreen ? "1rem" : undefined,
         "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
       }}
-      aria-label="Create new department"
+      aria-label="Create new unit"
     >
-      Create New Department
+      Create New Unit
     </Button>
+    {searchTerm && (
+      <Button
+        variant="contained"
+        onClick={handleClearSearch}
+        sx={{
+          px: { xs: 2, sm: 2 },
+          py: 1,
+          mt: 2,
+          borderRadius: 50,
+          backgroundColor: "#363740",
+          fontWeight: 500,
+          textTransform: "none",
+          color: "#FFFFFF",
+          fontSize: isLargeScreen ? "1rem" : undefined,
+          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+        }}
+        aria-label="Clear search"
+      >
+        Clear Search
+      </Button>
+    )}
   </Box>
 );
 
-const ViewDepartment: React.FC = () => {
-  const authData = useSelector((state: RootState) => state.auth?.authData as AuthData | undefined);
+const ViewUnit: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  const [state, setState] = useState<State>({
+
+  const [state, setState] = useState<{
+    units: Unit[];
+    departments: Department[];
+    loading: boolean;
+    isSearching: boolean;
+    error: string | null;
+    editModalOpen: boolean;
+    confirmModalOpen: boolean;
+    isModalOpen: boolean;
+    currentUnit: Unit | null;
+    actionType: "delete" | "suspend" | null;
+    anchorEl: HTMLElement | null;
+    editFormData: Omit<Unit, "id" | "isActive" | "isDeleted" | "branchId" | "departmentId">;
+    nameError: string | null;
+    searchTerm: string;
+    selectedDepartmentId: string;
+    currentPage: number;
+    pagination: Pagination;
+    pageHistory: string[];
+  }>({
+    units: [],
     departments: [],
-    filteredDepartments: [],
-    pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
-    currentPage: 1,
-    pageHistory: [],
     loading: false,
-    error: null,
     isSearching: false,
+    error: null,
     editModalOpen: false,
     confirmModalOpen: false,
     isModalOpen: false,
-    currentDepartment: null,
+    currentUnit: null,
     actionType: null,
     anchorEl: null,
-    editFormData: { name: "", description: "", type: "Department", isActive: true },
-    searchTerm: "",
+    editFormData: { name: "", description: "" },
     nameError: null,
-    typeFilter: "",
+    searchTerm: "",
+    selectedDepartmentId: "",
+    currentPage: 1,
+    pagination: { hasNextPage: false, nextPage: null },
+    pageHistory: [],
   });
 
-  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
+  const handleStateChange = useCallback(<K extends keyof typeof state>(key: K, value: typeof state[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Fetch departments with server-side pagination
-  const fetchDepartments = useCallback(
-    async (url: string | null = "/church/get-departments"): Promise<FetchDepartmentsResponse> => {
+  // Fetch units with server-side pagination
+  const fetchUnits = useCallback(
+    async (url: string | null = "/church/all-units"): Promise<FetchUnitsResponse> => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
       try {
-        // Handle null URL before making the API call
-        const apiUrl = url || "/church/get-departments";
-        const response = await Api.get<FetchDepartmentsResponse>(apiUrl);
+        const apiUrl = url || "/church/all-units";
+        const response = await Api.get<FetchUnitsResponse>(apiUrl);
         const data: unknown = response.data;
-        if (!isFetchDepartmentsResponse(data)) {
+        
+        if (!isFetchUnitsResponse(data)) {
           throw new Error("Invalid response structure");
         }
+        
         handleStateChange("loading", false);
         return data;
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again later.";
-        console.error("Failed to fetch departments:", error);
+        const errorMessage = error.response?.data?.message || "Failed to load units. Please try again later.";
+        console.error("Failed to fetch units:", error);
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
         toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
@@ -306,25 +303,31 @@ const ViewDepartment: React.FC = () => {
     [handleStateChange, isMobile]
   );
 
-  // Search departments with filters
-  const searchDepartments = useCallback(
-    async (url: string | null = "/church/search-departments", searchTerm: string, typeFilter: string) => {
+  // Search units with filters
+  const searchUnits = useCallback(
+    async (url: string | null = "/church/all-units", searchTerm: string, departmentId: string) => {
       handleStateChange("isSearching", true);
       try {
         const params = new URLSearchParams();
-        if (searchTerm) params.append("name", searchTerm);
-        if (typeFilter) params.append("type", typeFilter);
-        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
-        const response = await Api.get<FetchDepartmentsResponse>(fullUrl);
+        if (searchTerm) params.append("search", searchTerm);
+        if (departmentId) params.append("departmentId", departmentId);
+        
+        const fullUrl = url && url.includes("?") 
+          ? `${url}&${params.toString()}` 
+          : `${url}?${params.toString()}`;
+          
+        const response = await Api.get<FetchUnitsResponse>(fullUrl);
         const data: unknown = response.data;
-        if (!isFetchDepartmentsResponse(data)) {
+        
+        if (!isFetchUnitsResponse(data)) {
           throw new Error("Invalid response structure");
         }
+        
         handleStateChange("isSearching", false);
         toast.success("Search completed successfully!", { position: isMobile ? "top-center" : "top-right" });
         return data;
       } catch (error: any) {
-        console.error("Error searching departments:", error);
+        console.error("Error searching units:", error);
         toast.warn("Server search failed, applying local filter", { position: isMobile ? "top-center" : "top-right" });
         throw error;
       }
@@ -332,14 +335,29 @@ const ViewDepartment: React.FC = () => {
     [handleStateChange, isMobile]
   );
 
-  // Refresh departments
-  const refreshDepartments = useCallback(async () => {
+  // Fetch departments
+  const fetchDepartments = useCallback(async () => {
+    handleStateChange("loading", true);
     try {
-      const data = await fetchDepartments();
+      const response = await Api.get("/church/get-departments");
+      handleStateChange("departments", response.data.departments || []);
+      handleStateChange("loading", false);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Failed to load departments.";
+      console.error("Failed to fetch departments:", error);
+      handleStateChange("error", errorMessage);
+      handleStateChange("loading", false);
+      toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+    }
+  }, [handleStateChange, isMobile]);
+
+  // Refresh units
+  const refreshUnits = useCallback(async () => {
+    try {
+      const data = await fetchUnits();
       setState((prev) => ({
         ...prev,
-        departments: data.departments,
-        filteredDepartments: data.departments,
+        units: data.units,
         pagination: data.pagination,
         currentPage: 1,
         pageHistory: [],
@@ -348,25 +366,25 @@ const ViewDepartment: React.FC = () => {
     } catch (error) {
       handleStateChange("loading", false);
     }
-  }, [fetchDepartments, handleStateChange]);
+  }, [fetchUnits, handleStateChange]);
 
   // Initial data load
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
       try {
-        const data = await fetchDepartments();
+        const data = await fetchUnits();
         if (isMounted) {
           setState((prev) => ({
             ...prev,
-            departments: data.departments,
-            filteredDepartments: data.departments,
+            units: data.units,
             pagination: data.pagination,
             currentPage: 1,
             pageHistory: [],
             loading: false,
           }));
         }
+        await fetchDepartments();
       } catch (error) {
         if (isMounted) handleStateChange("loading", false);
       }
@@ -375,7 +393,7 @@ const ViewDepartment: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [fetchDepartments, handleStateChange]);
+  }, [fetchUnits, fetchDepartments, handleStateChange]);
 
   // Handle pagination navigation
   const handlePageChange = useCallback(
@@ -387,13 +405,18 @@ const ViewDepartment: React.FC = () => {
           direction === "next"
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || "/church/get-departments"
+            ? state.pageHistory[state.pageHistory.length - 2] || "/church/all-units"
             : null;
+            
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
-        const data = state.searchTerm || state.typeFilter ? await searchDepartments(url, state.searchTerm, state.typeFilter) : await fetchDepartments(url);
+        
+        const data = state.searchTerm || state.selectedDepartmentId
+          ? await searchUnits(url, state.searchTerm, state.selectedDepartmentId)
+          : await fetchUnits(url);
+          
         setState((prev) => ({
           ...prev,
-          filteredDepartments: data.departments,
+          units: data.units,
           pagination: data.pagination,
           pageHistory: direction === "next" ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
           currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
@@ -407,7 +430,16 @@ const ViewDepartment: React.FC = () => {
         toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
       }
     },
-    [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.typeFilter, fetchDepartments, searchDepartments, handleStateChange, isMobile]
+    [
+      state.pagination.nextPage,
+      state.pageHistory,
+      state.searchTerm,
+      state.selectedDepartmentId,
+      fetchUnits,
+      searchUnits,
+      handleStateChange,
+      isMobile,
+    ]
   );
 
   // Handle search
@@ -415,50 +447,63 @@ const ViewDepartment: React.FC = () => {
     handleStateChange("isSearching", true);
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
-    if (state.searchTerm || state.typeFilter) {
-      searchDepartments("/church/search-departments", state.searchTerm, state.typeFilter)
+    
+    if (state.searchTerm || state.selectedDepartmentId) {
+      searchUnits("/church/all-units", state.searchTerm, state.selectedDepartmentId)
         .then((data) => {
           setState((prev) => ({
             ...prev,
-            filteredDepartments: data.departments,
+            units: data.units,
             pagination: data.pagination,
             isSearching: false,
           }));
         })
         .catch(() => {
-          const filtered = state.departments
-            .filter((dept) => (state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true))
-            .filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
+          // Fallback to local filtering if server search fails
+          const filtered = state.units
+            .filter((unit) => 
+              state.searchTerm ? unit.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true
+            )
+            .filter((unit) => 
+              state.selectedDepartmentId ? unit.departmentId === state.selectedDepartmentId : true
+            );
+            
           setState((prev) => ({
             ...prev,
-            filteredDepartments: filtered,
-            pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
+            units: filtered,
+            pagination: { hasNextPage: false, nextPage: null },
             currentPage: 1,
             pageHistory: [],
             isSearching: false,
           }));
         });
     } else {
-      refreshDepartments();
+      refreshUnits();
     }
-  }, [refreshDepartments, searchDepartments, state.departments, state.searchTerm, state.typeFilter]);
+  }, [refreshUnits, searchUnits, state.units, state.searchTerm, state.selectedDepartmentId, handleStateChange]);
 
-  // Action handlers
+  // Handle clear search
+  const handleClearSearch = useCallback(() => {
+    handleStateChange("searchTerm", "");
+    handleStateChange("selectedDepartmentId", "");
+    handleStateChange("currentPage", 1);
+    handleStateChange("pageHistory", []);
+    refreshUnits();
+  }, [refreshUnits, handleStateChange]);
+
   const handleMenuClose = useCallback(() => handleStateChange("anchorEl", null), [handleStateChange]);
 
   const handleEditOpen = useCallback(() => {
-    if (state.currentDepartment) {
+    if (state.currentUnit) {
       handleStateChange("editFormData", {
-        name: state.currentDepartment.name,
-        description: state.currentDepartment.description || "",
-        type: state.currentDepartment.type,
-        isActive: state.currentDepartment.isActive,
+        name: state.currentUnit.name,
+        description: state.currentUnit.description || "",
       });
       handleStateChange("editModalOpen", true);
       handleStateChange("nameError", null);
     }
     handleMenuClose();
-  }, [state.currentDepartment, handleStateChange]);
+  }, [state.currentUnit, handleStateChange, handleMenuClose]);
 
   const showConfirmation = useCallback(
     (action: "delete" | "suspend") => {
@@ -466,7 +511,7 @@ const ViewDepartment: React.FC = () => {
       handleStateChange("confirmModalOpen", true);
       handleMenuClose();
     },
-    [handleStateChange]
+    [handleStateChange, handleMenuClose]
   );
 
   const handleEditChange = useCallback(
@@ -474,116 +519,148 @@ const ViewDepartment: React.FC = () => {
       const { name, value } = e.target;
       handleStateChange("editFormData", { ...state.editFormData, [name]: value });
       if (name === "name") {
-        handleStateChange("nameError", value.trim() ? null : "Department name is required");
+        handleStateChange("nameError", value.trim() ? null : "Unit name is required");
       }
     },
     [state.editFormData, handleStateChange]
   );
 
-  const handleTypeChange = useCallback(
-    (e: SelectChangeEvent<"Department" | "Outreach">) => {
-      handleStateChange("editFormData", { ...state.editFormData, type: e.target.value as "Department" | "Outreach" });
+  const handleDepartmentChange = useCallback(
+    (e: SelectChangeEvent<unknown>) => {
+      const value = e.target.value;
+      if (typeof value === "string") {
+        handleStateChange("selectedDepartmentId", value);
+      }
     },
-    [state.editFormData, handleStateChange]
+    [handleStateChange]
   );
 
   const handleEditSubmit = useCallback(async () => {
-    if (!state.currentDepartment?.id) {
-      toast.error("Invalid department data", { position: isMobile ? "top-center" : "top-right" });
+    if (!state.currentUnit?.id || !state.editFormData.name.trim()) {
+      handleStateChange("nameError", "Unit name is required");
+      toast.error("Invalid unit data", { position: isMobile ? "top-center" : "top-right" });
       return;
     }
-    if (!state.editFormData.name.trim()) {
-      handleStateChange("nameError", "Department name is required");
-      return;
-    }
+    
     try {
       handleStateChange("loading", true);
-      await Api.patch(`/church/edit-dept/${state.currentDepartment.id}`, {
+      await Api.patch(`/church/edit-unit/${state.currentUnit.id}`, {
         ...state.editFormData,
         description: state.editFormData.description || null,
       });
+      
+      // Refresh the current page after edit
+      const currentUrl = state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
+      const data = state.searchTerm || state.selectedDepartmentId
+        ? await searchUnits(currentUrl, state.searchTerm, state.selectedDepartmentId)
+        : await fetchUnits(currentUrl);
+        
       setState((prev) => ({
         ...prev,
-        departments: prev.departments.map((dept) =>
-          dept.id === prev.currentDepartment!.id ? { ...dept, ...prev.editFormData } : dept
-        ),
-        filteredDepartments: prev.filteredDepartments.map((dept) =>
-          dept.id === prev.currentDepartment!.id ? { ...dept, ...prev.editFormData } : dept
-        ),
+        units: data.units,
+        pagination: data.pagination,
+        loading: false,
       }));
-      toast.success("Department updated successfully!", { position: isMobile ? "top-center" : "top-right" });
+      
+      toast.success("Unit updated successfully!", { position: isMobile ? "top-center" : "top-right" });
       handleStateChange("editModalOpen", false);
-      handleStateChange("currentDepartment", null);
+      handleStateChange("currentUnit", null);
       handleStateChange("nameError", null);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Failed to update department";
+      const errorMessage = error.response?.data?.message || "Failed to update unit";
       console.error("Update error:", error);
       toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
-    } finally {
       handleStateChange("loading", false);
     }
-  }, [state.currentDepartment, state.editFormData, handleStateChange, isMobile]);
+  }, [
+    state.currentUnit, 
+    state.editFormData, 
+    state.pageHistory, 
+    state.searchTerm, 
+    state.selectedDepartmentId, 
+    fetchUnits, 
+    searchUnits, 
+    handleStateChange, 
+    isMobile
+  ]);
 
   const handleConfirmedAction = useCallback(async () => {
-    if (!state.currentDepartment || !state.actionType) return;
+    if (!state.currentUnit || !state.actionType) return;
+    
     try {
       handleStateChange("loading", true);
       if (state.actionType === "delete") {
-        await Api.delete(`/church/delete-dept/${state.currentDepartment.id}`);
+        await Api.delete(`/church/delete-unit/${state.currentUnit.id}`);
+        
+        // Refresh the current page after delete
+        const currentUrl = state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
+        const data = state.searchTerm || state.selectedDepartmentId
+          ? await searchUnits(currentUrl, state.searchTerm, state.selectedDepartmentId)
+          : await fetchUnits(currentUrl);
+          
         setState((prev) => ({
           ...prev,
-          departments: prev.departments.filter((dept) => dept.id !== prev.currentDepartment!.id),
-          filteredDepartments: prev.filteredDepartments.filter((dept) => dept.id !== prev.currentDepartment!.id),
-          pagination: { ...prev.pagination, hasNextPage: prev.filteredDepartments.length > 1 },
-          pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
-          currentPage: prev.currentPage > 1 && prev.filteredDepartments.length === 1 ? prev.currentPage - 1 : prev.currentPage,
+          units: data.units,
+          pagination: data.pagination,
+          pageHistory: prev.currentPage > 1 && data.units.length === 0 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
+          currentPage: prev.currentPage > 1 && data.units.length === 0 ? prev.currentPage - 1 : prev.currentPage,
+          loading: false,
         }));
-        toast.success("Department deleted successfully!", { position: isMobile ? "top-center" : "top-right" });
+        
+        toast.success("Unit deleted successfully!", { position: isMobile ? "top-center" : "top-right" });
       } else if (state.actionType === "suspend") {
-        const newStatus = !state.currentDepartment.isActive;
-        await Api.patch(`/church/suspend-dept/${state.currentDepartment.id}`, { isActive: newStatus });
+        const newStatus = !state.currentUnit.isActive;
+        await Api.patch(`/church/suspend-unit/${state.currentUnit.id}`, { isActive: newStatus });
+        
+        // Refresh the current page after status change
+        const currentUrl = state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
+        const data = state.searchTerm || state.selectedDepartmentId
+          ? await searchUnits(currentUrl, state.searchTerm, state.selectedDepartmentId)
+          : await fetchUnits(currentUrl);
+          
         setState((prev) => ({
           ...prev,
-          departments: prev.departments.map((dept) =>
-            dept.id === prev.currentDepartment!.id ? { ...dept, isActive: newStatus } : dept
-          ),
-          filteredDepartments: prev.filteredDepartments.map((dept) =>
-            dept.id === prev.currentDepartment!.id ? { ...dept, isActive: newStatus } : dept
-          ),
+          units: data.units,
+          pagination: data.pagination,
+          loading: false,
         }));
-        toast.success(`Department ${newStatus ? "activated" : "suspended"} successfully!`, {
+        
+        toast.success(`Unit ${newStatus ? "activated" : "suspended"} successfully!`, {
           position: isMobile ? "top-center" : "top-right",
         });
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || `Failed to ${state.actionType} department`;
+      const errorMessage = error.response?.data?.message || `Failed to ${state.actionType} unit`;
       console.error("Action error:", error);
       toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
     } finally {
       handleStateChange("loading", false);
       handleStateChange("confirmModalOpen", false);
       handleStateChange("actionType", null);
-      handleStateChange("currentDepartment", null);
+      handleStateChange("currentUnit", null);
     }
-  }, [state.currentDepartment, state.actionType, handleStateChange, isMobile]);
+  }, [
+    state.currentUnit, 
+    state.actionType, 
+    state.pageHistory, 
+    state.searchTerm, 
+    state.selectedDepartmentId, 
+    fetchUnits, 
+    searchUnits, 
+    handleStateChange, 
+    isMobile
+  ]);
 
-  // Local filtering for fallback
-  const filteredDepartments = useMemo(() => {
-    if (state.searchTerm || state.typeFilter) {
-      return state.filteredDepartments.filter((dept) =>
-        state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true
-      ).filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
-    }
-    return state.filteredDepartments;
-  }, [state.filteredDepartments, state.searchTerm, state.typeFilter]);
+  const truncateDescription = (description: string | null, maxLength = 25) => {
+    if (!description) return "-";
+    return description.length <= maxLength ? description : `${description.substring(0, maxLength)}...`;
+  };
 
   return (
     <DashboardManager>
-      <ToastContainer />
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 5 }}>
+          <Grid size={{xs: 12, md: 5}}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -594,13 +671,12 @@ const ViewDepartment: React.FC = () => {
                 fontSize: isLargeScreen ? "1.1rem" : undefined,
                 display: "flex",
                 alignItems: "center",
-                marginBottom: 2,
                 gap: 1,
               }}
             >
               <span className="text-[#777280]">Manage</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]">Department</span>
+              <span className="text-[#F6F4FE]">Unit</span>
             </Typography>
             <Box
               sx={{
@@ -633,7 +709,7 @@ const ViewDepartment: React.FC = () => {
                     flex: 1,
                   }}
                   InputProps={{ disableUnderline: true }}
-                  aria-label="Search departments by name"
+                  aria-label="Search units by name"
                 />
               </Box>
               <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
@@ -642,27 +718,36 @@ const ViewDepartment: React.FC = () => {
                   variant="caption"
                   sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
                 >
-                  Type
+                  Department
                 </Typography>
-                <Select
-                  value={state.typeFilter}
-                  onChange={(e) => handleStateChange("typeFilter", e.target.value as "" | "Department" | "Outreach")}
-                  displayEmpty
-                  sx={{
-                    color: state.typeFilter ? "#F6F4FE" : "#777280",
-                    fontWeight: 500,
-                    fontSize: "14px",
-                    ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-                    ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                    "& .MuiSelect-icon": { display: "none" },
-                  }}
-                  renderValue={(selected) => (selected ? selected : "Select Type")}
-                  aria-label="Filter departments by type"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Department">Department</MenuItem>
-                  <MenuItem value="Outreach">Outreach</MenuItem>
-                </Select>
+                <FormControl fullWidth variant="standard">
+                  <Select
+                    value={state.selectedDepartmentId}
+                    onChange={handleDepartmentChange}
+                    displayEmpty
+                    sx={{
+                      color: state.selectedDepartmentId ? "#F6F4FE" : "#777280",
+                      fontWeight: 500,
+                      fontSize: "14px",
+                      ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                      ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                      "& .MuiSelect-icon": { display: "none" },
+                    }}
+                    renderValue={(selected) =>
+                      selected
+                        ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department"
+                        : "Select Department"
+                    }
+                    aria-label="Select department"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {state.departments.map((dept) => (
+                      <MenuItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Box>
               <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
                 <Button
@@ -678,14 +763,25 @@ const ViewDepartment: React.FC = () => {
                     "&:hover": { backgroundColor: "#777280" },
                   }}
                   disabled={state.loading || state.isSearching}
-                  aria-label="Search departments"
+                  aria-label="Search units"
                 >
-                  {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <SearchIcon sx={{ fontSize: "20px" }} />}
+                  {state.isSearching ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <SearchIcon sx={{ fontSize: "20px" }} />
+                  )}
                 </Button>
               </Box>
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, md: 7 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid           
+            size={{xs: 12, md: 7}}
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "flex-start", md: "flex-end" },
+              alignItems: "center",
+            }}
+          >
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
@@ -696,38 +792,39 @@ const ViewDepartment: React.FC = () => {
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "#F6F4FE",
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
               }}
-              disabled={!authData?.isSuperAdmin}
-              aria-label="Create new department"
+              aria-label="Create new unit"
             >
-              Create Department +
+              Create Unit +
             </Button>
           </Grid>
         </Grid>
 
-        {/* Loading State */}
-        {state.loading && state.filteredDepartments.length === 0 && (
+        {state.loading && state.units.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
 
-        {/* Error or Empty State */}
-        {(!state.loading || state.error) && filteredDepartments.length === 0 && (
-          <EmptyState error={state.error} openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} />
+        {(!state.loading || state.error) && state.units.length === 0 && (
+          <EmptyState
+            error={state.error}
+            openModal={() => handleStateChange("isModalOpen", true)}
+            isLargeScreen={isLargeScreen}
+            searchTerm={state.searchTerm}
+            handleClearSearch={handleClearSearch}
+          />
         )}
 
-        {/* Data Cards */}
-        {filteredDepartments.length > 0 && (
+        {state.units.length > 0 && (
           <>
             <Grid container spacing={2}>
-              {filteredDepartments.map((dept) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
+              {state.units.map((unit) => (
+                <Grid size={{xs:12, sm:6, md:4, lg:3}} key={unit.id}>
                   <Card
-                    component="div"                   
                     sx={{
                       borderRadius: "10.267px",
                       backgroundColor: "rgba(255, 255, 255, 0.06)",
@@ -735,8 +832,7 @@ const ViewDepartment: React.FC = () => {
                       height: "100%",
                       display: "flex",
                       flexDirection: "column",
-                      opacity: dept.isDeleted ? 0.7 : 1,
-                      "&:hover": { cursor: "pointer", backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                      opacity: unit.isDeleted ? 0.7 : 1,
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
@@ -745,22 +841,25 @@ const ViewDepartment: React.FC = () => {
                           <IconButton
                             sx={{
                               backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#E1E1E1",                            
+                              color: "#E1E1E1",
+                              display: "flex",
                               flexDirection: "column",
+                              paddingX: "15px",
                               borderRadius: 1,
                               textAlign: "center",
                             }}
-                            aria-label={`Department icon for ${dept.name}`}
+                            aria-label="Unit icon"
                           >
                             <PiChurch size={30} />
-                            <span className="text-[10px]">Department</span>
+                            <span className="text-[10px]">unit</span>
                           </IconButton>
                         </Box>
                         <Box>
                           <IconButton
+                            aria-label="Unit actions"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleStateChange("currentDepartment", dept);
+                              handleStateChange("currentUnit", unit);
                               handleStateChange("anchorEl", e.currentTarget);
                             }}
                             sx={{
@@ -770,7 +869,6 @@ const ViewDepartment: React.FC = () => {
                               borderRadius: 1,
                               textAlign: "center",
                             }}
-                            aria-label={`More options for ${dept.name}`}
                           >
                             <MoreVertIcon />
                           </IconButton>
@@ -781,40 +879,26 @@ const ViewDepartment: React.FC = () => {
                           variant="subtitle1"
                           fontWeight={600}
                           sx={{
-                            textDecoration: dept.isDeleted ? "line-through" : "none",
-                            color: dept.isDeleted ? "gray" : "#E1E1E1",
+                            textDecoration: unit.isDeleted ? "line-through" : "none",
+                            color: unit.isDeleted ? "gray" : "#E1E1E1",
                           }}
                         >
-                          {dept.name}
-                          {dept.branch && (
-                            <Typography
-                              component="span"
-                              sx={{ ml: 1, fontSize: "0.75rem", color: "orange", fontWeight: 500 }}
-                            >
-                              {`(${dept.branch.name})`}
-                            </Typography>
-                          )}
-                          {dept.type === "Outreach" && (
-                            <Typography
-                              component="span"
-                              sx={{ ml: 1, fontSize: "0.75rem", color: "#10b981", fontWeight: 500 }}
-                            >
-                              (Outreach)
-                            </Typography>
-                          )}
+                          {unit.name}
                         </Typography>
                       </Box>
                       <Box mt={2}>
-                        {dept.description && (
+                        {unit.description && (
                           <Box display="flex" alignItems="flex-start" mb={1}>
                             <Typography
                               variant="body2"
                               sx={{
-                                textDecoration: dept.isDeleted ? "line-through" : "none",
-                                color: dept.isDeleted ? "gray" : "#777280",
+                                textDecoration: unit.isDeleted ? "line-through" : "none",
+                                color: unit.isDeleted ? "gray" : "#777280",
                               }}
                             >
-                              {dept.description}
+                              <Tooltip title={unit.description} arrow>
+                                <span>{truncateDescription(unit.description)}</span>
+                              </Tooltip>
                             </Typography>
                           </Box>
                         )}
@@ -825,7 +909,6 @@ const ViewDepartment: React.FC = () => {
               ))}
             </Grid>
 
-            {/* Custom Pagination */}
             <CustomPagination
               hasNextPage={state.pagination.hasNextPage}
               hasPrevPage={state.currentPage > 1}
@@ -837,23 +920,24 @@ const ViewDepartment: React.FC = () => {
           </>
         )}
 
-        {/* Action Menu */}
         <Menu
-          id="department-menu"
+          id="unit-menu"
           anchorEl={state.anchorEl}
           keepMounted
           open={Boolean(state.anchorEl)}
           onClose={handleMenuClose}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
+          PaperProps={{
+            sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } },
+          }}
         >
-          <MenuItem onClick={handleEditOpen} disabled={state.currentDepartment?.isDeleted || state.loading}>
+          <MenuItem onClick={handleEditOpen} disabled={state.currentUnit?.isDeleted || state.loading}>
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
           <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.loading}>
-            {state.currentDepartment?.isActive ? (
+            {state.currentUnit?.isActive ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
                 {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
@@ -871,30 +955,40 @@ const ViewDepartment: React.FC = () => {
           </MenuItem>
         </Menu>
 
-        {/* Edit Department Modal */}
         <Dialog
           open={state.editModalOpen}
           onClose={() => {
             handleStateChange("editModalOpen", false);
-            handleStateChange("currentDepartment", null);
+            handleStateChange("currentUnit", null);
             handleStateChange("nameError", null);
           }}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: 2,
+              bgcolor: "#2C2C2C",
+              color: "#F6F4FE",
+            },
+          }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" fontWeight={600}>
-                Edit Department
+              <Typography
+                variant={isMobile ? "h5" : "h5"}
+                component="h1"
+                fontWeight={600}
+                sx={{ fontSize: isLargeScreen ? "1.5rem" : undefined }}
+              >
+                Edit Unit
               </Typography>
               <IconButton
                 onClick={() => {
                   handleStateChange("editModalOpen", false);
-                  handleStateChange("currentDepartment", null);
+                  handleStateChange("currentUnit", null);
                   handleStateChange("nameError", null);
                 }}
-                aria-label="Close edit modal"
+                aria-label="Close edit dialog"
               >
                 <Close className="text-gray-300" />
               </IconButton>
@@ -904,7 +998,7 @@ const ViewDepartment: React.FC = () => {
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
               <TextField
                 fullWidth
-                label="Department Name"
+                label="Unit Name"
                 name="name"
                 value={state.editFormData.name}
                 onChange={handleEditChange}
@@ -922,32 +1016,7 @@ const ViewDepartment: React.FC = () => {
                 InputLabelProps={{
                   sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" },
                 }}
-                aria-label="Department name"
               />
-              <FormControl fullWidth margin="normal">
-                <InputLabel sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
-                  Type
-                </InputLabel>
-                <Select
-                  value={state.editFormData.type}
-                  onChange={handleTypeChange}
-                  label="Type"
-                  sx={{
-                    color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                  }}
-                  aria-label="Department type"
-                >
-                  <MenuItem value="Department" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                    Department
-                  </MenuItem>
-                  <MenuItem value="Outreach" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                    Outreach
-                  </MenuItem>
-                </Select>
-              </FormControl>
               <TextField
                 fullWidth
                 label="Description"
@@ -959,50 +1028,57 @@ const ViewDepartment: React.FC = () => {
                 multiline
                 rows={4}
                 InputProps={{
-                  sx: {
+                  sx: { 
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    fontSize: isLargeScreen ? "0.875rem" : undefined 
                   },
                 }}
                 InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" },
+                  sx: { fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" },
                 }}
-                aria-label="Department description"
               />
             </Box>
           </DialogContent>
           <DialogActions>
             <Button
+              onClick={() => {
+                handleStateChange("editModalOpen", false);
+                handleStateChange("currentUnit", null);
+                handleStateChange("nameError", null);
+              }}
+              sx={{
+                border: 1,
+                color: "var(--color-primary)",
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
+              }}
+              aria-label="Cancel edit"
+            >
+              Cancel
+            </Button>
+            <Button
               onClick={handleEditSubmit}
               sx={{
-                py: 1,
-                backgroundColor: "#F6F4FE",
-                px: { xs: 6, sm: 2 },
-                borderRadius: 50,
-                color: "#2C2C2C",
-                fontWeight: "semibold",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                backgroundColor: "var(--color-primary)",
+                color: "var(--color-text-on-primary)",
+                "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9 },
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
               }}
               variant="contained"
               disabled={state.loading || !!state.nameError}
-              aria-label="Save department changes"
+              aria-label="Save unit changes"
             >
               {state.loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Create Department Modal */}
-        <DepartmentModal
+        <UnitModal
           open={state.isModalOpen}
           onClose={() => handleStateChange("isModalOpen", false)}
-          onSuccess={refreshDepartments}
+          onSuccess={refreshUnits}
         />
 
-        {/* Confirmation Modal */}
         <Dialog
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
@@ -1010,16 +1086,16 @@ const ViewDepartment: React.FC = () => {
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"
-              ? "Delete Department"
-              : state.currentDepartment?.isActive
-              ? "Suspend Department"
-              : "Activate Department"}
+              ? "Delete Unit"
+              : state.currentUnit?.isActive
+              ? "Suspend Unit"
+              : "Activate Unit"}
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
               {state.actionType === "delete"
-                ? `Are you sure you want to delete "${state.currentDepartment?.name}"?`
-                : `Are you sure you want to ${state.currentDepartment?.isActive ? "suspend" : "activate"} "${state.currentDepartment?.name}"?`}
+                ? `Are you sure you want to delete "${state.currentUnit?.name}"?`
+                : `Are you sure you want to ${state.currentUnit?.isActive ? "suspend" : "activate"} "${state.currentUnit?.name}"?`}
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -1036,7 +1112,7 @@ const ViewDepartment: React.FC = () => {
               color={state.actionType === "delete" ? "error" : "primary"}
               variant="contained"
               disabled={state.loading}
-              aria-label={state.actionType === "delete" ? "Delete department" : "Confirm action"}
+              aria-label={state.actionType === "delete" ? "Delete unit" : "Confirm unit action"}
             >
               {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Confirm"}
             </Button>
@@ -1047,4 +1123,4 @@ const ViewDepartment: React.FC = () => {
   );
 };
 
-export default ViewDepartment;
+export default ViewUnit;

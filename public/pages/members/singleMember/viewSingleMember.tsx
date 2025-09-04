@@ -105,7 +105,7 @@ const ViewSingleMember: React.FC = () => {
                 <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
                 <Typography 
                   variant="h6" 
-                   
+                  color="textSecondary" 
                   gutterBottom
                   sx={{
                     fontSize: '1.25rem'
@@ -159,8 +159,7 @@ const ViewSingleMember: React.FC = () => {
   return (
     <DashboardManager>
       <Container>
-        <Box sx={{ py: 2, mx: "auto",
-         }}>
+        <Box sx={{ py: 2, mx: "auto" }}>
           <Grid container spacing={2} sx={{ mb: 5 }}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Typography 
@@ -170,7 +169,7 @@ const ViewSingleMember: React.FC = () => {
                 gutterBottom
                 
                 sx={{ 
-                  color: "#E1E1E1", // Ensure text color is set correctly
+                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
                   fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
@@ -178,7 +177,7 @@ const ViewSingleMember: React.FC = () => {
               </Typography>
               <Typography 
                 variant="body2" 
-                color="#E1E1E1"
+                color="text.secondary"
                 sx={{
                   fontSize: isLargeScreen ? '0.875rem' : undefined
                   
@@ -219,11 +218,7 @@ const ViewSingleMember: React.FC = () => {
           </Grid>
 
           <Box>
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
-              boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
-              borderRadius: 2,
-              p: 2,
-            }}>
+            <Box sx={{ mb: 4 }}>
               <Grid container spacing={3} alignItems="center">
                 <Grid size={{ xs: 12, sm: 'auto' }}>
                   <Avatar
@@ -243,7 +238,6 @@ const ViewSingleMember: React.FC = () => {
                     fontWeight="bold"
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
-                      color: '#E1E1E1',
                       fontSize: isLargeScreen ? '1.5rem' : undefined
                     }}
                   >
@@ -251,10 +245,9 @@ const ViewSingleMember: React.FC = () => {
                   </Typography>
                   <Typography 
                     variant="body1" 
-                    
+                    color="textSecondary"
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
-                      color: '#E1E1E1',
                       fontSize: isLargeScreen ? '0.875rem' : undefined
                     }}
                   >
@@ -262,10 +255,9 @@ const ViewSingleMember: React.FC = () => {
                   </Typography>
                   <Typography 
                     variant="body1" 
-                    
+                    color="textSecondary"
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
-                      color: '#777280',
                       fontSize: isLargeScreen ? '0.875rem' : undefined
                     }}
                   >
@@ -277,149 +269,139 @@ const ViewSingleMember: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
-              boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
-              borderRadius: 2,
-              p: 2}}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2,color: '#E1E1E1'}}>
-                Personal Information
-              </Typography>
-              
-              <Grid container spacing={4}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3 ,  color: '#E1E1E1'}}>
-                    <Typography variant="subtitle2">
-                      Full Name
-                    </Typography>
-                    <Typography variant="body1">
-                      {member.name|| "N/A"}
-                    </Typography>
-                  </Box>                              
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2">
-                      Gender
-                    </Typography>
-                    <Typography variant="body1">
-                      {member.sex === "male" ? "Male" : "Female"}
-                    </Typography>
-                  </Box>
-                </Grid>
+            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+              Personal Information
+            </Typography>
+            
+            <Grid container spacing={4}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Full Name
+                  </Typography>
+                  <Typography variant="body1">
+                    {member.name|| "N/A"}
+                  </Typography>
+                </Box>                              
                 
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2">
-                      Phone Number
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <PhoneIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                      <Typography variant="body1">
-                        {member.phoneNo || "N/A"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      WhatsApp
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <WhatsAppIcon sx={{ mr: 1, color: "#25D366", fontSize: "1rem" }} />
-                      <Typography variant="body1">
-                        {member.whatappNo || "N/A"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  {member.email && (
-                    <Box sx={{ mb: 3,  color: '#E1E1E1' }}>
-                      <Typography variant="subtitle2">
-                        Email Address
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <EmailIcon sx={{ mr: 1, color: "#1f2937", fontSize: "1rem" }} />
-                        <Typography variant="body1">
-                          {member.email}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                </Grid>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Gender
+                  </Typography>
+                  <Typography variant="body1">
+                    {member.sex === "male" ? "Male" : "Female"}
+                  </Typography>
+                </Box>
               </Grid>
-            </Box>
+              
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Phone Number
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <PhoneIcon sx={{ mr: 1, color: "var(--color-primary)", fontSize: "1rem" }} />
+                    <Typography variant="body1">
+                      {member.phoneNo || "N/A"}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    WhatsApp
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <WhatsAppIcon sx={{ mr: 1, color: "#25D366", fontSize: "1rem" }} />
+                    <Typography variant="body1">
+                      {member.whatappNo || "N/A"}
+                    </Typography>
+                  </Box>
+                </Box>
+                
+                {member.email && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" color="textSecondary">
+                      Email Address
+                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <EmailIcon sx={{ mr: 1, color: "#1f2937", fontSize: "1rem" }} />
+                      <Typography variant="body1">
+                        {member.email}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
 
             <Divider sx={{ my: 3 }} />
 
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
-              boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
-              borderRadius: 2,
-              p: 2}}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#E1E1E1' }}>
-                Address
-              </Typography>
-              
-              <Grid container spacing={4}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      Street Address
-                    </Typography>
-                    <Typography variant="body1">
-                        <Tooltip title={member.address && member.address.length > 30 ? member.address : ""} placement="top" arrow>
-                          <span>{member.address && member.address.length > 30 ? `${member.address.slice(0, 30)}...` : member.address || "N/A"}</span>
-                        </Tooltip>
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      City
-                    </Typography>
-                    <Typography variant="body1">
-                      {city || "N/A"}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      State
-                    </Typography>
-                    <Typography variant="body1">
-                      {stateFromAddress || member.state || "N/A"}
-                    </Typography>
-                  </Box>
-                </Grid>
+            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+              Address
+            </Typography>
+            
+            <Grid container spacing={4}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Street Address
+                  </Typography>
+                  <Typography variant="body1">
+                      <Tooltip title={member.address && member.address.length > 30 ? member.address : ""} placement="top" arrow>
+                        <span>{member.address && member.address.length > 30 ? `${member.address.slice(0, 30)}...` : member.address || "N/A"}</span>
+                      </Tooltip>
+                  </Typography>
+                </Box>
                 
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      Country
-                    </Typography>
-                    <Typography variant="body1">
-                      {member.nationality || "Nigeria"}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      Marital Status
-                    </Typography>
-                    <Typography variant="body1">
-                      {member.maritalStatus || "N/A"}
-                    </Typography>
-                  </Box>
-                  
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
-                    <Typography variant="subtitle2" >
-                      Years of Membership
-                    </Typography>
-                    <Typography variant="body1">
-                      {getYearsOfMembership()}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid> 
-            </Box>           
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    City
+                  </Typography>
+                  <Typography variant="body1">
+                    {city || "N/A"}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    State
+                  </Typography>
+                  <Typography variant="body1">
+                    {stateFromAddress || member.state || "N/A"}
+                  </Typography>
+                </Box>
+              </Grid>
+              
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Country
+                  </Typography>
+                  <Typography variant="body1">
+                    {member.nationality || "Nigeria"}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Marital Status
+                  </Typography>
+                  <Typography variant="body1">
+                    {member.maritalStatus || "N/A"}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="textSecondary">
+                    Years of Membership
+                  </Typography>
+                  <Typography variant="body1">
+                    {getYearsOfMembership()}
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>            
           </Box>
         </Box>
       </Container>

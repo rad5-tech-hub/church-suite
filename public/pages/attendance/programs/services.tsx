@@ -26,7 +26,7 @@ import {
   Divider,
   IconButton,
 } from "@mui/material";
-import { CachedOutlined, CalendarTodayOutlined, Add, Close, Refresh } from "@mui/icons-material";
+import { CachedOutlined, CalendarTodayOutlined, Add, Close } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import moment from "moment";
 import { toast, ToastContainer } from "react-toastify";
@@ -178,7 +178,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   }, [eventData]);
 
-    // ✅ move fetchDepartments outside useEffect
+  useEffect(() => {
     const fetchDepartments = async () => {
       try {
         setFetchingDepartments(true);
@@ -192,18 +192,18 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
         setDepartments(filtered);
       } catch (error) {
+        console.error("Failed to fetch departments:", error);
         setFetchDepartmentsError("Failed to load departments. Please try again.");
       } finally {
         setFetchingDepartments(false);
       }
     };
 
-    useEffect(() => {
-      if (open) {
-        fetchDepartments();
-        fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
-      }
-    }, [open]);
+    if (open) {
+      fetchDepartments();
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (formData.recurrenceType !== "monthly") {
@@ -253,14 +253,14 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
-  const value = event.target.value as string[];
-  setFormData((prev) => ({
-    ...prev,
-    departmentIds: value.filter((id) => id !== null && id !== "null"), // 🚀 remove nulls
-  }));
-};
-
+  const handleDepartmentChange = (event: SelectChangeEvent<typeof formData.departmentIds>) => {
+    const { value } = event.target;
+    setFormData((prev) => ({
+      ...prev,
+      departmentIds: value as string[],
+    }));
+    setCreateProgramError(null);
+  };
 
   const handleCollectionChange = (event: SelectChangeEvent<typeof formData.collectionIds>) => {
     const { value } = event.target;
@@ -357,7 +357,6 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
 
       if (formData.recurrenceType === "weekly") {
         payload.date = formData.date;
-        payload.byWeekday = formData.byWeekday
       }
 
       if (formData.recurrenceType === "monthly") {
@@ -375,7 +374,6 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
         formData.customRecurrenceDates?.length
       ) {
         payload.customRecurrenceDates = formData.customRecurrenceDates;
-        delete payload.date;
       }
     }
     try{
@@ -576,7 +574,7 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
           {/* Days of Week selector only for weekly recurrence */}
           {formData.recurrenceType === "weekly" && (
             <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth variant="outlined" disabled={loading}>
+              <FormControl fullWidth variant="outlined">
                 <InputLabel id="weekday-label" sx={inputLabelProps.sx}>
                   Days of the Week
                 </InputLabel>
@@ -622,8 +620,8 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
 
           {/* Custom date input for custom recurrence */}
             {formData.recurrenceType === "custom" && (
-              <Grid size={{ xs: 12, sm: 6 }} >
-                <MultiDatePicker                  
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <MultiDatePicker
                   value={formData.customRecurrenceDates ?? []}
                   onChange={(dates) =>
                     setFormData((prev) => ({
@@ -932,23 +930,9 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
               <Typography sx={{ ml: 1 }}>Loading collections...</Typography>
             </MenuItem>
           ) : fetchCollectionsError ? (
-              <MenuItem                
-                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <Typography variant="body2" sx={{ mr: 1 }}>
-                  {fetchCollectionsError}
-                </Typography>
-                <IconButton
-                  size="small"
-                  color="inherit"
-                  onClick={(e) => {
-                    e.stopPropagation(); // ✅ prevents select from closing
-                    fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
-                  }}
-                >
-                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
-                </IconButton>
-              </MenuItem>
+            <MenuItem disabled>
+              <Typography>{fetchCollectionsError}</Typography>
+            </MenuItem>
           ) : collections.length > 0 ? (
             collections.map((col) => (
               <MenuItem key={col.id} value={col.id} sx={{ width: '100%', boxSizing: 'border-box' }}>
@@ -1095,20 +1079,8 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
                 </Box>
               </MenuItem>
             ) : fetchDepartmentsError ? (
-              <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Typography variant="body2" sx={{ mr: 1 }}>
-                  {fetchDepartmentsError}
-                </Typography>
-                <IconButton
-                  size="small"
-                  color="inherit"
-                  onClick={(e) => {
-                    e.stopPropagation(); // ✅ Prevents Select from closing immediately
-                    fetchDepartments();
-                  }}
-                >
-                  <Refresh fontSize="small" sx={{ color: '#2C2C2C' }} />
-                </IconButton>
+              <MenuItem disabled>
+                <Typography variant="body2">{fetchDepartmentsError}</Typography>
               </MenuItem>
             ) : departments.length > 0 ? (
               departments.map((dept: any) => (
@@ -1240,7 +1212,7 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
           {loading ? (
             <>
               <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-              <span className="text-gray-500">{isEdit ? "Updating..." : "Creating..."}</span>
+              {isEdit ? "Updating..." : "Creating..."}
             </>
           ) : (
             isEdit ? "Update Program" : "Create Program"
