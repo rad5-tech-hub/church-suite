@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
@@ -411,6 +411,9 @@ const ViewServices: React.FC = () => {
           onSuccess={() => {
             setIsOpen(false);
             fetchEvents(view, currentDate);
+            toast.success("Program created successfully!", {
+              position: isMobile ? "top-center" : "top-right",
+            });
           }}
         />
       </Box>
