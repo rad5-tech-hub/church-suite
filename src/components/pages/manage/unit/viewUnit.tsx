@@ -720,7 +720,7 @@ const ViewUnit: React.FC = () => {
                 >
                   Department
                 </Typography>
-                <FormControl fullWidth variant="standard">
+                <FormControl fullWidth sx={{ "&:before,&:after": { display: "none" } }}>
                   <Select
                     value={state.selectedDepartmentId}
                     onChange={handleDepartmentChange}
@@ -728,6 +728,7 @@ const ViewUnit: React.FC = () => {
                     sx={{
                       color: state.selectedDepartmentId ? "#F6F4FE" : "#777280",
                       fontWeight: 500,
+                      border: 'none',
                       fontSize: "14px",
                       ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                       ".MuiOutlinedInput-notchedOutline": { border: "none" },

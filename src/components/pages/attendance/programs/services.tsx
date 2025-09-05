@@ -253,14 +253,29 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
-  const value = event.target.value as string[];
-  setFormData((prev) => ({
-    ...prev,
-    departmentIds: value.filter((id) => id !== null && id !== "null"), // 🚀 remove nulls
-  }));
-};
+  const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value as string[];
 
+    if (value.includes("all")) {
+      // Toggle select all
+      if (formData.departmentIds.length === departments.length) {
+        // unselect all
+        setFormData((prev) => ({ ...prev, departmentIds: [] }));
+      } else {
+        // select all
+        setFormData((prev) => ({
+          ...prev,
+          departmentIds: departments.map((dept: any) => dept.id),
+        }));
+      }
+    } else {
+      // normal multi-select
+      setFormData((prev) => ({
+        ...prev,
+        departmentIds: value.filter((id) => id !== null && id !== "null"),
+      }));
+    }
+  };
 
   const handleCollectionChange = (event: SelectChangeEvent<typeof formData.collectionIds>) => {
     const { value } = event.target;
@@ -1029,6 +1044,8 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
   );
 
   const renderDepartmentInput = () => {
+    const allSelected = 
+      departments.length > 0 && formData.departmentIds.length === departments.length;
     return (
       <Grid size={{ xs: 12 }}>
         <FormControl fullWidth variant="outlined" disabled={loading}>
@@ -1046,7 +1063,7 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
                 .map((id) => departments.find((dept) => dept.id === id)?.name || id)
                 .join(", ")
             }
-            open={departmentSelectOpen} // ✅ controlled open/close
+            open={departmentSelectOpen}
             onOpen={() => setDepartmentSelectOpen(true)}
             onClose={() => setDepartmentSelectOpen(false)}
             sx={{
@@ -1070,6 +1087,7 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
                 justifyContent: "flex-end",
                 p: 1,
                 borderBottom: "1px solid #777280",
+                backgroundColor: "#fff",
               }}
             >
               <IconButton
@@ -1083,6 +1101,25 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
                 <Close fontSize="small" />
               </IconButton>
             </Box>
+
+            {/* ✅ Select All option */}
+            {departments.length > 0 && (
+              <MenuItem value="all">
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={
+                    formData.departmentIds.length > 0 &&
+                    formData.departmentIds.length < departments.length
+                  }
+                  sx={{
+                    color: "var(--color-primary)",
+                    "&.Mui-checked": { color: "var(--color-primary)" },
+                  }}
+                />
+                <ListItemText primary="Select All" />
+              </MenuItem>
+            )}
+
 
             {/* Items */}
             {fetchingDepartments ? (
@@ -1120,7 +1157,9 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
                       "&.Mui-checked": { color: "var(--color-primary)" },
                     }}
                   />
-                  <ListItemText primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} />
+                  <ListItemText 
+                    primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} 
+                  />
                 </MenuItem>
               ))
             ) : (
@@ -1133,6 +1172,7 @@ const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
       </Grid>
     );
   };
+
 
   return (
     <Dialog

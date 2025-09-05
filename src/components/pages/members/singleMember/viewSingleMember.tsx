@@ -84,7 +84,7 @@ const ViewSingleMember: React.FC = () => {
             minHeight: "100vh", // Ensure full screen height
           }}
         >
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-primary)]"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
         </Box>
       </DashboardManager>
     );
@@ -100,7 +100,8 @@ const ViewSingleMember: React.FC = () => {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center"
+                justifyContent: "center",
+                color: 'gray.300'
               }}>
                 <EmptyIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
                 <Typography 
