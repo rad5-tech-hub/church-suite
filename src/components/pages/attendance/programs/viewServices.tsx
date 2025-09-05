@@ -16,6 +16,7 @@ import {
   Typography,
   Chip,
   Grid,
+  CircularProgress,
 } from "@mui/material";
 import { Check } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
@@ -93,7 +94,7 @@ const ViewServices: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [events, setEvents] = useState<Event[]>([]);
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [, setCurrentEvent] = useState<Event | null>(null);
   const [currentOccurrence, setCurrentOccurrence] = useState<Occurrence | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
@@ -146,7 +147,7 @@ const ViewServices: React.FC = () => {
       setEvents(data.events || []);
     } catch (error) {
       toast.error("Failed to load events", {
-        position: isMobile ? "top-center" : "top-right",
+        position: isMobile ? "top-center" : "top-right",    
       });
     } finally {
       setLoading(false);
@@ -348,9 +349,8 @@ const ViewServices: React.FC = () => {
                     />
                   ))}
                 </Box>
-              </Box>
-              
-              <Box sx={{backgroundColor: '#f6f4fe', borderRadius: 2, p:1}}>
+              </Box>                         
+              <Box sx={{ backgroundColor: '#f6f4fe', borderRadius: 2, p: 1, position: "relative" }}>
                 <Calendar
                   localizer={localizer}
                   events={calendarEvents}
@@ -390,7 +390,25 @@ const ViewServices: React.FC = () => {
                   min={new Date(2025, 7, 1, 6, 0)}
                   max={new Date(2025, 7, 1, 22, 0)}
                 />
-              </Box>
+
+                {/* ✅ Overlay when loading */}
+                {loading && (
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      inset: 0,
+                      backgroundColor: "rgba(0,0,0,0.5)",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      borderRadius: 2,
+                      zIndex: 10,
+                    }}
+                  >
+                    <CircularProgress size={40} sx={{ color: "white" }} />
+                  </Box>
+                )}
+              </Box>          
             </Box>
           </Grid>
         </Grid>

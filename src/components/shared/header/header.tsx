@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = () => {
   const buttonRoutePatterns: { [key: string]: RegExp } = {
     Dashboard: /^\/dashboard(\/|$)/,
     Manage: /^\/manage(\/|$)/,
-    Members: /^\/members(\/|$)/,
+    Membership: /^\/members(\/|$)/,
     Message: /^\/message(\/|$)/,
     Finance: /^\/finance(\/|$)/,
     Programs: /^\/programs(\/|$)/,
@@ -42,7 +42,7 @@ const Header: React.FC<HeaderProps> = () => {
   const buttons = [
     'Dashboard',
     'Manage',
-    'Members',
+    'Membership',
     'Message',
     'Finance',
     'Programs',
@@ -53,7 +53,7 @@ const Header: React.FC<HeaderProps> = () => {
   const defaultRoutes: { [key: string]: string } = {
     Dashboard: '/dashboard',
     Manage: '/manage/view-admins',
-    Members: '/members/view-workers',
+    Membership: '/members/view-workers',
     Message: '/message',
     Finance: '/finance',
     Programs: '/programs',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import {
@@ -24,6 +24,8 @@ import {
   Grid,
   Divider,
   CircularProgress,
+  Autocomplete,
+  Drawer,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
@@ -32,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Close,
+  AttachFileOutlined,
 } from "@mui/icons-material";
 import { PiChurch } from "react-icons/pi";
 import { MdRefresh, MdOutlineEdit } from "react-icons/md";
@@ -50,7 +53,7 @@ interface Department {
   type: "Department" | "Outreach";
   isActive: boolean;
   isDeleted?: boolean;
-  branch?: {name: string}
+  branch?: { name: string; id: string };
 }
 
 interface Pagination {
@@ -79,6 +82,11 @@ interface CustomPaginationProps {
   isLoading: boolean;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
 interface State {
   departments: Department[];
   filteredDepartments: Department[];
@@ -98,36 +106,27 @@ interface State {
   searchTerm: string;
   nameError: string | null;
   typeFilter: "" | "Department" | "Outreach";
+  branches: Branch[];
+  selectedBranchId: string;
+  searchDrawerOpen: boolean;
 }
 
 // Type guard for FetchDepartmentsResponse
 const isFetchDepartmentsResponse = (data: unknown): data is FetchDepartmentsResponse => {
-  // First check if data is an object and not null
   if (!data || typeof data !== "object") {
     return false;
   }
-
-  // Now TypeScript knows data is an object
   const obj = data as Record<string, unknown>;
-
-  // Check message (optional property)
   if ("message" in obj && typeof obj.message !== "string") {
     return false;
   }
-
-  // Check departments
   if (!("departments" in obj) || !Array.isArray(obj.departments)) {
     return false;
   }
-
-  // Check pagination
   if (!("pagination" in obj) || typeof obj.pagination !== "object" || obj.pagination === null) {
     return false;
   }
-
-  // Now check pagination properties
   const pagination = obj.pagination as Record<string, unknown>;
-  
   return (
     "hasNextPage" in pagination &&
     typeof pagination.hasNextPage === "boolean" &&
@@ -137,6 +136,7 @@ const isFetchDepartmentsResponse = (data: unknown): data is FetchDepartmentsResp
     (typeof pagination.nextPage === "string" || pagination.nextPage === null)
   );
 };
+
 // Custom Pagination Component
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
@@ -252,7 +252,7 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
 const ViewDepartment: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData as AuthData | undefined);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const [state, setState] = useState<State>({
     departments: [],
@@ -273,6 +273,9 @@ const ViewDepartment: React.FC = () => {
     searchTerm: "",
     nameError: null,
     typeFilter: "",
+    branches: [],
+    selectedBranchId: "",
+    searchDrawerOpen: false,
   });
 
   const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
@@ -285,7 +288,6 @@ const ViewDepartment: React.FC = () => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
       try {
-        // Handle null URL before making the API call
         const apiUrl = url || "/church/get-departments";
         const response = await Api.get<FetchDepartmentsResponse>(apiUrl);
         const data: unknown = response.data;
@@ -306,33 +308,57 @@ const ViewDepartment: React.FC = () => {
     [handleStateChange, isMobile]
   );
 
-  // Search departments with filters
+  const fetchBranches = useCallback(async () => {
+    try {
+      const response = await Api.get<{ branches: Branch[] }>("/church/get-branches");
+      const data = response.data;
+      if (!Array.isArray(data.branches)) throw new Error("Invalid branch response");
+      setState((prev) => ({
+        ...prev,
+        branches: data.branches,
+      }));
+    } catch (error: any) {
+      console.error("Failed to fetch branches:", error);
+      toast.error("Failed to load branches", { position: isMobile ? "top-center" : "top-right" });
+    }
+  }, [isMobile]);
+
+  // Debounced search function
   const searchDepartments = useCallback(
-    async (url: string | null = "/church/search-departments", searchTerm: string, typeFilter: string) => {
+    async (searchTerm: string, branchId?: string | null, _typeFilter?: string | null) => {
       handleStateChange("isSearching", true);
       try {
         const params = new URLSearchParams();
-        if (searchTerm) params.append("name", searchTerm);
-        if (typeFilter) params.append("type", typeFilter);
-        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
-        const response = await Api.get<FetchDepartmentsResponse>(fullUrl);
-        const data: unknown = response.data;
+        if (searchTerm) params.append("search", searchTerm); params.append("searchField", "name");
+        if (branchId) params.append("branchId", branchId);       
+        const response = await Api.get<FetchDepartmentsResponse>(
+          `/church/get-departments?${params.toString()}`
+        );
+        const data = response.data;
         if (!isFetchDepartmentsResponse(data)) {
           throw new Error("Invalid response structure");
         }
-        handleStateChange("isSearching", false);
-        toast.success("Search completed successfully!", { position: isMobile ? "top-center" : "top-right" });
-        return data;
-      } catch (error: any) {
+        setState((prev) => ({
+          ...prev,
+          filteredDepartments: data.departments,
+          pagination: data.pagination,
+          isSearching: false,
+          currentPage: 1,
+          pageHistory: [],
+        }));
+      } catch (error) {
         console.error("Error searching departments:", error);
-        toast.warn("Server search failed, applying local filter", { position: isMobile ? "top-center" : "top-right" });
-        throw error;
+        toast.error("Failed to fetch from server", { position: isMobile ? "top-center" : "top-right" });
+        setState((prev) => ({ ...prev, isSearching: false }));
       }
     },
     [handleStateChange, isMobile]
   );
 
-  // Refresh departments
+  const handleSearchClick = useCallback(() => {
+    searchDepartments(state.searchTerm, state.selectedBranchId, state.typeFilter);
+  }, [state.searchTerm, state.selectedBranchId, state.typeFilter, searchDepartments]);
+
   const refreshDepartments = useCallback(async () => {
     try {
       const data = await fetchDepartments();
@@ -350,34 +376,6 @@ const ViewDepartment: React.FC = () => {
     }
   }, [fetchDepartments, handleStateChange]);
 
-  // Initial data load
-  useEffect(() => {
-    let isMounted = true;
-    const loadInitialData = async () => {
-      try {
-        const data = await fetchDepartments();
-        if (isMounted) {
-          setState((prev) => ({
-            ...prev,
-            departments: data.departments,
-            filteredDepartments: data.departments,
-            pagination: data.pagination,
-            currentPage: 1,
-            pageHistory: [],
-            loading: false,
-          }));
-        }
-      } catch (error) {
-        if (isMounted) handleStateChange("loading", false);
-      }
-    };
-    loadInitialData();
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchDepartments, handleStateChange]);
-
-  // Handle pagination navigation
   const handlePageChange = useCallback(
     async (direction: "next" | "prev") => {
       handleStateChange("loading", true);
@@ -390,7 +388,7 @@ const ViewDepartment: React.FC = () => {
             ? state.pageHistory[state.pageHistory.length - 2] || "/church/get-departments"
             : null;
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
-        const data = state.searchTerm || state.typeFilter ? await searchDepartments(url, state.searchTerm, state.typeFilter) : await fetchDepartments(url);
+        const data = await fetchDepartments(url);
         setState((prev) => ({
           ...prev,
           filteredDepartments: data.departments,
@@ -407,44 +405,52 @@ const ViewDepartment: React.FC = () => {
         toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
       }
     },
-    [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.typeFilter, fetchDepartments, searchDepartments, handleStateChange, isMobile]
+    [state.pagination.nextPage, state.pageHistory, fetchDepartments, handleStateChange, isMobile]
   );
 
-  // Handle search
-  const handleSearch = useCallback(() => {
-    handleStateChange("isSearching", true);
-    handleStateChange("currentPage", 1);
-    handleStateChange("pageHistory", []);
-    if (state.searchTerm || state.typeFilter) {
-      searchDepartments("/church/search-departments", state.searchTerm, state.typeFilter)
-        .then((data) => {
+  useEffect(() => {
+    let isMounted = true;
+    const loadInitialData = async () => {
+      try {
+        const [deptData] = await Promise.all([fetchDepartments(), fetchBranches()]);
+        if (isMounted) {
           setState((prev) => ({
             ...prev,
-            filteredDepartments: data.departments,
-            pagination: data.pagination,
-            isSearching: false,
-          }));
-        })
-        .catch(() => {
-          const filtered = state.departments
-            .filter((dept) => (state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true))
-            .filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
-          setState((prev) => ({
-            ...prev,
-            filteredDepartments: filtered,
-            pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
+            departments: deptData.departments,
+            filteredDepartments: deptData.departments,
+            pagination: deptData.pagination,
             currentPage: 1,
             pageHistory: [],
-            isSearching: false,
+            loading: false,
           }));
-        });
-    } else {
-      refreshDepartments();
-    }
-  }, [refreshDepartments, searchDepartments, state.departments, state.searchTerm, state.typeFilter]);
+        }
+      } catch {
+        if (isMounted) handleStateChange("loading", false);
+      }
+    };
+    loadInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchDepartments, fetchBranches, handleStateChange]);
 
-  // Action handlers
-  const handleMenuClose = useCallback(() => handleStateChange("anchorEl", null), [handleStateChange]);
+  const handleBranchChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const branchId = e.target.value;
+      handleStateChange("selectedBranchId", branchId);
+      searchDepartments(state.searchTerm, branchId, state.typeFilter);
+    },
+    [handleStateChange, state.searchTerm, state.typeFilter, searchDepartments]
+  );
+
+  const handleTypeChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const typeFilter = e.target.value as "" | "Department" | "Outreach";
+      handleStateChange("typeFilter", typeFilter);
+      searchDepartments(state.searchTerm, state.selectedBranchId, typeFilter);
+    },
+    [handleStateChange, state.searchTerm, state.selectedBranchId, searchDepartments]
+  );
 
   const handleEditOpen = useCallback(() => {
     if (state.currentDepartment) {
@@ -457,14 +463,14 @@ const ViewDepartment: React.FC = () => {
       handleStateChange("editModalOpen", true);
       handleStateChange("nameError", null);
     }
-    handleMenuClose();
+    handleStateChange("anchorEl", null);
   }, [state.currentDepartment, handleStateChange]);
 
   const showConfirmation = useCallback(
     (action: "delete" | "suspend") => {
       handleStateChange("actionType", action);
       handleStateChange("confirmModalOpen", true);
-      handleMenuClose();
+      handleStateChange("anchorEl", null);
     },
     [handleStateChange]
   );
@@ -480,7 +486,7 @@ const ViewDepartment: React.FC = () => {
     [state.editFormData, handleStateChange]
   );
 
-  const handleTypeChange = useCallback(
+  const handleEditTypeChange = useCallback(
     (e: SelectChangeEvent<"Department" | "Outreach">) => {
       handleStateChange("editFormData", { ...state.editFormData, type: e.target.value as "Department" | "Outreach" });
     },
@@ -567,23 +573,13 @@ const ViewDepartment: React.FC = () => {
     }
   }, [state.currentDepartment, state.actionType, handleStateChange, isMobile]);
 
-  // Local filtering for fallback
-  const filteredDepartments = useMemo(() => {
-    if (state.searchTerm || state.typeFilter) {
-      return state.filteredDepartments.filter((dept) =>
-        state.searchTerm ? dept.name.toLowerCase().includes(state.searchTerm.toLowerCase()) : true
-      ).filter((dept) => (state.typeFilter ? dept.type === state.typeFilter : true));
-    }
-    return state.filteredDepartments;
-  }, [state.filteredDepartments, state.searchTerm, state.typeFilter]);
-
   return (
     <DashboardManager>
       <ToastContainer />
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 5 }}>
+        <Grid container spacing={2} sx={{ mb: 5, alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -601,91 +597,184 @@ const ViewDepartment: React.FC = () => {
               <span className="text-[#777280]">Manage</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
               <span className="text-[#F6F4FE]">Department</span>
-            </Typography>
-            <Box
-              sx={{
-                border: "1px solid #4d4d4e8e",
-                borderRadius: "32px",
-                display: "flex",
-                alignItems: "center",
-                backgroundColor: "#4d4d4e8e",
-                padding: "4px",
-                width: "100%",
-                gap: "8px",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
-              }}
-            >
-              <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-                >
-                  Name
-                </Typography>
-                <TextField
-                  variant="standard"
-                  placeholder="Search by name"
-                  value={state.searchTerm}
-                  onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+            </Typography>            
+              <Box
+                sx={{
+                  border: "1px solid #4d4d4e8e",
+                  borderRadius: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  backgroundColor: "#4d4d4e8e",
+                  padding: "4px",
+                  width: "100%",
+                  gap: "8px",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                  "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
+                }}
+              >
+                <Box
                   sx={{
-                    "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
+                    display: "flex",
+                    flexDirection: "column",
                     flex: 1,
+                    padding: "4px 16px",
                   }}
-                  InputProps={{ disableUnderline: true }}
-                  aria-label="Search departments by name"
-                />
-              </Box>
-              <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-              <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
                 >
-                  Type
-                </Typography>
-                <Select
-                  value={state.typeFilter}
-                  onChange={(e) => handleStateChange("typeFilter", e.target.value as "" | "Department" | "Outreach")}
-                  displayEmpty
-                  sx={{
-                    color: state.typeFilter ? "#F6F4FE" : "#777280",
-                    fontWeight: 500,
-                    fontSize: "14px",
-                    ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-                    ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                    "& .MuiSelect-icon": { display: "none" },
-                  }}
-                  renderValue={(selected) => (selected ? selected : "Select Type")}
-                  aria-label="Filter departments by type"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Department">Department</MenuItem>
-                  <MenuItem value="Outreach">Outreach</MenuItem>
-                </Select>
-              </Box>
-              <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
-                <Button
-                  onClick={handleSearch}
-                  sx={{
-                    backgroundColor: "transparent",
-                    border: "1px solid #777280",
-                    color: "white",
-                    borderRadius: "50%",
-                    minWidth: "48px",
-                    height: "48px",
-                    padding: 0,
-                    "&:hover": { backgroundColor: "#777280" },
-                  }}
-                  disabled={state.loading || state.isSearching}
-                  aria-label="Search departments"
-                >
-                  {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <SearchIcon sx={{ fontSize: "20px" }} />}
-                </Button>
-              </Box>
-            </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#F6F4FE",
+                      fontWeight: 500,
+                      fontSize: "11px",
+                      ml: "8px",
+                    }}
+                  >
+                    Name
+                  </Typography>
+
+                  <Autocomplete
+                    freeSolo
+                    options={state.departments.map((dept) => dept.name)} // 🔹 all department names
+                    value={state.searchTerm}
+                    onInputChange={(_e, value) => {
+                      handleStateChange("searchTerm", value);
+
+                      // 🔹 if you still want server-side filtering
+                      if (value.trim()) {
+                        searchDepartments(value, state.selectedBranchId, state.typeFilter);
+                      }
+                    }}
+                    filterOptions={(options, { inputValue }) =>
+                      options.filter((option) =>
+                        option.toLowerCase().includes(inputValue.toLowerCase())
+                      )
+                    } // 🔹 client-side filtering
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Search by name"
+                        variant="standard"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          sx: {
+                            color: "#F6F4FE",
+                            fontSize: "14px",
+                            padding: "4px 8px",
+                            backgroundColor: "transparent",
+                          },
+                        }}
+                        sx={{
+                          "& .MuiOutlinedInput-root": { border: "none" },
+                        }}
+                      />
+                    )}
+                    sx={{ flex: 1, minWidth: 200 }}
+                    aria-label="Search departments by name"
+                  />
+                </Box>
+
+                <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                {isMobile && (
+                  <IconButton sx={{color: '#F6F4FE'}} onClick={() => handleStateChange("searchDrawerOpen", true)}>
+                    <AttachFileOutlined/>
+                  </IconButton>
+                )}
+                {!isMobile && (
+                  <>
+                    <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                      >
+                        Branch
+                      </Typography>
+                      <FormControl fullWidth>
+                        <Select
+                          value={state.selectedBranchId}
+                          onChange={handleBranchChange}
+                          displayEmpty
+                          sx={{
+                            color: state.selectedBranchId ? "#F6F4FE" : "#777280",
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            border: "none",
+                            ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                            ".MuiOutlinedInput-notchedOutline": { border: "#777280" },
+                            "& .MuiSelect-icon": { display: "none" },
+                          }}
+                          renderValue={(selected) =>
+                            selected
+                              ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch"
+                              : "Select Branch"
+                          }
+                          aria-label="Select branch"
+                        >
+                          <MenuItem value="">All</MenuItem>
+                          {state.branches.map((branch) => (
+                            <MenuItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                    <Box sx={{ display: "flex", flexDirection: "column", minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                      >
+                        Type
+                      </Typography>
+                      <Select
+                        value={state.typeFilter}
+                        onChange={handleTypeChange}
+                        displayEmpty
+                        sx={{
+                          color: state.typeFilter ? "#F6F4FE" : "#777280",
+                          fontWeight: 500,
+                          fontSize: "14px",
+                          ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                          ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                          "& .MuiSelect-icon": { display: "none" },
+                        }}
+                        renderValue={(selected) => (selected ? selected : "Select Type")}
+                        aria-label="Filter departments by type"
+                      >
+                        <MenuItem value="">All</MenuItem>
+                        <MenuItem value="Department">Department</MenuItem>
+                        <MenuItem value="Outreach">Outreach</MenuItem>
+                      </Select>
+                    </Box>
+                  </>
+                )}
+                <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
+                  <Button
+                    onClick={handleSearchClick}
+                    sx={{
+                      backgroundColor: "transparent",
+                      border: "1px solid #777280",
+                      color: "white",
+                      borderRadius: "50%",
+                      minWidth: "48px",
+                      height: "48px",
+                      padding: 0,
+                      "&:hover": { backgroundColor: "#777280" },
+                    }}
+                    disabled={state.loading || state.isSearching}
+                    aria-label="Search departments"
+                  >
+                    {state.isSearching ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      <SearchIcon sx={{ fontSize: "20px" }} />
+                    )}
+                  </Button>
+                </Box>
+              </Box>            
           </Grid>
-          <Grid size={{ xs: 12, md: 7 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
@@ -699,6 +788,7 @@ const ViewDepartment: React.FC = () => {
                 color: "var(--color-text-on-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                ml: isMobile ? 2 : 0,
               }}
               disabled={!authData?.isSuperAdmin}
               aria-label="Create new department"
@@ -708,6 +798,162 @@ const ViewDepartment: React.FC = () => {
           </Grid>
         </Grid>
 
+        {/* Search Drawer for Mobile */}
+        <Drawer
+          anchor="top"
+          open={state.searchDrawerOpen}
+          onClose={() => handleStateChange("searchDrawerOpen", false)}
+          sx={{
+            "& .MuiDrawer-paper": {
+              backgroundColor: "#2C2C2C",
+              color: "#F6F4FE",
+              padding: 2,
+              borderRadius: "0 0 16px 16px",
+            },
+          }}
+        >
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <IconButton
+              onClick={() => handleStateChange("searchDrawerOpen", false)}
+              aria-label="Close search drawer"
+            >
+              <Close sx={{ color: "#F6F4FE" }} />
+            </IconButton>
+          </Box>
+          <Box sx={{ p: 2 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}
+            >
+              Name
+            </Typography>
+            <Autocomplete
+              freeSolo
+              options={state.departments.map((dept) => dept.name)}
+              value={state.searchTerm}
+              onInputChange={(_e, value) => {
+                handleStateChange("searchTerm", value);
+
+                if (value.trim()) {
+                  searchDepartments(value, state.selectedBranchId, state.typeFilter);
+                }
+              }}
+              filterOptions={(options, { inputValue }) =>
+                options.filter((option) =>
+                  option.toLowerCase().includes(inputValue.toLowerCase())
+                )
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Search by name"
+                  size="small"  
+                  variant="outlined" // ✅ outlined for border
+                  InputProps={{
+                    ...params.InputProps,
+                    sx: {
+                      color: "#F6F4FE",
+                      fontSize: "14px",
+                      padding: "4px 8px",
+                      backgroundColor: "transparent",
+                    },
+                  }}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "#777280", // ✅ default border
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#F6F4FE", // ✅ hover state
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#4B8DF8", // ✅ focus state
+                      },
+                    },
+                  }}
+                />
+              )}
+              sx={{ flex: 1, minWidth: 200 }}
+              aria-label="Search departments by name"
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}
+            >
+              Branch
+            </Typography>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <Select
+                value={state.selectedBranchId}
+                onChange={handleBranchChange}
+                displayEmpty
+                sx={{
+                  color: state.selectedBranchId ? "#F6F4FE" : "#777280",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  ".MuiSelect-select": { padding: "8px" },
+                  ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                }}
+                renderValue={(selected) =>
+                  selected
+                    ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch"
+                    : "Select Branch"
+                }
+                aria-label="Select branch"
+              >
+                <MenuItem value="">All</MenuItem>
+                {state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography
+              variant="caption"
+              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}
+            >
+              Type
+            </Typography>
+            <FormControl fullWidth>
+              <Select
+                value={state.typeFilter}
+                onChange={handleTypeChange}
+                displayEmpty
+                sx={{
+                  color: state.typeFilter ? "#F6F4FE" : "#777280",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  ".MuiSelect-select": { padding: "8px" },
+                  ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                }}
+                renderValue={(selected) => (selected ? selected : "Select Type")}
+                aria-label="Filter departments by type"
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="Department">Department</MenuItem>
+                <MenuItem value="Outreach">Outreach</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              onClick={handleSearchClick}
+              sx={{
+                mt: 2,
+                backgroundColor: "#F6F4FE",
+                color: "#2C2C2C",
+                borderRadius: 50,
+                width: "100%",
+                py: 1,
+                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+              }}
+              disabled={state.loading || state.isSearching}
+              aria-label="Search departments"
+            >
+              {state.isSearching ? <CircularProgress size={20} color="inherit" /> : "Search"}
+            </Button>
+          </Box>
+        </Drawer>
+
         {/* Loading State */}
         {state.loading && state.filteredDepartments.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -716,18 +962,18 @@ const ViewDepartment: React.FC = () => {
         )}
 
         {/* Error or Empty State */}
-        {(!state.loading || state.error) && filteredDepartments.length === 0 && (
+        {(!state.loading || state.error) && state.filteredDepartments.length === 0 && (
           <EmptyState error={state.error} openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} />
         )}
 
         {/* Data Cards */}
-        {filteredDepartments.length > 0 && (
+        {state.filteredDepartments.length > 0 && (
           <>
             <Grid container spacing={2}>
-              {filteredDepartments.map((dept) => (
+              {state.filteredDepartments.map((dept) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={dept.id}>
                   <Card
-                    component="div"                   
+                    component="div"
                     sx={{
                       borderRadius: "10.267px",
                       backgroundColor: "rgba(255, 255, 255, 0.06)",
@@ -745,7 +991,7 @@ const ViewDepartment: React.FC = () => {
                           <IconButton
                             sx={{
                               backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#E1E1E1",                            
+                              color: "#E1E1E1",
                               flexDirection: "column",
                               borderRadius: 1,
                               textAlign: "center",
@@ -843,7 +1089,7 @@ const ViewDepartment: React.FC = () => {
           anchorEl={state.anchorEl}
           keepMounted
           open={Boolean(state.anchorEl)}
-          onClose={handleMenuClose}
+          onClose={() => handleStateChange("anchorEl", null)}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
           PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
@@ -930,7 +1176,7 @@ const ViewDepartment: React.FC = () => {
                 </InputLabel>
                 <Select
                   value={state.editFormData.type}
-                  onChange={handleTypeChange}
+                  onChange={handleEditTypeChange}
                   label="Type"
                   sx={{
                     color: "#F6F4FE",
