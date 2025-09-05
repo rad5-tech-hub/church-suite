@@ -579,7 +579,7 @@ const ViewDepartment: React.FC = () => {
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5, alignItems: "center" }}>
-          <Grid size={{ xs: 12, md: 7 }}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -774,7 +774,7 @@ const ViewDepartment: React.FC = () => {
                 </Box>
               </Box>            
           </Grid>
-          <Grid size={{ xs: 12, md: 5 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 4 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}

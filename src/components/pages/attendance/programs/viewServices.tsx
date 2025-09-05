@@ -147,8 +147,7 @@ const ViewServices: React.FC = () => {
       setEvents(data.events || []);
     } catch (error) {
       toast.error("Failed to load events", {
-        position: isMobile ? "top-center" : "top-right",
-        containerId: "viewServicesToasts", // ✅ unique container
+        position: isMobile ? "top-center" : "top-right",    
       });
     } finally {
       setLoading(false);
@@ -240,7 +239,7 @@ const ViewServices: React.FC = () => {
 
   return (
     <DashboardManager>
-      <ToastContainer containerId={'viewServicesToasts'}/>
+      <ToastContainer/>
       <Box sx={{ minHeight: "100vh", py:3, px:1 }}>
         <Grid container spacing={2}>
           <Grid size={{xs:12 , lg: 1.5,}}>

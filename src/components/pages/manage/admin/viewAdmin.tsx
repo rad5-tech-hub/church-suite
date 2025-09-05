@@ -517,8 +517,7 @@ const ViewAdmins: React.FC = () => {
     } catch (error: any) {
       console.error("Error searching admins:", error);
       const errorMessage = error.response?.data.error.message || "No admins found matching the search criteria";
-      handleStateChange("searchError", errorMessage);
-      toast.error(errorMessage);
+      handleStateChange("searchError", errorMessage);    
     } finally {
       handleStateChange("isSearching", false);
       handleStateChange("isDrawerOpen", false);

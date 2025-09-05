@@ -26,8 +26,7 @@ interface MobileNavProps {
 const buttons = [
   'Dashboard',
   'Manage',
-  'Members',
-  'Newcomers',
+  'Membership',
   'Finance',
   'Programs',
   'Settings',
@@ -36,7 +35,7 @@ const buttons = [
 const buttonIcons: { [key: string]: React.ReactNode } = {
   Dashboard: <IoGridOutline className="text-2xl" />,
   Manage: <IoListOutline className="text-2xl" />,
-  Members: <IoPeopleOutline className="text-2xl" />,
+  Membership: <IoPeopleOutline className="text-2xl" />,
   Newcomers: <IoPersonAddOutline className="text-2xl" />,
   Finance: <IoWalletOutline className="text-2xl" />,
   Programs: <IoCalendarOutline className="text-2xl" />,
