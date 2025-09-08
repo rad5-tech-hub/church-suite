@@ -17,7 +17,7 @@ const MultiDatePicker: React.FC<MultiDatePickerProps> = ({ value, onChange }) =>
 
   const handleDateSelect = (date: Dayjs | null) => {
     if (!date) return;
-    const iso = date.startOf("day").toISOString();
+    const iso = date.format("YYYY-MM-DD"); // store local date
     const exists = value.includes(iso);
     if (exists) {
       onChange(value.filter((d) => d !== iso));
