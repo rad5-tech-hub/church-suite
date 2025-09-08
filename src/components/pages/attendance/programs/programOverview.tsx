@@ -14,7 +14,8 @@ import {
   CircularProgress,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Grid
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
@@ -372,7 +373,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         }}
       >
         <DialogTitle sx={{ p: 0, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h2" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
+          <Typography sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
             Loading...
           </Typography>
           <IconButton onClick={onClose} sx={{ color: 'white' }}>
@@ -499,15 +500,16 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
               <Typography variant="h6" sx={{ color: 'white', mb: 2, fontWeight: 'bold' }}>
                 Collections
               </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'space-between' }}>
-                  {collections.map((collection, index) => (
-                    <StatCard 
-                      key={index} 
-                      title={collection.collection.name} // Use collection.name instead of type
-                      value={formatCurrency(collection.amount)} 
+              <Grid container spacing={2}>
+                {collections.map((collection, index) => (
+                  <Grid size={{xs: 12, sm: 6, md: 4, lg: 3}} key={index}>
+                    <StatCard
+                      title={collection.collection.name}
+                      value={formatCurrency(collection.amount)}
                     />
-                  ))}
-                </Box>
+                  </Grid>
+                ))}
+              </Grid>
             </Box>
           )}
 

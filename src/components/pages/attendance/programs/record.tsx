@@ -9,11 +9,19 @@ import {
   TextField,
   Box,
   Grid,
-  CircularProgress
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Switch,
+  List,
+  ListItem,
+  ListItemText,
+  CircularProgress,
 } from '@mui/material';
 import { Close, Save } from '@mui/icons-material';
 import { toast, ToastContainer } from 'react-toastify';
 import Api from '../../../shared/api/api';
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 interface CollectionItem {
   id: string;
@@ -27,6 +35,17 @@ interface CollectionItem {
 interface Event {
   id: string;
   title: string;
+  assignedDepartments: Dept[];
+}
+
+interface Dept {
+  id : string;
+  name: string;
+}
+
+interface Worker {
+  id: string;
+  name: string;
 }
 
 interface EventOccurrence {
@@ -85,7 +104,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     { label: "Children", key: "children" },
     { label: "Total", key: "total" }
   ];
-  
+  const [workers, setWorkers] = useState<Record<string, Worker[]>>({});
+  const [deploading, setDepLoading] = useState<Record<string, boolean>>({});
+  const [attendance, setAttendance] = useState<Record<string, Record<string, boolean>>>({});
+  const [depsubmitting, setDepSubmitting] = useState<Record<string, boolean>>({});
+  const [depMessage, setDepMessage] = useState<Record<string, string>>({});
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -132,28 +155,88 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     }
   }, [eventId, open]);
 
-const handleInputChange = (field: keyof AttendanceData, value: string) => {
-  // allow empty or numeric (with commas stripped)
-  if (value === "" || /^\d+$/.test(value.replace(/,/g, ""))) {
-    setAttendanceData((prev) => {
-      const updated = { ...prev, [field]: value };
+  // handle the toogle
+  const handleToggle = (deptId: string, workerId: string) => {
+    setAttendance((prev) => ({
+      ...prev,
+      [deptId]: {
+        ...prev[deptId],
+        [workerId]: !prev[deptId]?.[workerId],
+      },
+    }));
+  };
 
-      // Only recalc total if user edits male/female/children
-      if (field !== "total") {
-        const male = parseInt(updated.male.replace(/,/g, "") || "0", 10);
-        const female = parseInt(updated.female.replace(/,/g, "") || "0", 10);
-        const children = parseInt(updated.children.replace(/,/g, "") || "0", 10);
+  // fetch Worker when open accordion
+  const handleFetchWorkers = async (deptId: string) => {
+    if (workers[deptId]) return; // already fetched
+    try {
+      setDepLoading((prev) => ({ ...prev, [deptId]: true }));
+      const res = await Api.get(`/member/all-members?departmentId=${deptId}`);
+      setWorkers((prev) => ({ ...prev, [deptId]: res.data.data }));
+      setDepLoading((prev) => ({ ...prev, [deptId]: false }));
+    } catch (err) {
+      console.error("Error fetching workers:", err);
+      setDepLoading((prev) => ({ ...prev, [deptId]: false }));
+    }
+  };
 
-        const sum = male + female + children;
+  // handle submit for departments
+    const handleSubmit = async (deptId: string) => {
+      const deptAttendance = attendance[deptId] || {};
 
-        updated.total = sum > 0 ? sum.toString() : ""; // clear if all are empty
+      const payload = Object.entries(deptAttendance).map(([workerId, present]) => ({
+        workerId,
+        status: present ? "present" : "", // ensure we send either present/absent
+      }));
+
+      try {
+        setDepSubmitting((prev) => ({ ...prev, [deptId]: true }));
+
+        const response = await Api.post(
+          `/church/worker-attendance/occurance/${eventId}/department/${deptId}`,
+          payload
+        );
+
+        // ✅ Save message for this department
+        setDepMessage((prev) => ({
+          ...prev,
+          [deptId]: response?.data?.message || "Submitted successfully",
+        }));
+
+        setDepSubmitting((prev) => ({ ...prev, [deptId]: false }));
+      } catch (err: any) {
+        console.error("Error submitting attendance:", err);
+
+        setDepMessage((prev) => ({
+          ...prev,
+          [deptId]: err?.response?.data?.message || "Error submitting attendance",
+        }));
+
+        setDepSubmitting((prev) => ({ ...prev, [deptId]: false }));
       }
+    };
 
-      return updated;
-    });
-  }
-};
+  const handleInputChange = (field: keyof AttendanceData, value: string) => {
+    // allow empty or numeric (with commas stripped)
+    if (value === "" || /^\d+$/.test(value.replace(/,/g, ""))) {
+      setAttendanceData((prev) => {
+        const updated = { ...prev, [field]: value };
 
+        // Only recalc total if user edits male/female/children
+        if (field !== "total") {
+          const male = parseInt(updated.male.replace(/,/g, "") || "0", 10);
+          const female = parseInt(updated.female.replace(/,/g, "") || "0", 10);
+          const children = parseInt(updated.children.replace(/,/g, "") || "0", 10);
+
+          const sum = male + female + children;
+
+          updated.total = sum > 0 ? sum.toString() : ""; // clear if all are empty
+        }
+
+        return updated;
+      });
+    }
+  };
 
   const formatNumber = (value: string) => {
     if (!value) return '';
@@ -286,7 +369,7 @@ const handleInputChange = (field: keyof AttendanceData, value: string) => {
           justifyContent: 'space-between',
           color: '#F6F4FE'
         }}>
-          <Typography variant="h5" component="h2" fontWeight="bold">
+          <Typography fontWeight="bold">
             Loading...
           </Typography>
           <IconButton 
@@ -343,7 +426,7 @@ const handleInputChange = (field: keyof AttendanceData, value: string) => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="h6" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
             {fetchError}
           </Typography>
         </DialogContent>
@@ -394,7 +477,91 @@ const handleInputChange = (field: keyof AttendanceData, value: string) => {
       </DialogTitle>
 
       <DialogContent sx={{ p: 3, mt: 2 }}>
-        <Box>
+        <Box>  
+          <Box>
+            <Typography variant='h6' color='#F6F4FE' fontWeight='medium'>Expected Departments </Typography>
+            <div className='my-5'>
+              {eventData?.event?.assignedDepartments.map((dept) => (
+                <Accordion
+                  key={dept.id}
+                  onChange={(_, expanded) => {
+                    if (expanded) handleFetchWorkers(dept.id);
+                  }}
+                  sx={{ bgcolor: "transparent", color: "#F6F4FE",border: '0.5px solid', borderColor: "#777280", my: 2 }}
+                >
+                  <AccordionSummary expandIcon={<ExpandMoreIcon  sx={{ color: "white" }}/>}>
+                    <Typography fontWeight="medium">{dept.name}</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {deploading[dept.id] ? (
+                      <Box sx={{display: 'flex', alignContent: 'center', gap: 2}}><CircularProgress size={24} sx={{color: '#777280'}}/> Loading..</Box>
+                    ) : (
+                      <>
+                        <List dense>
+                          {workers[dept.id]?.map((worker) => (
+                            <ListItem
+                              key={worker.id}
+                              sx={{ display: "flex", color: "grey.300", justifyContent: "space-between" }}
+                            >
+                              <ListItemText primary={worker.name} />
+                              <Switch
+                                checked={attendance[dept.id]?.[worker.id] || false}
+                                onChange={() => handleToggle(dept.id, worker.id)}
+                                color="success"
+                              />
+                            </ListItem>
+                          ))}
+                          {!workers[dept.id] && (
+                            <Typography variant="body2" color="grey.300">
+                              No workers found
+                            </Typography>
+                          )}
+                        </List>
+
+                        <Box sx={{ textAlign: "right", mt: 2 }}>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            disabled={depsubmitting[dept.id]}
+                            onClick={() => handleSubmit(dept.id)}
+                            sx={{
+                              py: 1,
+                              backgroundColor: "#F6F4FE",
+                              px: { xs: 2, sm: 2 },
+                              borderRadius: 50,
+                              color: "#2C2C2C",
+                              fontWeight: "semibold",
+                              textTransform: "none",
+                              fontSize: { xs: "1rem", sm: "1rem" },
+                              "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 }
+                            }}
+                          >
+                            {depsubmitting[dept.id] ? "Submitting..." : "Save Attendance"}
+                          </Button>
+                        </Box>
+                        
+                        {/* ✅ Show department message here */}
+                        {depMessage[dept.id] && (
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              mt: 1,
+                              color: depMessage[dept.id].toLowerCase().includes("error")
+                                ? "error.main"
+                                : "#777280",
+                            }}
+                          >
+                            {depMessage[dept.id]}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </div>
+          </Box>  
+
           {/* Members Count Section */}
           <Box sx={{ 
             display: 'flex', 
@@ -483,7 +650,7 @@ const handleInputChange = (field: keyof AttendanceData, value: string) => {
                 </Grid>
               ))}
             </Grid>                
-          </Box>
+          </Box>          
 
           {/* Collections Records Section */}
           {eventData?.collection && eventData.collection.length > 0 && (
