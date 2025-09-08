@@ -372,7 +372,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         }}
       >
         <DialogTitle sx={{ p: 0, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="h2" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
             Loading...
           </Typography>
           <IconButton onClick={onClose} sx={{ color: 'white' }}>
