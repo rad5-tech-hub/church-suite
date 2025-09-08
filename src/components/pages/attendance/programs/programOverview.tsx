@@ -11,9 +11,14 @@ import {
   useTheme,
   useMediaQuery,
   Paper,
-  CircularProgress
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import dayjs from "dayjs"; // for formatting date
 import Api from '../../../shared/api/api';
 import CreateProgramModal from './services';
 import RecordDialogue from './record';
@@ -79,6 +84,12 @@ interface EventOccurrence {
 interface Event {
   id: string;
   title: string;
+  recurrenceType: string;
+  assignedDepartments: Departments[];
+}
+
+interface Departments {
+  name: string;
 }
 
 interface EventOccurrence {
@@ -145,11 +156,11 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
 
   // Get attendance data from API or use empty defaults
   const attendance = eventData?.attendances?.[0] || {
-    male: 151, // Sample data from the design
-    female: 205, // Sample data from the design
-    children: 76, // Sample data from the design
+    male: 0, // Sample data from the design
+    female: 0, // Sample data from the design
+    children: 0, // Sample data from the design
     adults: 0,
-    total: 432
+    total: 0
   };
 
   // Chart.js data configuration for attendance bar chart
@@ -160,9 +171,9 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         label: 'Attendance',
         data: [attendance.male, attendance.female, attendance.children],
         backgroundColor: [
-          '#F6F4FE', // Men - indigo
-          '#F6F4FE', // Women - pink
-          '#F6F4FE', // Children - amber
+          '#F6F4FE',
+          '#F6F4FE', 
+          '#F6F4FE', 
         ],
         borderColor: [
           '#F6F4FE',
@@ -176,17 +187,22 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     ],
   };
 
-  // Fix: Properly type the bar chart options
+  // Find max attendance value
+  const maxAttendance = Math.max(
+    attendance.male || 0,
+    attendance.female || 0,
+    attendance.children || 0
+  );
+
+  // Round up to nearest 50 for chart scale
+  const suggestedMax = Math.ceil(maxAttendance / 50) * 50;
+
   const barChartOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
+      legend: { display: false },
+      title: { display: false },
       tooltip: {
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         titleColor: 'white',
@@ -195,24 +211,23 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         borderWidth: 1,
         displayColors: false,
         callbacks: {
-          label: function(context: any) {
+          label: function (context: any) {
             return `${context.dataset.label}: ${context.raw}`;
-          }
-        }
+          },
+        },
       },
       datalabels: {
-        color: '#F6F4FE', // Dark text for light bars
+        color: '#F6F4FE',
         anchor: 'end',
         align: 'top',
         formatter: (value: number) => value,
-        font: {
-          weight: 'bold'
-        }
-      }
+        font: { weight: 'bold' },
+      },
     },
     scales: {
       y: {
         beginAtZero: true,
+        suggestedMax: suggestedMax || 50, // fallback if all zero
         grid: {
           color: 'rgba(255, 255, 255, 0.1)',
           drawTicks: false,
@@ -220,39 +235,30 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         ticks: {
           color: 'rgba(255, 255, 255, 0.7)',
           stepSize: 50,
-          callback: function(value: any) {
-            return value === 0 ? '0' : value === 50 ? '50' : value === 100 ? '100' : 
-                   value === 150 ? '150' : value === 200 ? '200' : value === 250 ? '250' : '';
-          }
+          callback: function (value: any) {
+            return value; // dynamically show every 50
+          },
         },
-        border: {
-          display: false
-        }
+        border: { display: false },
       },
       x: {
-        grid: {
-          display: false,
-        },
+        grid: { display: false },
         ticks: {
           color: 'rgba(255, 255, 255, 0.7)',
-          font: {
-            weight: 'bold' as const,
-          }
+          font: { weight: 'bold' as const },
         },
-        border: {
-          display: false
-        }
+        border: { display: false },
       },
     },
   };
 
   // Calculate workers vs non-workers percentage
-  const workersPercentage = 70;
-  const nonWorkersPercentage = 30;
+  const workersPercentage = 0;
+  const nonWorkersPercentage = 0;
 
   // Chart.js data configuration for workers doughnut chart
   const doughnutChartData = {
-    labels: ['Workers', 'Non-workers'],
+    labels: ['Present', 'Absent'],
     datasets: [
       {
         data: [workersPercentage, nonWorkersPercentage],
@@ -504,6 +510,45 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
                 </Box>
             </Box>
           )}
+
+          <Box sx={{marginBottom: 4}}>
+            <Accordion sx={{ bgcolor: "#393939", color: "white" }}>
+              <AccordionSummary
+                expandIcon={<ArrowDownwardIcon sx={{ color: "white" }} />}
+                aria-controls="panel1-content"
+                id="panel1-header"
+              >
+                <Typography component="span" sx={{ fontWeight: "bold" }}>
+                  Program Details
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                    <strong>Date Created:</strong>{" "}
+                    {dayjs(eventData.date).format("dddd, MMMM D, YYYY")}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                    <strong>Program Type:</strong> {eventData.event.recurrenceType === 'none' ? 'Single' : eventData.event.recurrenceType}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                    <strong>Time:</strong> {eventData.startTime} - {eventData.endTime}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                    <strong>Day:</strong> {eventData.dayOfWeek}
+                  </Typography>
+                  {eventData.event?.assignedDepartments?.length > 0 && (
+                    <Typography variant="body2" sx={{ color: "grey.300" }}>
+                      <strong>Assigned Departments:</strong>{" "}
+                      {eventData.event.assignedDepartments
+                        .map((dept) => dept.name)
+                        .join(", ")}
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          </Box>
         </DialogContent>
         
         <DialogActions sx={{ justifyContent: 'center', gap: 2, pt: 2 }}>

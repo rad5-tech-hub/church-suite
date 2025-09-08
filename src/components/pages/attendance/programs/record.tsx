@@ -132,42 +132,66 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
     }
   }, [eventId, open]);
 
-  const handleInputChange = (field: keyof AttendanceData, value: string) => {
-    if (value === '' || /^\d+$/.test(value)) {
-      setAttendanceData(prev => ({
+const handleInputChange = (field: keyof AttendanceData, value: string) => {
+  // allow empty or numeric (with commas stripped)
+  if (value === "" || /^\d+$/.test(value.replace(/,/g, ""))) {
+    setAttendanceData((prev) => {
+      const updated = { ...prev, [field]: value };
+
+      // Only recalc total if user edits male/female/children
+      if (field !== "total") {
+        const male = parseInt(updated.male.replace(/,/g, "") || "0", 10);
+        const female = parseInt(updated.female.replace(/,/g, "") || "0", 10);
+        const children = parseInt(updated.children.replace(/,/g, "") || "0", 10);
+
+        const sum = male + female + children;
+
+        updated.total = sum > 0 ? sum.toString() : ""; // clear if all are empty
+      }
+
+      return updated;
+    });
+  }
+};
+
+
+  const formatNumber = (value: string) => {
+    if (!value) return '';
+    const numericValue = value.replace(/,/g, '');
+    return Number(numericValue).toLocaleString();
+  };
+
+  const handleCollectionChange = (collectionItemId: string, value: string) => {
+    // Strip commas before validating
+    const raw = value.replace(/,/g, '');
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setCollectionData(prev => ({
         ...prev,
-        [field]: value
+        [collectionItemId]: formatNumber(raw)
       }));
     }
   };
 
-  const handleCollectionChange = (collectionItemId: string, value: string) => {
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setCollectionData(prev => ({
-        ...prev,
-        [collectionItemId]: value
-      }));
-    }
-  };
 
   const handleSave = async () => {
     try {
       setSubmitting(true);
       
-      // Create attendance payload
-      const attendancePayload: any = {};
-      if (attendanceData.total) attendancePayload.total = parseInt(attendanceData.total);
-      if (attendanceData.male) attendancePayload.male = parseInt(attendanceData.male);
-      if (attendanceData.female) attendancePayload.female = parseInt(attendanceData.female);
-      if (attendanceData.children) attendancePayload.children = parseInt(attendanceData.children);
-      
-      // Create collection payload in the correct format
+      // Attendance payload (clean numbers)
+      const attendancePayload: Record<string, number> = {};
+      if (attendanceData.total) attendancePayload.total = parseInt(attendanceData.total.replace(/,/g, ''));
+      if (attendanceData.male) attendancePayload.male = parseInt(attendanceData.male.replace(/,/g, ''));
+      if (attendanceData.female) attendancePayload.female = parseInt(attendanceData.female.replace(/,/g, ''));
+      if (attendanceData.children) attendancePayload.children = parseInt(attendanceData.children.replace(/,/g, ''));
+
+      // Collections (clean numbers)
       const collectionUpdates = [];
       for (const [collectionItemId, amount] of Object.entries(collectionData)) {
-        if (amount && amount !== '' && amount !== '0.00') {
+        const clean = amount.replace(/,/g, '');
+        if (clean && clean !== "" && clean !== "0.00") {
           collectionUpdates.push({
-            id: collectionItemId, // This should be the collection item ID
-            amount: parseFloat(amount) || 0
+            id: collectionItemId,
+            amount: parseFloat(clean) || 0,
           });
         }
       }
@@ -401,13 +425,22 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                       onChange={(e) => handleInputChange(field.key, e.target.value)}
                       type="text"
                       inputMode="numeric"
-                      sx={{ 
+                      sx={{
                         width: { xs: 90, sm: 95, md: 100 },
-                        justifyContent: 'center',
-                        '& .MuiInputBase-root': {
-                          height: { xs: 70, sm: 80 }
+                        justifyContent: "center",
+                        "& .MuiInputBase-root": {
+                          height: { xs: 70, sm: 80 },
+                        },
+                        "&.Mui-disabled": {
+                          WebkitTextFillColor: "#F6F4FE",
+                          color: "#777280",
                         }
+
                       }}
+                      disabled={
+                        field.key === "total" &&
+                        (!!attendanceData.male || !!attendanceData.female || !!attendanceData.children)
+                      }
                       InputProps={{
                         sx: {
                           color: "#F6F4FE",
@@ -419,18 +452,25 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                           },
                           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                             borderColor: "#777280",
-                          },   
-                        }
+                          },
+                          "&.Mui-disabled": {
+                            "& .MuiInputBase-input.Mui-disabled": {
+                              WebkitTextFillColor: "#F6F4FE", // for Chrome/Edge
+                              color: "#F6F4FE", // for Firefox
+                            },
+                          },
+                        },
                       }}
-                      InputLabelProps={{
+                      inputProps={{
                         sx: {
+                          WebkitTextFillColor: "#F6F4FE", // ensures text is white even if disabled
                           color: "#F6F4FE",
-                          "&.Mui-focused": {
-                            color: "#F6F4FE",
-                          }, 
-                        }                                                           
+                            "&.Mui-disabled": {
+                              color: "#777280", // label matches disabled color
+                            },
+                        },
                       }}
-                      size="small"
+                      size='small'
                     />
                     <Typography variant="body2" sx={{ 
                       mt: 1, 
@@ -473,7 +513,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
                     }}>
                       <TextField
                         variant="outlined"
-                        value={collectionData[item.id] || item.amount}
+                        value={collectionData[item.id] ?? ''}
                         onChange={(e) => handleCollectionChange(item.id, e.target.value)}
                         type="text"
                         inputMode="decimal"
