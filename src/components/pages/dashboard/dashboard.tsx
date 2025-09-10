@@ -45,19 +45,19 @@ const Dashboard: React.FC = () => {
       <div className="p-6 space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+          <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
             <h2 className="text-xl font-semibold text-[#F6F4FE]">Members</h2>
             <p className="text-gray-400 mt-2">
               Total church members: <span className="font-bold">1,250</span>
             </p>
           </div>
-          <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+          <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
             <h2 className="text-xl font-semibold text-[#F6F4FE]">Events</h2>
             <p className="text-gray-400 mt-2">
               Upcoming events: <span className="font-bold">12</span>
             </p>
           </div>
-          <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+          <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
             <h2 className="text-xl font-semibold text-[#F6F4FE]">Donations</h2>
             <p className="text-gray-400 mt-2">
               Total donations: <span className="font-bold">$45,300</span>
@@ -68,7 +68,7 @@ const Dashboard: React.FC = () => {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Members Growth Line Chart */}
-          <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+          <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
             <h3 className="text-lg font-semibold text-[#F6F4FE] mb-4">
               Members Growth
             </h3>
@@ -93,7 +93,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Donations Pie Chart */}
-          <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+          <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
             <h3 className="text-lg font-semibold text-[#F6F4FE] mb-4">
               Donations Breakdown
             </h3>
@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Events Bar Chart */}
-        <div className="bg-[rgba(255, 255, 255, 0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
+        <div className="bg-[rgba(255,255,255,0.06)] shadow-md rounded-lg p-6 border border-[#404040]">
           <h3 className="text-lg font-semibold text-[#F6F4FE] mb-4">
             Events Attendance
           </h3>
