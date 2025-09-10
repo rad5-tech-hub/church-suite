@@ -445,7 +445,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         confirmPassword: formData.confirmPassword,
         isSuperAdmin: formData.isSuperAdmin || undefined,
         scopeLevel: formData.scopeLevel,
-        branchId: formData.branchId || undefined,
+        branchId: formData.branchId === "HeadQuarter" ? undefined : formData.branchId,
         departmentIds: formData.departmentIds.length > 0 ? formData.departmentIds : undefined,
         unitIds: formData.unitIds.length > 0 ? formData.unitIds : undefined,
       };
