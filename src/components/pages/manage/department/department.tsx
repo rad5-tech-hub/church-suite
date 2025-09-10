@@ -184,20 +184,26 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
           {/* Branch Selection for Super Admin */}
           {isSuperAdmin && (
             <FormControl fullWidth size="medium">
-              <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? '1rem' : undefined, color: "#F6F4FE"}}>
+              <InputLabel
+                id="branch-label"
+                sx={{
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "#F6F4FE",
+                }}
+              >
                 Branch *
               </InputLabel>
               <Select
                 labelId="branch-label"
                 id="branchId"
                 name="branchId"
-                value={formData.branchId || ''}
+                value={formData.branchId || "HeadQuarter"} // ✅ default to HQ
                 onChange={handleSelectChange}
                 label="Branch *"
                 disabled={loading}
                 required
                 sx={{
-                  fontSize: isLargeScreen ? "1rem" : undefined,                
+                  fontSize: isLargeScreen ? "1rem" : undefined,
                   color: "#F6F4FE",
                   outlineColor: "#777280",
                   borderColor: "#777280",
@@ -205,9 +211,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                     borderColor: "#777280",
                   },
                   "& .MuiSelect-select": {
-                      borderColor: "#777280",
-                      color: "#F6F4FE",
-                  },              
+                    borderColor: "#777280",
+                    color: "#F6F4FE",
+                  },
                 }}
               >
                 {branchesLoading && (
@@ -216,20 +222,25 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                     Loading branches...
                   </MenuItem>
                 )}
-                {!branchesLoading && branches.map((branch) => (
-                  <MenuItem 
-                    key={branch.id} 
-                    value={branch.id}
-                    sx={{ fontSize: isLargeScreen ? '1rem' : undefined }}
-                  >
-                    {branch.name}
-                  </MenuItem>
-                ))}
-                {!branchesLoading && (authData?.isHeadQuarter === false) && (
-                  <MenuItem value="HeadQuarter">
+
+                {/* ✅ Always include HQ first */}
+                {!branchesLoading && (
+                  <MenuItem value="HeadQuarter" sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}>
                     HeadQuarter
                   </MenuItem>
                 )}
+
+                {/* ✅ Then loop through dynamic branches */}
+                {!branchesLoading &&
+                  branches.map((branch) => (
+                    <MenuItem
+                      key={branch.id}
+                      value={branch.id}
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined }}
+                    >
+                      {branch.name}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           )}

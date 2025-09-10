@@ -31,10 +31,10 @@ import { CachedOutlined, CalendarTodayOutlined, Add, Close, Refresh } from "@mui
 import Api from "../../../shared/api/api";
 import moment from "moment";
 import { toast, ToastContainer } from "react-toastify";
-import { DateCalendar } from "@mui/x-date-pickers";
-import dayjs, { Dayjs } from "dayjs"; // ✅ import both
+import dayjs from "dayjs"; // ✅ import both
+import CustomCalendarDialog from "../../../util/popCalender";
 
-interface ServiceFormData {
+export interface ServiceFormData {
   title: string;
   date: string;
   startTime: string;
@@ -152,6 +152,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     collectionIds: [],
     recurrenceType: "none",
   });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [addingCollection, setAddingCollection] = useState<boolean>(false);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -250,7 +251,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
       // ensure weekday data is cleared at the start
       setFormData((prev) => ({ ...prev, byWeekday: [] }));
-    }  else if (
+    } else if (
       formData.recurrenceType === "monthly" &&
       formData.date &&
       monthlyOption === "byWeek" &&
@@ -268,16 +269,34 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
         ...prev,
         nthWeekdays: [{ weekday, nth: weekOrdinal, startTime: "", endTime: "" }],
       }));
-  } else {
-      // if neither weekly nor monthly
+    } else if (formData.recurrenceType === "custom") {
+      // reset weekly & monthly when custom is chosen
       setMonthlyOption("byDate");
       setNthWeekdays([]);
       setSelectedWeekdays([]);
       setWeekdayMenuOpen(false);
 
-      setFormData((prev) => ({ ...prev, byWeekday: [] }));
+      setFormData((prev) => ({
+        ...prev,
+        byWeekday: [],
+        nthWeekdays: [],
+        customRecurrenceDates: prev.customRecurrenceDates || [], // preserve existing dates if any
+      }));
+    } else {
+      // if neither weekly, monthly, nor custom
+      setMonthlyOption("byDate");
+      setNthWeekdays([]);
+      setSelectedWeekdays([]);
+      setWeekdayMenuOpen(false);
+
+      setFormData((prev) => ({
+        ...prev,
+        byWeekday: [],
+        nthWeekdays: [],
+        customRecurrenceDates: [],
+      }));
     }
-  }, [formData.recurrenceType]);
+  }, [formData.recurrenceType, formData.date, monthlyOption]);
 
   const inputProps = {
     sx: {
@@ -425,13 +444,14 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
   const handleMonthlyWeekdayTimeChange = (
     weekday: number,
+    nth: number,
     field: "startTime" | "endTime",
     value: string
   ) => {
     setFormData((prev) => ({
       ...prev,
       nthWeekdays: prev.nthWeekdays?.map((w) =>
-        w.weekday === weekday ? { ...w, [field]: value } : w
+        w.weekday === weekday && w.nth === nth ? { ...w, [field]: value } : w
       ),
     }));
   };
@@ -462,8 +482,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-
-
   const handleAddCollection = async () => {
     if (tempNewCollection.trim() === "") {
       setFetchCollectionsError("Collection name cannot be empty.");
@@ -491,75 +509,109 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-  const handleSubmit = async () => {    
-    let payload: any = {
-      title: formData.title,
-      recurrenceType: formData.recurrenceType,
-      date: formData.date,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      departmentIds: formData.departmentIds,
-      collectionIds: formData.collectionIds,
-    };
+  const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.title) {
+      toast.error("Program title is required", {
+        autoClose: 3000,
+        position: isMobile ? "top-center" : "top-right",
+      });
+      return;
+    }
 
-    if (formData.recurrenceType && formData.recurrenceType !== "none") {
-      payload.recurrenceType = formData.recurrenceType;
-
-      if (["weekly", "monthly"].includes(formData.recurrenceType)) {
-        payload.endDate =
-          formData.endDate ||
-          moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+    // Weekly recurrence: validate each day has start and end times
+    if (formData.recurrenceType === "weekly") {
+      if (!formData.byWeekday || formData.byWeekday.length === 0) {
+        toast.error("Please select at least one day", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return;
       }
 
-      if (formData.recurrenceType === "weekly") {
-        payload.date = formData.date;
-        payload.byWeekday = formData.byWeekday
-      }
-
-      if (formData.recurrenceType === "monthly") {
-        if (monthlyOption === "byDate") {
-          const selectedDate = moment(formData.date);
-          const dayNum = selectedDate.date();
-          payload.nthWeekdays = [
-            { weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) },
-          ];
+      for (const day of formData.byWeekday) {
+        if (!day.startTime || !day.endTime) {
+          toast.error(
+            `Start and End time are required for ${
+              daysOfWeek.find((d) => d.value === day.weekday)?.label || day.weekday
+            }`,
+            { autoClose: 3000, position: isMobile ? "top-center" : "top-right" }
+          );
+          return;
         }
-      }
-
-      if (
-        formData.recurrenceType === "custom" &&
-        formData.customRecurrenceDates?.length
-      ) {
-        payload.customRecurrenceDates = formData.customRecurrenceDates;
-        delete payload.date;
       }
     }
-    try{
+
+    // Build base payload
+    const payload: any = {
+      title: formData.title,
+      recurrenceType: formData.recurrenceType,
+      departmentIds: formData.departmentIds,
+      collectionIds: formData.collectionIds,
+      date: formData.date,
+    };
+
+    // Weekly recurrence
+    if (formData.recurrenceType === "weekly" && formData.byWeekday?.length) {
+      payload.byWeekday = formData.byWeekday.map((day) => ({
+        weekday: day.weekday,
+        startTime: day.startTime,
+        endTime: day.endTime,
+      }));
+    }
+
+    // Monthly recurrence
+    if (formData.recurrenceType === "monthly" && monthlyOption === "byWeek") {
+      if (formData.nthWeekdays?.length) {
+        payload.nthWeekdays = formData.nthWeekdays.map((w) => ({
+          weekday: w.weekday,
+          nth: w.nth,
+          startTime: w.startTime,
+          endTime: w.endTime,
+        }));
+        // remove top-level start/end since they are per-nth
+        delete payload.startTime;
+        delete payload.endTime;
+      } else {
+        // fallback: top-level times if no nthWeekdays
+        payload.startTime = formData.startTime;
+        payload.endTime = formData.endTime;
+        delete payload.nthWeekdays;
+      }
+    }
+
+
+    // Custom recurrence
+    if (formData.recurrenceType === "custom" && formData.customRecurrenceDates?.length) {
+      payload.customRecurrenceDates = formData.customRecurrenceDates;
+      // Remove top-level date if custom
+      delete payload.date;
+      delete payload.startTime;
+      delete payload.endTime;
+    }
+
+    // End date for weekly/monthly
+    if (["weekly", "monthly"].includes(formData.recurrenceType)) {
+      payload.endDate =
+        formData.endDate || moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+    }
+
+    // Submit
+    try {
       setLoading(true);
       const response = await Api.post("/church/create-event", payload);
-      toast.success( `Program ${response.data.event?.title || formData.title}" created successfully!`, { position: isMobile ? "top-center" : "top-right", autoClose: 600 } );
+
+      toast.success(`Program "${response.data.event?.title || formData.title}" created successfully!`, {
+        position: isMobile ? "top-center" : "top-right",
+        autoClose: 600,
+      });
+
       resetForm();
       onSuccess?.();
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      setTimeout(() => onClose(), 1000);
     } catch (error: any) {
       console.error("Error processing program:", error.response?.data || error.message);
-      let errorMessage = "Failed to process program. Please try again.";
-
-      if (error.response?.data?.error?.message) {
-        errorMessage = `${error.response.data.error.message} Please try again.`;
-      } else if (error.response?.data?.message) {
-        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
-          errorMessage = error.response.data.errors.join(", ");
-        } else {
-          errorMessage = `${error.response.data.message} Please try again.`;
-        }
-      } else if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors.join(", ");
-      }
-
-      toast.error(errorMessage, { autoClose: 5000 });
+      toast.error("Failed to process program. Please try again.", { autoClose: 5000 });
     } finally {
       setLoading(false);
     }
@@ -868,56 +920,54 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           )}
 
-          {formData.recurrenceType === 'monthly' && (
-            <Grid container sx={{ mt: 2 }}>
-              <Grid size={{xs:12, sm:12}}>
-                <FormControl fullWidth>
-                  {/* Date Input Field */}
-                  <TextField
-                    label="Select Date"
-                    type="date"
-                    value={formData.date || ""}
-                    onChange={(e) => {
-                      const selectedDate = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        date: selectedDate,
-                      }));
-                      setMonthlyModalOpen(true); // Open monthly modal
-                    }}
-                    fullWidth
-                    sx={{
-                      borderRadius: '8px',
-                      '& .MuiOutlinedInput-root': {
-                        color: '#F6F4FE',
-                        '& fieldset': { borderColor: '#F6F4FE' },
-                        '&:hover fieldset': { borderColor: '#F6F4FE' },
-                        '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                        '&.Mui-disabled': {
-                          color: '#777280',
-                          '& fieldset': { borderColor: 'transparent' },
-                        },
+          {formData.recurrenceType === 'monthly' && (          
+            <Box sx={{ mb: 3, width: "100%" }}>
+              <FormControl fullWidth disabled={loading}>
+                {/* Date Input Field */}
+                <TextField
+                  label="Select Date For The Month"
+                  type="date"
+                  value={formData.date || ""}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      date: selectedDate,
+                    }));
+                    setMonthlyModalOpen(true); // Open monthly modal
+                  }}
+                  fullWidth
+                  sx={{
+                    borderRadius: '8px',
+                    '& .MuiOutlinedInput-root': {
+                      color: '#F6F4FE',
+                      '& fieldset': { borderColor: '#F6F4FE' },
+                      '&:hover fieldset': { borderColor: '#F6F4FE' },
+                      '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
+                      '&.Mui-disabled': {
+                        color: '#777280',
+                        '& fieldset': { borderColor: 'transparent' },
                       },
-                      '& .MuiInputBase-input': {
-                        color: '#F6F4FE',
-                        '&::-webkit-calendar-picker-indicator': {
-                          filter: 'invert(1)',
-                          cursor: 'pointer',
-                        },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: '#F6F4FE',
+                      '&::-webkit-calendar-picker-indicator': {
+                        filter: 'invert(1)',
+                        cursor: 'pointer',
                       },
-                    }}
-                    InputLabelProps={{ shrink: true, ...inputLabelProps }}
-                    inputProps={inputProps}
-                  />
-                </FormControl>
-              </Grid>
-            </Grid>
+                    },
+                  }}
+                  InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                  inputProps={inputProps}
+                />
+              </FormControl>
+            </Box>      
           )}
 
           {/* for the month by nth */}
           {monthlyOption === "byWeek" &&
             formData.nthWeekdays?.map((w) => (
-            <Grid size={{xs:12}} key={`${w.weekday}-${w.nth}`}>
+            <Grid size={{xs:12, sm:12, md:12, lg:12}} key={`${w.weekday}-${w.nth}`}>
               <Box
                 sx={{
                   border: "1px solid",
@@ -927,10 +977,10 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   color: "#F6F4FE",
                   bgcolor: "rgba(121,121,121,0.2)",
                   display: "flex",
-                  alignItems: "center",
+                  alignItems: 'center',
                   flexWrap: { xs: "wrap", lg: "nowrap" },
                   gap: 2,
-                  mt: 1,
+                  mb: 2,
                 }}
               >
                 {/* Weekday Label */}
@@ -939,7 +989,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                     ? `Last ${daysOfWeek[w.weekday]?.label ?? w.weekday}`
                     : `${["First", "Second", "Third", "Fourth", "Fifth"][w.nth - 1]} ${
                         daysOfWeek[w.weekday]?.label ?? w.weekday
-                      }`}
+                      }`} Of Each Month
                 </Typography>
 
                 {/* Start Time Input */}
@@ -949,10 +999,30 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   fullWidth
                   value={w.startTime || ""}
                   onChange={(e) =>
-                    handleMonthlyWeekdayTimeChange(w.weekday, "startTime", e.target.value)
+                    handleMonthlyWeekdayTimeChange(w.weekday, w.nth, "startTime", e.target.value)
                   }
                   InputLabelProps={{ shrink: true, ...inputLabelProps }}
                   inputProps={inputProps}
+                  sx={{
+                    borderRadius: "8px",
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                      "&.Mui-disabled": {
+                        color: "#777280",
+                        "& fieldset": { borderColor: "transparent" },
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      color: "#F6F4FE",
+                      "&::-webkit-calendar-picker-indicator": {
+                        filter: "invert(1)",
+                        cursor: "pointer",
+                      },
+                    },
+                  }}
                 />
 
                 {/* End Time Input */}
@@ -962,10 +1032,30 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   fullWidth
                   value={w.endTime || ""}
                   onChange={(e) =>
-                    handleMonthlyWeekdayTimeChange(w.weekday, "endTime", e.target.value)
+                    handleMonthlyWeekdayTimeChange(w.weekday, w.nth, "endTime", e.target.value)
                   }
                   InputLabelProps={{ shrink: true, ...inputLabelProps }}
                   inputProps={inputProps}
+                  sx={{
+                    borderRadius: "8px",
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                      "&.Mui-disabled": {
+                        color: "#777280",
+                        "& fieldset": { borderColor: "transparent" },
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      color: "#F6F4FE",
+                      "&::-webkit-calendar-picker-indicator": {
+                        filter: "invert(1)",
+                        cursor: "pointer",
+                      },
+                    },
+                  }}
                 />
               </Box>
             </Grid>
@@ -973,47 +1063,9 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
           {formData.recurrenceType === 'custom' && (
             <Grid container spacing={2} sx={{ mt: 2 }}>
-              <Grid size={{xs:12}} >
-                {/* Date Calendar for selecting custom recurrence dates */}
-                <DateCalendar
-                  value={null} // no single value; we handle multiple
-                  onChange={(newDate: Dayjs | null) => {
-                    if (newDate) {
-                      const formattedDate = newDate.format("YYYY-MM-DD");
-
-                      // Add date if it doesn't exist yet
-                      setFormData((prev) => ({
-                        ...prev,
-                        customRecurrenceDates: prev.customRecurrenceDates
-                          ? prev.customRecurrenceDates.some(d => d.date === formattedDate)
-                            ? prev.customRecurrenceDates
-                            : [...prev.customRecurrenceDates, { date: formattedDate, startTime: "", endTime: "" }]
-                          : [{ date: formattedDate, startTime: "", endTime: "" }],
-                      }));
-                    }
-                  }}
-                  sx={{
-                    bgcolor: "#F6F4FE",
-                    borderRadius: "8px",
-                    p: 1,
-                  }}
-                />
-              </Grid>
-
-              {/* Inputs for start and end times for each selected date */}
               {formData.customRecurrenceDates?.map((d, index) => (
-                <Grid size={{xs: 12}} key={d.date}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: 2,
-                      flexWrap: "wrap",
-                      bgcolor: "rgba(121,121,121,0.2)",
-                      borderRadius: "8px",
-                      p: 2,
-                      color: "#F6F4FE",
-                    }}
-                  >
+                <Grid size={{xs:12}} key={d.date}>
+                  <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                     <Typography sx={{ width: "100%" }}>
                       {dayjs(d.date).format("MMMM DD, YYYY")}
                     </Typography>
@@ -1030,7 +1082,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                           return { ...prev, customRecurrenceDates: updated };
                         });
                       }}
-                      InputLabelProps={{ shrink: true }}
                     />
 
                     <TextField
@@ -1045,7 +1096,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                           return { ...prev, customRecurrenceDates: updated };
                         });
                       }}
-                      InputLabelProps={{ shrink: true }}
                     />
                   </Box>
                 </Grid>
@@ -1055,7 +1105,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
           {/* Date input for all recurrence types except custom */}
           {formData.recurrenceType !== "custom" && (
-            <Grid size={{ xs: 12, sm: 12 }}>
+            <Grid size={{ xs: 12, sm: 12 }} sx={{mb: 2}}>
               <TextField
                 fullWidth
                 label="Start Date"
@@ -1093,7 +1143,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           )}
 
-          {formData.recurrenceType === "none" && (
+          {formData.recurrenceType === "none" || monthlyOption !== "byWeek"  && (
             <>
               {/* Start Time */}
               <Grid size={{xs:12, sm:6}}>
@@ -1171,7 +1221,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
           {/* End Date for weekly and monthly recurrence */}
           {["weekly", "monthly",].includes(formData.recurrenceType) && (
-            <Grid size={{ xs: 12, sm: 12 }}>
+            <Grid size={{ xs: 12, sm: 12 }} sx={{mt: 2}}>
               <TextField
                 fullWidth
                 label="End Date"
@@ -1659,7 +1709,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   required
                 />
               </Grid>
-              {!isEdit && renderProgramType()}
+              {!isEdit && renderProgramType()}            
+
               {renderDateTimeInputs()}
               {renderDepartmentInput()}
               {renderCollectionInput()}
@@ -1700,6 +1751,12 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           )}
         </Button>
       </DialogActions>
+      <CustomCalendarDialog
+        formData={formData}
+        setFormData={setFormData}
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+      />
 
       {renderMonthlyModal()}
     </Dialog>
