@@ -889,9 +889,9 @@ const ViewAdmins: React.FC = () => {
               "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
             }}
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="Yes">Yes</MenuItem>
-            <MenuItem value="No">No</MenuItem>
+            <MenuItem value="">None</MenuItem>
+            <MenuItem value="True">True</MenuItem>
+            <MenuItem value="False">False</MenuItem>
           </TextField>
         </Box>
 
@@ -1139,9 +1139,9 @@ const ViewAdmins: React.FC = () => {
             }}
             renderValue={(selected) => selected || "Select Option"}
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="Yes">Yes</MenuItem>
-            <MenuItem value="No">No</MenuItem>
+            <MenuItem value="">None</MenuItem>
+            <MenuItem value="True">True</MenuItem>
+            <MenuItem value="False">False</MenuItem>
           </MuiSelect>
         </Box>
         <Box sx={{ ml: "auto", pr: "8px" }}>

@@ -134,26 +134,43 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
   const [EditOpen, setEditOpen] = useState<boolean>(false);
   const [recordOpen, setRecordOpen] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [workersPercentage, setWorkersPercentage] = useState<number>(0);
+  const [nonWorkersPercentage, setNonWorkersPercentage] = useState<number>(0);
+
 
   useEffect(() => {
     if (open && eventId) {
-      const fetchEventData = async () => {
+      const fetchData = async () => {
         try {
           setLoading(true);
-          const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-          setEventData(response.data.eventOccurrence);
+
+          // Run both requests in parallel
+          const [eventRes, attendanceRes] = await Promise.all([
+            Api.get<EventResponse>(`/church/get-event/${eventId}`),
+            Api.get<{ overall: { attendanceRate: number } }>(
+              `/church/worker-attendace-stats/${eventId}`
+            ),
+          ]);
+
+          setEventData(eventRes.data.eventOccurrence);
+
+          // Extract attendance rate
+          const rate = attendanceRes.data.overall.attendanceRate || 0;
+          setWorkersPercentage(rate);
+          setNonWorkersPercentage(100 - rate);
+
           setError(null);
         } catch (err) {
-          setError('Failed to fetch event data');
-          console.error('Error fetching event data:', err);
+          console.error("Error fetching data:", err);
+          setError("Failed to fetch event or attendance data");
         } finally {
           setLoading(false);
         }
       };
 
-      fetchEventData();
+      fetchData();
     }
-  }, [eventId, open]);
+  }, [open, eventId]);
 
   // Get attendance data from API or use empty defaults
   const attendance = eventData?.attendances?.[0] || {
@@ -253,9 +270,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     },
   };
 
-  // Calculate workers vs non-workers percentage
-  const workersPercentage = 0;
-  const nonWorkersPercentage = 0;
 
   // Chart.js data configuration for workers doughnut chart
   const doughnutChartData = {

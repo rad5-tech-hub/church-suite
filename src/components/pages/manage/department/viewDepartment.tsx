@@ -587,7 +587,7 @@ const ViewDepartment: React.FC = () => {
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 5, alignItems: "center" }}>
-          <Grid size={{ xs: 12, md: 8 }}>
+          <Grid size={{ xs: 12, md: 9 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -612,10 +612,8 @@ const ViewDepartment: React.FC = () => {
                   borderRadius: "32px",
                   display: "flex",
                   alignItems: "center",
-                  backgroundColor: "#4d4d4e8e",
-                  padding: "4px",
-                  width: "100%",
-                  gap: "8px",
+                  backgroundColor: "#4d4d4e8e",                 
+                  width: "100%",                  
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                   "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                 }}
@@ -706,14 +704,14 @@ const ViewDepartment: React.FC = () => {
                             ".MuiOutlinedInput-notchedOutline": { border: "#777280" },
                             "& .MuiSelect-icon": { display: "none" },
                           }}
-                          renderValue={(selected) =>
-                            selected
-                              ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch"
-                              : "Select Branch"
+                            renderValue={(selected) =>
+                            selected === "HeadQuarter"
+                              ? "HeadQuarter"
+                              : state.branches.find((branch) => branch.id === selected)?.name || "HeadQuarter"
                           }
-                          aria-label="Select branch"
                         >
-                          <MenuItem value="HeaderQuater">HeadQuater</MenuItem>
+                          {/* HeadQuarter option */}
+                          <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>                        
                           {state.branches.map((branch) => (
                             <MenuItem key={branch.id} value={branch.id}>
                               {branch.name}
@@ -777,7 +775,7 @@ const ViewDepartment: React.FC = () => {
                 </Box>
               </Box>            
           </Grid>
-          <Grid size={{ xs: 12, md: 4 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 3 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
@@ -897,14 +895,14 @@ const ViewDepartment: React.FC = () => {
                   ".MuiSelect-select": { padding: "8px" },
                   ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 }}
-                renderValue={(selected) =>
-                  selected
-                    ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch"
-                    : "Select Branch"
+                  renderValue={(selected) =>
+                  selected === "HeadQuarter"
+                    ? "HeadQuarter"
+                    : state.branches.find((branch) => branch.id === selected)?.name || "HeadQuarter"
                 }
-                aria-label="Select branch"
               >
-                <MenuItem value="">All</MenuItem>
+                {/* HeadQuarter option */}
+                <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>                        
                 {state.branches.map((branch) => (
                   <MenuItem key={branch.id} value={branch.id}>
                     {branch.name}

@@ -45,6 +45,7 @@ interface UnitModalProps {
 
 const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
   const [units, setUnits] = useState<UnitFormData[]>([{ name: "", description: "" }]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -54,13 +55,46 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const [selectedBranch, setSelectedBranch] = useState<string>(
+    authData?.branchId || "HeadQuarter"
+  );
 
+  // Fetch branches when modal opens
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const response = await Api.get("/church/get-branches");
+        setBranches(response.data?.branches || []);
+      } catch (error) {
+        console.error("Failed to fetch branches:", error);
+        toast.error("Failed to load branches. Please try again.", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+      }
+    };
+
+    if (open) {
+      fetchBranches();
+    }
+  }, [open, isMobile]);
+
+  // Watch selectedBranch and fetch departments whenever it changes
   useEffect(() => {
     const fetchDepartments = async () => {
+      if (!selectedBranch) return; // Don't fetch if no branch is selected
+
       try {
         setFetchingDepartments(true);
-        const response = await Api.get(`/church/get-departments`);
+        const params = new URLSearchParams();
+
+        if (selectedBranch !== "HeadQuarter") {
+          params.append("branchId", selectedBranch);
+        }
+
+        const response = await Api.get(`/church/get-departments?${params.toString()}`);
         setDepartments(response.data?.departments || []);
+        setSelectedDepartment(""); // Reset department whenever branch changes
       } catch (error) {
         console.error("Failed to fetch departments:", error);
         toast.error("Failed to load departments. Please try again.", {
@@ -72,13 +106,9 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
       }
     };
 
-    if (open) {
-      fetchDepartments();
-      setUnits([{ name: "", description: "" }]);
-      setSelectedDepartment("");
-      setShowValidationErrors(false);
-    }
-  }, [authData?.branchId, isMobile, open]);
+  fetchDepartments();
+}, [selectedBranch, isMobile]);
+
 
   const handleUnitChange = (index: number, field: keyof UnitFormData, value: string) => {
     const updatedUnits = [...units];
@@ -101,62 +131,97 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
       setUnits(updatedUnits);
     }
   };
+const handleAddUnits = async () => {
+  // Validate department selection
+  if (!selectedDepartment) {
+    toast.error("Please select a department", {
+      autoClose: 3000,
+      position: isMobile ? "top-center" : "top-right",
+    });
+    return;
+  }
 
-  const handleAddUnits = async () => {
-    if (!selectedDepartment) {
-      toast.error("Please select a department", {
+  setShowValidationErrors(true);
+
+  // Validate each unit
+  for (const unit of units) {
+    if (!unit.name.trim()) {
+      toast.error("Unit name is required for all units", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
       return;
     }
 
-    setShowValidationErrors(true);
-
-    for (const unit of units) {
-      if (!unit.name.trim()) {
-        toast.error("Unit name is required for all units", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
-        return;
-      }
-
-      if (!unit.description.trim()) {
-        toast.error("Description is required for all units", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
-        return;
-      }
-    }
-
-    try {
-      setLoading(true);
-      const response = await Api.post(`/church/create-units`, {
-        departmentId: selectedDepartment,
-        units,
-      });
-
-      if (response.data?.units) {
-        toast.success(`${response.data.units.length} units created successfully!`, {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
-        onClose();
-        if (onSuccess) onSuccess();
-      }
-    } catch (error: any) {
-      console.error("Unit creation error:", error);
-      const errorMessage = error.response?.data?.message || "Failed to create units. Please try again.";
-      toast.error(errorMessage, {
+    if (!unit.description.trim()) {
+      toast.error("Description is required for all units", {
         autoClose: 3000,
         position: isMobile ? "top-center" : "top-right",
       });
-    } finally {
-      setLoading(false);
+      return;
     }
+  }
+
+  // Prepare payload
+  const payload: any = {
+    departmentId: selectedDepartment,
+    units: units.map(unit => ({
+      name: unit.name.trim(),
+      description: unit.description.trim(),
+    })),
   };
+
+  // Only include branchId if not HeadQuarter
+  if (selectedBranch && selectedBranch !== "HeadQuarter") {
+    payload.branchId = selectedBranch;
+  }
+
+  try {
+    setLoading(true);
+    const response = await Api.post(`/church/create-units`, payload);
+
+    if (response.data?.units) {
+      const toastId = toast.success(`${response.data.units.length} unit(s) created successfully!`, {
+        autoClose: 2000,
+        position: isMobile ? "top-center" : "top-right",
+      });
+
+      // Reset form
+      setUnits([{ name: "", description: "" }]);
+      setSelectedDepartment("");
+      setSelectedBranch(authData?.branchId || "HeadQuarter");
+      setShowValidationErrors(false);
+
+    setTimeout(() => {
+      onClose();
+      toast.dismiss(toastId)
+    }, 2000);
+      if (onSuccess) onSuccess();
+    }
+  } catch (error: any) {
+    console.error("Unit creation error:", error);
+    let errorMessage = "Failed to create Unit. Please try again.";
+
+    if (error.response?.data?.error?.message) {
+      errorMessage = `${error.response.data.error.message} Please try again.`;
+    } else if (error.response?.data?.message) {
+      if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+        errorMessage = error.response.data.errors.join(", ");
+      } else {
+        errorMessage = `${error.response.data.message} Please try again.`;
+      }
+    } else if (error.response?.data?.errors) {
+      errorMessage = error.response.data.errors.join(", ");
+    }
+
+    toast.error(errorMessage, {
+      autoClose: 3000,
+      position: isMobile ? "top-center" : "top-right",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Dialog
@@ -194,9 +259,30 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
 
       <DialogContent dividers>
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
+
+          <FormControl fullWidth>
+            <InputLabel id="branch-select-label" sx={{ color: "#F6F4FE" }}>
+              Select Branch
+            </InputLabel>
+            <Select
+              labelId="branch-select-label"
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              sx={{ color: "#F6F4FE" }}
+            >
+              {!authData?.branchId && <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>}
+              {branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           {/* Department Selection */}
           <FormControl fullWidth>
-            <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? '1rem' : undefined, color: '#F6F4FE'  }}>
+            <InputLabel 
+              id="department-select-label" 
+              sx={{ fontSize: isLargeScreen ? '1rem' : undefined, color: '#F6F4FE' }}
+            >
               Select Department *
             </InputLabel>
             <Select
@@ -205,7 +291,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               value={selectedDepartment}
               label="Select Department *"
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              disabled={loading}
+              disabled={loading || !selectedBranch} // <-- disable if no branch selected
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
                 '& .MuiSelect-icon': {
