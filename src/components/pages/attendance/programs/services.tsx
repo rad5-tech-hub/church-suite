@@ -329,12 +329,16 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     setCreateProgramError(null);
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleChange(e);
-    if (formData.recurrenceType === "monthly" && e.target.value) {
-      setMonthlyModalOpen(true);
-    }
-  };
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+
+      // ✅ always just update the date
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    };
+
 
   const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value as string[];
@@ -1104,46 +1108,46 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           )}
 
           {/* Date input for all recurrence types except custom */}
-          {formData.recurrenceType !== "custom" && (
-            <Grid size={{ xs: 12, sm: 12 }} sx={{mb: 2}}>
+          {formData.recurrenceType !== "custom" &&
+          !(formData.recurrenceType === "monthly" && monthlyOption === "byDate") && (
+            <Grid size={{ xs: 12, sm: 12 }} sx={{ mb: 2 }}>
               <TextField
-                fullWidth
+                fullWidth                
                 label="Start Date"
                 name="date"
-                type="date"
+                type="date"                
                 value={formData.date}
                 onChange={handleDateChange}
                 variant="outlined"
                 disabled={loading}
                 InputLabelProps={{ shrink: true, ...inputLabelProps }}
                 inputProps={inputProps}
-                sx={{                
-                  borderRadius: '8px',
-                  '& .MuiOutlinedInput-root': {
-                    color: '#F6F4FE',
-                    '& fieldset': { borderColor: '#F6F4FE' },
-                    '&:hover fieldset': { borderColor: '#F6F4FE' },
-                    '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                    '&.Mui-disabled': {
-                      color: '#777280',
-                      '& fieldset': { borderColor: 'transparent' },
+                sx={{
+                  borderRadius: "8px",
+                  "& .MuiOutlinedInput-root": {
+                    color: "#F6F4FE",
+                    "& fieldset": { borderColor: "#F6F4FE" },
+                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                    "&.Mui-disabled": {
+                      color: "#777280",
+                      "& fieldset": { borderColor: "transparent" },
                     },
                   },
-                  '& .MuiInputBase-input': {
-                    color: '#F6F4FE',
-                    // ✅ Change the calendar/clock icons
-                    '&::-webkit-calendar-picker-indicator': {
-                      filter: 'invert(1)', // turns it white-ish
-                      cursor: 'pointer',
+                  "& .MuiInputBase-input": {
+                    color: "#F6F4FE",
+                    "&::-webkit-calendar-picker-indicator": {
+                      filter: "invert(1)",
+                      cursor: "pointer",
                     },
                   },
                 }}
               />
-
             </Grid>
           )}
 
-          {formData.recurrenceType === "none" || monthlyOption !== "byWeek"  && (
+
+          {(formData.recurrenceType === "none" || monthlyOption !== "byWeek"  )&& (
             <>
               {/* Start Time */}
               <Grid size={{xs:12, sm:6}}>
