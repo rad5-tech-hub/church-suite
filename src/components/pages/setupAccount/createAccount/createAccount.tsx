@@ -177,95 +177,101 @@ const submitChurchData = async (formData: FormData) => {
   }
 };
 
-const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
-  try {
-    // Validate email before storing
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error("Invalid email format");
-    }
-
-    // Store email in sessionStorage
-    sessionStorage.setItem('email', email);
-    
-    // Verify the value was stored correctly
-    const storedEmail = sessionStorage.getItem('email');
-    if (storedEmail !== email) {
-      throw new Error("Failed to store email in sessionStorage");
-    }
-
-    // Show success message (using the response email if available)
-    showSuccessMessage(responseData.email || email);    
-    
-    // Reset form and clear Redux store
-    form.reset();
-    store.dispatch(clearChurchData());
-    navigate('/verify-email')
-
-  } catch (error) {
-    console.error("Error in handleSuccess:", error);
-    // Fallback: Show error to user or implement alternative storage
-    // showErrorMessage("Failed to complete setup. Please try again.");
-  }
-};
-  
-const handleSubmissionError = (error: unknown) => {
-  console.error("Account creation error:", error);
-  
-  if (error instanceof Error) {
+  const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
     try {
-      const errorObj = JSON.parse(error.message);
-      if (errorObj?.error?.message) {
-        // Properly format the error message for display
-        const errorDetails = errorObj.error.details?.map((detail: any) => 
-          `${detail.field}: ${detail.value} has already been used`
-        ).join('\n') || '';
+      // Validate email before storing
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Invalid email format");
+      }
 
-        toast.error(
-          <div>
-            <div>{errorObj.error.message}</div>
-            {errorDetails && (
-              <pre style={{ 
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'inherit',
-                marginTop: '8px'
-              }}>
-                {errorDetails}
-              </pre>
-            )}
-          </div>, 
-          {
+      // Store email in sessionStorage
+      sessionStorage.setItem('email', email);
+      
+      // Verify the value was stored correctly
+      const storedEmail = sessionStorage.getItem('email');
+      if (storedEmail !== email) {
+        throw new Error("Failed to store email in sessionStorage");
+      }
+
+      // Show success message and navigate after it auto-closes
+      showSuccessMessage(responseData.email || email);    
+
+      // Reset form and clear Redux store
+      form.reset();
+      store.dispatch(clearChurchData());
+
+
+      // Navigate after the toast auto-closes
+      setTimeout(() => {
+        toast.dismiss();
+        navigate('/verify-email');
+      }, 1500); // Match the autoClose duration
+
+    } catch (error) {
+      console.error("Error in handleSuccess:", error);
+      // Fallback: Show error to user or implement alternative storage
+      // showErrorMessage("Failed to complete setup. Please try again.");
+    }
+  };
+    
+  const handleSubmissionError = (error: unknown) => {
+    console.error("Account creation error:", error);
+    
+    if (error instanceof Error) {
+      try {
+        const errorObj = JSON.parse(error.message);
+        if (errorObj?.error?.message) {
+          // Properly format the error message for display
+          const errorDetails = errorObj.error.details?.map((detail: any) => 
+            `${detail.field}: ${detail.value} has already been used`
+          ).join('\n') || '';
+
+          toast.error(
+            <div>
+              <div>{errorObj.error.message}</div>
+              {errorDetails && (
+                <pre style={{ 
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                  marginTop: '8px'
+                }}>
+                  {errorDetails}
+                </pre>
+              )}
+            </div>, 
+            {
+              position: "top-right",
+              autoClose: 8000,
+            }
+          );
+        } else if (error.message.includes('<!DOCTYPE html>')) {          
+          toast.error("Server error occurred. Please try again later.", {
             position: "top-right",
-            autoClose: 8000,
-          }
-        );
-      } else if (error.message.includes('<!DOCTYPE html>')) {          
-        toast.error("Server error occurred. Please try again later.", {
-          position: "top-right",
-          autoClose: 5000,
-        });
-      } else {
-        toast.error(error.message, {
+            autoClose: 5000,
+          });
+        } else {
+          toast.error(error.message, {
+            position: "top-right",
+            autoClose: 5000,
+          });
+        }
+      } catch {
+        const errorMessage = error.message.includes('<!DOCTYPE html>')
+          ? "Server error occurred. Please try again later."
+          : error.message;
+
+        toast.error(errorMessage, {
           position: "top-right",
           autoClose: 5000,
         });
       }
-    } catch {
-      const errorMessage = error.message.includes('<!DOCTYPE html>')
-        ? "Server error occurred. Please try again later."
-        : error.message;
-
-      toast.error(errorMessage, {
+    } else {
+      toast.error("An unexpected error occurred. Please try again.", {
         position: "top-right",
         autoClose: 5000,
       });
     }
-  } else {
-    toast.error("An unexpected error occurred. Please try again.", {
-      position: "top-right",
-      autoClose: 5000,
-    });
-  }
-};
+  };
 
   const showSuccessMessage = (email: string) => {
     toast.success(
@@ -277,7 +283,7 @@ const handleSubmissionError = (error: unknown) => {
       </div>,
       {
         position: "top-right",
-        autoClose: 10000,
+        autoClose: 1500,
       }
     );
   };

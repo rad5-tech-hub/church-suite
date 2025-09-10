@@ -237,67 +237,49 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   }, [open]);
 
   useEffect(() => {
-    if (formData.recurrenceType === "monthly") {
-      // reset weekly when monthly is chosen
-      setSelectedWeekdays([]);
-      setWeekdayMenuOpen(false);
+    switch (formData.recurrenceType) {
+      case "weekly":
+        // Weekly: reset selections only when weekly is first selected
+        setMonthlyOption("byDate"); 
+        setNthWeekdays([]);
+        setSelectedWeekdays([]); // only clear when switching to weekly
+        setWeekdayMenuOpen(true);
+        setFormData(prev => ({ ...prev, byWeekday: [] }));
+        break;
 
-      setFormData((prev) => ({ ...prev, byWeekday: [] }));
-    } else if (formData.recurrenceType === "weekly") {
-      // reset monthly when weekly is chosen
-      setMonthlyOption("byDate");
-      setNthWeekdays([]);
-      setWeekdayMenuOpen(true); // open immediately
+      case "monthly":
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        break;
 
-      // ensure weekday data is cleared at the start
-      setFormData((prev) => ({ ...prev, byWeekday: [] }));
-    } else if (
-      formData.recurrenceType === "monthly" &&
-      formData.date &&
-      monthlyOption === "byWeek" &&
-      (!formData.nthWeekdays || formData.nthWeekdays.length === 0)
-    ) {
-      const selectedDate = moment(formData.date);
-      const dayNum = selectedDate.date();
-      const weekday = selectedDate.day();
-      let weekOrdinal = Math.ceil(dayNum / 7);
-      const daysInMonth = selectedDate.daysInMonth();
-      const lastWeek = Math.ceil(daysInMonth / 7);
-      if (weekOrdinal === lastWeek) weekOrdinal = -1;
+      case "custom":
+        setMonthlyOption("byDate");
+        setNthWeekdays([]);
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        setCalendarOpen(true);
+        setFormData(prev => ({
+          ...prev,
+          byWeekday: [],
+          nthWeekdays: [],
+          customRecurrenceDates: prev.customRecurrenceDates || [],
+        }));
+        break;
 
-      setFormData((prev) => ({
-        ...prev,
-        nthWeekdays: [{ weekday, nth: weekOrdinal, startTime: "", endTime: "" }],
-      }));
-    } else if (formData.recurrenceType === "custom") {
-      // reset weekly & monthly when custom is chosen
-      setMonthlyOption("byDate");
-      setNthWeekdays([]);
-      setSelectedWeekdays([]);
-      setWeekdayMenuOpen(false);
-      setCalendarOpen(true)
-
-      setFormData((prev) => ({
-        ...prev,
-        byWeekday: [],
-        nthWeekdays: [],
-        customRecurrenceDates: prev.customRecurrenceDates || [], // preserve existing dates if any
-      }));
-    } else {
-      // if neither weekly, monthly, nor custom
-      setMonthlyOption("byDate");
-      setNthWeekdays([]);
-      setSelectedWeekdays([]);
-      setWeekdayMenuOpen(false);
-
-      setFormData((prev) => ({
-        ...prev,
-        byWeekday: [],
-        nthWeekdays: [],
-        customRecurrenceDates: [],
-      }));
+      default:
+        setMonthlyOption("byDate");
+        setNthWeekdays([]);
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        setFormData(prev => ({
+          ...prev,
+          byWeekday: [],
+          nthWeekdays: [],
+          customRecurrenceDates: [],
+        }));
     }
-  }, [formData.recurrenceType, formData.date, monthlyOption]);
+  }, [formData.recurrenceType]); // ✅ only runs when recurrence type changes
+
 
   const inputProps = {
     sx: {
@@ -330,17 +312,6 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     setCreateProgramError(null);
   };
 
-    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value } = e.target;
-
-      // ✅ always just update the date
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    };
-
-
   const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value as string[];
 
@@ -348,19 +319,21 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       // Toggle select all
       if (formData.departmentIds.length === departments.length) {
         // unselect all
-        setFormData((prev) => ({ ...prev, departmentIds: [] }));
+        setFormData(prev => ({ ...prev, departmentIds: [] }));
       } else {
-        // select all
-        setFormData((prev) => ({
+        // select all, filter out any nulls
+        setFormData(prev => ({
           ...prev,
-          departmentIds: departments.map((dept: any) => dept.id),
+          departmentIds: departments
+            .map((dept: any) => dept.id)
+            .filter(id => id !== null && id !== undefined && id !== "null"),
         }));
       }
     } else {
-      // normal multi-select
-      setFormData((prev) => ({
+      // normal multi-select, filter out null/undefined/empty
+      setFormData(prev => ({
         ...prev,
-        departmentIds: value.filter((id) => id !== null && id !== "null"),
+        departmentIds: value.filter(id => id !== null && id !== undefined && id !== "null" && id !== ""),
       }));
     }
   };
@@ -524,6 +497,15 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       return;
     }
 
+    // Validate start date
+    if (!formData.date && formData.recurrenceType !== 'custom') {
+      toast.error("Start date is required", {
+        autoClose: 3000,
+        position: isMobile ? "top-center" : "top-right",
+      });
+      return;
+    }
+
     // Weekly recurrence: validate each day has start and end times
     if (formData.recurrenceType === "weekly") {
       if (!formData.byWeekday || formData.byWeekday.length === 0) {
@@ -547,16 +529,39 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       }
     }
 
+    // Monthly recurrence: validate start/end times if byWeek
+    if (formData.recurrenceType === "monthly" && monthlyOption === "byWeek") {
+      if (formData.nthWeekdays?.length) {
+        for (const w of formData.nthWeekdays) {
+          if (!w.startTime || !w.endTime) {
+            toast.error(
+              `Start and End time are required for ${
+                daysOfWeek.find((d) => d.value === w.weekday)?.label || w.weekday
+              }`,
+              { autoClose: 3000, position: isMobile ? "top-center" : "top-right" }
+            );
+            return;
+          }
+        }
+      } else if (!formData.startTime || !formData.endTime) {
+        toast.error("Start and End time are required for the month", {
+          autoClose: 3000,
+          position: isMobile ? "top-center" : "top-right",
+        });
+        return;
+      }
+    }
+
     // Build base payload
     const payload: any = {
       title: formData.title,
       recurrenceType: formData.recurrenceType,
       departmentIds: formData.departmentIds,
       collectionIds: formData.collectionIds,
-      date: formData.date,
+      date: formData.date, // start date
     };
 
-    // Weekly recurrence
+    // Weekly recurrence payload
     if (formData.recurrenceType === "weekly" && formData.byWeekday?.length) {
       payload.byWeekday = formData.byWeekday.map((day) => ({
         weekday: day.weekday,
@@ -565,20 +570,27 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       }));
     }
 
-    // Monthly recurrence
-    if (formData.recurrenceType === "monthly" && monthlyOption === "byWeek") {
-      if (formData.nthWeekdays?.length) {
-        payload.nthWeekdays = formData.nthWeekdays.map((w) => ({
-          weekday: w.weekday,
-          nth: w.nth,
-          startTime: w.startTime,
-          endTime: w.endTime,
-        }));
-        // remove top-level start/end since they are per-nth
-        delete payload.startTime;
-        delete payload.endTime;
-      } else {
-        // fallback: top-level times if no nthWeekdays
+    if (formData.recurrenceType === "monthly") {
+      if (monthlyOption === "byWeek") {
+        // By week: only send nthWeekdays if there is data
+        if (formData.nthWeekdays?.length) {
+          payload.nthWeekdays = formData.nthWeekdays.map((w) => ({
+            weekday: w.weekday,
+            nth: w.nth,
+            startTime: w.startTime || "", // fallback to empty string
+            endTime: w.endTime || "",
+          }));
+          // remove top-level times because they are per-nth
+          delete payload.startTime;
+          delete payload.endTime;
+        } else {
+          // fallback: send top-level times if nthWeekdays is empty
+          payload.startTime = formData.startTime;
+          payload.endTime = formData.endTime;
+          delete payload.nthWeekdays;
+        }
+      } else if (monthlyOption === "byDate") {
+        // By date: always send top-level start/end times
         payload.startTime = formData.startTime;
         payload.endTime = formData.endTime;
         delete payload.nthWeekdays;
@@ -586,16 +598,16 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
 
 
-    // Custom recurrence
+    // Custom recurrence payload
     if (formData.recurrenceType === "custom" && formData.customRecurrenceDates?.length) {
       payload.customRecurrenceDates = formData.customRecurrenceDates;
-      // Remove top-level date if custom
+      // Remove top-level date and times if custom
       delete payload.date;
       delete payload.startTime;
       delete payload.endTime;
     }
 
-    // End date for weekly/monthly
+    // Compute end date if weekly/monthly
     if (["weekly", "monthly"].includes(formData.recurrenceType)) {
       payload.endDate =
         formData.endDate || moment(formData.date).add(3, "months").format("YYYY-MM-DD");
@@ -837,7 +849,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
               {/* Render selected boxes */}
               {formData.byWeekday?.map((w) => (
-                <Grid size={{xs:12, sm:12, md:12, lg:12}} key={w.weekday}>
+                <Grid size={{xs:12, sm:12, md:12, lg:12}} sx={{mb: 2}} key={w.weekday}>
                   <Box
                     sx={{
                       border: "1px solid",
@@ -1251,12 +1263,14 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           !(formData.recurrenceType === "monthly" && monthlyOption === "byDate") && (
             <Grid size={{ xs: 12, sm: 12 }} sx={{ mb: 2 }}>
               <TextField
-                fullWidth                
+                fullWidth
                 label="Start Date"
                 name="date"
-                type="date"                
+                type="date"
                 value={formData.date}
-                onChange={handleDateChange}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, date: e.target.value }))
+                }
                 variant="outlined"
                 disabled={loading}
                 InputLabelProps={{ shrink: true, ...inputLabelProps }}
@@ -1285,7 +1299,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           )}
 
-          {(formData.recurrenceType === "none" && monthlyOption !== "byWeek") && (
+          {(formData.recurrenceType === "none" || (formData.recurrenceType === "monthly" && monthlyOption === "byDate"))   && (
             <>
               {/* Start Time */}
               <Grid size={{xs:12, sm:6}}>
