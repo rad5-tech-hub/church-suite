@@ -815,7 +815,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     "& .MuiSelect-select": {
                         borderColor: "#777280",
                         color: "#F6F4FE",
-                    },              
+                    },
+                  "& .MuiSelect-icon": { color: "#F6F4FE" },              
                   }}
                 >
                   {scopeLevels.map((level, index) => (
@@ -826,10 +827,16 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 </Select>
               </FormControl>
             </Grid>
-            {formData.scopeLevel === "branch" && (
+            {formData.scopeLevel === "branch" && authData?.isHeadQuarter && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="branch-label" sx={{ fontSize: isLargeScreen ? "1rem" : undefined,  color: "#F6F4FE" }}>
+                  <InputLabel
+                    id="branch-label"
+                    sx={{
+                      fontSize: isLargeScreen ? "1rem" : undefined,
+                      color: "#F6F4FE",
+                    }}
+                  >
                     Assign to Branch
                   </InputLabel>
                   <Select
@@ -842,7 +849,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     label="Assign to Branch"
                     disabled={loading}
                     sx={{
-                      fontSize: isLargeScreen ? "1rem" : undefined,                
+                      fontSize: isLargeScreen ? "1rem" : undefined,
                       color: "#F6F4FE",
                       outlineColor: "#777280",
                       borderColor: "#777280",
@@ -850,9 +857,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         borderColor: "#777280",
                       },
                       "& .MuiSelect-select": {
-                          borderColor: "#777280",
-                          color: "#F6F4FE",
-                      },              
+                        borderColor: "#777280",
+                        color: "#F6F4FE",
+                      },                      
+                      "& .MuiSelect-icon": { color: "#F6F4FE" },
                     }}
                     MenuProps={{
                       PaperProps: {
@@ -876,13 +884,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           <Typography variant="body2">Loading branches...</Typography>
                         </Box>
                       </MenuItem>
-                    ) : hasFetchedBranches  || authData?.isHeadQuarter === false  ? (
-                        <MenuItem value="HeadQuarter">
-                          HeadQuarter
-                        </MenuItem>                      
-                    ) : [
+                    ) : branches.length > 0 ? (
+                      [
                         <MenuItem key="select-branch" value="" disabled>
-                          <em>Select a branch (optional)</em>
+                          <em>Select a branch</em>
                         </MenuItem>,
                         ...branches.map((branch) => (
                           <MenuItem
@@ -895,14 +900,18 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           >
                             <Box>
                               <Typography variant="subtitle2">{branch.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2">
                                 {branch.address}
                               </Typography>
                             </Box>
                           </MenuItem>
                         )),
-                      ]}
+                      ]
+                    ) : (
+                      <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>
+                    )}
                   </Select>
+
                   {branchesError && !isFetchingBranches && (
                     <Typography
                       variant="body2"
@@ -922,6 +931,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 </FormControl>
               </Grid>
             )}
+
             {(formData.scopeLevel === "department" || formData.scopeLevel === "unit") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
@@ -959,7 +969,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                       "& .MuiSelect-select": {
                           borderColor: "#777280",
                           color: "#F6F4FE",
-                      },              
+                      },    
+                      "& .MuiSelect-icon": { color: "#F6F4FE" },          
                     }}
                     MenuProps={{
                       PaperProps: {
@@ -1054,7 +1065,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         "& .MuiSelect-select": {
                             borderColor: "#777280",
                             color: "#F6F4FE",
-                        },              
+                        },     
+                        "& .MuiSelect-icon": { color: "#F6F4FE" },         
                       }}
                       MenuProps={{
                         PaperProps: {

@@ -275,6 +275,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       setNthWeekdays([]);
       setSelectedWeekdays([]);
       setWeekdayMenuOpen(false);
+      setCalendarOpen(true)
 
       setFormData((prev) => ({
         ...prev,
@@ -924,6 +925,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           )}
 
+          {/*Input to select date for the monthly recurrence */}
           {formData.recurrenceType === 'monthly' && (          
             <Box sx={{ mb: 3, width: "100%" }}>
               <FormControl fullWidth disabled={loading}>
@@ -1065,18 +1067,74 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           ))}
 
-          {formData.recurrenceType === 'custom' && (
-            <Grid container spacing={2} sx={{ mt: 2 }}>
+          {formData.recurrenceType === "custom" && (
+            <Grid container spacing={2}                   
+              sx={{
+                border: "1px solid",
+                borderColor: "#777280",
+                borderRadius: "8px",
+                p: 2,
+                color: "#F6F4FE",
+                bgcolor: "rgba(121,121,121,0.2)",              
+                mb: 2,
+              }}>
+                <p>Selected Dates</p>
               {formData.customRecurrenceDates?.map((d, index) => (
-                <Grid size={{xs:12}} key={d.date}>
-                  <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                    <Typography sx={{ width: "100%" }}>
-                      {dayjs(d.date).format("MMMM DD, YYYY")}
-                    </Typography>
+                <Grid size={{xs:12, sm:12, md:12, lg:12}} key={d.date}>
+                  <Box
+                    sx={{
+                      border: "1px solid",
+                      borderColor: "#777280",
+                      borderRadius: "8px",
+                      p: 2,
+                      color: "#F6F4FE",
+                      bgcolor: "rgba(121,121,121,0.2)",
+                      display: "flex",
+                      flexDirection: { xs: "column", lg: "row" }, // column for mobile, row for lg
+                      alignItems: { xs: "flex-start", lg: "center" },
+                      gap: 2,
+                      mb: 1,
+                    }}
+                  >
+                    {/* Top row (date + close button) for xs, only date for lg */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        width: "100%",
+                      }}
+                    >
+                      <Typography>
+                        {dayjs(d.date).format("MMMM DD, YYYY")}
+                      </Typography>
+                      {/* Close button visible here only on small screens */}
+                      <Box sx={{ display: { xs: "block", lg: "none" } }}>
+                        <IconButton
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              customRecurrenceDates:
+                                prev.customRecurrenceDates?.filter(
+                                  (_, i) => i !== index
+                                ) || [],
+                            }))
+                          }
+                          sx={{
+                            color: "#F6F4FE",
+                            "&:hover": { color: "#FF6B6B" },
+                          }}
+                        >
+                          <Close />
+                        </IconButton>
+                      </Box>
+                    </Box>
 
+                    {/* Time pickers */}
                     <TextField
                       label="Start Time"
                       type="time"
+                      fullWidth
                       value={d.startTime}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -1086,11 +1144,34 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                           return { ...prev, customRecurrenceDates: updated };
                         });
                       }}
+                      sx={{
+                        borderRadius: "8px",
+                        "& .MuiOutlinedInput-root": {
+                          color: "#F6F4FE",
+                          "& fieldset": { borderColor: "#F6F4FE" },
+                          "&:hover fieldset": { borderColor: "#F6F4FE" },
+                          "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                          "&.Mui-disabled": {
+                            color: "#777280",
+                            "& fieldset": { borderColor: "transparent" },
+                          },
+                        },
+                        "& .MuiInputBase-input": {
+                          color: "#F6F4FE",
+                          "&::-webkit-calendar-picker-indicator": {
+                            filter: "invert(1)",
+                            cursor: "pointer",
+                          },
+                        },
+                      }}
+                      InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                      inputProps={inputProps}
                     />
 
                     <TextField
                       label="End Time"
                       type="time"
+                      fullWidth
                       value={d.endTime}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -1100,10 +1181,68 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                           return { ...prev, customRecurrenceDates: updated };
                         });
                       }}
+                      sx={{
+                        borderRadius: "8px",
+                        "& .MuiOutlinedInput-root": {
+                          color: "#F6F4FE",
+                          "& fieldset": { borderColor: "#F6F4FE" },
+                          "&:hover fieldset": { borderColor: "#F6F4FE" },
+                          "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                          "&.Mui-disabled": {
+                            color: "#777280",
+                            "& fieldset": { borderColor: "transparent" },
+                          },
+                        },
+                        "& .MuiInputBase-input": {
+                          color: "#F6F4FE",
+                          "&::-webkit-calendar-picker-indicator": {
+                            filter: "invert(1)",
+                            cursor: "pointer",
+                          },
+                        },
+                      }}
+                      InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                      inputProps={inputProps}
                     />
+
+                    {/* Close button visible here only on lg screens */}
+                    <Box sx={{ display: { xs: "none", lg: "block" } }}>
+                      <IconButton
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            customRecurrenceDates:
+                              prev.customRecurrenceDates?.filter(
+                                (_, i) => i !== index
+                              ) || [],
+                          }))
+                        }
+                        sx={{
+                          color: "#F6F4FE",
+                          "&:hover": { color: "#FF6B6B" },
+                        }}
+                      >
+                        <Close />
+                      </IconButton>
+                    </Box>
                   </Box>
                 </Grid>
               ))}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width : '100%' }}>
+                <IconButton
+                  onClick={() => setCalendarOpen(true)}
+                  sx={{
+                    color: "#F6F4FE",
+                    bgcolor: "#2C2C2C",
+                    borderRadius: 2,
+                    "&:hover": {
+                      bgcolor: "#3a3a3a", // slightly lighter on hover
+                    },
+                  }}
+                >
+                  <Add />
+                </IconButton>
+              </Box>
             </Grid>
           )}
 
@@ -1146,8 +1285,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           )}
 
-
-          {(formData.recurrenceType === "none" || monthlyOption !== "byWeek"  )&& (
+          {(formData.recurrenceType === "none" && monthlyOption !== "byWeek") && (
             <>
               {/* Start Time */}
               <Grid size={{xs:12, sm:6}}>
@@ -1726,6 +1864,12 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           </Box>
         )}
+        <CustomCalendarDialog
+          formData={formData}
+          setFormData={setFormData}
+          open={calendarOpen}
+          onClose={() => setCalendarOpen(false)}
+        />
       </DialogContent>
 
       <DialogActions>
@@ -1754,14 +1898,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             isEdit ? "Update Program" : "Create Program"
           )}
         </Button>
-      </DialogActions>
-      <CustomCalendarDialog
-        formData={formData}
-        setFormData={setFormData}
-        open={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-      />
-
+      </DialogActions>      
       {renderMonthlyModal()}
     </Dialog>
   );

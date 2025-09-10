@@ -7,8 +7,9 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
-import { DateCalendar } from "@mui/x-date-pickers/DateCalendar";
+import { DateCalendar, PickersDay, PickersDayProps } from "@mui/x-date-pickers";
 import { Dayjs } from "dayjs";
+import CheckIcon from "@mui/icons-material/Check";
 import { ServiceFormData } from "../pages/attendance/programs/services";
 
 interface CustomCalendarDialogProps {
@@ -24,43 +25,85 @@ const CustomCalendarDialog: React.FC<CustomCalendarDialogProps> = ({
   open,
   onClose,
 }) => {
+  const selectedDates =
+    formData.customRecurrenceDates?.map((d) => d.date) || [];
+
   const handleDateChange = (newDate: Dayjs | null) => {
-    if (newDate) {
-      const formattedDate = newDate.format("YYYY-MM-DD");
-      setFormData((prev) => ({
+    if (!newDate) return;
+    const formattedDate = newDate.format("YYYY-MM-DD");
+
+    setFormData((prev) => {
+      const exists = prev.customRecurrenceDates?.some(
+        (d) => d.date === formattedDate
+      );
+      return {
         ...prev,
-        customRecurrenceDates: prev.customRecurrenceDates?.some(
-          (d) => d.date === formattedDate
-        )
-          ? prev.customRecurrenceDates
+        customRecurrenceDates: exists
+          ? prev.customRecurrenceDates?.filter((d) => d.date !== formattedDate)
           : [
               ...(prev.customRecurrenceDates || []),
               { date: formattedDate, startTime: "", endTime: "" },
             ],
-      }));
-    }
+      };
+    });
+  };
+
+  // ✅ Custom Day Renderer with check icon
+  const CustomDay = (props: PickersDayProps): React.ReactElement => {
+    const { day, outsideCurrentMonth, ...other } = props;
+    const formatted = day.format("YYYY-MM-DD");
+    const isSelected = selectedDates.includes(formatted);
+
+    return (
+      <PickersDay
+        {...other}
+        day={day}
+        outsideCurrentMonth={outsideCurrentMonth}
+        sx={{
+          position: "relative",
+          bgcolor: isSelected ? "#4B8DF8 !important" : "transparent",
+          color: isSelected ? "#fff" : "#000",
+          borderRadius: "50%",
+          "&:hover": {
+            bgcolor: isSelected ? "#4B8DF8" : "#e0e0e0",
+          },
+        }}
+      >
+        {isSelected ? <CheckIcon sx={{ fontSize: 16 }} /> : day.date()}
+      </PickersDay>
+    );
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="sm"
+      sx={{
+        "& .MuiDialog-paper": {
+          borderRadius: 2,
+          bgcolor: "#F6F4FE",
+          color: "#2C2C2C",
+        },
+      }}
+    >
       <DialogTitle>Select Custom Dates</DialogTitle>
       <DialogContent>
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2, display: "flex", justifyContent: "center"}}>
           <DateCalendar
             value={null}
             onChange={handleDateChange}
-            sx={{ bgcolor: "#F6F4FE", borderRadius: "8px", p: 1 }}
-            // disable already selected dates
-            shouldDisableDate={(date) =>
-              formData.customRecurrenceDates?.some(
-                (d) => d.date === date.format("YYYY-MM-DD")
-              ) || false
-            }
+            slots={{ day: CustomDay }}
           />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="contained">
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{ textTransform: "none", bgcolor: "#2C2C2C" }}
+        >
           Done
         </Button>
       </DialogActions>
