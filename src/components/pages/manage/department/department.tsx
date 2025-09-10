@@ -108,31 +108,38 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       });
       return;
     }
-  
+
     try {
       setLoading(true);
-      
-      const response = await Api.post(
-        `/church/create-dept`, 
-        formData
-      );
-      
+
+      // Prepare payload without branchId if HeadQuarter is selected
+      const payload: DepartmentFormData = {
+        name: formData.name,
+        type: formData.type,
+        description: formData.description,
+        ...(formData.branchId && formData.branchId !== "HeadQuarter" ? { branchId: formData.branchId } : {}),
+      };
+
+      const response = await Api.post(`/church/create-dept`, payload);
+
       toast.success(response.data.message || `Department "${response.data.Department.name}" created successfully!`, {
         autoClose: 1000,
         position: isMobile ? "top-center" : "top-right"
       });
-      
+
+      // Reset form
       setFormData({ 
         name: "", 
         type: 'Department', 
         description: "",
         branchId: isSuperAdmin ? "" : undefined
       });
+
       onSuccess?.();
       setTimeout(() => {
         onClose();
       }, 2000);
-      
+
     } catch (error: any) {
       console.error("Department creation error:", error);
       const errorMessage = error.response?.data?.message || "Failed to create Department. Please try again.";
@@ -144,6 +151,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       setLoading(false);
     }
   };
+
 
   return (
     <Dialog
@@ -187,6 +195,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                 onChange={handleSelectChange}
                 label="Branch *"
                 disabled={loading}
+                required
                 sx={{
                   fontSize: isLargeScreen ? "1rem" : undefined,                
                   color: "#F6F4FE",
@@ -216,9 +225,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                     {branch.name}
                   </MenuItem>
                 ))}
-                {!branchesLoading && branches.length === 0 && (
-                  <MenuItem value="" disabled>
-                    No branches available
+                {!branchesLoading && (authData?.isHeadQuarter === false) && (
+                  <MenuItem value="HeadQuarter">
+                    HeadQuarter
                   </MenuItem>
                 )}
               </Select>

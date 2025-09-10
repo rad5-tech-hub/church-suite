@@ -797,9 +797,7 @@ const ViewAdmins: React.FC = () => {
             select
             fullWidth
             value={state.assignLevel}
-            onChange={(e) => {
-              handleStateChange("assignLevel", e.target.value);
-            }}
+            onChange={(e) => handleStateChange("assignLevel", e.target.value)}
             variant="outlined"
             size="small"
             sx={{
@@ -809,14 +807,12 @@ const ViewAdmins: React.FC = () => {
             }}
             disabled={!state.accessLevel}
           >
-            
+            {/* Loading states */}
             {state.accessLevel === "branch" && loadingStates.branches && (
               <MenuItem disabled>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16}  />
-                  <Typography variant="body2" >
-                    Loading branches...
-                  </Typography>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">Loading branches...</Typography>
                 </Box>
               </MenuItem>
             )}
@@ -825,9 +821,7 @@ const ViewAdmins: React.FC = () => {
               <MenuItem disabled>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <CircularProgress size={16} />
-                  <Typography variant="body2" >
-                    Loading departments...
-                  </Typography>
+                  <Typography variant="body2">Loading departments...</Typography>
                 </Box>
               </MenuItem>
             )}
@@ -835,32 +829,43 @@ const ViewAdmins: React.FC = () => {
             {state.accessLevel === "unit" && loadingStates.units && (
               <MenuItem disabled>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16}  />
-                  <Typography variant="body2" >
-                    Loading units...
-                  </Typography>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2">Loading units...</Typography>
                 </Box>
               </MenuItem>
             )}
-            
-            {state.accessLevel === "branch" &&
+
+            {/* HeadQuarter option first, only for branch access */}
+            {state.accessLevel === "branch" && (
+              <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>
+            )}
+
+            {/* Branches */}
+            {state.accessLevel === "branch" && state.branches.length > 0 && 
               state.branches.map((branch) => (
                 <MenuItem key={branch.id} value={branch.id}>
                   {branch.name}
                 </MenuItem>
-              ))}
-            {(state.accessLevel === "department") &&
+              ))
+            }
+
+            {/* Departments */}
+            {state.accessLevel === "department" &&
               state.departments.map((dept) => (
                 <MenuItem key={dept.id} value={dept.id}>
                   {dept.name}
                 </MenuItem>
-              ))}
+              ))
+            }
+
+            {/* Units */}
             {state.accessLevel === "unit" &&
               state.units.map((unit) => (
                 <MenuItem key={unit.id} value={unit.id}>
                   {unit.name}
                 </MenuItem>
-              ))}
+              ))
+            }
           </TextField>
         </Box>
 

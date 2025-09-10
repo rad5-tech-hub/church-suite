@@ -1,6 +1,5 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Tooltip } from "@mui/material";
 import { People } from "@mui/icons-material";
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { MdOutlineHub } from "react-icons/md";
@@ -44,14 +43,16 @@ const Sidebar: React.FC = () => {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block p-2 rounded-full text-center ${
+                    `block py-4 px-2 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
                     }`
                   }
                 >
-                  <Tooltip title={item.label} placement="right" arrow>
-                    <div className="flex items-center justify-center p-2">{item.icon}</div>
-                  </Tooltip>
+              
+                  <div className="flex flex-col items-center justify-center">
+                    <div>{item.icon}</div>
+                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
+                  </div>                
                 </NavLink>
               </li>
             ))}
@@ -64,14 +65,15 @@ const Sidebar: React.FC = () => {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block p-2 rounded-full text-center ${
+                    `block px-2 py-4 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
                     }`
                   }
-                >
-                  <Tooltip title={item.label} placement="right" arrow>
-                    <div className="flex items-center justify-center p-2">{item.icon}</div>
-                  </Tooltip>
+                >                  
+                  <div className="flex flex-col items-center justify-center">
+                    <div>{item.icon}</div>
+                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
+                  </div>                
                 </NavLink>
               </li>
             ))}

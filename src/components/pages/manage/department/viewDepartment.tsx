@@ -200,7 +200,6 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 
 // Empty State Component
 const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLargeScreen: boolean }> = ({
-  error,
   openModal,
   isLargeScreen,
 }) => (
@@ -221,13 +220,8 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      No departments found
+      No departments Yet
     </Typography>
-    {error && (
-      <Typography color="error" sx={{ mb: 2 }}>
-        {error}
-      </Typography>
-    )}
     <Button
       variant="contained"
       onClick={openModal}
@@ -278,9 +272,12 @@ const ViewDepartment: React.FC = () => {
     searchDrawerOpen: false,
   });
 
-  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
-    setState((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  const handleStateChange = useCallback(
+    <K extends keyof State>(key: K, value: State[K]) => {
+      setState((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
 
   // Fetch departments with server-side pagination
   const fetchDepartments = useCallback(
@@ -299,7 +296,6 @@ const ViewDepartment: React.FC = () => {
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again later.";
         console.error("Failed to fetch departments:", error);
-        handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
         toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
         throw error;
@@ -319,25 +315,39 @@ const ViewDepartment: React.FC = () => {
       }));
     } catch (error: any) {
       console.error("Failed to fetch branches:", error);
-      toast.error("Failed to load branches", { position: isMobile ? "top-center" : "top-right" });
     }
   }, [isMobile]);
 
   // Debounced search function
   const searchDepartments = useCallback(
-    async (searchTerm: string, branchId?: string | null, _typeFilter?: string | null) => {
+    async (
+      searchTerm: string,
+      branchId?: string | null,
+      _typeFilter?: string | null
+    ) => {
       handleStateChange("isSearching", true);
+
       try {
+        // Build query parameters
         const params = new URLSearchParams();
-        if (searchTerm) params.append("search", searchTerm); params.append("searchField", "name");
-        if (branchId) params.append("branchId", branchId);       
+        if (searchTerm) params.append("search", searchTerm);
+        params.append("searchField", "name");            
+        if (branchId && branchId !== "HeadQuarter") {
+          params.append("branchId", branchId);
+        }
+
+        // Fetch data from API
         const response = await Api.get<FetchDepartmentsResponse>(
           `/church/get-departments?${params.toString()}`
         );
         const data = response.data;
+
+        // Validate response
         if (!isFetchDepartmentsResponse(data)) {
           throw new Error("Invalid response structure");
         }
+
+        // Update state
         setState((prev) => ({
           ...prev,
           filteredDepartments: data.departments,
@@ -347,8 +357,8 @@ const ViewDepartment: React.FC = () => {
           pageHistory: [],
         }));
       } catch (error) {
-        console.error("Error searching departments:", error);
-        toast.error("Failed to fetch from server", { position: isMobile ? "top-center" : "top-right" });
+        console.error("Error searching departments:", error);        
+
         setState((prev) => ({ ...prev, isSearching: false }));
       }
     },
@@ -436,20 +446,18 @@ const ViewDepartment: React.FC = () => {
 
   const handleBranchChange = useCallback(
     (e: SelectChangeEvent<string>) => {
-      const branchId = e.target.value;
-      handleStateChange("selectedBranchId", branchId);
-      searchDepartments(state.searchTerm, branchId, state.typeFilter);
+      handleStateChange("selectedBranchId", e.target.value);
+      // Don't call searchDepartments here
     },
-    [handleStateChange, state.searchTerm, state.typeFilter, searchDepartments]
+    [handleStateChange]
   );
 
   const handleTypeChange = useCallback(
     (e: SelectChangeEvent<string>) => {
-      const typeFilter = e.target.value as "" | "Department" | "Outreach";
-      handleStateChange("typeFilter", typeFilter);
-      searchDepartments(state.searchTerm, state.selectedBranchId, typeFilter);
+      handleStateChange("typeFilter", e.target.value as "" | "Department" | "Outreach");
+      // Don't call searchDepartments here
     },
-    [handleStateChange, state.searchTerm, state.selectedBranchId, searchDepartments]
+    [handleStateChange]
   );
 
   const handleEditOpen = useCallback(() => {
@@ -638,11 +646,6 @@ const ViewDepartment: React.FC = () => {
                     value={state.searchTerm}
                     onInputChange={(_e, value) => {
                       handleStateChange("searchTerm", value);
-
-                      // 🔹 if you still want server-side filtering
-                      if (value.trim()) {
-                        searchDepartments(value, state.selectedBranchId, state.typeFilter);
-                      }
                     }}
                     filterOptions={(options, { inputValue }) =>
                       options.filter((option) =>
@@ -710,7 +713,7 @@ const ViewDepartment: React.FC = () => {
                           }
                           aria-label="Select branch"
                         >
-                          <MenuItem value="">All</MenuItem>
+                          <MenuItem value="HeaderQuater">HeadQuater</MenuItem>
                           {state.branches.map((branch) => (
                             <MenuItem key={branch.id} value={branch.id}>
                               {branch.name}

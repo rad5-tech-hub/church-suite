@@ -55,51 +55,54 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      await Api.post("/church/create-branch", {
-        name: formData.name,
-        address: formData.location || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-      });
+  try {
+    await Api.post("/church/create-branch", {
+      name: formData.name,
+      address: formData.location || undefined,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+    });
 
-      toast.success("Branch created successfully!", {
-        autoClose: 3000,
-      });
+    // Show success toast
+    const  toastId = toast.success("Branch created successfully!", {
+      autoClose: 1700, // toast stays for 2 seconds
+    });
 
-      setFormData({ name: "", location: "", email: "", phone: "" });
-      onSuccess?.();
-      setTimeout(() => {        
-        onClose();
-      },2000)
+    // Reset form
+    setFormData({ name: "", location: "", email: "", phone: "" });
+    onSuccess?.();
 
-    } catch (error: any) {
-      console.error("Error creating branch:", error.response?.data || error.message);
-      let errorMessage = "Failed to create branch. Please try again.";
-            
-      if (error.response?.data?.error?.message) {
-        errorMessage = `${error.response.data.error.message} Please try again.`;
-      } else if (error.response?.data?.message) {
-         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
-          errorMessage = error.response.data.errors.join(", ");
-        } else {
-          errorMessage = `${error.response.data.message} Please try again.`;
-        }
-      } else if (error.response?.data?.errors) {
-        // Handle validation errors array
+    // Close modal after 2 seconds (same as toast duration)
+    setTimeout(() => {
+      onClose();
+      toast.dismiss(toastId)
+    }, 2000);
+
+  } catch (error: any) {
+    console.error("Error creating branch:", error.response?.data || error.message);
+    let errorMessage = "Failed to create branch. Please try again.";
+
+    if (error.response?.data?.error?.message) {
+      errorMessage = `${error.response.data.error.message} Please try again.`;
+    } else if (error.response?.data?.message) {
+      if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
         errorMessage = error.response.data.errors.join(", ");
+      } else {
+        errorMessage = `${error.response.data.message} Please try again.`;
       }
-      
-      toast.error(errorMessage, {
-        autoClose: 5000,
-      });
-    } finally {
-      setLoading(false);
+    } else if (error.response?.data?.errors) {
+      errorMessage = error.response.data.errors.join(", ");
     }
-  };
+
+    toast.error(errorMessage, { autoClose: 5000 });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <Dialog

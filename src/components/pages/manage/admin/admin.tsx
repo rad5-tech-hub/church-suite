@@ -4,6 +4,8 @@ import { PiEyeClosed } from "react-icons/pi";
 import { SlLock } from "react-icons/sl";
 import Api from "../../../shared/api/api";
 import { toast, ToastContainer } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import {
   Box,
   Button,
@@ -104,6 +106,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
 
   const scopeLevels: { value: string; label: string }[] = [
     { value: "branch", label: "Branch" },
@@ -660,13 +663,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Title *"
+                label="Position *"
                 id="title"
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
                 variant="outlined"
-                placeholder="Enter title"
+                placeholder="Enter Position"
                 disabled={loading}
                 size="medium"
                 InputLabelProps={{
@@ -873,10 +876,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           <Typography variant="body2">Loading branches...</Typography>
                         </Box>
                       </MenuItem>
-                    ) : branches.length === 0 && hasFetchedBranches ? (
-                      <MenuItem disabled>
-                        <Typography variant="body2">No branches available</Typography>
-                      </MenuItem>
+                    ) : hasFetchedBranches  || authData?.isHeadQuarter === false  ? (
+                        <MenuItem value="HeadQuarter">
+                          HeadQuarter
+                        </MenuItem>                      
                     ) : [
                         <MenuItem key="select-branch" value="" disabled>
                           <em>Select a branch (optional)</em>

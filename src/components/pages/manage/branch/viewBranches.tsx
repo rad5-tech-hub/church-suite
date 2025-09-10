@@ -685,7 +685,7 @@ const fetchBranches = useCallback(
                     renderValue={(selected) => selected || "Select Location"}
                     aria-label="Filter branches by location"
                   >
-                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="">None</MenuItem>
                     <MenuItem value="branch">Branch</MenuItem>
                     <MenuItem value="hq">Headquarters</MenuItem>
                   </MuiSelect>
@@ -819,21 +819,21 @@ const fetchBranches = useCallback(
                       </Box>
                       <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
                         <Typography
-                          variant="body2"
+                          variant="h6"
+                          fontWeight={600}
                           sx={{
                             textDecoration: branch.isDeleted ? "line-through" : "none",
-                            color: branch.isDeleted ? "gray" : "#777280",
-                          }}
+                            color: branch.isDeleted ? "gray" : "#E1E1E1",
+                          }}                          
                         >
                           {branch.name}
                         </Typography>
                         {branch.address && (
                           <Typography
-                            variant="h6"
-                            fontWeight={600}
+                           variant="body2"
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#E1E1E1",
+                              color: branch.isDeleted ? "gray" : "#777280",
                             }}
                           >
                             {branch.address}
