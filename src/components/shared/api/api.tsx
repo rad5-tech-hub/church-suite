@@ -26,7 +26,9 @@ const refreshToken = async (): Promise<string> => {
       `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,
       {},
       {
-        withCredentials: true,       
+        withCredentials: true,  
+        maxContentLength: 10 * 1024 * 1024, // ✅ 10 MB response limit
+        maxBodyLength: 10 * 1024 * 1024,    // ✅ 10 MB request upload limit     
       }
     );
     return response.data.accessToken;
