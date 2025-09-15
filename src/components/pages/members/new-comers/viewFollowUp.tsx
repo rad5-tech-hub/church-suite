@@ -178,11 +178,20 @@ interface EmptyStateProps {
   isLargeScreen: boolean;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({onAddFollowUp, isLargeScreen }) => (
-  <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
+const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
+  <Box      
+    sx={{
+      textAlign: "center",
+      py: 8,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
     <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
     <Typography variant="h6" color="gray" sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      Newcomers Not Available
+      {error || "Newcomers Not Available"}
     </Typography>
     <Button
       variant="contained"
@@ -447,6 +456,9 @@ const ViewFollowUp: React.FC = () => {
       return data;
     } catch (error) {
       console.error("Failed to fetch Newcomers:", error);
+      handleStateChange("followUps", []);
+      handleStateChange("filteredFollowUps", []);
+      handleStateChange("pagination", { hasNextPage: false, nextPage: null });
       handleStateChange("error", "Failed to load Newcomers. Please try again later.");
       handleStateChange("loading", false);
       showPageToast("Failed to load Newcomers", 'error');
@@ -491,7 +503,7 @@ const ViewFollowUp: React.FC = () => {
       }
 
       const response = await Api.get<FetchFollowUpsResponse>(
-        `/member/search-follow-up?${params.toString()}`
+        `/member/get-follow-up?${params.toString()}`
       );
 
       setState((prev) => ({
@@ -503,43 +515,28 @@ const ViewFollowUp: React.FC = () => {
       }));
 
       showPageToast("Search completed successfully!", "success");
-    } catch (error) {
-      console.error("Error searching Newcomers:", error);
-      showPageToast("Server search failed, applying local filter", "warning");
+    } catch (error: any) {
+      console.error("❌ Error searching follow-ups:", error);
 
-      let filtered = [...state.followUps];
-      if (state.searchName) {
-        filtered = filtered.filter((followUp) =>
-          followUp.name.toLowerCase().includes(state.searchName.toLowerCase())
-        );
-      }
-      if (state.selectedBranchId) {
-        filtered = filtered.filter(
-          (followUp) => followUp.branchId === state.selectedBranchId
-        );
-      }
-      if (state.searchAddress) {
-        filtered = filtered.filter((followUp) =>
-          followUp.address.toLowerCase().includes(state.searchAddress.toLowerCase())
-        );
-      }
+      const errorMessage =
+        error.response?.data?.message || "Failed to search follow-ups. Please try again.";
 
       setState((prev) => ({
         ...prev,
-        filteredFollowUps: filtered,
+        filteredFollowUps: [], // clear results if error
         pagination: { hasNextPage: false, nextPage: null },
         currentPage: 1,
         pageHistory: [],
         isDrawerOpen: false,
         isSearching: false,
       }));
+
+      showPageToast(errorMessage, "error"); // 🔥 show error toast
     }
   }, [
-    state.followUps,
     state.searchName,
-    state.selectedBranchId, // ✅ depend on selectedBranchId
+    state.selectedBranchId,
     state.searchAddress,
-    isMobile,
     handleStateChange,
   ]);
 
@@ -611,8 +608,15 @@ const ViewFollowUp: React.FC = () => {
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || "Failed to load page";
         console.error(`Error fetching ${direction} page:`, error);
-        handleStateChange("error", errorMessage);
-        handleStateChange("loading", false);
+        setState((prev) => ({
+          ...prev,
+          filteredFollowUps: [],
+          pagination: { hasNextPage: false, nextPage: null },
+          currentPage: 1,
+          pageHistory: [],
+          error: errorMessage,
+          loading: false,
+        }));
         showPageToast(errorMessage, 'error');
       }
     },
@@ -1344,10 +1348,8 @@ const ViewFollowUp: React.FC = () => {
         )}
 
         {/* Empty/Error State */}
-        {!state.loading && (state.error || state.filteredFollowUps.length === 0) && (
-          <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
-        )}
-
+        {state.error && !state.loading && state.filteredFollowUps.length === 0 && <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />}
+        {!state.loading && !state.error && state.filteredFollowUps.length === 0 && <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />}
         {/* Table */}
         {state.filteredFollowUps.length > 0 && (
           <>
