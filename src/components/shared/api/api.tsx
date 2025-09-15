@@ -1,9 +1,9 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { store } from "../../reduxstore/redux";
 import { setAuthData, clearAuth } from "../../reduxstore/authstore";
+import { showPageToast } from "../../util/pageToast";
 
 // Track if we've shown a session expired toast
 let hasShownSessionExpiredToast = false;
@@ -92,13 +92,10 @@ Api.interceptors.request.use(
           } catch (refreshError) {
             processQueue(refreshError as Error);
             
-            // Only show one session expired toast
+            // Only show one session expired toast using showPageToast
             if (!hasShownSessionExpiredToast) {
               hasShownSessionExpiredToast = true;
-              toast.error("Your session has expired. Please log in again.", {
-                position: "top-center",
-                autoClose: 5000,              
-              });
+              showPageToast("Your session has expired. Please log in again.", "error");
             }
             
             return Promise.reject(refreshError);
@@ -134,8 +131,7 @@ Api.interceptors.response.use(
       // Don't show duplicate toasts for 401 errors
       if (error.response.status === 401 && !hasShownSessionExpiredToast) {
         hasShownSessionExpiredToast = true;
-        toast.error("Unauthorized access. Please log in again.", {
-          autoClose: 5000,
+        showPageToast("Unauthorized access. Please log in again.", "error", {
           onClose: () => {
             store.dispatch(clearAuth());
             window.location.href = "/";
@@ -144,9 +140,7 @@ Api.interceptors.response.use(
       }
     } else if (error.request) {
       // Handle network errors
-      toast.error("Network error. Please check your connection.", {
-        autoClose: 5000,
-      });
+      showPageToast("Network error. Please check your connection.", "error");
     }
     return Promise.reject(error);
   }

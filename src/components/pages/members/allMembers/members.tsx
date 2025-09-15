@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
-import { toast, ToastContainer } from "react-toastify";
 import {
   Box,
   Button,
@@ -31,6 +30,8 @@ import {
 import { BsPerson, BsCalendar, BsGeoAlt } from "react-icons/bs";
 import { IoCallOutline } from "react-icons/io5";
 import { SelectChangeEvent } from '@mui/material/Select';
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 import { Close } from "@mui/icons-material";
@@ -55,6 +56,12 @@ interface FormData {
   departmentIds: string[];
   unitIds: string[];
   comments: string;
+  branchId: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface Department {
@@ -115,8 +122,8 @@ const months = [
 
 const steps = ['Basic Information', 'Additional Details'];
 
-
 const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) => {
+  usePageToast("member-modal");
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -142,27 +149,69 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     departmentIds: [],
     unitIds: [],
     comments: "",
+    branchId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [downLoading, setDownLoading] = useState(false);
   const [selectedAgeRange, setSelectedAgeRange] = useState("");
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [countries, setCountries] = useState<Countries[]>([]);
   const [isFetchingCountries, setIsFetchingCountries] = useState(false);
   const [hasFetchedCountries, setHasFetchedCountries] = useState(false);
   const [departmentUnits, setDepartmentUnits] = useState<{ [deptId: string]: Unit[] }>({});
+  const [hasFetchedBranches, setHasFetchedBranches] = useState(false);
   const [hasFetchedDepartments, setHasFetchedDepartments] = useState(false);
   const [hasFetchedUnits, setHasFetchedUnits] = useState<{ [deptId: string]: boolean }>({});
+  const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isFetchingDepartments, setIsFetchingDepartments] = useState(false);
   const [isFetchingUnits, setIsFetchingUnits] = useState<{ [deptId: string]: boolean }>({});
+  const [branchesError, setBranchesError] = useState("");
   const [departmentsError, setDepartmentsError] = useState("");
   const [unitsError, setUnitsError] = useState<{ [deptId: string]: string }>({});
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
 
-  // year started
+  // Year started
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1960 + 1 }, (_, i) => 1960 + i);
+
+  // Fetch Branches
+  const fetchBranches = useCallback(async () => {
+    if (isFetchingBranches || hasFetchedBranches) return;
+    setIsFetchingBranches(true);
+    setBranchesError('');
+    try {
+      const response = await Api.get('/church/get-branches');
+      setBranches(response.data.branches || []);
+      setHasFetchedBranches(true);
+    } catch (error: any) {
+      setBranchesError('Failed to load branches. Please try again.');
+      showPageToast('Failed to load branches. Please try again.', 'error');
+    } finally {
+      setIsFetchingBranches(false);
+    }
+  }, [isFetchingBranches, hasFetchedBranches]);
+
+  // Fetch Departments
+  const fetchDepartments = useCallback(async (branchId: string) => {
+    if (isFetchingDepartments || !branchId) return;
+    setIsFetchingDepartments(true);
+    setDepartmentsError('');
+    setDepartments([]);
+    setDepartmentUnits({});
+    setHasFetchedUnits({});
+    try {
+      const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
+      setDepartments(response.data.departments || []);
+      setHasFetchedDepartments(true);
+    } catch (error: any) {
+      setDepartmentsError('Failed to load departments. Please try again.');
+      showPageToast('Failed to load departments. Please try again.', 'error');
+    } finally {
+      setIsFetchingDepartments(false);
+    }
+  }, [isFetchingDepartments]);
 
   // Fetch Units
   const fetchUnits = useCallback(async (deptId: string) => {
@@ -179,30 +228,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
     } catch (error: any) {
       setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+      showPageToast('Failed to load units for this department.', 'error');
     } finally {
       setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
     }
   }, [hasFetchedUnits, isFetchingUnits]);
 
-  // Fetch Departments - remove the early return condition
-  const fetchDepartments = useCallback(async () => {
-    if (isFetchingDepartments) return;
-    setIsFetchingDepartments(true);
-    setDepartmentsError('');
-    try {
-      const response = await Api.get('/church/get-departments');
-      setDepartments(response.data.departments || []);
-      setHasFetchedDepartments(true);
-    } catch (error: any) {
-      setDepartmentsError('Failed to load departments. Please try again.');
-    } finally {
-      setIsFetchingDepartments(false);
-    }
-  }, [isFetchingDepartments]);
-
-  // Fetch Locations (Countries) - remove the early return condition
+  // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
-    if (isFetchingCountries) return;
+    if (isFetchingCountries || hasFetchedCountries) return;
     setIsFetchingCountries(true);
     try {
       const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
@@ -211,11 +245,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       setHasFetchedCountries(true);
     } catch (error: any) {
       console.error('Error fetching locations:', error);
+      showPageToast('Failed to load countries. Please try again.', 'error');
     } finally {
       setIsFetchingCountries(false);
     }
-  }, [isFetchingCountries]);
+  }, [isFetchingCountries, hasFetchedCountries]);
 
+  // Fetch States
   useEffect(() => {
     const fetchStates = async () => {
       if (!formData.nationality) return;
@@ -231,6 +267,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         setFormData((prev) => ({ ...prev, state: '' }));
       } catch (error) {
         console.error('Error fetching states:', error);
+        showPageToast('Failed to load states. Please try again.', 'error');
       } finally {
         setLoadingStates(false);
       }
@@ -245,6 +282,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     const { name, value } = e.target;
     if (name) {
       setFormData((prev) => ({ ...prev, [name]: value }));
+      if (name === 'branchId' && value) {
+        fetchDepartments(value as string);
+      }
     }
   };
 
@@ -287,7 +327,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const handleDownloadTemplate = async () => {
     setDownLoading(true);
     try {
-      const response = await Api.get("/member/import-template", { responseType: "blob" });
+      const response = await Api.get(`/member/import-template?churchId=${authData?.churchId}`, { responseType: "blob" });
       const contentDisposition = response.headers["content-disposition"];
       let filename = "workers-template.xlsx";
       if (contentDisposition) {
@@ -305,13 +345,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success("Excel template downloaded successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Excel template downloaded successfully!", "success");
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Failed to download Excel template. Please try again.";
-      toast.error(errorMessage, { autoClose: 3000, position: isMobile ? "top-center" : "top-right" });
+      showPageToast(errorMessage, "error");
     } finally {
       setDownLoading(false);
     }
@@ -327,18 +364,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         !formData.phoneNo ||
         !formData.birthMonth ||
         !formData.birthDay ||
-        !formData.state ||      
-        !formData.nationality
+        !formData.state ||
+        !formData.nationality ||
+        !formData.branchId
       ) {
         throw new Error("Please fill in all required fields");
       }
       const payload = { ...formData, departmentIds: formData.departmentIds };
-      const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
-      await Api.post(`/member/add-member?churchId=${authData?.churchId}${branchIdParam}`, payload);
-      toast.success("Worker created successfully!", {
-        autoClose: 1500,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      const params = new URLSearchParams();
+      params.append("churchId", authData?.churchId || "");
+      params.append("branchId", formData.branchId);
+      await Api.post(`/member/add-member?${params.toString()}`, payload);
+      showPageToast("Worker created successfully!", "success");
       setFormData({
         name: "",
         address: "",
@@ -357,33 +394,29 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         departmentIds: [],
         unitIds: [],
         comments: "",
+        branchId: "",
       });
       setSelectedAgeRange("");
       onSuccess?.();
       setTimeout(() => {
         setCurrentStep(0);
-        onClose()
+        onClose();
       }, 1500);
     } catch (error: any) {
-      console.error("Error creating branch:", error.response?.data || error.message);
-      let errorMessage = "Failed to create branch. Please try again.";
-            
+      console.error("Error creating worker:", error.response?.data || error.message);
+      let errorMessage = "Failed to create worker. Please try again.";
       if (error.response?.data?.error?.message) {
         errorMessage = `${error.response.data.error.message} Please try again.`;
       } else if (error.response?.data?.message) {
-         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
           errorMessage = error.response.data.errors.join(", ");
         } else {
           errorMessage = `${error.response.data.message} Please try again.`;
         }
       } else if (error.response?.data?.errors) {
-        // Handle validation errors array
         errorMessage = error.response.data.errors.join(", ");
       }
-      
-      toast.error(errorMessage, {
-        autoClose: 5000,
-      });
+      showPageToast(errorMessage, "error");
     } finally {
       setIsLoading(false);
     }
@@ -399,6 +432,45 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const renderBasicInfo = () => (
     <Grid container spacing={4}>
       <Grid size={{ xs: 12, md: 6 }}>
+        <FormControl fullWidth>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Branch *</InputLabel>
+          <Select
+            name="branchId"
+            value={formData.branchId}
+            onChange={handleChange}
+            onOpen={() => {
+              if (!hasFetchedBranches && !isFetchingBranches) {
+                fetchBranches();
+              }
+            }}
+            disabled={isLoading || isFetchingBranches}
+            label="Branch *"
+            sx={{
+              fontSize: isLargeScreen ? "1rem" : undefined,
+              color: "#F6F4FE",
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
+            }}
+          >
+            <MenuItem value="" disabled>Select Branch</MenuItem>
+            {isFetchingBranches ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : (
+              branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))
+            )}
+          </Select>
+          {branchesError && !isFetchingBranches && (
+            <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
+              <Box component="span" sx={{ mr: 1 }}>⚠️</Box>
+              {branchesError}
+            </Typography>
+          )}
+        </FormControl>
+      </Grid>
+      <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
           label="Full Name *"
@@ -409,28 +481,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           placeholder="Enter full name"
           disabled={isLoading}
           size="medium"
-          autoComplete="false"
+          autoComplete="off"
           InputProps={{
-          startAdornment: <InputAdornment position="start"><BsPerson   style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsPerson style={{ color: '#F6F4FE' }} /></InputAdornment>,
             sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
             },
           }}
           required
@@ -438,7 +502,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE"}}>Gender *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Gender *</InputLabel>
           <Select
             name="sex"
             value={formData.sex}
@@ -447,18 +511,12 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             label="Gender *"
             startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
             sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
-              "& .MuiSelect-select": {
-                  borderColor: "#777280",
-                  color: "#F6F4FE",
-              },              
-            }}         
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
+            }}
           >
             <MenuItem value="" disabled>Select Gender</MenuItem>
             <MenuItem value="male">Male</MenuItem>
@@ -478,27 +536,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           placeholder="Enter WhatsApp number"
           disabled={isLoading}
           InputProps={{
-          startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} />
-          </InputAdornment>,                              
-          sx: {
-            fontSize: isLargeScreen ? "1rem" : undefined,                
-            color: "#F6F4FE",
-            outlineColor: "#777280",
-            borderColor: "#777280",
-            "& .MuiOutlinedInput-notchedOutline": {
-              borderColor: "#777280",
-            },                    
-          },
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            sx: {
+              fontSize: isLargeScreen ? "1rem" : undefined,
+              color: "#F6F4FE",
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+            },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
             },
           }}
         />
@@ -515,28 +564,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           placeholder="Enter phone number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline 
-            style={{ color: '#F6F4FE' }} />
-              </InputAdornment>,                        
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
             sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
             },
           }}
           required
@@ -553,17 +592,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             label="Marital Status *"
             startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
             sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
-              "& .MuiSelect-select": {
-                  borderColor: "#777280",
-                  color: "#F6F4FE",
-              },              
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
           >
             <MenuItem value="" disabled>Select marital status</MenuItem>
@@ -577,26 +610,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color:  "#F6F4FE" }}>Year of Membership</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Year of Membership</InputLabel>
           <Select
             name="memberSince"
             value={formData.memberSince}
             onChange={handleChange}
             disabled={isLoading}
             label="Year of Membership"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color:  "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
             sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
-              "& .MuiSelect-select": {
-                  borderColor: "#777280",
-                  color: "#F6F4FE",
-              },              
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -619,27 +646,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           multiline
           rows={3}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} />
-              </InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
             sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
             },
           }}
         />
@@ -658,17 +676,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             disabled={isLoading}
             label="Age Range"
             sx={{
-              fontSize: isLargeScreen ? "1rem" : undefined,                
+              fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
-              "& .MuiSelect-select": {
-                  borderColor: "#777280",
-                  color: "#F6F4FE",
-              },              
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
           >
             <MenuItem value="" disabled>Select age range</MenuItem>
@@ -739,11 +751,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               required
               InputLabelProps={{
                 sx: {
-                  color: "#F6F4FE", // This changes the label color
-                  "&.Mui-focused": {
-                    color: "#F6F4FE", // Keeps the same color when focused (optional)
-                  },
-                  fontSize: isLargeScreen ? "1rem" : undefined, transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                  color: "#F6F4FE",
+                  "&.Mui-focused": { color: "#F6F4FE" },
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 },
               }}
               InputProps={{
@@ -753,21 +764,22 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                     <BsCalendar style={{ color: "#F6F4FE" }} />
                   </InputAdornment>
                 ),
-                sx: { fontSize: isLargeScreen ? "1rem" : undefined, '& input': { paddingLeft: '8px !important' },
+                sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  '& input': { paddingLeft: '8px !important' },
                   color: "#F6F4FE",
-                  outlineColor: "#777280",
-                  borderColor: "#777280",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#777280",
-                  },                                  
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                  "& .MuiSelect-icon": { color: "#F6F4FE" },
                 },
-                
-              }}              
+              }}
             />
           )}
           disabled={isLoading}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' } }}
+          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+          '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
+          '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+         }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -803,26 +815,31 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               label="Nationality *"
               variant="outlined"
               required
-              InputProps={{ ...params.InputProps, sx: { fontSize: isLargeScreen ? "1rem" : undefined, '& input': { paddingLeft: '8px !important' },                        
+              InputProps={{
+                ...params.InputProps,
+                sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  '& input': { paddingLeft: '8px !important' },
                   color: "#F6F4FE",
-                  outlineColor: "#777280",
-                  borderColor: "#777280",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#777280",
-                  },                                  
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 },
               }}
-              InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined, transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined,
-                color: "#F6F4FE", // This changes the label color
-                  "&.Mui-focused": {
-                    color: "#F6F4FE", // Keeps the same color when focused (optional)
-                  },
-               } }}
+              InputLabelProps={{
+                sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "#F6F4FE",
+                  "&.Mui-focused": { color: "#F6F4FE" },
+                  transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                }
+              }}
             />
           )}
           disabled={isLoading}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' } }}
+          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
+            '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+          }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -858,25 +875,30 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                     {params.InputProps.endAdornment}
                   </>
                 ),
-                sx: { fontSize: isLargeScreen ? "1rem" : undefined, '& input': { paddingLeft: '8px !important' }, color: "#F6F4FE",
-                  outlineColor: "#777280",
-                  borderColor: "#777280",
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#777280",
-                  },                                  
+                sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  '& input': { paddingLeft: '8px !important' },
+                  color: "#F6F4FE",
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                  "& .MuiSelect-icon": { color: "#F6F4FE" },
                 },
               }}
-              InputLabelProps={{ sx: { fontSize: isLargeScreen ? "1rem" : undefined, transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined,
-                color: "#F6F4FE", // This changes the label color
-                  "&.Mui-focused": {
-                    color: "#F6F4FE", // Keeps the same color when focused (optional)
-                  },
-               } }}
+              InputLabelProps={{
+                sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "#F6F4FE",
+                  "&.Mui-focused": { color: "#F6F4FE" },
+                  transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                }
+              }}
             />
           )}
           noOptionsText={!formData.nationality ? "Select a Nationality or Country first" : "No states found"}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' } }}
+          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
+            '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+          }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
@@ -888,47 +910,38 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           onChange={handleChange}
           variant="outlined"
           placeholder="Enter local government area"
-          disabled={isLoading}          
+          disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} />
-              </InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
             sx: {
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",                    
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
             },
-          }}        
+          }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", }}>Departments</InputLabel>
-          <Select        
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Departments</InputLabel>
+          <Select
             name="departmentIds"
             multiple
             value={formData.departmentIds}
             onChange={handleDepartmentChange}
             onOpen={() => {
-              if (!hasFetchedDepartments && !isFetchingDepartments) {
-                fetchDepartments();
+              if (!hasFetchedDepartments && !isFetchingDepartments && formData.branchId) {
+                fetchDepartments(formData.branchId);
               }
             }}
-            disabled={isLoading || isFetchingDepartments}
+            disabled={isLoading || isFetchingDepartments || !formData.branchId}
             label="Departments"
             renderValue={(selected) =>
               (selected as string[])
@@ -938,15 +951,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             sx={{
               fontSize: isLargeScreen ? '1rem' : undefined,
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },
-              "& .MuiSelect-select": {
-                  borderColor: "#777280",
-                  color: "#F6F4FE",
-              },              
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -982,7 +989,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       {formData.departmentIds.map((deptId) => (
         <Grid size={{ xs: 12, md: 6 }} key={deptId}>
           <FormControl fullWidth>
-            <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", }}>
+            <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
               Units for {departments.find((dept) => dept.id === deptId)?.name || "Department"}
             </InputLabel>
             <Select
@@ -1000,18 +1007,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               }
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                '& .MuiSelect-icon': {              
-                },                            
                 color: "#F6F4FE",
-                outlineColor: "#777280",
-                borderColor: "#777280",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#777280",
-                },
-                "& .MuiSelect-select": {
-                    borderColor: "#777280",
-                    color: "#F6F4FE",
-                },              
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "& .MuiSelect-select": { color: "#F6F4FE" },
               }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
             >
@@ -1059,23 +1058,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           rows={3}
           InputLabelProps={{
             sx: {
-              color: "#F6F4FE", // This changes the label color
-              "&.Mui-focused": {
-                color: "#F6F4FE", // Keeps the same color when focused (optional)
-              },
+              color: "#F6F4FE",
+              "&.Mui-focused": { color: "#F6F4FE" },
+              fontSize: isLargeScreen ? "1rem" : undefined,
             },
           }}
           InputProps={{
             sx: {
               color: "#F6F4FE",
-              outlineColor: "#777280",
-              borderColor: "#777280",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#777280",
-              },                    
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
-          }} 
+          }}
         />
       </Grid>
     </Grid>
@@ -1084,8 +1078,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // Stepper Navigation
   const handleNextStep = () => {
     if (currentStep === 0) {
-      if (!formData.name || !formData.address || !formData.phoneNo || !formData.sex || !formData.maritalStatus) {
-        toast.error("Please fill in all required fields", { autoClose: 3000, position: isMobile ? "top-center" : "top-right" });
+      if (!formData.name || !formData.address || !formData.phoneNo || !formData.sex || !formData.maritalStatus || !formData.branchId) {
+        showPageToast("Please fill in all required fields", "error");
         return;
       }
     }
@@ -1098,31 +1092,29 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}
       sx={{
         "& .MuiDialog-paper": {
-          borderRadius:  2,
+          borderRadius: 2,
           bgcolor: '#2C2C2C',
-
         },
       }}
-    >   
-    <ToastContainer />  
-    <DialogTitle>
-      <Box display="flex" justifyContent="space-between" alignItems="center">            
-        <Typography
-          variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
-          fontWeight={600}
-          gutterBottom
-          sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "0.5rem" : undefined }}
-        >
-          Add New Worker
-        </Typography>
-        <IconButton onClick={onClose}>
-          <Close className="text-gray-300"/>
-        </IconButton>
-      </Box>          
-    </DialogTitle> 
+    >
+      <DialogTitle>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography
+            variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
+            fontWeight={600}
+            gutterBottom
+            sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.5rem" : undefined }}
+          >
+            Add New Worker
+          </Typography>
+          <IconButton onClick={onClose}>
+            <Close className="text-gray-300"/>
+          </IconButton>
+        </Box>
+      </DialogTitle>
       <DialogContent sx={{ py: isMobile ? 1 : 2 }}>
         <Container>
-          <Box  sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 2 }} >
+          <Box sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 2 }} >
             <Box sx={{ width: { xs: "100%", sm: "75%", md: "40%", mb: 2 }}}>
               <Stepper activeStep={currentStep} alternativeLabel sx={{
                 "& .MuiStepLabel-label": {
@@ -1154,7 +1146,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   sx={{
                     py: 1,
                     backgroundColor: "#F6F4FE",
-                    px: { xs: 3, sm: 3 },                  
+                    px: { xs: 3, sm: 3 },
                     fontWeight: 500,
                     textTransform: "none",
                     color: "#2C2C2C",
@@ -1165,10 +1157,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   }}
                 >
                   {downLoading ? (
-                    <>
-                      <CircularProgress size={18} sx={{ mr: 1 }} />
-                        Downloading...
-                    </>
+                    <span className="text-gray-300">
+                      <CircularProgress size={18} sx={{ mr: 1 , color: '#f6f4fe'}} />
+                      Downloading...
+                    </span>
                   ) : (
                     <span className="flex gap-1"> Download Template <PiDownload className="mt-1"/>
                     </span>
@@ -1239,7 +1231,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             </Box>
           </Box>
         </Container>
-      </DialogContent>  
+      </DialogContent>
     </Dialog>
   );
 };

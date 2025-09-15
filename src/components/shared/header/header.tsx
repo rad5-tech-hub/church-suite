@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from "react";
 import { IoNotificationsOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
@@ -12,8 +10,8 @@ import { IoSettingsOutline } from "react-icons/io5";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import Box from "@mui/material/Box";
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
+import Button from "@mui/material/Button";
+import ButtonGroup from "@mui/material/ButtonGroup";
 import { store } from "../../reduxstore/redux";
 import { clearAuth } from "../../reduxstore/authstore";
 import MobileNav from "../mobileNav/mobilenav";
@@ -24,7 +22,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = () => {
-  const [activeButton, setActiveButton] = useState('Dashboard');
+  const [activeButton, setActiveButton] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,43 +34,42 @@ const Header: React.FC<HeaderProps> = () => {
     Message: /^\/message(\/|$)/,
     Finance: /^\/finance(\/|$)/,
     Programs: /^\/programs(\/|$)/,
-    Settings: /^\/settings(\/|$)/
+    Settings: /^\/settings(\/|$)/,
   };
 
   const buttons = [
-    'Dashboard',
-    'Manage',
-    'Membership',
-    'Message',
-    'Finance',
-    'Programs',
-    'Settings',
+    "Dashboard",
+    "Manage",
+    "Membership",
+    "Message",
+    "Finance",
+    "Programs",
+    "Settings",
   ];
 
   // Default routes for each button
   const defaultRoutes: { [key: string]: string } = {
-    Dashboard: '/dashboard',
-    Manage: '/manage/view-admins',
-    Membership: '/members/view-workers',
-    Message: '/message',
-    Finance: '/finance',
-    Programs: '/programs',
-    Settings: '/settings'
+    Dashboard: "/dashboard",
+    Manage: "/manage/view-admins",
+    Membership: "/members/view-workers",
+    Message: "/message",
+    Finance: "/finance",
+    Programs: "/programs",
+    Settings: "/settings",
   };
 
   // Sync activeButton with current route
   useEffect(() => {
     const currentPath = location.pathname;
-    
+
     // Find the first button whose route pattern matches the current path
-    const activeLabel = Object.keys(buttonRoutePatterns).find(
-      (label) => buttonRoutePatterns[label].test(currentPath)
-    );
-    
-    if (activeLabel && activeLabel !== activeButton) {
-      setActiveButton(activeLabel);
-    }
-  }, [location.pathname, activeButton, buttonRoutePatterns]);
+    const activeLabel =
+      Object.keys(buttonRoutePatterns).find((label) =>
+        buttonRoutePatterns[label].test(currentPath)
+      ) || null;
+
+    setActiveButton(activeLabel);
+  }, [location.pathname]);
 
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
@@ -98,12 +95,12 @@ const Header: React.FC<HeaderProps> = () => {
   const handleConfirmLogout = () => {
     handleCloseLogoutModal();
     store.dispatch(clearAuth());
-    navigate('/login');
+    navigate("/login");
   };
 
   const handleButtonClick = (label: string) => {
-    setActiveButton(label);
     navigate(defaultRoutes[label]);
+    // Don't set activeButton manually — useEffect handles it
   };
 
   const open = Boolean(anchorEl);
@@ -111,31 +108,36 @@ const Header: React.FC<HeaderProps> = () => {
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
-      <div className="flex items-center lg:gap-17 gap-4 py-2">
+      <div className="flex items-center lg:gap-17 gap-4">
         <Tooltip title={authData?.church_name || ""} arrow>
-          {authData?.logo ? <img
-            src={authData?.logo || undefined}
-            alt={`${authData?.church_name} logo`}
-            className="h-12 w-12 object-contain rounded-full"
-          /> : <div className="h-12 w-12 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
-                  {authData?.church_name ? authData.church_name.charAt(0).toUpperCase() : "C"}
-                </div>
-            }
+          {authData?.logo ? (
+            <img
+              src={authData?.logo || undefined}
+              alt={`${authData?.church_name} logo`}
+              className="h-16 w-16 object-contain rounded-full"
+            />
+          ) : (
+            <div className="h-16 w-16 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
+              {authData?.church_name
+                ? authData.church_name.charAt(0).toUpperCase()
+                : "C"}
+            </div>
+          )}
         </Tooltip>
 
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Box sx={{ display: { xs: "none", md: "block" } }}>
           <ButtonGroup
             sx={{
-              backgroundColor: '#4d4d4e8e',
-              border: 'none',
-              borderRadius: '9999px',
-              padding: '0.5px',
-              overflow: 'hidden',
-              boxShadow: 'none',
-              '& .MuiButtonGroup-grouped': {
-                border: 'none',
-                '&:not(:last-of-type)': {
-                  borderRight: 'none',
+              backgroundColor: "#4d4d4e8e",
+              border: "none",
+              borderRadius: "9999px",
+              padding: "0.5px",
+              overflow: "hidden",
+              boxShadow: "none",
+              "& .MuiButtonGroup-grouped": {
+                border: "none",
+                "&:not(:last-of-type)": {
+                  borderRight: "none",
                 },
               },
             }}
@@ -147,28 +149,29 @@ const Header: React.FC<HeaderProps> = () => {
                 key={label}
                 onClick={() => handleButtonClick(label)}
                 sx={{
-                  color: activeButton === label ? '#160F38' : '#777280',
-                  backgroundColor: activeButton === label ? '#F6F4FE' : '#363740',
-                  border: 'none',
-                  textTransform: 'none',
-                  padding: '12px 18px',
-                  fontSize: '0.875rem',
-                  borderRadius: '9999px !important',
+                  color: activeButton === label ? "#160F38" : "#777280",
+                  backgroundColor:
+                    activeButton === label ? "#F6F4FE" : "#363740",
+                  border: "none",
+                  textTransform: "none",
+                  padding: "12px 18px",
+                  fontSize: "0.875rem",
+                  borderRadius: "9999px !important",
                   ...(index === 0 && {
-                    borderTopLeftRadius: '9999px !important',
-                    borderBottomLeftRadius: '9999px !important',
+                    borderTopLeftRadius: "9999px !important",
+                    borderBottomLeftRadius: "9999px !important",
                   }),
                   ...(index === buttons.length - 1 && {
-                    borderTopRightRadius: '9999px !important',
-                    borderBottomRightRadius: '9999px !important',
+                    borderTopRightRadius: "9999px !important",
+                    borderBottomRightRadius: "9999px !important",
                   }),
-                  '&:hover': {
-                    backgroundColor: '#F6F4FE',
-                    borderRadius: '9999px',
-                    color: '#160F38',
+                  "&:hover": {
+                    backgroundColor: "#F6F4FE",
+                    borderRadius: "9999px",
+                    color: "#160F38",
                   },
-                  transition: 'all 0.3s ease',
-                  fontWeight: '600',
+                  transition: "all 0.3s ease",
+                  fontWeight: "600",
                 }}
               >
                 {label}
@@ -179,7 +182,10 @@ const Header: React.FC<HeaderProps> = () => {
       </div>
 
       <div className="flex items-center gap-6">
-        <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
+        <button
+          className="relative bg-[#4d4d4e8e] p-2 rounded-full"
+          aria-label="Notifications"
+        >
           <IoNotificationsOutline className="text-2xl" />
           <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             3
@@ -193,7 +199,7 @@ const Header: React.FC<HeaderProps> = () => {
           >
             <div
               className="p-2 border border-[var(--color-text-on-primary)] rounded-full"
-              title={`${authData?.name || ''} ${authData?.email || ''}`}
+              title={`${authData?.name || ""} ${authData?.email || ""}`}
             >
               <BsPerson className="text-xl" aria-label="Person" />
             </div>
@@ -230,7 +236,7 @@ const Header: React.FC<HeaderProps> = () => {
               <div
                 className="flex items-center gap-2 px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
                 onClick={() => {
-                  navigate('/settings');
+                  navigate("/settings");
                   handleClose();
                 }}
               >
@@ -298,14 +304,14 @@ const Header: React.FC<HeaderProps> = () => {
               variant="outlined"
               onClick={handleCloseLogoutModal}
               sx={{
-                borderColor: 'gray',
-                color: '#111827',
-                '&:hover': {
-                  borderColor: 'darkgray',
+                borderColor: "gray",
+                color: "#111827",
+                "&:hover": {
+                  borderColor: "darkgray",
                 },
                 width: {
-                  xs: '100%',
-                  sm: 'auto',
+                  xs: "100%",
+                  sm: "auto",
                 },
               }}
               fullWidth
@@ -316,16 +322,16 @@ const Header: React.FC<HeaderProps> = () => {
               variant="contained"
               onClick={handleConfirmLogout}
               sx={{
-                backgroundColor: '#FB2C36',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: '#FF6467',
+                backgroundColor: "#FB2C36",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#FF6467",
                 },
-                border: 'none',
-                boxShadow: 'none',
+                border: "none",
+                boxShadow: "none",
                 width: {
-                  xs: '100%',
-                  sm: 'auto',
+                  xs: "100%",
+                  sm: "auto",
                 },
               }}
               fullWidth
@@ -335,7 +341,11 @@ const Header: React.FC<HeaderProps> = () => {
           </Box>
         </Box>
       </Modal>
-      <MobileNav activeButton={activeButton} handleButtonClick={handleButtonClick} />
+
+      <MobileNav
+        activeButton={activeButton}
+        handleButtonClick={handleButtonClick}
+      />
     </header>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useSelector } from "react-redux";
-import { toast, ToastContainer } from "react-toastify";
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import { RootState } from "../../../reduxstore/redux";
 import {
   Box,
@@ -42,6 +43,12 @@ interface FormData {
   birthMonth: string;
   birthDay: string;
   timer: number | null;
+  branchId?: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface RegistrationModalProps {
@@ -88,9 +95,30 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
     birthMonth: "",
     birthDay: "",
     timer: null,
+    branchId: authData?.branchId || "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [branchLoading, setBranchLoading] = useState(false);
   const [downLoading, setDownLoading] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  usePageToast('newcomers')
+
+  // Fetch branches when modal opens
+  const fetchBranches = async () => {
+    setBranchLoading(true);
+    try {
+      const response = await Api.get<{ branches: Branch[] }>("/church/get-branches");
+      const branchesData = response.data?.branches || [];
+      setBranches(branchesData);
+      // Set default branch to authData.branchId or HeadQuarter if no branchId
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      showPageToast("Failed to load branches. Please try again.", "error");
+    }
+    finally {
+      setBranchLoading(false);
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement> | { target: { name?: string; value: unknown } }
@@ -134,75 +162,73 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Excel template downloaded successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Excel template downloaded successfully!", 'success');
     } catch (error: any) {
       console.error("Failed to download template:", error);
       const errorMessage =
         error.response?.data?.message ||
         "Failed to download Excel template. Please try again.";
-      toast.error(errorMessage, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast(errorMessage, 'error');
     } finally {
       setDownLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsLoading(true);
 
-    try {
-      const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
-      await Api.post(`/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`, formData);
+  try {
+    // ✅ clone the formData but exclude branchId
+    const { branchId, ...payload } = formData;
 
-      toast.success("New Comer created successfully!", {
-        autoClose: 1500,
-        position: isMobile ? "top-center" : "top-right",
-      });
+    // ✅ decide if branchId should go to params
+    const branchIdParam = branchId ? `&branchId=${branchId}` : "";
 
-      setFormData({
-        name: "",
-        phoneNo: "",
-        sex: "",
-        address: "",
-        birthMonth: "",
-        birthDay: "",
-        timer: null,
-      });
+    await Api.post(
+      `/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`,
+      payload
+    );
 
+    showPageToast("New Comer created successfully!", "success");
+
+    setFormData({
+      name: "",
+      phoneNo: "",
+      sex: "",
+      address: "",
+      birthMonth: "",
+      birthDay: "",
+      timer: null,
+      branchId: "", // keep state consistent
+    });
+
+    setTimeout(() => {
       onSuccess();
-      setTimeout(() => {
-          onClose();
-        }, 1500);
-    } catch (error: any) {
-      console.error("Error creating branch:", error.response?.data || error.message);
-      let errorMessage = "Failed to create branch. Please try again.";
-            
-      if (error.response?.data?.error?.message) {
-        errorMessage = `${error.response.data.error.message} Please try again.`;
-      } else if (error.response?.data?.message) {
-         if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
-          errorMessage = error.response.data.errors.join(", ");
-        } else {
-          errorMessage = `${error.response.data.message} Please try again.`;
-        }
-      } else if (error.response?.data?.errors) {
-        // Handle validation errors array
+      onClose();
+    }, 3000);
+  } catch (error: any) {
+    console.error("Error creating branch:", error.response?.data || error.message);
+    let errorMessage = "Failed to create branch. Please try again.";
+
+    if (error.response?.data?.error?.message) {
+      errorMessage = `${error.response.data.error.message} Please try again.`;
+    } else if (error.response?.data?.message) {
+      if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
         errorMessage = error.response.data.errors.join(", ");
+      } else {
+        errorMessage = `${error.response.data.message} Please try again.`;
       }
-      
-      toast.error(errorMessage, {
-        autoClose: 5000,
-      });
-    } finally {
-      setIsLoading(false);
+    } else if (error.response?.data?.errors) {
+      errorMessage = error.response.data.errors.join(", ");
     }
-  };
+
+    showPageToast(errorMessage, "error");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <Dialog
@@ -219,7 +245,6 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
         },
       }}
     >
-      <ToastContainer />
       <DialogTitle>
         <Box
           sx={{
@@ -274,6 +299,48 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       <DialogContent dividers>
         <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <Grid container spacing={4}>
+            <Grid size={{xs: 12, md: 6}}>
+              <FormControl fullWidth>
+                <InputLabel 
+                  id="branch-select-label" 
+                  sx={{ 
+                    fontSize: '1rem', 
+                    color: '#F6F4FE',
+                    '&.Mui-focused': { color: '#F6F4FE' }
+                  }}
+                >
+                  Select Branch (optional)
+                </InputLabel>
+                <Select
+                  labelId="branch-select-label"
+                  id="branchId"
+                  name="branchId"
+                  value={formData.branchId}
+                  onChange={handleChange}
+                  onOpen={fetchBranches}
+                  label="Select Branch (optional)"
+                  disabled={isLoading}
+                  sx={{
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "& .MuiSelect-select": { color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    fontSize: "1rem"
+                  }}
+                  aria-label="Select branch"
+                >
+                  <MenuItem value='' > None</MenuItem>
+                  {branchLoading ? 
+                    <MenuItem disabled> Loading ...</MenuItem>  :
+                  branches.map((branch) => (
+                    <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                  ))
+                }
+                </Select>
+              </FormControl>              
+            </Grid>
+
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
                 <TextField
@@ -396,6 +463,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     '& .MuiSelect-select': {
                       paddingRight: '24px !important',
                     },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
                     fontSize: isMobile ? '0.875rem' : '1rem',
                   }}
                 >
@@ -547,6 +615,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
                           borderColor: '#777280',
                         },
+                        "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" } 
                       },
                     }}
                   />
@@ -589,6 +658,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     '& .MuiSelect-select': {
                       paddingRight: '24px !important',
                     },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
                     fontSize: isMobile ? '0.875rem' : '1rem',
                   }}
                 >

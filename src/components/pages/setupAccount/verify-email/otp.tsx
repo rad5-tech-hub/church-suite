@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FaEnvelope } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { persistor } from '../../../reduxstore/redux'; // Adjust the path to your Redux store file
+import { persistor } from '../../../reduxstore/redux';
 import { setAuthData } from '../../../reduxstore/authstore';
 import { jwtDecode } from "jwt-decode";
 import { useDispatch } from 'react-redux';
@@ -14,6 +14,8 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
+import { showPageToast } from '../../../util/pageToast';
+import { usePageToast } from '../../../hooks/usePageToast';
 
 // Types
 interface VerificationRequest {
@@ -27,6 +29,7 @@ interface AuthPayload {
   churchId: string;
   church_name: string;
   email: string;
+  role: string;
   exp: number;
   iat: number;
   id: string;
@@ -38,13 +41,13 @@ interface AuthPayload {
   token: string;
 }
 
-
 // Constants
 const CODE_LENGTH = 6;
 const PERSIST_DELAY = 100;
 
 const EmailVerification: React.FC = () => {
   // Hooks
+  usePageToast("email-verification"); // 👈 scope toasts to this page
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
@@ -114,7 +117,10 @@ const EmailVerification: React.FC = () => {
 
       const authPayload: AuthPayload = {
         backgroundImg: decodedToken.backgroundImg || "",
-        branchId: decodedToken.branchId || "",
+        role: decodedToken.role || '',
+        branchId: Array.isArray(decodedToken.branchId)
+        ? decodedToken.branchId[0] || "" // take only the first branchId
+        : decodedToken.branchId || "", 
         churchId: decodedToken.churchId || "",
         church_name: decodedToken.church_name || "",
         email: decodedToken.email || "",
@@ -132,6 +138,7 @@ const EmailVerification: React.FC = () => {
       dispatch(setAuthData(authPayload));
       await new Promise(resolve => setTimeout(resolve, PERSIST_DELAY));
       sessionStorage.clear();
+      showPageToast("Email verified successfully!", "success"); // ✅ success toast
       persistor.flush().then(() => navigate("/dashboard"));
     } catch (error) {
       console.error('Verification error:', error);
@@ -165,7 +172,9 @@ const EmailVerification: React.FC = () => {
     try {
       await verifyCode(email, code.join(''));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during verification. Please try again.');
+      const message = err instanceof Error ? err.message : 'An error occurred during verification. Please try again.';
+      setError(message);
+      showPageToast(message, "error"); // ✅ error toast
     } finally {
       setLoading(false);
     }
@@ -177,8 +186,11 @@ const EmailVerification: React.FC = () => {
 
     try {
       await resendCode();
+      showPageToast(`Verification code resent to ${email}`, "success"); // ✅ success toast
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while resending the code. Please try again.');
+      const message = err instanceof Error ? err.message : 'An error occurred while resending the code. Please try again.';
+      setError(message);
+      showPageToast(message, "error"); // ✅ error toast
     } finally {
       setResendLoading(false);
     }
@@ -187,6 +199,7 @@ const EmailVerification: React.FC = () => {
   // Derived values
   const allFilled = code.every(digit => digit !== '');
   const isLoading = loading || resendLoading;
+
   return (
     <Box
       sx={{
@@ -243,7 +256,7 @@ const EmailVerification: React.FC = () => {
           p: 3,
           position: 'relative',
           zIndex: 2,
-          opacity: (isLoading) ? 0.5 : 1,
+          opacity: isLoading ? 0.5 : 1,
           transition: 'opacity 0.3s ease'
         }}
       >
@@ -287,7 +300,13 @@ const EmailVerification: React.FC = () => {
         </Box>
 
         {/* Heading */}
-        <Typography    variant={isMobile ? "h5" : isMobile ? "h4" : "h4"} component="h1" align="center" sx={{fontWeight: '600', pb: 1, pt: 2}}  color="text.primary">
+        <Typography
+          variant={isMobile ? "h5" : "h4"}
+          component="h1"
+          align="center"
+          sx={{ fontWeight: '600', pb: 1, pt: 2 }}
+          color="text.primary"
+        >
           Verify Email To Set Up Church!
         </Typography>
 
@@ -303,63 +322,62 @@ const EmailVerification: React.FC = () => {
         )}
 
         {/* Verification Code Inputs */}
-        <Box sx={{display: 'flex', justifyContent: "center", alignItems: 'center'}}>
-          <Grid container spacing={{ xs: 1, md: 0 }} sx={{ pt: 3}}>            
-              {code.map((digit, index) => (
-                <Grid size={{xs: 4, sm: 2}} key={index} sx={{display: 'flex', justifyContent: "center", alignItems: 'center'}}>
-                    <Input
-                    inputRef={el => (inputsRef.current[index] = el)}
-                    type="text"
-                    placeholder="*"
-                    inputProps={{ maxLength: 1 }}
-                    value={digit}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange(e, index)}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => handleKeyDown(e, index)}
-                    sx={{
-                        width: isMobile ? 55 : 70,
-                        height: isMobile ? 55 : 70,
-                        fontSize: '1.5rem',
-                        textAlign: 'center',
-                        '& input': {
-                        textAlign: 'center'
-                        },
-                        '&:before, &:after': {
-                        display: 'none'
-                        },
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        '&:focus-within': {
-                        boxShadow: '0 0 8px rgba(214, 187, 251, 1)'
-                        }
-                    }}
-                    />
-                </Grid>
-              ))}
+        <Box sx={{ display: 'flex', justifyContent: "center", alignItems: 'center' }}>
+          <Grid container spacing={{ xs: 1, md: 0 }} sx={{ pt: 3 }}>            
+            {code.map((digit, index) => (
+              <Grid size={{xs:4, sm: 2}} key={index} sx={{ display: 'flex', justifyContent: "center", alignItems: 'center' }}>
+                <Input
+                  inputRef={el => (inputsRef.current[index] = el)}
+                  type="text"
+                  placeholder="*"
+                  inputProps={{ maxLength: 1 }}
+                  value={digit}
+                  onChange={(e: any) => handleChange(e, index)}
+                  onKeyDown={(e: any) => handleKeyDown(e, index)}
+                  sx={{
+                    width: isMobile ? 55 : 70,
+                    height: isMobile ? 55 : 70,
+                    fontSize: '1.5rem',
+                    textAlign: 'center',
+                    '& input': {
+                      textAlign: 'center'
+                    },
+                    '&:before, &:after': {
+                      display: 'none'
+                    },
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    '&:focus-within': {
+                      boxShadow: '0 0 8px rgba(214, 187, 251, 1)'
+                    }
+                  }}
+                />
+              </Grid>
+            ))}
             {/* Verify Email Button */}       
             <Grid size={{xs:12}} sx={{ mt: 2 }}>            
-                <Button
+              <Button
                 variant="contained"
                 fullWidth
                 onClick={handleVerify}
                 disabled={!allFilled}
                 sx={{
-                    py: 1.5,              
-                    borderRadius: '25px',
+                  py: 1.5,              
+                  borderRadius: '25px',
+                  backgroundColor: allFilled ? '#111827' : 'action.disabledBackground',
+                  '&:hover': {
                     backgroundColor: allFilled ? '#111827' : 'action.disabledBackground',
-                    '&:hover': {
-                    backgroundColor: allFilled ? '##111827' : 'action.disabledBackground',
                     opacity: allFilled ? 0.9 : 1
-                    }
+                  }
                 }}
-                >
-                  {loading ? 'Verifying...' : 'Verify email'}
-                </Button>
+              >
+                {loading ? 'Verifying...' : 'Verify email'}
+              </Button>
             </Grid>
-        </Grid>
+          </Grid>
         </Box>
-
 
         {/* Resend Link */}
         <Typography variant="body2" align="center" color="text.secondary" sx={{ pt: 2 }}>

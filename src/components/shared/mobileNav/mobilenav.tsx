@@ -19,7 +19,7 @@ import { FaPeopleGroup } from "react-icons/fa6";
 import { useNavigate } from 'react-router-dom';
 
 interface MobileNavProps {
-  activeButton: string;
+  activeButton: string | null;
   handleButtonClick: (label: string) => void;
 }
 

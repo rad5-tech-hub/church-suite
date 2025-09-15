@@ -7,8 +7,8 @@ import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import 'react-toastify/dist/ReactToastify.css';
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 
 interface ChurchData {
   churchName?: string;
@@ -21,6 +21,7 @@ interface ChurchData {
 }
 
 const CreateAccount: React.FC = () => {
+  usePageToast("create-account"); 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ const CreateAccount: React.FC = () => {
     emailInvalid: false
   });
   const [showCongratsDialog, setShowCongratsDialog] = useState(true);
-  const churchData = useSelector((state: RootState) => state.church);
+  const churchData = useSelector((state: RootState) => state?.church);
   const navigate = useNavigate();
 
   const validateForm = (password: string, confirmPassword: string, email: string): boolean => {
@@ -41,17 +42,11 @@ const CreateAccount: React.FC = () => {
     setFormErrors(errors);
     
     if (errors.passwordMismatch) {
-      toast.error('Passwords do not match', {
-        position: "top-right",
-        autoClose: 5000,
-      });
+      showPageToast('Passwords do not match', "error");
     }
     
-    if (errors.emailInvalid) {
-      toast.error('Please enter a valid email address', {
-        position: "top-right",
-        autoClose: 5000,
-      });
+    if (errors.emailInvalid) {     
+      showPageToast('Please enter a valid email address', "error");
     }
     
     return !errors.passwordMismatch && !errors.emailInvalid;
@@ -203,7 +198,6 @@ const submitChurchData = async (formData: FormData) => {
 
       // Navigate after the toast auto-closes
       setTimeout(() => {
-        toast.dismiss();
         navigate('/verify-email');
       }, 1500); // Match the autoClose duration
 
@@ -226,7 +220,7 @@ const submitChurchData = async (formData: FormData) => {
             `${detail.field}: ${detail.value} has already been used`
           ).join('\n') || '';
 
-          toast.error(
+          showPageToast(
             <div>
               <div>{errorObj.error.message}</div>
               {errorDetails && (
@@ -238,53 +232,35 @@ const submitChurchData = async (formData: FormData) => {
                   {errorDetails}
                 </pre>
               )}
-            </div>, 
-            {
-              position: "top-right",
-              autoClose: 8000,
-            }
+            </div>, 'error'
           );
         } else if (error.message.includes('<!DOCTYPE html>')) {          
-          toast.error("Server error occurred. Please try again later.", {
-            position: "top-right",
-            autoClose: 5000,
-          });
+          showPageToast("Server error occurred. Please try again later.", 'error');
+          
         } else {
-          toast.error(error.message, {
-            position: "top-right",
-            autoClose: 5000,
-          });
+          showPageToast(error.message, 'error');
         }
       } catch {
         const errorMessage = error.message.includes('<!DOCTYPE html>')
           ? "Server error occurred. Please try again later."
           : error.message;
 
-        toast.error(errorMessage, {
-          position: "top-right",
-          autoClose: 5000,
-        });
+        showPageToast(errorMessage,'error');
       }
     } else {
-      toast.error("An unexpected error occurred. Please try again.", {
-        position: "top-right",
-        autoClose: 5000,
-      });
+      showPageToast("An unexpected error occurred. Please try again.", 'error');
     }
   };
 
   const showSuccessMessage = (email: string) => {
-    toast.success(
+    showPageToast(
       <div>
         <div>Account created successfully!</div>
         <div>We sent a verification link to: {email}</div>
         <div className="mt-2">
         </div>
       </div>,
-      {
-        position: "top-right",
-        autoClose: 1500,
-      }
+      'success'
     );
   };
 

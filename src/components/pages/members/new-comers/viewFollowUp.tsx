@@ -26,6 +26,9 @@ import {
   TextField,
   Select as MuiSelect,
   Divider,
+  FormControl,
+  Autocomplete,
+  InputAdornment,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
@@ -35,13 +38,15 @@ import {
   ChevronLeft,
   Search,
   AttachFile,
+  Close,
 } from "@mui/icons-material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { AiOutlineDelete } from "react-icons/ai";
 import { PiDownloadThin } from "react-icons/pi";
-import { toast, ToastContainer } from "react-toastify";
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import { IoMdClose } from "react-icons/io";
-import Select from "@mui/material/Select";
+import Select, { SelectChangeEvent } from "@mui/material/Select";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
@@ -55,12 +60,18 @@ interface FollowUp {
   sex: string;
   phoneNo: string;
   address: string;
+  branchId: string;
   timer: number;
   birthMonth: string;
   birthDay: string;
   maritalStatus: string;
   isActive: boolean;
   isDeleted: boolean;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface Pagination {
@@ -167,13 +178,12 @@ interface EmptyStateProps {
   isLargeScreen: boolean;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
+const EmptyState: React.FC<EmptyStateProps> = ({onAddFollowUp, isLargeScreen }) => (
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
     <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-    <Typography variant="h6" color="#F6F4FE" sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      No Newcomers found
+    <Typography variant="h6" color="gray" sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+      Newcomers Not Available
     </Typography>
-    {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
     <Button
       variant="contained"
       onClick={onAddFollowUp}
@@ -316,16 +326,20 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
 
 // Main Component
 const ViewFollowUp: React.FC = () => {
+  usePageToast('view-newcomers')
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [branchesLoaded, setBranchesLoaded] = useState(false);
+  const [branchesLoading, setBranchesLoading] = useState(false);
 
   // State
   const [state, setState] = useState({
     followUps: [] as FollowUp[],
     filteredFollowUps: [] as FollowUp[],
+     branches: [] as Branch[],
     filteredNames: [] as FollowUp[],
     pagination: { hasNextPage: false, nextPage: null } as Pagination,
     pageHistory: [] as string[],
@@ -337,6 +351,7 @@ const ViewFollowUp: React.FC = () => {
     error: null as string | null,
     confirmModalOpen: false,
     isModalOpen: false,
+    isBranchSelectOpen: false,
     isDrawerOpen: false,
     isNameDropdownOpen: false,
     openExcelDialog: false,
@@ -347,6 +362,9 @@ const ViewFollowUp: React.FC = () => {
     anchorEl: null as HTMLElement | null,
     searchName: "",
     searchType: "",
+    selectedBranchId: "",
+    uploadBranchId: '' as string | null ,   
+    isBranchLoading: false,
     searchAddress: "",
     types: [] as { id: string; name: string }[],
   });
@@ -367,6 +385,37 @@ const ViewFollowUp: React.FC = () => {
       });
     },
     []
+  );
+
+  const fetchBranches = useCallback(async () => {
+    if (branchesLoaded || branchesLoading) return;
+    setBranchesLoading(true);
+    try {
+      const response = await Api.get<{ branches: Branch[] }>("/church/get-branches");
+      handleStateChange("branches", response.data?.branches || []);
+      setBranchesLoaded(true);
+    } catch (error) {
+      console.error("Failed to fetch branches:", error);
+      showPageToast("Failed to load branches. Please try again.", "error");
+    } finally {
+      setBranchesLoading(false);
+    }
+  }, [handleStateChange, branchesLoaded, branchesLoading]);
+
+  const handleBranchOpen = useCallback(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  const handleBranchChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const value = e.target.value;
+        if (value !== state.selectedBranchId) {
+          handleStateChange("selectedBranchId", value);
+        } else {
+          handleStateChange("selectedBranchId", value);
+        }
+      },
+    [handleStateChange, state.selectedBranchId]
   );
 
   // Data fetching
@@ -400,10 +449,7 @@ const ViewFollowUp: React.FC = () => {
       console.error("Failed to fetch Newcomers:", error);
       handleStateChange("error", "Failed to load Newcomers. Please try again later.");
       handleStateChange("loading", false);
-      toast.error("Failed to load Newcomers", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Failed to load Newcomers", 'error');
       return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
     }
   }, [handleStateChange, isMobile]);
@@ -425,20 +471,29 @@ const ViewFollowUp: React.FC = () => {
     }
   }, [fetchFollowUps, handleStateChange]);
 
-  // Search handlers
+  // 🔍 Search handlers
   const searchFollowUps = useCallback(async () => {
     handleStateChange("isSearching", true);
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
-    
+
     try {
       const params = new URLSearchParams();
-      if (state.searchName) params.append("name", state.searchName);
-      if (state.searchType) params.append("type", state.searchType);
-      if (state.searchAddress) params.append("address", state.searchAddress);
+      if (state.searchName) {
+        params.append("search", state.searchName);
+        params.append("searchField", "name");
+      }
+      if (state.selectedBranchId) {
+        params.append("branchId", state.selectedBranchId);
+      }
+      if (state.searchAddress) {
+        params.append("address", state.searchAddress);
+      }
 
-      const response = await Api.get<FetchFollowUpsResponse>(`/member/search-follow-up?${params.toString()}`);
-      
+      const response = await Api.get<FetchFollowUpsResponse>(
+        `/member/search-follow-up?${params.toString()}`
+      );
+
       setState((prev) => ({
         ...prev,
         filteredFollowUps: response.data.results || [],
@@ -446,15 +501,11 @@ const ViewFollowUp: React.FC = () => {
         isDrawerOpen: false,
         isSearching: false,
       }));
-      
-      toast.success("Search completed successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+
+      showPageToast("Search completed successfully!", "success");
     } catch (error) {
       console.error("Error searching Newcomers:", error);
-      toast.warn("Server search failed, applying local filter", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Server search failed, applying local filter", "warning");
 
       let filtered = [...state.followUps];
       if (state.searchName) {
@@ -462,9 +513,9 @@ const ViewFollowUp: React.FC = () => {
           followUp.name.toLowerCase().includes(state.searchName.toLowerCase())
         );
       }
-      if (state.searchType) {
-        filtered = filtered.filter((followUp) =>
-          followUp.phoneNo === state.searchType
+      if (state.selectedBranchId) {
+        filtered = filtered.filter(
+          (followUp) => followUp.branchId === state.selectedBranchId
         );
       }
       if (state.searchAddress) {
@@ -472,7 +523,7 @@ const ViewFollowUp: React.FC = () => {
           followUp.address.toLowerCase().includes(state.searchAddress.toLowerCase())
         );
       }
-      
+
       setState((prev) => ({
         ...prev,
         filteredFollowUps: filtered,
@@ -483,19 +534,41 @@ const ViewFollowUp: React.FC = () => {
         isSearching: false,
       }));
     }
-  }, [state.followUps, state.searchName, state.searchType, state.searchAddress, isMobile, handleStateChange]);
+  }, [
+    state.followUps,
+    state.searchName,
+    state.selectedBranchId, // ✅ depend on selectedBranchId
+    state.searchAddress,
+    isMobile,
+    handleStateChange,
+  ]);
 
   const searchFollowUpsWithPagination = useCallback(
-    async (url: string, searchName: string, searchType: string, searchAddress: string) => {
+    async (
+      url: string,
+      searchName: string,
+      searchAddress: string,
+      selectedBranchId: string
+    ) => {
       try {
         const params = new URLSearchParams();
-        if (searchName) params.append("name", searchName);
-        if (searchType) params.append("type", searchType);
-        if (searchAddress) params.append("address", searchAddress);
+        if (searchName) {
+          params.append("search", searchName);
+          params.append("searchField", "name");
+        }
+        if (selectedBranchId) {
+          params.append("branchId", selectedBranchId); // ✅ use function arg, not state
+        }
+        if (searchAddress) {
+          params.append("address", searchAddress);
+        }
 
-        const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const fullUrl = url.includes("?")
+          ? `${url}&${params.toString()}`
+          : `${url}?${params.toString()}`;
+
         const response = await Api.get<FetchFollowUpsResponse>(fullUrl);
-        
+
         return {
           followUps: response.data.results || [],
           pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
@@ -540,7 +613,7 @@ const ViewFollowUp: React.FC = () => {
         console.error(`Error fetching ${direction} page:`, error);
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+        showPageToast(errorMessage, 'error');
       }
     },
     [
@@ -581,17 +654,11 @@ const ViewFollowUp: React.FC = () => {
             (followUp) => followUp.id !== state.currentFollowUp!.id
           ),
         }));
-        toast.success("Newcomer deleted successfully!", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Newcomer deleted successfully!", 'success');
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} Newcomer`, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast(`Failed to ${state.actionType} Newcomer`, 'error');
     } finally {
       setState((prev) => ({
         ...prev,
@@ -630,16 +697,10 @@ const ViewFollowUp: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Excel file exported successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Excel file exported successfully!", 'success');
     } catch (error: any) {
       console.error("Failed to export Newcomers:", error);
-      toast.error(error.response?.data?.message || "Failed to export Excel file. Please try again.", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast(error.response?.data?.message || "Failed to export Excel file. Please try again.", 'error');
     } finally {
       setState((prev) => ({ ...prev, exportLoading: false }));
     }
@@ -659,10 +720,7 @@ const ViewFollowUp: React.FC = () => {
     ) {
       setState((prev) => ({ ...prev, selectedFile: file }));
     } else {
-      toast.error("Please select a valid Excel file (.xlsx or .xls)", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Please select a valid Excel file (.xlsx or .xls)",'error');
       setState((prev) => ({ ...prev, selectedFile: null }));
     }
   };
@@ -678,10 +736,7 @@ const ViewFollowUp: React.FC = () => {
     ) {
       setState((prev) => ({ ...prev, selectedFile: file }));
     } else {
-      toast.error("Please drop a valid Excel file (.xlsx or .xls)", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Please drop a valid Excel file (.xlsx or .xls)",'error');
       setState((prev) => ({ ...prev, selectedFile: null }));
     }
   };
@@ -697,17 +752,24 @@ const ViewFollowUp: React.FC = () => {
 
   const handleUpload = async () => {
     if (!state.selectedFile) {
-      toast.error("Please select an Excel file to upload", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Please select an Excel file to upload", "error");
       return;
     }
+
     setState((prev) => ({ ...prev, isLoading: true }));
+
     try {
       const uploadFormData = new FormData();
       uploadFormData.append("file", state.selectedFile);
-      const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
+
+      // ✅ prefer state.uploadBranchId if user selected one, otherwise fallback to authData?.branchId
+      const branchId =
+        state.uploadBranchId && state.uploadBranchId !== ""
+          ? state.uploadBranchId
+          : authData?.branchId;
+
+      const branchIdParam = branchId ? `&branchId=${branchId}` : "";
+
       await Api.post(
         `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
         uploadFormData,
@@ -716,23 +778,24 @@ const ViewFollowUp: React.FC = () => {
         }
       );
 
-      toast.success("Excel file uploaded successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Excel file uploaded successfully!", "success");
 
-      setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null }));
+      setState((prev) => ({
+        ...prev,
+        openExcelDialog: false,
+        selectedFile: null,
+        uploadBranchId: null, // reset branch after upload
+      }));
+
       setTimeout(() => {
         fetchFollowUps();
-      }, 1500);
+      }, 2500);
     } catch (error: any) {
       console.error("Error uploading file:", error);
       const errorMessage =
-        error.response?.data?.message || "Failed to upload Excel file. Please try again.";
-      toast.error(errorMessage, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+        error.response?.data?.message ||
+        "Failed to upload Excel file. Please try again.";
+      showPageToast(errorMessage, "error");
     } finally {
       setState((prev) => ({ ...prev, isLoading: false }));
     }
@@ -781,88 +844,91 @@ const ViewFollowUp: React.FC = () => {
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
             Who?
           </Typography>
-          <TextField
-            value={state.searchName}
-            onChange={(e) => handleStateChange("searchName", e.target.value)}
-            placeholder="Search by name"
-            variant="outlined"
-            size="small"
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              "& .MuiInputLabel-root": { color: "#F6F4FE" },
-              "& .MuiOutlinedInput-root": {
-                color: "#F6F4FE",
-                "& fieldset": { borderColor: "transparent" },
-              },
-            }}
-            onFocus={() => state.searchName && handleStateChange("isNameDropdownOpen", true)}
-            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
-          />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
-            <Box
-              sx={{
-                maxHeight: "200px",
-                overflowY: "auto",
-                backgroundColor: "#2C2C2C",
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                mt: 1,
-              }}
-            >
-              {state.filteredNames.map((followUp, index) => (
-                <Box
-                  key={followUp.id}
-                  sx={{
-                    padding: "8px 16px",
+          <Autocomplete
+            freeSolo
+            options={state.filteredNames.map((n) => n.name)}
+            value={state.searchName || ""}
+            onInputChange={(_, newValue) => handleStateChange("searchName", newValue)}
+            onChange={(_, newValue) => handleStateChange("searchName", newValue || "")}
+            clearIcon={
+              <Close
+                sx={{ color: "#F6F4FE", cursor: "pointer" }}
+                onClick={(e) => {
+                  e.stopPropagation(); // prevent dropdown from opening
+                  handleStateChange("searchName", "");
+                }}
+              />
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search by name"
+                variant="outlined"
+                size="small"
+                sx={{
+                  backgroundColor: "#4d4d4e8e",
+                  borderRadius: "8px",
+                  "& .MuiInputLabel-root": { color: "#F6F4FE" },
+                  "& .MuiOutlinedInput-root": {
                     color: "#F6F4FE",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#4d4d4e8e" },
-                    borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
-                  }}
-                  onClick={() => {
-                    handleStateChange("searchName", followUp.name);
-                    handleStateChange("isNameDropdownOpen", false);
-                  }}
-                >
-                  {followUp.name}
-                </Box>
-              ))}
-            </Box>
-          )}
+                    "& fieldset": { borderColor: "transparent" },
+                  },
+                  "& .MuiAutocomplete-endAdornment": {
+                    display: state.searchName ? "block" : "none",
+                  },
+                }}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {state.searchName && (
+                        <IconButton
+                          onClick={() => handleStateChange("searchName", "")}
+                          edge="end"
+                          sx={{ color: "#F6F4FE" }}
+                        >
+                          <Close />
+                        </IconButton>
+                      )}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+          />
         </Box>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
-            Type
-          </Typography>
-          <Select
-            value={state.searchType}
-            onChange={(e) => handleStateChange("searchType", e.target.value as string)}
-            displayEmpty
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              color: state.searchType ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Type";
-              const type = state.types.find((d) => d.id === selected);
-              return type ? type.name : "Select Type";
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {state.types.map((type) => (
-              <MenuItem key={type.id} value={type.id}>
-                {type.name}
-              </MenuItem>
-            ))}
-          </Select>
+        <Box sx={{ display: "flex", flexDirection: "column"}}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+            Branch
+          </Typography>       
+            <Select
+              value={state.selectedBranchId}
+              onChange={(e) => handleBranchChange(e)}
+              onOpen={handleBranchOpen}
+              displayEmpty
+              sx={{
+                backgroundColor: "#4d4d4e8e",
+                borderRadius: "8px",
+                color: "#F6F4FE",
+                fontWeight: 500,
+                fontSize: "14px",
+                ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
+                ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                "& .MuiSelect-icon": { display: "none" },
+              }}
+              renderValue={(selected) =>
+                selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
+              }
+            >
+              <MenuItem value=''>None</MenuItem>
+              {branchesLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                ))
+              )}
+            </Select>       
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
@@ -930,100 +996,66 @@ const ViewFollowUp: React.FC = () => {
           "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "200px", padding: "4px 16px", position: "relative" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Who?
-          </Typography>
-          <TextField
-            value={state.searchName}
-            onChange={(e) => handleStateChange("searchName", e.target.value)}
-            placeholder="Search by name"
-            variant="standard"
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minWidth: { xs: "120px", sm: "160px" },
+            padding: "4px 8px",
+          }}
+        >
+          <Typography
+            variant="caption"
             sx={{
-              "& .MuiInputBase-input": {
-                color: state.searchName ? "#F6F4FE" : "#777280",
-                fontWeight: 500,
-                fontSize: "14px",
-                padding: "4px 8px",
-              },
-              "& .MuiInput-underline:before": { borderBottom: "none" },
-              "& .MuiInput-underline:after": { borderBottom: "none" },
-              "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
-            }}
-            onFocus={() => state.searchName && handleStateChange("isNameDropdownOpen", true)}
-            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
-          />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                maxHeight: "200px",
-                overflowY: "auto",
-                backgroundColor: "#2C2C2C",
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                zIndex: 1300,
-                mt: 1,
-              }}
-            >
-              {state.filteredNames.map((followUp, index) => (
-                <Box
-                  key={followUp.id}
-                  sx={{
-                    padding: "8px 16px",
-                    color: "#F6F4FE",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#4d4d4e8e" },
-                    borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
-                  }}
-                  onClick={() => {
-                    handleStateChange("searchName", followUp.name);
-                    handleStateChange("isNameDropdownOpen", false);
-                  }}
-                >
-                  {followUp.name}
-                </Box>
-              ))}
-            </Box>
-          )}
-        </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Type
-          </Typography>
-          <Select
-            value={state.searchType}
-            onChange={(e) => handleStateChange("searchType", e.target.value as string)}
-            displayEmpty
-            sx={{
-              color: state.searchType ? "#F6F4FE" : "#777280",
+              color: "#F6F4FE",
               fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Type";
-              const type = state.types.find((d) => d.id === selected);
-              return type ? type.name : "Select Type";
+              fontSize: "11px",
+              ml: "8px",
             }}
           >
-            <MenuItem value="">All</MenuItem>
-            {state.types.map((type) => (
-              <MenuItem key={type.id} value={type.id}>
-                {type.name}
-              </MenuItem>
-            ))}
-          </Select>
+            Who?
+          </Typography>
+
+          <Autocomplete
+            freeSolo
+            options={state.filteredNames.map((n) => n.name)}
+            value={state.searchName || ""}
+            onInputChange={(_, newValue) => handleStateChange("searchName", newValue)}
+            onChange={(_, newValue) => handleStateChange("searchName", newValue || "")}
+            clearIcon={
+              <Close
+                sx={{ color: "#F6F4FE", cursor: "pointer" }}
+                onClick={(e) => {
+                  e.stopPropagation(); // prevent dropdown from opening
+                  handleStateChange("searchName", "");
+                }}
+              />
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search by name"
+                variant="standard"
+                sx={{
+                  "& .MuiInputBase-input": {
+                    color: state.searchName ? "#F6F4FE" : "#777280",
+                    fontWeight: 500,
+                    fontSize: "14px",
+                    padding: "4px 8px",
+                  },
+                  "& .MuiInput-underline:before": { borderBottom: "none" },
+                  "& .MuiInput-underline:after": { borderBottom: "none" },
+                  "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
+                    borderBottom: "none",
+                  },
+                }}
+              />
+            )}
+          />
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
             Address
           </Typography>
@@ -1048,6 +1080,41 @@ const ViewFollowUp: React.FC = () => {
               </MenuItem>
             ))}
           </MuiSelect>
+        </Box>
+        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+            Branch
+          </Typography>
+          <FormControl fullWidth>
+            <Select
+              value={state.selectedBranchId}
+              onChange={(e) => handleBranchChange(e)}
+              onOpen={handleBranchOpen}
+              displayEmpty
+              sx={{
+                color: state.selectedBranchId ? "#F6F4FE" : "#777280",
+                fontWeight: 500,
+                fontSize: "14px",
+                ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "& .MuiSelect-icon": { display: "none" },
+              }}
+              renderValue={(selected) =>
+                selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
+              }
+            >
+              <MenuItem value=''>None</MenuItem>
+              {branchesLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
         </Box>
         <Box>
           <Button
@@ -1081,15 +1148,15 @@ const ViewFollowUp: React.FC = () => {
 
   return (
     <DashboardManager>
-      <ToastContainer />
+   
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, lg: 7 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
-              sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined }}
+              sx={{ fontWeight: 600, display: "flex", mb: 3, alignItems: "center", gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined }}
             >
               <span className="text-[#777280]">Members</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
@@ -1206,7 +1273,7 @@ const ViewFollowUp: React.FC = () => {
             {isMobile && renderMobileFilters()}
           </Grid>
           <Grid
-            size={{ xs: 12, md: 6 }}
+            size={{ xs: 12, lg: 5 }}
             sx={{
               display: "flex",
               justifyContent: "flex-end",
@@ -1413,9 +1480,81 @@ const ViewFollowUp: React.FC = () => {
         />
       </Box>
       {/* Excel Import Dialog */}
-      <Dialog open={state.openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Import Excel File</DialogTitle>
+      <Dialog open={state.openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            backgroundColor: "#2C2C2C",
+            color: "#F6F4FE",
+          },
+        }}
+      >
+        <DialogTitle sx={{display: 'flex', justifyContent: 'space-between'}}><h3>Import Newcomers Data</h3>
+          <IconButton 
+            onClick={handleCloseExcelDialog} 
+            disabled={state.isLoading}
+            sx={{ color: "#F6F4FE" }}
+          >
+            <Close sx={{ mr: 1 }} />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
+          <Autocomplete
+            options={state.branches}
+            getOptionLabel={(option) => option.name}
+            value={state.branches.find((b) => b.id === state.uploadBranchId) || null} // ✅ use uploadBranchId
+            onChange={(_, newValue) =>
+              setState((prev) => ({
+                ...prev,
+                uploadBranchId: newValue ? newValue.id : null, // ✅ update same key
+              }))
+            }
+            onOpen={() => {
+              handleStateChange("isBranchSelectOpen", true);
+              handleStateChange("isBranchLoading", true); // set loading true
+              fetchBranches().finally(() => {
+                handleStateChange("isBranchLoading", false); // stop loading
+              });
+            }}
+            clearIcon={null}
+            popupIcon={
+              state.uploadBranchId ? ( // ✅ check uploadBranchId
+                <Close
+                  sx={{ color: "#F6F4FE", cursor: "pointer" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setState((prev) => ({ ...prev, uploadBranchId: null })); // ✅ clear it properly
+                  }}
+                />
+              ) : null
+            }
+            loading={state.isBranchLoading}
+            loadingText="Loading branches..."
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Branch (optional)"
+                variant="outlined"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {state.isBranchLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+                sx={{
+                  my: 3,
+                  "& .MuiInputBase-root": { color: "#F6F4FE" },
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                  "& .MuiInputLabel-root": { color: "#F6F4FE" },
+                }}
+              />
+            )}
+          />
+
           <Box
             sx={{
               border: `2px dashed ${state.isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
@@ -1429,21 +1568,18 @@ const ViewFollowUp: React.FC = () => {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
           >
-            <Typography variant="body1" color="text.secondary" gutterBottom>
+            <Typography variant="body1" color="#F6F4FE" gutterBottom>
               Drag and drop your Excel file here or
             </Typography>
             <Button
               variant="contained"
               component="label"
-              sx={{
-                mt: 2,
-                backgroundColor: "#777280",
-                color: "var(--color-text-on-primary)",
-                "&:hover": {
-                  backgroundColor: "#777280",
-                  opacity: 0.9,
-                },
-              }}
+                sx={{
+                  mt: 2,
+                  backgroundColor: "#F6F4FE",
+                  color: "#2C2C2C",
+                  "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                }}
             >
               Select File
               <input
@@ -1462,9 +1598,6 @@ const ViewFollowUp: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseExcelDialog} disabled={state.isLoading}>
-            Cancel
-          </Button>
           <Button
             onClick={handleUpload}
             variant="contained"

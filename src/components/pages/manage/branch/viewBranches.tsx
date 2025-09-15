@@ -16,12 +16,12 @@ import {
   TextField,
   Menu,
   Divider,
-  Select as MuiSelect,
   MenuItem,
   useTheme,
   useMediaQuery,
   CircularProgress,
   Grid,
+  Autocomplete,
 } from "@mui/material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import {
@@ -36,7 +36,8 @@ import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
-import { toast, ToastContainer } from "react-toastify";
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import { TbArrowFork } from "react-icons/tb";
@@ -205,6 +206,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 
 const ViewBranches: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
+  usePageToast('view-branch');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -241,7 +243,7 @@ const fetchBranches = useCallback(
       console.error("Failed to fetch branches:", error);
       handleStateChange("error", "Failed to load branches. Please try again later.");
       handleStateChange("loading", false);
-      toast.error("Failed to load branches");
+      showPageToast("Failed to load branches", 'error');
       throw error;
     }
   },
@@ -249,35 +251,45 @@ const fetchBranches = useCallback(
 );
 
   const searchBranches = useCallback(
-    async (url: string | null = "/church/search-branches") => {
+    async (url: string | null = "/church/get-branches") => {
       handleStateChange("isSearching", true);
       try {
         const params = new URLSearchParams();
-        if (state.searchTerm) params.append("name", state.searchTerm);
-        if (state.locationFilter) params.append("location", state.locationFilter);
-        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+
+        // Only append one search + searchField at a time
+        if (state.searchTerm) {
+          params.append("search", state.searchTerm);
+          params.append("searchField", "name");
+        } else if (state.locationFilter) {
+          params.append("search", state.locationFilter);
+          params.append("searchField", "address");
+        }
+
+        const fullUrl =
+          url && url.includes("?")
+            ? `${url}&${params.toString()}`
+            : `${url}?${params.toString()}`;
+
         const response = await Api.get<FetchBranchesResponse>(fullUrl);
         const data = response.data;
+
         if (!data || !data.branches) {
           throw new Error("Invalid response structure");
         }
+
         handleStateChange("isSearching", false);
-        toast.success("Search completed successfully!", {
-          position: isMobile ? "top-center" : "top-right",
-        });
         return data;
       } catch (error) {
         console.error("Error searching branches:", error);
-        toast.warn("Server search failed, applying local filter", {
-          position: isMobile ? "top-center" : "top-right",
-        });
 
         let filtered = [...state.branches];
+
         if (state.searchTerm) {
           filtered = filtered.filter((branch) =>
             branch.name.toLowerCase().includes(state.searchTerm.toLowerCase())
           );
         }
+
         if (state.locationFilter) {
           filtered = filtered.filter(
             (branch) =>
@@ -286,6 +298,7 @@ const fetchBranches = useCallback(
               (state.locationFilter === "hq" && branch.isHeadQuarter)
           );
         }
+
         setState((prev) => ({
           ...prev,
           filteredBranches: filtered,
@@ -294,6 +307,7 @@ const fetchBranches = useCallback(
           pageHistory: [],
           isSearching: false,
         }));
+
         throw error;
       }
     },
@@ -412,7 +426,7 @@ const fetchBranches = useCallback(
         const errorMessage = "Failed to load page";
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        toast.error(errorMessage);
+        showPageToast(errorMessage, 'error');
       }
     },
     [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.locationFilter, fetchBranches, searchBranches, handleStateChange]
@@ -423,7 +437,7 @@ const fetchBranches = useCallback(
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
     if (state.searchTerm || state.locationFilter) {
-      searchBranches("/church/search-branches").then((data) => {
+      searchBranches("/church/get-branches").then((data) => {
         if (data) {
           setState((prev) => ({
             ...prev,
@@ -471,7 +485,7 @@ const fetchBranches = useCallback(
   const handleEditSubmit = async () => {
     if (!state.currentBranch?.id) {
       console.error("Branch ID is undefined");
-      toast.error("Invalid branch data");
+      showPageToast("Invalid branch data", 'error');
       return;
     }
 
@@ -489,16 +503,12 @@ const fetchBranches = useCallback(
         ),
       }));
 
-      toast.success("Branch updated successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Branch updated successfully!", 'success');
       handleStateChange("editModalOpen", false);
       handleStateChange("currentBranch", null);
     } catch (error) {
       console.error("Update error:", error);
-      toast.error("Failed to update branch", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Failed to update branch", 'error');
     } finally {
       handleStateChange("loading", false);
     }
@@ -519,9 +529,7 @@ const fetchBranches = useCallback(
           pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
           currentPage: prev.currentPage > 1 && prev.filteredBranches.length === 1 ? prev.currentPage - 1 : prev.currentPage,
         }));
-        toast.success("Branch deleted successfully!", {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Branch deleted successfully!",'success');
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentBranch.isActive;
         await Api.patch(`/church/${newStatus ? "activate" : "suspend"}-branch/${state.currentBranch.id}`);
@@ -534,15 +542,11 @@ const fetchBranches = useCallback(
             branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
           ),
         }));
-        toast.success(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, 'success');
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} branch`, {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast(`Failed to ${state.actionType} branch`, 'error');
     } finally {
       handleStateChange("loading", false);
       handleStateChange("confirmModalOpen", false);
@@ -604,8 +608,7 @@ const fetchBranches = useCallback(
   }
 
   return (
-    <DashboardManager>
-      <ToastContainer />
+    <DashboardManager> 
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 5 }}>
@@ -641,55 +644,79 @@ const fetchBranches = useCallback(
                   "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                 }}
               >
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 16px" }}>
+                {/* Name Autocomplete */}
+                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 16px", minWidth: 180 }}>
                   <Typography
                     variant="caption"
                     sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
                   >
-                    Where?
+                    Name?
                   </Typography>
-                  <TextField
-                    variant="standard"
-                    placeholder="Search by name"
+                  <Autocomplete
+                    freeSolo
+                    options={state.branches.map((branch) => branch.name)} // Suggest branch names
                     value={state.searchTerm}
-                    onChange={(e) => handleStateChange("searchTerm", e.target.value)}
-                    sx={{
-                      color: "#F6F4FE",
-                      "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
-                      flex: 1,
-                    }}
-                    InputProps={{ disableUnderline: true }}
-                    aria-label="Search branches by name"
+                    onInputChange={(_, newValue) => handleStateChange("searchTerm", newValue)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        placeholder="Search by name"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          sx: {
+                            color: "#F6F4FE",
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            py: "4px",
+                          },
+                        }}
+                      />
+                    )}
                   />
                 </Box>
+
                 <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 8px" }}>
+
+                {/* Location Autocomplete */}
+                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 8px", minWidth: 160 }}>
                   <Typography
                     variant="caption"
                     sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
                   >
                     Location
                   </Typography>
-                  <MuiSelect
+                  <Autocomplete
+                    freeSolo
+                    options={state.branches.map((branch) => branch.address)} // ✅ show branch locations
                     value={state.locationFilter}
-                    onChange={(e) => handleStateChange("locationFilter", e.target.value)}
-                    displayEmpty
-                    sx={{
-                      color: state.locationFilter ? "#F6F4FE" : "#777280",
-                      fontWeight: 500,
-                      fontSize: "14px",
-                      ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-                      ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                      "& .MuiSelect-icon": { display: "none" },
-                    }}
-                    renderValue={(selected) => selected || "Select Location"}
-                    aria-label="Filter branches by location"
-                  >
-                    <MenuItem value="">None</MenuItem>
-                    <MenuItem value="branch">Branch</MenuItem>
-                    <MenuItem value="hq">Headquarters</MenuItem>
-                  </MuiSelect>
+                    onInputChange={(_, newValue) => handleStateChange("locationFilter", newValue)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        placeholder="Search by location"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          sx: {
+                            color: "#F6F4FE",
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            py: "4px",
+                            "& .MuiAutocomplete-clearIndicator": {
+                              color: "#F6F4FE", // ✅ cancel/clear icon color
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
                 </Box>
+
+
+                {/* Search button */}
                 <Box sx={{ pr: "8px" }}>
                   <Button
                     onClick={handleSearch}
@@ -1057,7 +1084,7 @@ const fetchBranches = useCallback(
               disabled={state.loading}
               aria-label="Save branch changes"
             >
-              {state.loading ? "Saving..." : "Save Changes"}
+              {state.loading ? <span className="text-gray-500">Saving..</span> : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
