@@ -30,7 +30,8 @@ import {
 import { CachedOutlined, CalendarTodayOutlined, Add, Close, Refresh } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import moment from "moment";
-import { toast, ToastContainer } from "react-toastify";
+import { showPageToast } from "../../../util/pageToast";
+import { usePageToast } from "../../../hooks/usePageToast";
 import dayjs from "dayjs"; // ✅ import both
 import CustomCalendarDialog from "../../../util/popCalender";
 
@@ -55,6 +56,7 @@ export interface ServiceFormData {
     startTime: string;
     endTime: string;
   }[];
+  branchId?: string;
 }
 
 interface Weeks {
@@ -67,6 +69,11 @@ interface Department {
   id: string;
   name: string;
   type: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface Collection {
@@ -150,6 +157,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     endTime: "",
     departmentIds: [],
     collectionIds: [],
+    branchId: '',
     recurrenceType: "none",
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -157,6 +165,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   const [addingCollection, setAddingCollection] = useState<boolean>(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [fetchingDepartments, setFetchingDepartments] = useState<boolean>(false);
   const [fetchingCollections, setFetchingCollections] = useState<boolean>(false);
   const [fetchCollectionsError, setFetchCollectionsError] = useState<string | null>(null);
@@ -172,9 +181,11 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   const [loadingEdit, setLoadingEdit] = useState<boolean>(false);
   const [departmentSelectOpen, setDepartmentSelectOpen] = useState(false);
   const [weekdayMenuOpen, setWeekdayMenuOpen] = useState(false);
+  const [branchSelectOpen, setBranchSelectOpen] = useState(false); 
+  const [fetchingBranch, setFetchingBranch] = useState(false);
+  const [fetchBranchesError, setFetchBranchesError] = useState<string | null>(null);
   const selectRef = useRef<HTMLDivElement | null>(null);
-
-
+  usePageToast('create-program')
 
   useEffect(() => {
     if (open && eventId) {
@@ -184,7 +195,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
           setEventData(response.data.eventOccurrence);
         } catch (err) {
-          toast.error('Failed to fetch event data');
+          showPageToast('Failed to fetch event data', 'error');
           console.error('Error fetching event data:', err);
         } finally {
           setLoadingEdit(false);
@@ -209,19 +220,17 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   }, [eventData]);
 
-  // ✅ move fetchDepartments outside useEffect
-  const fetchDepartments = async () => {
+  // ✅ fetch departments for the selected branch
+  const fetchDepartments = async (branchId?: string) => {
+    if (!branchId) return; // ✅ Guard clause
+
     try {
       setFetchingDepartments(true);
       setFetchDepartmentsError(null);
-      const response = await Api.get("/church/get-departments");
 
-      // ✅ Only departments where branch is null
-      const filtered = (response.data.departments || []).filter(
-        (dept: any) => dept.branch === null
-      );
+      const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
 
-      setDepartments(filtered);
+      setDepartments(response.data.departments || []);
     } catch (error) {
       setFetchDepartmentsError("Failed to load departments. Please try again.");
     } finally {
@@ -229,12 +238,34 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
+  // ✅ move fetchDepartments outside useEffect
+  const fetchBranches = async () => {
+    try {
+      setFetchingBranch(true);
+      setFetchBranchesError(null);
+      const response = await Api.get("/church/get-branches");
+
+      setBranches(response.data.branches);
+    } catch (error) {
+      setFetchBranchesError("Failed to load branches. Please try again.");
+    } finally {
+      setFetchingBranch(false);
+    }
+  };
+
   useEffect(() => {
     if (open) {
-      fetchDepartments();
-      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
+      fetchBranches();
+      if (formData.branchId) {
+        fetchDepartments(formData.branchId);
+      }
+      fetchCollections(
+        setCollections,
+        setFetchingCollections,
+        setFetchCollectionsError
+      );
     }
-  }, [open]);
+  }, [open, formData.branchId]);
 
   useEffect(() => {
     switch (formData.recurrenceType) {
@@ -490,39 +521,30 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   const handleSubmit = async () => {
     // Validate required fields
     if (!formData.title) {
-      toast.error("Program title is required", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Program title is required", 'error');
       return;
     }
 
     // Validate start date
     if (!formData.date && formData.recurrenceType !== 'custom') {
-      toast.error("Start date is required", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Start date is required", 'error');
       return;
     }
 
     // Weekly recurrence: validate each day has start and end times
     if (formData.recurrenceType === "weekly") {
       if (!formData.byWeekday || formData.byWeekday.length === 0) {
-        toast.error("Please select at least one day", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Please select at least one day", 'error');
         return;
       }
 
       for (const day of formData.byWeekday) {
         if (!day.startTime || !day.endTime) {
-          toast.error(
+          showPageToast(
             `Start and End time are required for ${
               daysOfWeek.find((d) => d.value === day.weekday)?.label || day.weekday
             }`,
-            { autoClose: 3000, position: isMobile ? "top-center" : "top-right" }
+            'error'
           );
           return;
         }
@@ -534,20 +556,17 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       if (formData.nthWeekdays?.length) {
         for (const w of formData.nthWeekdays) {
           if (!w.startTime || !w.endTime) {
-            toast.error(
+            showPageToast(
               `Start and End time are required for ${
                 daysOfWeek.find((d) => d.value === w.weekday)?.label || w.weekday
               }`,
-              { autoClose: 3000, position: isMobile ? "top-center" : "top-right" }
+              'error'
             );
             return;
           }
         }
       } else if (!formData.startTime || !formData.endTime) {
-        toast.error("Start and End time are required for the month", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Start and End time are required for the month", 'error');
         return;
       }
     }
@@ -568,6 +587,10 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
         startTime: day.startTime,
         endTime: day.endTime,
       }));
+    }
+
+    if (formData.branchId) {
+      payload.branchId = formData.branchId;
     }
 
     if (formData.recurrenceType === "monthly") {
@@ -618,17 +641,25 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       setLoading(true);
       const response = await Api.post("/church/create-event", payload);
 
-      toast.success(`Program "${response.data.event?.title || formData.title}" created successfully!`, {
-        position: isMobile ? "top-center" : "top-right",
-        autoClose: 600,
-      });
+      showPageToast(`Program "${response.data.event?.title || formData.title}" created successfully!`, 'success');
 
       resetForm();
       onSuccess?.();
       setTimeout(() => onClose(), 1000);
     } catch (error: any) {
-      console.error("Error processing program:", error.response?.data || error.message);
-      toast.error("Failed to process program. Please try again.", { autoClose: 5000 });
+      const responseData = error.response?.data;
+      let errorMessage = "Failed to create admin";
+
+      if (responseData) {
+        if (Array.isArray(responseData.errors)) {
+          errorMessage = responseData.errors.join(", ") || responseData.message || errorMessage;
+        } else if (responseData.error?.message) {
+          errorMessage = responseData.error.message;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+      }
+      showPageToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -1663,29 +1694,26 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     </Grid>
   );
 
-  const renderDepartmentInput = () => {
-    const allSelected = 
-      departments.length > 0 && formData.departmentIds.length === departments.length;
+  const renderBranchInput = () => {
     return (
       <Grid size={{ xs: 12 }}>
         <FormControl fullWidth variant="outlined" disabled={loading}>
-          <InputLabel id="department-label" sx={inputLabelProps.sx}>
-            Expected Departments
+          <InputLabel id="branch-label" sx={inputLabelProps.sx}>
+            Expected Branch
           </InputLabel>
           <Select
-            labelId="department-label"
-            name="departmentIds"
-            multiple
-            value={formData.departmentIds}
-            onChange={handleDepartmentChange}
-            renderValue={(selected) =>
-              (selected as string[])
-                .map((id) => departments.find((dept) => dept.id === id)?.name || id)
-                .join(", ")
+            labelId="branch-label"
+            name="branchId"
+            value={formData.branchId || ""}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                branchId: e.target.value,
+              }))
             }
-            open={departmentSelectOpen}
-            onOpen={() => setDepartmentSelectOpen(true)}
-            onClose={() => setDepartmentSelectOpen(false)}
+            open={branchSelectOpen}
+            onOpen={() => setBranchSelectOpen(true)}
+            onClose={() => setBranchSelectOpen(false)}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
@@ -1694,7 +1722,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
             MenuProps={{
-              PaperProps: { sx: { maxHeight: 350 } }
+              PaperProps: { sx: { maxHeight: 350 } },
             }}
           >
             {/* ✅ Close button inside menu */}
@@ -1712,39 +1740,130 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             >
               <IconButton
                 size="small"
-                onClick={() => setDepartmentSelectOpen(false)}
-                sx={{
-                  color: "#2C2C2C",                
-                }}
+                onClick={() => setBranchSelectOpen(false)}
+                sx={{ color: "#2C2C2C" }}
                 aria-label="Close menu"
               >
                 <Close fontSize="small" />
               </IconButton>
             </Box>
 
-            {/* ✅ Select All option */}
-            {departments.length > 0 && (
-              <MenuItem value="all">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={
-                    formData.departmentIds.length > 0 &&
-                    formData.departmentIds.length < departments.length
-                  }
+            {/* Branch list */}
+            {fetchingBranch ? (
+              <MenuItem disabled>
+                <Box
                   sx={{
-                    color: "var(--color-primary)",
-                    "&.Mui-checked": { color: "var(--color-primary)" },
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    justifyContent: "center",
                   }}
-                />
-                <ListItemText primary="Select All" />
+                >
+                  <CircularProgress size={20} />
+                  <Typography sx={{ ml: 1 }} variant="body2">
+                    Loading branches...
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ) : fetchBranchesError ? (
+              <MenuItem
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  {fetchBranchesError}
+                </Typography>
+                <IconButton
+                  size="small"
+                  color="inherit"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fetchBranches();
+                  }}
+                >
+                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+                </IconButton>
+              </MenuItem>
+            ) : branches.length > 0 ? (
+              branches.map((branch: any) => (
+                <MenuItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </MenuItem>
+              ))
+            ) : (
+              <MenuItem disabled>
+                <Typography variant="body2">No branches available</Typography>
               </MenuItem>
             )}
+          </Select>
+        </FormControl>
+      </Grid>
+    );
+  };
 
+  const renderDepartmentInput = () => {
+    const allSelected =
+      departments.length > 0 &&
+      formData.departmentIds.length === departments.length;
 
-            {/* Items */}
-            {fetchingDepartments ? (
+    return (
+      <Grid size={{ xs: 12 }}>
+        <FormControl
+          fullWidth
+          variant="outlined"
+          disabled={loading || !formData.branchId} // ✅ disable if no branchId
+        >
+          <InputLabel id="department-label" sx={inputLabelProps.sx}>
+            Expected Departments
+          </InputLabel>
+          <Select
+            labelId="department-label"
+            name="departmentIds"
+            multiple
+            value={formData.departmentIds}
+            onChange={handleDepartmentChange}
+            renderValue={(selected) =>
+              (selected as string[])
+                .map(
+                  (id) =>
+                    departments.find((dept) => dept.id === id)?.name || id
+                )
+                .join(", ")
+            }
+            open={departmentSelectOpen}
+            onOpen={() => setDepartmentSelectOpen(true)}
+            onClose={() => setDepartmentSelectOpen(false)}
+            sx={{
+              fontSize: isLargeScreen ? "1rem" : undefined,
+              color: "#F6F4FE",
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
+            }}
+            MenuProps={{
+              PaperProps: { sx: { maxHeight: 350 } },
+            }}
+          >
+            {/* ✅ If no branch selected, show "Select branch first" */}
+            {!formData.branchId ? (
               <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
+                <Typography variant="body2" color="textSecondary">
+                  Select branch first
+                </Typography>
+              </MenuItem>
+            ) : fetchingDepartments ? (
+              <MenuItem disabled>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    justifyContent: "center",
+                  }}
+                >
                   <CircularProgress size={20} />
                   <Typography sx={{ ml: 1 }} variant="body2">
                     Loading departments...
@@ -1752,7 +1871,13 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                 </Box>
               </MenuItem>
             ) : fetchDepartmentsError ? (
-              <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <MenuItem
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <Typography variant="body2" sx={{ mr: 1 }}>
                   {fetchDepartmentsError}
                 </Typography>
@@ -1760,31 +1885,54 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   size="small"
                   color="inherit"
                   onClick={(e) => {
-                    e.stopPropagation(); // ✅ Prevents Select from closing immediately
-                    fetchDepartments();
+                    e.stopPropagation();
+                    fetchDepartments(formData.branchId); // ✅ fetch again with branchId
                   }}
                 >
-                  <Refresh fontSize="small" sx={{ color: '#2C2C2C' }} />
+                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
                 </IconButton>
               </MenuItem>
             ) : departments.length > 0 ? (
-              departments.map((dept: any) => (
-                <MenuItem key={dept.id} value={dept.id}>
+              <>
+                {/* ✅ Select All option */}
+                <MenuItem value="all">
                   <Checkbox
-                    checked={formData.departmentIds.includes(dept.id)}
+                    checked={allSelected}
+                    indeterminate={
+                      formData.departmentIds.length > 0 &&
+                      formData.departmentIds.length < departments.length
+                    }
                     sx={{
                       color: "var(--color-primary)",
                       "&.Mui-checked": { color: "var(--color-primary)" },
                     }}
                   />
-                  <ListItemText 
-                    primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} 
-                  />
+                  <ListItemText primary="Select All" />
                 </MenuItem>
-              ))
+
+                {/* ✅ Department items */}
+                {departments.map((dept: any) => (
+                  <MenuItem key={dept.id} value={dept.id}>
+                    <Checkbox
+                      checked={formData.departmentIds.includes(dept.id)}
+                      sx={{
+                        color: "var(--color-primary)",
+                        "&.Mui-checked": { color: "var(--color-primary)" },
+                      }}
+                    />
+                    <ListItemText
+                      primary={
+                        dept.type ? `${dept.name} - (${dept.type})` : dept.name
+                      }
+                    />
+                  </MenuItem>
+                ))}
+              </>
             ) : (
               <MenuItem disabled>
-                <Typography variant="body2">No departments available</Typography>
+                <Typography variant="body2">
+                  No departments available
+                </Typography>
               </MenuItem>
             )}
           </Select>
@@ -1807,8 +1955,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           px: 2,
         },
       }}
-    >
-      <ToastContainer/>
+    >   
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" color="#F6F4FE" fontWeight={600}>
@@ -1868,6 +2015,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               {!isEdit && renderProgramType()}            
 
               {renderDateTimeInputs()}
+              {renderBranchInput()}
               {renderDepartmentInput()}
               {renderCollectionInput()}
               {createProgramError && (

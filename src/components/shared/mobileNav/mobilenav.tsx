@@ -17,6 +17,8 @@ import { FaPeopleCarry } from "react-icons/fa";
 import { IoIosPeople } from "react-icons/io";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from "react-redux";
+import { RootState } from "../../reduxstore/redux";
 
 interface MobileNavProps {
   activeButton: string | null;
@@ -56,6 +58,7 @@ const member = [
 ];
 
 const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }) => {
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [clickedSubmenu, setClickedSubmenu] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -109,10 +112,15 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
     }
   };
 
+  // Filter manage items to hide "Branches" if not at headquarters
+  const filteredManage = authData?.isHeadQuarter === false
+    ? manage.filter((item) => item.to !== "/manage/view-branches")
+    : manage;
+
   const renderSubmenu = (label: string) => {
     if (clickedSubmenu !== label) return null;
 
-    const items = label === 'Manage' ? manage : member;
+    const items = label === 'Manage' ? filteredManage : member; // <-- use filtered version here
 
     return (
       <Box
@@ -137,10 +145,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
         {items.map((item) => (
           <Button
             key={item.label}
-            onClick={() => {
-
-              navigate(item.to);
-            }}        
+            onClick={() => navigate(item.to)}
             sx={{
               display: 'flex',
               flexDirection: 'column',

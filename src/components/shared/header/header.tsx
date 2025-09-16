@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { IoNotificationsOutline } from "react-icons/io5";
+import { IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import Popover from "@mui/material/Popover";
 import { FiLogOut } from "react-icons/fi";
 import { Tooltip } from "@mui/material";
-import { IoSettingsOutline } from "react-icons/io5";
 import Typography from "@mui/material/Typography";
 import Modal from "@mui/material/Modal";
 import Box from "@mui/material/Box";
@@ -203,7 +202,7 @@ const Header: React.FC<HeaderProps> = () => {
             >
               <BsPerson className="text-xl" aria-label="Person" />
             </div>
-            <span className="hidden lg:block text-sm font-medium">
+            <span className="hidden xl:block text-sm font-medium">
               <span className="block">{authData?.name || ""}</span>
               <span className="block text-[10px]">{authData?.email || ""}</span>
             </span>
@@ -225,24 +224,24 @@ const Header: React.FC<HeaderProps> = () => {
           >
             <div className="m-1 my-2">
               <div
-                className="flex items-center gap-2 px-5 py-2 m-1 cursor-pointer hover:bg-gray-100 rounded-md"
-                onClick={handleOpenLogoutModal}
-              >
-                <FiLogOut className="text-lg text-gray-700" />
-                <Typography variant="body2" className="text-gray-700">
-                  Logout
-                </Typography>
-              </div>
-              <div
                 className="flex items-center gap-2 px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
                 onClick={() => {
                   navigate("/settings");
                   handleClose();
                 }}
               >
-                <IoSettingsOutline className="text-lg text-gray-700" />
+                <IoPersonOutline className="text-lg text-gray-700" />
                 <Typography variant="body2" className="text-gray-700">
-                  Settings
+                  Profile
+                </Typography>
+              </div>
+              <div
+                className="flex items-center gap-2 px-5 py-2 m-1 cursor-pointer hover:bg-gray-100 rounded-md"
+                onClick={handleOpenLogoutModal}
+              >
+                <FiLogOut className="text-lg text-gray-700" />
+                <Typography variant="body2" className="text-gray-700">
+                  Logout
                 </Typography>
               </div>
             </div>

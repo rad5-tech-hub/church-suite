@@ -58,6 +58,7 @@ interface Member {
   memberId: string;
   name: string;
   branchId: string;
+  branch: {name: string};
   phoneNo: string;
   sex: string;
   whatappNo: string;
@@ -1392,24 +1393,18 @@ const ViewMembers: React.FC = () => {
                           overflowWrap: 'break-word',
                         }}
                       >
-                        <Tooltip 
-                          title={state.branches.find((b) => b.id === member.branchId)?.name || "N/A"} 
-                          placement="top" 
-                          arrow
-                          enterDelay={500}
+
+                        <Box 
+                          component="span"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
                         >
-                          <Box 
-                            component="span"
-                            sx={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {state.branches.find((b) => b.id === member.branchId)?.name || "N/A"}
-                          </Box>
-                        </Tooltip>
+                          {member.branch?.name || "N/A"}
+                        </Box>                        
                       </TableCell>
                       <TableCell
                         sx={{

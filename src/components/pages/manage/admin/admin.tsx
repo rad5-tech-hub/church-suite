@@ -96,7 +96,7 @@ interface AdminModalProps {
 }
 
 const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
-  usePageToast('create-admin')
+  usePageToast('createadmins')
   const initialFormData: FormData = {
     name: "",
     title: "",

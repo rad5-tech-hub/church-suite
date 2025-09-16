@@ -52,7 +52,6 @@ const ViewSingleMember: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
   useEffect(() => {
@@ -165,14 +164,13 @@ const ViewSingleMember: React.FC = () => {
           <Grid container spacing={2} sx={{ mb: 5 }}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Typography 
-                variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+                variant="h5"
                 component="h1" 
                 fontWeight={600}
                 gutterBottom
                 
                 sx={{ 
                   color: "#E1E1E1", // Ensure text color is set correctly
-                  fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
                 Member's Profile
@@ -245,7 +243,7 @@ const ViewSingleMember: React.FC = () => {
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
                       color: '#E1E1E1',
-                      fontSize: isLargeScreen ? '1.5rem' : undefined
+                      fontSize: isLargeScreen ? '1.4rem' : undefined
                     }}
                   >
                     {member.name}

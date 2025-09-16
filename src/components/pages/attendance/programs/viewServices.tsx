@@ -1,6 +1,7 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { showPageToast } from "../../../util/pageToast";
+import { usePageToast } from "../../../hooks/usePageToast";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
@@ -102,6 +103,7 @@ const ViewServices: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
+  usePageToast('view-programs')
   
   const eventStatusColors = {
     ongoing: "green",
@@ -147,9 +149,7 @@ const ViewServices: React.FC = () => {
       }
       setEvents(data.events || []);
     } catch (error) {
-      toast.error("Failed to load events", {
-        position: isMobile ? "top-center" : "top-right",    
-      });
+      showPageToast("Failed to load events", 'error');
     } finally {
       setLoading(false);
     }
@@ -239,8 +239,7 @@ const ViewServices: React.FC = () => {
   };
 
   return (
-    <DashboardManager>
-      <ToastContainer/>
+    <DashboardManager>    
       <Box sx={{ minHeight: "100vh", py:3, px:1 }}>
         <Grid container spacing={2}>
           <Grid size={{xs:12 , lg: 1.5,}}>
@@ -263,7 +262,7 @@ const ViewServices: React.FC = () => {
               </Button>
               <List
                 sx={{
-                  display: { xs: "grid", md: "block" },
+                  display: { xs: "grid", lg: "block" },
                   gridTemplateColumns: { xs: "1fr 1fr" },
                   gap: 1,
                   padding: 0,

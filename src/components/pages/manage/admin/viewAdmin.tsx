@@ -87,7 +87,7 @@ interface Admin {
   isDeleted?: boolean;
   departments?: Department[];
   units?: Unit[];
-  branch?: Branch;
+  branches?: Branch[];
 }
 
 interface State {
@@ -713,18 +713,19 @@ const ViewAdmins: React.FC = () => {
 
   const getAssignLevelText = (admin: Admin) => {
     if (admin.scopeLevel === "branch") {
-      const branch = state.branches.find((b) => b.id === admin.branchId);
-      return branch ? branch.name : "-";
-    } else if (admin.scopeLevel === "department") {
-      const dept = state.departments.find((d) => admin.departmentIds?.includes(d.id));
-      return dept ? dept.name : "-";
-    } else if (admin.scopeLevel === "unit") {
-      const unit = state.units.find((u) => admin.unitIds?.includes(u.id));
-      return unit ? unit.name : "-";
+      return admin.branches?.map((b) => b.name).join(", ") || "-";
+    } 
+    
+    if (admin.scopeLevel === "department") {
+      return admin.departments?.map((d) => d.name).join(", ") || "-";
+    } 
+    
+    if (admin.scopeLevel === "unit") {
+      return admin.units?.map((u) => u.name).join(", ") || "-";
     }
+
     return admin.scopeLevel || "-";
   };
-
 
   // Filter components (mobile)
   const renderMobileFilters = () => (

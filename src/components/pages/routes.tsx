@@ -23,7 +23,7 @@ const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
-const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
+const SettingProfile = React.lazy(() => import("./profile/userProfile"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));

@@ -1,13 +1,16 @@
-// hooks/usePageToast.ts
 import { useEffect } from "react";
-import { setActivePage } from "../util/pageToast";
+import { setActivePage, getActivePage } from "../util/pageToast";
 
 export const usePageToast = (pageId: string) => {
   useEffect(() => {
-    // set active page on mount
-    setActivePage(pageId);
+    if (pageId) {
+      setActivePage(pageId);
+    }
 
-    // cleanup on unmount
-    return () => setActivePage(""); 
+    return () => {
+      if (getActivePage() === pageId) {
+        setActivePage("");
+      }
+    };
   }, [pageId]);
 };

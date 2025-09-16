@@ -60,6 +60,7 @@ interface FollowUp {
   sex: string;
   phoneNo: string;
   address: string;
+  branch: {name: string};
   branchId: string;
   timer: number;
   birthMonth: string;
@@ -88,6 +89,7 @@ interface FetchFollowUpsResponse {
 interface TableColumnWidths {
   snumber: string;
   name: string;
+  branch: string;
   contact: string;
   address: string;
   actions: string;
@@ -97,9 +99,10 @@ interface TableColumnWidths {
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
   snumber: "3%",
   name: "25%",
-  contact: "15%",
+  branch: '13%',
+  contact: "10%",
   address: "25%",
-  actions: "17%",
+  actions: "7%",
 };
 
 interface CustomPaginationProps {
@@ -249,6 +252,9 @@ const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, o
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
       {followUp.phoneNo || "N/A"}
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
+      {followUp.branch.name || "N/A"}
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
       {followUp.address || "N/A"}
@@ -431,8 +437,13 @@ const ViewFollowUp: React.FC = () => {
   const fetchFollowUps = useCallback(async (url: string | null = "/member/get-follow-up") => {
     handleStateChange("loading", true);
     handleStateChange("error", null);
-    try {
-      const apiUrl = url || "/member/get-follow-up";
+    try {      
+      const apiUrl = (() => {
+        const base = url || "/member/get-follow-up";
+        const separator = base.includes("?") ? "&" : "?";
+        return `${base}${separator}branchId=${authData?.branchId || ""}`;
+      })();
+
       const response = await Api.get<FetchFollowUpsResponse>(apiUrl);
       
       const data = {
@@ -1357,7 +1368,7 @@ const ViewFollowUp: React.FC = () => {
               <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
                 <TableHead>
                   <TableRow>
-                    {(["snumber", "name", "contact", "address", "actions"] as const).map((key) => (
+                    {(["snumber", "name", "contact", 'branch', "address", "actions"] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{

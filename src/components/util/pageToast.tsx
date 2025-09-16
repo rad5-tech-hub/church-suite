@@ -5,15 +5,14 @@ let activePageId: string | null = null;
 const pageToasts: Record<string, string[]> = {}; // track toastIds by page
 
 export const setActivePage = (pageId: string) => {
-  // Dismiss old page toasts
   if (activePageId && pageToasts[activePageId]) {
     pageToasts[activePageId].forEach((id) => toast.dismiss(id));
     pageToasts[activePageId] = [];
   }
-
-  // Switch to new page
   activePageId = pageId;
 };
+
+export const getActivePage = () => activePageId;
 
 export const showPageToast = (
   message: React.ReactNode | string,
