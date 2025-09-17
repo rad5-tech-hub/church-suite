@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoMailOutline, IoCallOutline } from "react-icons/io5";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
-import {showPageToast } from "../../../util/pageToast";
-// import { useSelector } from "react-redux";
-// import { RootState } from "../../../reduxstore/redux";
+import { showPageToast } from "../../../util/pageToast";
 import {
   Box,
   Button,
@@ -39,9 +37,9 @@ interface FormData {
   phone: string;
   isSuperAdmin: boolean;
   scopeLevel: string;
-  branchIds: string[];
-  departmentIds: string[];
-  unitIds: string[];
+  branches: { id: string; name: string }[];
+  departments: { id: string; name: string }[];
+  units: { id: string; name: string }[];
 }
 
 interface Branch {
@@ -79,28 +77,29 @@ interface Errors {
   title: string;
   email: string;
   phone: string;
-  branchIds: string;
-  departmentIds: string;
-  unitIds: string;
+  branches: string;
+  departments: string;
+  units: string;
 }
 
-interface AdminModalProps {
+interface EditAdminModalProps {
   open: boolean;
   onClose: () => void;
+  adminData: FormData & { id: string | number };
 }
 
-const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
-  usePageToast('createadmins')
+const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminData }) => {
+  usePageToast('editadmins');
   const initialFormData: FormData = {
-    name: "",
-    title: "",
-    email: "",
-    phone: "",
-    isSuperAdmin: false,
-    scopeLevel: "branch",
-    branchIds: [],
-    departmentIds: [],
-    unitIds: [],
+    name: adminData?.name || "",
+    title: adminData?.title || "",
+    email: adminData?.email || "",
+    phone: adminData?.phone || "",
+    isSuperAdmin: adminData?.isSuperAdmin || false,
+    scopeLevel: adminData?.scopeLevel || "branch",
+    branches: adminData?.branches || [],
+    departments: adminData?.departments || [],
+    units: adminData?.units || [],
   };
 
   const initialErrors: Errors = {
@@ -108,12 +107,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     title: "",
     email: "",
     phone: "",
-    branchIds: "",
-    departmentIds: "",
-    unitIds: "",
+    branches: "",
+    departments: "",
+    units: "",
   };
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [changedFields, setChangedFields] = useState<Partial<FormData>>({});
   const [errors, setErrors] = useState<Errors>(initialErrors);
   const [loading, setLoading] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -131,13 +131,38 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  // const _authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
 
   const scopeLevels: { value: string; label: string }[] = [
     { value: "branch", label: "Branch" },
     { value: "department", label: "Department" },
     { value: "unit", label: "Unit" },
   ];
+
+  useEffect(() => {
+    // Initialize form data when adminData changes
+    setFormData({
+      name: adminData?.name || "",
+      title: adminData?.title || "",
+      email: adminData?.email || "",
+      phone: adminData?.phone || "",
+      isSuperAdmin: adminData?.isSuperAdmin || false,
+      scopeLevel: adminData?.scopeLevel || "branch",
+      branches: adminData?.branches || [],
+      departments: adminData?.departments || [],
+      units: adminData?.units || [],
+    });
+    setChangedFields({});
+    setErrors(initialErrors);
+    setBranches([]);
+    setBranchDepartments({});
+    setDepartmentUnits({});
+    setHasFetchedBranches(false);
+    setHasFetchedDepartments({});
+    setHasFetchedUnits({});
+    setBranchesError("");
+    setDepartmentsError({});
+    setUnitsError({});
+  }, [adminData]);
 
   const fetchBranches = async () => {
     if (hasFetchedBranches || isFetchingBranches) return;
@@ -211,10 +236,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      branchIds: value !== "branch" && value !== "department" && value !== "unit" ? [] : prev.branchIds,
-      departmentIds: value !== "department" && value !== "unit" ? [] : prev.departmentIds,
-      unitIds: value !== "unit" ? [] : prev.unitIds,
+      branches: value !== "branch" && value !== "department" && value !== "unit" ? [] : prev.branches,
+      departments: value !== "department" && value !== "unit" ? [] : prev.departments,
+      units: value !== "unit" ? [] : prev.units,
     }));
+    setChangedFields((prev) => ({ ...prev, [name]: value }));
     setErrors(initialErrors);
 
     if (value !== "branch" && value !== "department" && value !== "unit") {
@@ -235,22 +261,37 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
+    const newValue = type === "checkbox" ? checked : value;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: newValue,
+    }));
+    setChangedFields((prev) => ({
+      ...prev,
+      [name]: newValue,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleBranchSelectChange = (e: SelectChangeEvent<string[]>) => {
     const selectedBranchIds = e.target.value as string[];
+    const selectedBranches = selectedBranchIds.map((id) => ({
+      id,
+      name: branches.find((branch) => branch.id === id)?.name || formData.branches.find((b) => b.id === id)?.name || id,
+    }));
     setFormData((prev) => ({
       ...prev,
-      branchIds: selectedBranchIds,
-      departmentIds: [],
-      unitIds: [],
+      branches: selectedBranches,
+      departments: [],
+      units: [],
     }));
-    setErrors((prev) => ({ ...prev, branchIds: "", departmentIds: "", unitIds: "" }));
+    setChangedFields((prev) => ({
+      ...prev,
+      branches: selectedBranches,
+      departments: [],
+      units: [],
+    }));
+    setErrors((prev) => ({ ...prev, branches: "", departments: "", units: "" }));
     setBranchDepartments({});
     setHasFetchedDepartments({});
     setDepartmentsError({});
@@ -261,15 +302,24 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
   const handleDepartmentSelectChange = (branchId: string) => (e: SelectChangeEvent<string[]>) => {
     const selectedDepartmentIds = e.target.value as string[];
-    const otherDepartmentIds = formData.departmentIds.filter(
-      (deptId) => !branchDepartments[branchId]?.some((dept) => dept.id === deptId)
+    const selectedDepartments = selectedDepartmentIds.map((id) => ({
+      id,
+      name: branchDepartments[branchId]?.find((dept) => dept.id === id)?.name || formData.departments.find((d) => d.id === id)?.name || id,
+    }));
+    const otherDepartments = formData.departments.filter(
+      (dept) => !branchDepartments[branchId]?.some((d) => d.id === dept.id)
     );
     setFormData((prev) => ({
       ...prev,
-      departmentIds: [...otherDepartmentIds, ...selectedDepartmentIds],
-      unitIds: [],
+      departments: [...otherDepartments, ...selectedDepartments],
+      units: [],
     }));
-    setErrors((prev) => ({ ...prev, departmentIds: "", unitIds: "" }));
+    setChangedFields((prev) => ({
+      ...prev,
+      departments: [...otherDepartments, ...selectedDepartments],
+      units: [],
+    }));
+    setErrors((prev) => ({ ...prev, departments: "", units: "" }));
     setDepartmentUnits({});
     setHasFetchedUnits({});
     setUnitsError({});
@@ -277,14 +327,22 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
   const handleUnitSelectChange = (deptId: string) => (e: SelectChangeEvent<string[]>) => {
     const selectedUnitIds = e.target.value as string[];
-    const otherUnitIds = formData.unitIds.filter(
-      (unitId) => !departmentUnits[deptId]?.some((unit) => unit.id === unitId)
+    const selectedUnits = selectedUnitIds.map((id) => ({
+      id,
+      name: departmentUnits[deptId]?.find((unit) => unit.id === id)?.name || formData.units.find((u) => u.id === id)?.name || id,
+    }));
+    const otherUnits = formData.units.filter(
+      (unit) => !departmentUnits[deptId]?.some((u) => u.id === unit.id)
     );
     setFormData((prev) => ({
       ...prev,
-      unitIds: [...otherUnitIds, ...selectedUnitIds],
+      units: [...otherUnits, ...selectedUnits],
     }));
-    setErrors((prev) => ({ ...prev, unitIds: "" }));
+    setChangedFields((prev) => ({
+      ...prev,
+      units: [...otherUnits, ...selectedUnits],
+    }));
+    setErrors((prev) => ({ ...prev, units: "" }));
   };
 
   const validateEmail = (email: string): boolean => {
@@ -300,97 +358,138 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const validateForm = (): boolean => {
     const newErrors: Errors = { ...initialErrors };
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Admin name is required";
-    } else {
-      const nameRegex = /^[a-zA-Z\s'-]+$/;
-      if (!nameRegex.test(formData.name)) {
-        newErrors.name = "Name can only contain letters, spaces, hyphens, and apostrophes";
-      } else if (formData.name.trim().length < 2) {
-        newErrors.name = "Name must be at least 2 characters long";
-      } else if (formData.name.trim().length > 50) {
-        newErrors.name = "Name must be less than 50 characters";
+    if (changedFields.name !== undefined) {
+      if (!formData.name.trim()) {
+        newErrors.name = "Admin name is required";
+      } else {
+        const nameRegex = /^[a-zA-Z\s'-]+$/;
+        if (!nameRegex.test(formData.name)) {
+          newErrors.name = "Name can only contain letters, spaces, hyphens, and apostrophes";
+        } else if (formData.name.trim().length < 2) {
+          newErrors.name = "Name must be at least 2 characters long";
+        } else if (formData.name.trim().length > 50) {
+          newErrors.name = "Name must be less than 50 characters";
+        }
       }
     }
 
-    if (!formData.title.trim()) {
-      newErrors.title = "Title is required";
-    } else if (formData.title.trim().length < 2) {
-      newErrors.title = "Title must be at least 2 characters long";
-    } else if (formData.title.trim().length > 100) {
-      newErrors.title = "Title must be less than 100 characters";
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = "Please enter a valid phone number (10-15 digits)";
-    }
-
-    if (formData.scopeLevel === "branch" && formData.branchIds.length === 0) {
-      newErrors.branchIds = "Please select at least one branch";
-    }
-
-    if (formData.scopeLevel === "department") {
-      if (formData.branchIds.length === 0) {
-        newErrors.branchIds = "Please select at least one branch";
-      }
-      if (formData.departmentIds.length === 0) {
-        newErrors.departmentIds = "Please select at least one department";
+    if (changedFields.title !== undefined) {
+      if (!formData.title.trim()) {
+        newErrors.title = "Title is required";
+      } else if (formData.title.trim().length < 2) {
+        newErrors.title = "Title must be at least 2 characters long";
+      } else if (formData.title.trim().length > 100) {
+        newErrors.title = "Title must be less than 100 characters";
       }
     }
 
-    if (formData.scopeLevel === "unit") {
-      if (formData.branchIds.length === 0) {
-        newErrors.branchIds = "Please select at least one branch";
+    if (changedFields.email !== undefined) {
+      if (!formData.email.trim()) {
+        newErrors.email = "Email is required";
+      } else if (!validateEmail(formData.email)) {
+        newErrors.email = "Please enter a valid email address";
       }
-      if (formData.departmentIds.length === 0) {
-        newErrors.departmentIds = "Please select at least one department";
+    }
+
+    if (changedFields.phone !== undefined) {
+      if (!formData.phone.trim()) {
+        newErrors.phone = "Phone number is required";
+      } else if (!validatePhone(formData.phone)) {
+        newErrors.phone = "Please enter a valid phone number (10-15 digits)";
       }
-      if (formData.unitIds.length === 0) {
-        newErrors.unitIds = "Please select at least one unit";
+    }
+
+    if (changedFields.scopeLevel !== undefined || changedFields.branches !== undefined) {
+      if (formData.scopeLevel === "branch" && formData.branches.length === 0) {
+        newErrors.branches = "Please select at least one branch";
+      }
+    }
+
+    if (changedFields.scopeLevel !== undefined || changedFields.departments !== undefined) {
+      if (formData.scopeLevel === "department") {
+        if (formData.branches.length === 0) {
+          newErrors.branches = "Please select at least one branch";
+        }
+        if (formData.departments.length === 0) {
+          newErrors.departments = "Please select at least one department";
+        }
+      }
+    }
+
+    if (changedFields.scopeLevel !== undefined || changedFields.units !== undefined) {
+      if (formData.scopeLevel === "unit") {
+        if (formData.branches.length === 0) {
+          newErrors.branches = "Please select at least one branch";
+        }
+        if (formData.departments.length === 0) {
+          newErrors.departments = "Please select at least one department";
+        }
+        if (formData.units.length === 0) {
+          newErrors.units = "Please select at least one unit";
+        }
       }
     }
 
     setErrors(newErrors);
-
     return Object.values(newErrors).every((error) => error === "");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
+    if (!validateForm() || !adminData?.id) {
       return;
     }
 
     setLoading(true);
 
     try {
-      const payload = {
-        name: formData.name.trim(),
-        title: formData.title.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        isSuperAdmin: formData.isSuperAdmin || undefined,
-        scopeLevel: formData.scopeLevel,
-        branchIds: formData.branchIds.length > 0 ? formData.branchIds : undefined,
-        departmentIds: formData.departmentIds.length > 0 ? formData.departmentIds : undefined,
-        unitIds: formData.unitIds.length > 0 ? formData.unitIds : undefined,
-      };
+      const payload: Partial<FormData> & { branchIds?: string[]; departmentIds?: string[]; unitIds?: string[] } = {};
 
-      await Api.post("church/create-admin", payload);
+      // Always include branchIds in payload
+      payload.branchIds = formData.branches.map((branch) => branch.id);
 
-      showPageToast("Admin created successfully!",'success');
+      // Include other changed fields
+      Object.keys(changedFields).forEach((key) => {
+        const field = key as keyof FormData;
+        // Use any cast for dynamic assignment to satisfy TS, and handle string trimming/lowercasing explicitly
+        if (field === "name" || field === "title" || field === "email" || field === "phone") {
+          const value = (formData[field] as unknown as string).trim();
+          if (field === "email") {
+            (payload as any)[field] = value.toLowerCase();
+          } else {
+            (payload as any)[field] = value;
+          }
+        } else if (field === "branches") {
+          // Already included as branchIds
+        } else if (field === "departments") {
+          payload.departmentIds = formData.departments.length > 0 ? formData.departments.map((dept) => dept.id) : undefined;
+        } else if (field === "units") {
+          payload.unitIds = formData.units.length > 0 ? formData.units.map((unit) => unit.id) : undefined;
+        } else {
+          (payload as any)[field] = formData[field as keyof FormData];
+        }
+      });
+
+      // If only branchIds is included and it matches the original, show no changes message
+      const originalBranchIds = adminData.branches.map((b) => b.id);
+      if (
+        Object.keys(payload).length === 1 &&
+        payload.branchIds?.length === originalBranchIds.length &&
+        payload.branchIds?.every((id) => originalBranchIds.includes(id))
+      ) {
+        showPageToast("No changes to submit", 'warning');
+        onClose();
+        return;
+      }
+
+      await Api.patch(`/church/edit-admin/${adminData.id}`, payload);
+
+      showPageToast("Admin updated successfully!", 'success');
 
       setTimeout(() => {
         setFormData(initialFormData);
+        setChangedFields({});
         setErrors(initialErrors);
         setBranches([]);
         setBranchDepartments({});
@@ -404,11 +503,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         setBranchesError("");
         setDepartmentsError({});
         setUnitsError({});
-        onClose();      
+        onClose();
       }, 3000);
     } catch (error: any) {
       const responseData = error.response?.data;
-      let errorMessage = "Failed to create admin";
+      let errorMessage = "Failed to update admin";
 
       if (responseData) {
         if (Array.isArray(responseData.errors)) {
@@ -426,10 +525,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         } else if (errorMessage.toLowerCase().includes("phone")) {
           setErrors((prev) => ({ ...prev, phone: "Phone number is invalid or already in use" }));
         } else {
-           showPageToast(errorMessage, 'error');
+          showPageToast(errorMessage, 'error');
         }
       } else if (error.response?.status === 401) {
-        showPageToast("You don't have permission to create admins", 'error');
+        showPageToast("You don't have permission to update admins", 'error');
       } else if (error.response?.status >= 500) {
         showPageToast("Server error. Please try again later", 'error');
       } else {
@@ -442,6 +541,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
   const handleCancel = () => {
     setFormData(initialFormData);
+    setChangedFields({});
     setErrors(initialErrors);
     setBranches([]);
     setBranchDepartments({});
@@ -469,7 +569,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
           color: "#F6F4FE",
         },
       }}
-    >    
+    >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography
@@ -478,7 +578,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             fontWeight={300}
             sx={{ color: "#F6F4FE" }}
           >
-            Create Admin
+            Edit Admin
           </Typography>
           <IconButton onClick={onClose}>
             <Close className="text-gray-300" />
@@ -634,7 +734,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth error={!!errors.branchIds}>
+              <FormControl fullWidth error={!!errors.branches}>
                 <InputLabel
                   id="scope-level-label"
                   sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
@@ -671,7 +771,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
               formData.scopeLevel === "department" ||
               formData.scopeLevel === "unit") && (
               <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth error={!!errors.branchIds}>
+                <FormControl fullWidth error={!!errors.branches}>
                   <InputLabel
                     id="branch-label"
                     sx={{
@@ -683,17 +783,17 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   </InputLabel>
                   <Select
                     labelId="branch-label"
-                    id="branchIds"
-                    name="branchIds"
+                    id="branches"
+                    name="branches"
                     multiple
-                    value={formData.branchIds}
+                    value={formData.branches.map((b) => b.id)}
                     onChange={handleBranchSelectChange}
                     onOpen={fetchBranches}
                     label="Select Branch(es)"
                     disabled={loading}
                     renderValue={(selected) =>
                       (selected as string[])
-                        .map((id) => branches.find((branch) => branch.id === id)?.name || id)
+                        .map((id) => formData.branches.find((b) => b.id === id)?.name || branches.find((branch) => branch.id === id)?.name || id)
                         .join(", ")
                     }
                     sx={{
@@ -738,12 +838,12 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                               py: 1.5,
                             }}
                           >
-                            <Checkbox checked={formData.branchIds.includes(branch.id)} />
+                            <Checkbox checked={formData.branches.some((b) => b.id === branch.id)} />
                             <ListItemText
                               primary={branch.name}
                               secondary={branch.address}
                               sx={{
-                                "& .MuiListItemText-primary": {                                 
+                                "& .MuiListItemText-primary": {
                                   fontWeight: 300,
                                 },
                                 "& .MuiListItemText-secondary": {
@@ -760,7 +860,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                       </MenuItem>
                     )}
                   </Select>
-                  {errors.branchIds && <FormHelperText>{errors.branchIds}</FormHelperText>}
+                  {errors.branches && <FormHelperText>{errors.branches}</FormHelperText>}
                   {branchesError && !isFetchingBranches && (
                     <FormHelperText error>
                       <Box component="span" sx={{ mr: 1 }}>
@@ -774,36 +874,30 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             )}
 
             {(formData.scopeLevel === "department" || formData.scopeLevel === "unit") &&
-              formData.branchIds.map((branchId) => (
-                <Grid size={{ xs: 12, md: 6 }} key={branchId}>
-                  <FormControl fullWidth error={!!errors.departmentIds}>
+              formData.branches.map((branch) => (
+                <Grid size={{ xs: 12, md: 6 }} key={branch.id}>
+                  <FormControl fullWidth error={!!errors.departments}>
                     <InputLabel
-                      id={`department-label-${branchId}`}
+                      id={`department-label-${branch.id}`}
                       sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
                     >
-                      Departments for {branches.find((b) => b.id === branchId)?.name || "Branch"}
+                      Departments for {branch.name}
                     </InputLabel>
                     <Select
-                      labelId={`department-label-${branchId}`}
-                      id={`departmentIds-${branchId}`}
-                      name={`departmentIds-${branchId}`}
+                      labelId={`department-label-${branch.id}`}
+                      id={`departments-${branch.id}`}
+                      name={`departments-${branch.id}`}
                       multiple
-                      value={formData.departmentIds.filter((deptId) =>
-                        branchDepartments[branchId]?.some((dept) => dept.id === deptId)
-                      )}
-                      onChange={handleDepartmentSelectChange(branchId)}
-                      onOpen={() => fetchDepartmentsForBranch(branchId)}
-                      label={`Departments for ${
-                        branches.find((b) => b.id === branchId)?.name || "Branch"
-                      }`}
+                      value={formData.departments
+                        .filter((dept) => branchDepartments[branch.id]?.some((d) => d.id === dept.id))
+                        .map((d) => d.id)}
+                      onChange={handleDepartmentSelectChange(branch.id)}
+                      onOpen={() => fetchDepartmentsForBranch(branch.id)}
+                      label={`Departments for ${branch.name}`}
                       disabled={loading}
                       renderValue={(selected) =>
                         (selected as string[])
-                          .map(
-                            (id) =>
-                              branchDepartments[branchId]?.find((dept) => dept.id === id)?.name ||
-                              id
-                          )
+                          .map((id) => formData.departments.find((d) => d.id === id)?.name || branchDepartments[branch.id]?.find((dept) => dept.id === id)?.name || id)
                           .join(", ")
                       }
                       sx={{
@@ -820,7 +914,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         },
                       }}
                     >
-                      {isFetchingDepartments[branchId] ? (
+                      {isFetchingDepartments[branch.id] ? (
                         <MenuItem disabled>
                           <Box
                             sx={{
@@ -834,11 +928,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                             <Typography variant="body2">Loading departments...</Typography>
                           </Box>
                         </MenuItem>
-                      ) : branchDepartments[branchId]?.length > 0 ? (
-                        branchDepartments[branchId].map((department) => (
+                      ) : branchDepartments[branch.id]?.length > 0 ? (
+                        branchDepartments[branch.id].map((department) => (
                           <MenuItem key={department.id} value={department.id}>
                             <Checkbox
-                              checked={formData.departmentIds.includes(department.id)}
+                              checked={formData.departments.some((d) => d.id === department.id)}
                             />
                             <ListItemText
                               primary={
@@ -847,7 +941,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                                   : department.name
                               }
                               sx={{
-                                "& .MuiListItemText-primary": {                                  
+                                "& .MuiListItemText-primary": {
                                   fontWeight: 300,
                                 },
                               }}
@@ -860,13 +954,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         </MenuItem>
                       )}
                     </Select>
-                    {errors.departmentIds && <FormHelperText>{errors.departmentIds}</FormHelperText>}
-                    {departmentsError[branchId] && !isFetchingDepartments[branchId] && (
+                    {errors.departments && <FormHelperText>{errors.departments}</FormHelperText>}
+                    {departmentsError[branch.id] && !isFetchingDepartments[branch.id] && (
                       <FormHelperText error>
                         <Box component="span" sx={{ mr: 1 }}>
                           ⚠️
                         </Box>
-                        {departmentsError[branchId]}
+                        {departmentsError[branch.id]}
                       </FormHelperText>
                     )}
                   </FormControl>
@@ -874,41 +968,35 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
               ))}
 
             {formData.scopeLevel === "unit" &&
-              formData.departmentIds.map((deptId) => {
+              formData.departments.map((dept) => {
                 const department = Object.values(branchDepartments)
                   .flat()
-                  .find((dept) => dept.id === deptId);
+                  .find((d) => d.id === dept.id);
                 const branch = branches.find((b) => b.id === department?.branchId);
                 return (
-                  <Grid size={{ xs: 12, md: 6 }} key={deptId}>
-                    <FormControl fullWidth error={!!errors.unitIds}>
+                  <Grid size={{ xs: 12, md: 6 }} key={dept.id}>
+                    <FormControl fullWidth error={!!errors.units}>
                       <InputLabel
-                        id={`unit-label-${deptId}`}
+                        id={`unit-label-${dept.id}`}
                         sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
                       >
-                        Units for {department?.name || "Department"} ({branch?.name || "Branch"})
+                        Units for {dept.name} ({branch?.name || "Branch"})
                       </InputLabel>
                       <Select
-                        labelId={`unit-label-${deptId}`}
-                        id={`unitIds-${deptId}`}
-                        name={`unitIds-${deptId}`}
+                        labelId={`unit-label-${dept.id}`}
+                        id={`units-${dept.id}`}
+                        name={`units-${dept.id}`}
                         multiple
-                        value={formData.unitIds.filter((unitId) =>
-                          departmentUnits[deptId]?.some((unit) => unit.id === unitId)
-                        )}
-                        onChange={handleUnitSelectChange(deptId)}
-                        onOpen={() => fetchUnits(deptId)}
-                        label={`Units for ${department?.name || "Department"} (${
-                          branch?.name || "Branch"
-                        })`}
+                        value={formData.units
+                          .filter((unit) => departmentUnits[dept.id]?.some((u) => u.id === unit.id))
+                          .map((u) => u.id)}
+                        onChange={handleUnitSelectChange(dept.id)}
+                        onOpen={() => fetchUnits(dept.id)}
+                        label={`Units for ${dept.name} (${branch?.name || "Branch"})`}
                         disabled={loading}
                         renderValue={(selected) =>
                           (selected as string[])
-                            .map(
-                              (id) =>
-                                departmentUnits[deptId]?.find((unit) => unit.id === id)?.name ||
-                                id
-                            )
+                            .map((id) => formData.units.find((u) => u.id === id)?.name || departmentUnits[dept.id]?.find((unit) => unit.id === id)?.name || id)
                             .join(", ")
                         }
                         sx={{
@@ -927,7 +1015,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           },
                         }}
                       >
-                        {isFetchingUnits[deptId] ? (
+                        {isFetchingUnits[dept.id] ? (
                           <MenuItem disabled>
                             <Box
                               sx={{
@@ -941,8 +1029,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                               <Typography variant="body2">Loading units...</Typography>
                             </Box>
                           </MenuItem>
-                        ) : departmentUnits[deptId]?.length > 0 ? (
-                          departmentUnits[deptId].map((unit) => (
+                        ) : departmentUnits[dept.id]?.length > 0 ? (
+                          departmentUnits[dept.id].map((unit) => (
                             <MenuItem
                               key={unit.id}
                               value={unit.id}
@@ -951,12 +1039,12 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                                 py: 1.5,
                               }}
                             >
-                              <Checkbox checked={formData.unitIds.includes(unit.id)} />
+                              <Checkbox checked={formData.units.some((u) => u.id === unit.id)} />
                               <ListItemText
                                 primary={unit.name}
                                 secondary={unit.description || "No description"}
                                 sx={{
-                                  "& .MuiListItemText-primary": {                                  
+                                  "& .MuiListItemText-primary": {
                                     fontWeight: 300,
                                   },
                                   "& .MuiListItemText-secondary": {
@@ -972,13 +1060,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           </MenuItem>
                         )}
                       </Select>
-                      {errors.unitIds && <FormHelperText>{errors.unitIds}</FormHelperText>}
-                      {unitsError[deptId] && !isFetchingUnits[deptId] && (
+                      {errors.units && <FormHelperText>{errors.units}</FormHelperText>}
+                      {unitsError[dept.id] && !isFetchingUnits[dept.id] && (
                         <FormHelperText error>
                           <Box component="span" sx={{ mr: 1 }}>
                             ⚠️
                           </Box>
-                          {unitsError[deptId]}
+                          {unitsError[dept.id]}
                         </FormHelperText>
                       )}
                     </FormControl>
@@ -1030,10 +1118,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         >
           {loading ? (
             <span className="text-gray-300">
-              <CircularProgress size={24} color="inherit" /> Creating
+              <CircularProgress size={24} color="inherit" /> Updating
             </span>
           ) : (
-            "Create Admin"
+            "Update Admin"
           )}
         </Button>
       </DialogActions>
@@ -1041,4 +1129,4 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   );
 };
 
-export default AdminModal;
+export default EditAdminModal;

@@ -24,7 +24,8 @@ import { Check } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import CreateProgramModal from "./services";
-
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 const localizer = momentLocalizer(moment);
 
 interface Occurrence {
@@ -101,6 +102,7 @@ const ViewServices: React.FC = () => {
   const [currentOccurrence, setCurrentOccurrence] = useState<Occurrence | null>(null);
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date());
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
   usePageToast('view-programs')
@@ -129,7 +131,7 @@ const ViewServices: React.FC = () => {
   const fetchEvents = useCallback(async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
     setLoading(true);
     try {
-      let url = "/church/get-events";
+      let url = `/church/get-events${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`;
       
       if (viewType === "month") {
         const startOfMonth = moment(date).startOf('month').format('YYYY-MM-DD');
@@ -139,7 +141,7 @@ const ViewServices: React.FC = () => {
         const day = moment(date).format('YYYY-MM-DD');
         url = `/church/get-events?date=${day}`;
       } else{
-        url = '/church/get-events'
+        url = `/church/get-events${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`
       }
 
       const response = await Api.get<FetchEventsResponse>(url);

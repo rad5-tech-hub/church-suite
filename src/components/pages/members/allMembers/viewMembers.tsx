@@ -218,7 +218,7 @@ const ViewMembers: React.FC = () => {
   );
 
   // Data Fetching Handlers
-  const fetchMembers = useCallback(async (url: string | null = "/member/all-members") => {
+  const fetchMembers = useCallback(async (url: string | null = `/member/all-members${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`) => {
     handleStateChange("loading", true);
     handleStateChange("error", null);
     try {

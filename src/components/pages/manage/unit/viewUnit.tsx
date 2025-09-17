@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import { useTheme, useMediaQuery, SelectChangeEvent } from "@mui/material";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import {
   Box,
   Button,
@@ -244,6 +246,7 @@ const ViewUnit: React.FC = () => {
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
 
   const [state, setState] = useState<{
     units: Unit[];
@@ -331,7 +334,7 @@ const ViewUnit: React.FC = () => {
   }, [handleStateChange, departmentsLoading]);
 
   const fetchUnits = useCallback(
-    async (url: string | null = "/church/all-units"): Promise<FetchUnitsResponse> => {
+    async (url: string | null = `/church/all-units${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`): Promise<FetchUnitsResponse> => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
       try {
@@ -614,8 +617,16 @@ const ViewUnit: React.FC = () => {
   );
 
   const handleEditSubmit = useCallback(async () => {
-    if (!state.currentUnit?.id || !state.editFormData.name.trim() || !state.editFormData.branchId || !state.editFormData.departmentId) {
-      handleStateChange("nameError", !state.editFormData.name.trim() ? "Unit name is required" : null);
+    if (
+      !state.currentUnit?.id ||
+      !state.editFormData.name.trim() ||
+      !state.editFormData.branchId ||
+      !state.editFormData.departmentId
+    ) {
+      handleStateChange(
+        "nameError",
+        !state.editFormData.name.trim() ? "Unit name is required" : null
+      );
       if (!state.editFormData.branchId) showPageToast("Branch is required", "error");
       if (!state.editFormData.departmentId) showPageToast("Department is required", "error");
       return;
@@ -623,15 +634,50 @@ const ViewUnit: React.FC = () => {
 
     try {
       handleStateChange("loading", true);
-      await Api.patch(`/church/edit-unit/${state.currentUnit.id}`, {
-        ...state.editFormData,
-        description: state.editFormData.description || null,
+
+      const payload: Partial<typeof state.editFormData> = {
+        branchId: state.editFormData.branchId, // ✅ always include branchId
+      };
+
+      const original = state.currentUnit;
+
+      Object.keys(state.editFormData).forEach((key) => {
+        const k = key as keyof typeof state.editFormData;
+
+        if (k === "branchId") return; // already included
+
+        const newValue =
+          k === "description"
+            ? (state.editFormData[k]?.trim() || null)
+            : state.editFormData[k];
+        const oldValue = original[k] ?? null;
+
+        if (newValue !== oldValue) {
+          payload[k] = newValue as any;
+        }
       });
 
-      const currentUrl = state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
-      const data = state.searchTerm || state.selectedBranchId || state.selectedDepartmentId
-        ? await searchUnits(currentUrl, state.searchTerm, state.selectedBranchId, state.selectedDepartmentId)
-        : await fetchUnits(currentUrl);
+      if (Object.keys(payload).length === 1 && payload.branchId) {
+        // only branchId present, no actual changes
+        showPageToast("No changes to update", "warning");
+        handleStateChange("loading", false);
+        return;
+      }
+
+      await Api.patch(`/church/edit-unit/${state.currentUnit.id}`, payload);
+
+      const currentUrl =
+        state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
+
+      const data =
+        state.searchTerm || state.selectedBranchId || state.selectedDepartmentId
+          ? await searchUnits(
+              currentUrl,
+              state.searchTerm,
+              state.selectedBranchId,
+              state.selectedDepartmentId
+            )
+          : await fetchUnits(currentUrl);
 
       setState((prev) => ({
         ...prev,
@@ -645,7 +691,8 @@ const ViewUnit: React.FC = () => {
       handleStateChange("currentUnit", null);
       handleStateChange("nameError", null);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || "Failed to update unit";
+      const errorMessage =
+        error.response?.data?.message || "Failed to update unit";
       console.error("Update error:", error);
       showPageToast(errorMessage, "error");
       handleStateChange("loading", false);

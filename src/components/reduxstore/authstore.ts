@@ -16,6 +16,8 @@ export interface AuthData {
   tenantId: string;
   token: string;
   branchId: string;
+  role: string;          // ✅ added
+  branches: string[];   // ✅ fixed spelling
 }
 
 // Export AuthState interface

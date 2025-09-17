@@ -69,11 +69,6 @@ interface FetchDepartmentsResponse {
   departments: Department[];
 }
 
-interface AuthData {
-  isHeadquarter?: boolean;
-  isSuperAdmin?: boolean;
-}
-
 interface CustomPaginationProps {
   hasNextPage: boolean;
   hasPrevPage: boolean;
@@ -242,7 +237,7 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
 const ViewDepartment: React.FC = () => {
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
-  const authData = useSelector((state: RootState) => state?.auth?.authData as AuthData | undefined);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -286,11 +281,11 @@ const ViewDepartment: React.FC = () => {
   };
 
   const fetchDepartments = useCallback(
-    async (url: string | null = "/church/get-departments"): Promise<FetchDepartmentsResponse> => {
+    async (url: string | null = `/church/get-departments${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`): Promise<FetchDepartmentsResponse> => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
       try {
-        const response = await Api.get<FetchDepartmentsResponse>(url || "/church/get-departments");
+        const response = await Api.get<FetchDepartmentsResponse>(url || `/church/get-departments`);
         const data: unknown = response.data;
         if (!isFetchDepartmentsResponse(data)) {
           throw new Error("Invalid response structure");
@@ -527,14 +522,40 @@ const ViewDepartment: React.FC = () => {
 
     try {
       handleStateChange("loading", true);
-      // Create payload without isActive
-      const { isActive, ...payload } = state.editFormData;
 
-      await Api.patch(`/church/edit-dept/${state.currentDepartment.id}`,  {
-        ...payload,
-        description: description || null, // send null if empty
-        branchId: state.editFormData.branchId || null,
+      // Build payload with only changed fields, but always include branchId
+      const { isActive, ...editFormData } = state.editFormData;
+      const original = state.currentDepartment;
+
+      const payload: Partial<typeof editFormData> = {
+        branchId: state.editFormData.branchId || undefined, // always include branchId (undefined when not set)
+      };
+
+      Object.keys(editFormData).forEach((key) => {
+        const k = key as keyof typeof editFormData;
+
+        if (k === "branchId") return; // skip here since already handled
+
+        // Normalize empty description to null
+        const newValue =
+          k === "description" ? (editFormData[k]?.trim() || null) : editFormData[k];
+
+        // Compare with original, add only if different
+        if (newValue !== (original[k] ?? null)) {
+          payload[k] = newValue as any;
+        }
       });
+
+      // If only branchId is present but unchanged, still send it
+      if (
+        Object.keys(payload).length === 1 &&
+        payload.branchId === (original?.branch?.id ?? undefined)
+      ) {
+        showPageToast("No changes to update", "warning");
+        return;
+      }
+
+      await Api.patch(`/church/edit-dept/${state.currentDepartment.id}`, payload);
 
       const updatedDept = { ...state.currentDepartment, ...payload };
 
@@ -573,10 +594,10 @@ const ViewDepartment: React.FC = () => {
     state.currentDepartment,
     state.editFormData,
     state.departments,
-    state.branches,
     state.filteredDepartments,
     handleStateChange,
   ]);
+
 
   const handleCancelEdit = useCallback(() => {
     handleStateChange("editModalOpen", false);
@@ -799,8 +820,7 @@ const ViewDepartment: React.FC = () => {
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                 ml: isMobile ? 2 : 0,
-              }}
-              disabled={!authData?.isSuperAdmin}
+              }}          
               aria-label="Create new department"
             >
               Create Department +
@@ -886,7 +906,8 @@ const ViewDepartment: React.FC = () => {
                 renderValue={(selected) =>
                   selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
                 }
-              >                
+              >        
+                <MenuItem value=''>None</MenuItem>        
                 {branchesLoading ? (
                   <MenuItem disabled>Loading...</MenuItem>
                   ) : (
@@ -916,7 +937,7 @@ const ViewDepartment: React.FC = () => {
                 renderValue={(selected) => (selected ? selected : "Select Type")}
                 aria-label="Filter departments by type"
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">None</MenuItem>
                 <MenuItem value="Department">Department</MenuItem>
                 <MenuItem value="Outreach">Outreach</MenuItem>
               </Select>

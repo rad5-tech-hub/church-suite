@@ -253,19 +253,25 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
+  // 🔹 Fetch branches & collections when modal opens
   useEffect(() => {
     if (open) {
       fetchBranches();
-      if (formData.branchId) {
-        fetchDepartments(formData.branchId);
-      }
       fetchCollections(
         setCollections,
         setFetchingCollections,
         setFetchCollectionsError
       );
     }
-  }, [open, formData.branchId]);
+  }, [open]);
+
+  // 🔹 Fetch departments only when branchId changes
+  useEffect(() => {
+    if (formData.branchId) {
+      fetchDepartments(formData.branchId);
+    }
+  }, [formData.branchId]);
+
 
   useEffect(() => {
     switch (formData.recurrenceType) {
@@ -1804,18 +1810,149 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     );
   };
 
-  const renderDepartmentInput = () => {
-    const allSelected =
-      departments.length > 0 &&
-      formData.departmentIds.length === departments.length;
+  // const renderDepartmentInput = () => {
+  //   const allSelected =
+  //     departments.length > 0 &&
+  //     formData.departmentIds.length === departments.length;
 
+  //   return (
+  //     <Grid size={{ xs: 12 }}>
+  //       <FormControl
+  //         fullWidth
+  //         variant="outlined"
+  //         disabled={loading || !formData.branchId} // ✅ disable if no branchId
+  //       >
+  //         <InputLabel id="department-label" sx={inputLabelProps.sx}>
+  //           Expected Departments
+  //         </InputLabel>
+  //         <Select
+  //           labelId="department-label"
+  //           name="departmentIds"
+  //           multiple
+  //           value={formData.departmentIds}
+  //           onChange={handleDepartmentChange}
+  //           renderValue={(selected) =>
+  //             (selected as string[])
+  //               .map(
+  //                 (id) =>
+  //                   departments.find((dept) => dept.id === id)?.name || id
+  //               )
+  //               .join(", ")
+  //           }
+  //           open={departmentSelectOpen}
+  //           onOpen={() => setDepartmentSelectOpen(true)}
+  //           onClose={() => setDepartmentSelectOpen(false)}
+  //           sx={{
+  //             fontSize: isLargeScreen ? "1rem" : undefined,
+  //             color: "#F6F4FE",
+  //             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+  //             "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+  //             "& .MuiSelect-icon": { color: "#F6F4FE" },
+  //           }}
+  //           MenuProps={{
+  //             PaperProps: { sx: { maxHeight: 350 } },
+  //           }}
+  //         >
+  //           {/* ✅ If no branch selected, show "Select branch first" */}
+  //           {!formData.branchId ? (
+  //             <MenuItem disabled>
+  //               <Typography variant="body2" color="textSecondary">
+  //                 Select branch first
+  //               </Typography>
+  //             </MenuItem>
+  //           ) : fetchingDepartments ? (
+  //             <MenuItem disabled>
+  //               <Box
+  //                 sx={{
+  //                   display: "flex",
+  //                   alignItems: "center",
+  //                   width: "100%",
+  //                   justifyContent: "center",
+  //                 }}
+  //               >
+  //                 <CircularProgress size={20} />
+  //                 <Typography sx={{ ml: 1 }} variant="body2">
+  //                   Loading departments...
+  //                 </Typography>
+  //               </Box>
+  //             </MenuItem>
+  //           ) : fetchDepartmentsError ? (
+  //             <MenuItem
+  //               sx={{
+  //                 display: "flex",
+  //                 justifyContent: "space-between",
+  //                 alignItems: "center",
+  //               }}
+  //             >
+  //               <Typography variant="body2" sx={{ mr: 1 }}>
+  //                 {fetchDepartmentsError}
+  //               </Typography>
+  //               <IconButton
+  //                 size="small"
+  //                 color="inherit"
+  //                 onClick={(e) => {
+  //                   e.stopPropagation();
+  //                   fetchDepartments(formData.branchId); // ✅ fetch again with branchId
+  //                 }}
+  //               >
+  //                 <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+  //               </IconButton>
+  //             </MenuItem>
+  //           ) : departments.length > 0 ? (
+  //             <>
+  //               {/* ✅ Select All option */}
+  //               <MenuItem value="all">
+  //                 <Checkbox
+  //                   checked={allSelected}
+  //                   indeterminate={
+  //                     formData.departmentIds.length > 0 &&
+  //                     formData.departmentIds.length < departments.length
+  //                   }
+  //                   sx={{
+  //                     color: "var(--color-primary)",
+  //                     "&.Mui-checked": { color: "var(--color-primary)" },
+  //                   }}
+  //                 />
+  //                 <ListItemText primary="Select All" />
+  //               </MenuItem>
+
+  //               {/* ✅ Department items */}
+  //               {departments.map((dept: any) => (
+  //                 <MenuItem key={dept.id} value={dept.id}>
+  //                   <Checkbox
+  //                     checked={formData.departmentIds.includes(dept.id)}
+  //                     sx={{
+  //                       color: "var(--color-primary)",
+  //                       "&.Mui-checked": { color: "var(--color-primary)" },
+  //                     }}
+  //                   />
+  //                   <ListItemText
+  //                     primary={
+  //                       dept.type ? `${dept.name} - (${dept.type})` : dept.name
+  //                     }
+  //                   />
+  //                 </MenuItem>
+  //               ))}
+  //             </>
+  //           ) : (
+  //             <MenuItem disabled>
+  //               <Typography variant="body2">
+  //                 No departments available
+  //               </Typography>
+  //             </MenuItem>
+  //           )}
+  //         </Select>
+  //       </FormControl>
+  //     </Grid>
+  //   );
+  // };
+
+  const renderDepartmentInput = () => {
+    const allSelected = 
+      departments.length > 0 && formData.departmentIds.length === departments.length;
     return (
       <Grid size={{ xs: 12 }}>
-        <FormControl
-          fullWidth
-          variant="outlined"
-          disabled={loading || !formData.branchId} // ✅ disable if no branchId
-        >
+        <FormControl fullWidth variant="outlined" disabled={loading || !formData.branchId}>
           <InputLabel id="department-label" sx={inputLabelProps.sx}>
             Expected Departments
           </InputLabel>
@@ -1827,10 +1964,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             onChange={handleDepartmentChange}
             renderValue={(selected) =>
               (selected as string[])
-                .map(
-                  (id) =>
-                    departments.find((dept) => dept.id === id)?.name || id
-                )
+                .map((id) => departments.find((dept) => dept.id === id)?.name || id)
                 .join(", ")
             }
             open={departmentSelectOpen}
@@ -1844,26 +1978,57 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
             MenuProps={{
-              PaperProps: { sx: { maxHeight: 350 } },
+              PaperProps: { sx: { maxHeight: 350 } }
             }}
           >
-            {/* ✅ If no branch selected, show "Select branch first" */}
-            {!formData.branchId ? (
-              <MenuItem disabled>
-                <Typography variant="body2" color="textSecondary">
-                  Select branch first
-                </Typography>
-              </MenuItem>
-            ) : fetchingDepartments ? (
-              <MenuItem disabled>
-                <Box
+            {/* ✅ Close button inside menu */}
+            <Box
+              sx={{
+                position: "sticky",
+                top: 0,
+                zIndex: 1,
+                display: "flex",
+                justifyContent: "flex-end",
+                p: 1,
+                borderBottom: "1px solid #777280",
+                backgroundColor: "#fff",
+              }}
+            >
+              <IconButton
+                size="small"
+                onClick={() => setDepartmentSelectOpen(false)}
+                sx={{
+                  color: "#2C2C2C",                
+                }}
+                aria-label="Close menu"
+              >
+                <Close fontSize="small" />
+              </IconButton>
+            </Box>
+
+            {/* ✅ Select All option */}
+            {departments.length > 0 && (
+              <MenuItem value="all">
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={
+                    formData.departmentIds.length > 0 &&
+                    formData.departmentIds.length < departments.length
+                  }
                   sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    width: "100%",
-                    justifyContent: "center",
+                    color: "var(--color-primary)",
+                    "&.Mui-checked": { color: "var(--color-primary)" },
                   }}
-                >
+                />
+                <ListItemText primary="Select All" />
+              </MenuItem>
+            )}
+
+
+            {/* Items */}
+            {fetchingDepartments ? (
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
                   <CircularProgress size={20} />
                   <Typography sx={{ ml: 1 }} variant="body2">
                     Loading departments...
@@ -1871,13 +2036,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                 </Box>
               </MenuItem>
             ) : fetchDepartmentsError ? (
-              <MenuItem
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
+              <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Typography variant="body2" sx={{ mr: 1 }}>
                   {fetchDepartmentsError}
                 </Typography>
@@ -1885,54 +2044,31 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   size="small"
                   color="inherit"
                   onClick={(e) => {
-                    e.stopPropagation();
-                    fetchDepartments(formData.branchId); // ✅ fetch again with branchId
+                    e.stopPropagation(); // ✅ Prevents Select from closing immediately
+                    fetchDepartments();
                   }}
                 >
-                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+                  <Refresh fontSize="small" sx={{ color: '#2C2C2C' }} />
                 </IconButton>
               </MenuItem>
             ) : departments.length > 0 ? (
-              <>
-                {/* ✅ Select All option */}
-                <MenuItem value="all">
+              departments.map((dept: any) => (
+                <MenuItem key={dept.id} value={dept.id}>
                   <Checkbox
-                    checked={allSelected}
-                    indeterminate={
-                      formData.departmentIds.length > 0 &&
-                      formData.departmentIds.length < departments.length
-                    }
+                    checked={formData.departmentIds.includes(dept.id)}
                     sx={{
                       color: "var(--color-primary)",
                       "&.Mui-checked": { color: "var(--color-primary)" },
                     }}
                   />
-                  <ListItemText primary="Select All" />
+                  <ListItemText 
+                    primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} 
+                  />
                 </MenuItem>
-
-                {/* ✅ Department items */}
-                {departments.map((dept: any) => (
-                  <MenuItem key={dept.id} value={dept.id}>
-                    <Checkbox
-                      checked={formData.departmentIds.includes(dept.id)}
-                      sx={{
-                        color: "var(--color-primary)",
-                        "&.Mui-checked": { color: "var(--color-primary)" },
-                      }}
-                    />
-                    <ListItemText
-                      primary={
-                        dept.type ? `${dept.name} - (${dept.type})` : dept.name
-                      }
-                    />
-                  </MenuItem>
-                ))}
-              </>
+              ))
             ) : (
               <MenuItem disabled>
-                <Typography variant="body2">
-                  No departments available
-                </Typography>
+                <Typography variant="body2">No departments available</Typography>
               </MenuItem>
             )}
           </Select>

@@ -26,7 +26,7 @@ interface VerificationRequest {
 interface AuthPayload {
   backgroundImg: string;
   branchId: string;
-  branchs: string[];
+  branches: string[];
   churchId: string;
   church_name: string;
   email: string;
@@ -118,11 +118,13 @@ const EmailVerification: React.FC = () => {
 
       const authPayload: AuthPayload = {
         backgroundImg: decodedToken.backgroundImg || "",
-        role: decodedToken.role || '',
-        branchId: Array.isArray(decodedToken.branchId)
-        ? decodedToken.branchId[0] || "" // take only the first branchId
-        : decodedToken.branchId || "", 
-        branchs: decodedToken.branchId,
+        role: decodedToken.role || "",
+        branchId: Array.isArray(decodedToken.branchIds)
+          ? decodedToken.branchIds[0] || "" 
+          : decodedToken.branchIds || "", 
+        branches: Array.isArray(decodedToken.branchIds) 
+          ? decodedToken.branchIds
+          : [decodedToken.branchIds || ""], // ✅ ensure array
         churchId: decodedToken.churchId || "",
         church_name: decodedToken.church_name || "",
         email: decodedToken.email || "",

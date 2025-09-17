@@ -29,10 +29,6 @@ import {
   TextField,
   Drawer,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  FormControlLabel,
-  Checkbox,
   Autocomplete,
 } from "@mui/material";
 import {
@@ -43,7 +39,7 @@ import {
   ChevronRight,
   Close,
 } from "@mui/icons-material";
-import { MdRefresh, MdOutlineEdit } from "react-icons/md";
+import { MdOutlineEdit, MdRefresh} from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
@@ -51,6 +47,7 @@ import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
+import EditAdminModal from "./editAdmin";
 
 interface Branch {
   id: number | string;
@@ -116,9 +113,6 @@ interface State {
   superAdminFilter: boolean | null;
   isSearching: boolean;
   isDrawerOpen: boolean;
-  editName: string;
-  editEmail: string;
-  editPhone: string;
   isNameDropdownOpen: boolean;
   searchError: string | null;
 }
@@ -175,9 +169,6 @@ const initialState: State = {
   superAdminFilter: true,
   isSearching: false,
   isDrawerOpen: false,
-  editName: "",
-  editEmail: "",
-  editPhone: "",
   isNameDropdownOpen: false,
   searchError: null,
 };
@@ -303,7 +294,7 @@ const ViewAdmins: React.FC = () => {
 
   // Fetch admins function
   const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
-    const response = await (url ? Api.get(url) : Api.get("/church/view-admins"));
+    const response = await (url ? Api.get(url) : Api.get(`/church/view-admins${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`));
     return response.data;
   }, []);
 
@@ -332,8 +323,7 @@ const ViewAdmins: React.FC = () => {
       } catch (error) {
         console.error("Error loading initial admins:", error);
         const errorMessage = "Failed to load admins";
-        setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
-        showPageToast(errorMessage, 'error');
+        setState((prev) => ({ ...prev, error: errorMessage, loading: false }));        
       }
     };
 
@@ -547,9 +537,6 @@ const ViewAdmins: React.FC = () => {
   const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, admin: Admin) => {
     handleStateChange("anchorEl", event.currentTarget);
     handleStateChange("currentAdmin", admin);
-    handleStateChange("editName", admin.name);
-    handleStateChange("editEmail", admin.email);
-    handleStateChange("editPhone", admin.phone);
     handleStateChange("isSuperAdmin", admin.isSuperAdmin);
     handleStateChange("selectedBranch", admin.branchId || "");
     handleStateChange("selectedDepartment", admin.departments?.[0]?.id || "");
@@ -560,88 +547,8 @@ const ViewAdmins: React.FC = () => {
     handleStateChange("anchorEl", null);
   }, []);
 
-  // Edit handlers
-  const handleEditOpen = useCallback(() => {
-    if (state.currentAdmin) {
-      handleStateChange("editModalOpen", true);
-      if (state.currentAdmin.scopeLevel === "branch") fetchBranches();
-      if (state.currentAdmin.scopeLevel === "department" || state.currentAdmin.scopeLevel === "unit") fetchDepartments();
-    }
-    handleMenuClose();
-  }, [state.currentAdmin, fetchBranches, fetchDepartments, handleMenuClose]);
 
-  const handleEditClose = useCallback(() => {
-    handleStateChange("editModalOpen", false);
-    handleStateChange("currentAdmin", null);
-    handleStateChange("selectedBranch", "");
-    handleStateChange("selectedDepartment", "");
-    handleStateChange("selectedUnit", "");
-    handleStateChange("isSuperAdmin", false);
-    handleStateChange("editName", "");
-    handleStateChange("editEmail", "");
-    handleStateChange("editPhone", "");
-  }, []);
 
-  const handleEditSubmit = useCallback(async () => {
-    if (!state.currentAdmin?.id) {
-      showPageToast("Invalid admin data", 'error');
-      return;
-    }
-
-    setState((prev) => ({ ...prev, loading: true }));
-    try {
-      const payload: any = {
-        name: state.editName,
-        email: state.editEmail,
-        phone: state.editPhone,
-        isSuperAdmin: state.isSuperAdmin,
-      };
-
-      if (state.currentAdmin.scopeLevel === "branch" && state.selectedBranch) {
-        payload.branchId = state.selectedBranch.toString();
-      }
-      if (state.currentAdmin.scopeLevel === "department" && state.selectedDepartment) {
-        payload.departmentIds = [state.selectedDepartment];
-      }
-      if (state.currentAdmin.scopeLevel === "unit" && state.selectedUnit) {
-        payload.unitIds = [state.selectedUnit];
-      }
-
-      await Api.patch(`/church/edit-admin?id=${state.currentAdmin.id}`, payload);
-
-      setState((prev) => ({
-        ...prev,
-        admins: prev.admins.map((admin) =>
-          admin.id === state.currentAdmin?.id
-            ? {
-                ...admin,
-                name: state.editName,
-                email: state.editEmail,
-                phone: state.editPhone,
-                isSuperAdmin: state.isSuperAdmin,
-                branchId: state.currentAdmin?.scopeLevel === "branch" ? state.selectedBranch : admin.branchId,
-                departments: state.currentAdmin?.scopeLevel === "department" && state.selectedDepartment
-                  ? state.departments.filter((d) => d.id === state.selectedDepartment)
-                  : admin.departments,
-                units: state.currentAdmin?.scopeLevel === "unit" && state.selectedUnit
-                  ? state.units.filter((u) => u.id === state.selectedUnit)
-                  : admin.units,
-              }
-            : admin
-        ),
-        loading: false,
-      }));
-
-      showPageToast("Admin updated successfully!", 'success');
-      handleEditClose();
-    } catch (error) {
-      console.error("Update error:", error);
-      showPageToast("Failed to update admin", 'error');
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  }, [state.currentAdmin, state.editName, state.editEmail, state.editPhone, state.isSuperAdmin, state.selectedBranch, state.selectedDepartment, state.selectedUnit, state.departments, state.units, handleEditClose]);
-
-  // Action confirmation handlers
   const showConfirmation = useCallback((action: string) => {
     handleStateChange("actionType", action);
     handleStateChange("confirmModalOpen", true);
@@ -1207,7 +1114,6 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
-
   // Empty state component
   const EmptyState = () => (
     <Box
@@ -1253,6 +1159,23 @@ const ViewAdmins: React.FC = () => {
       </Button>
     </Box>
   );
+
+  const handleEditOpen = () => {
+    setState((prev) => ({
+      ...prev,
+      editModalOpen: true,
+    }));
+    handleMenuClose();
+  };
+
+  const handleEditClose = () => {
+    setState((prev) => ({
+      ...prev,
+      editModalOpen: false,
+      currentAdmin: null,
+    }));
+    handleMenuClose();
+  };
 
   return (
     <DashboardManager>
@@ -1720,268 +1643,6 @@ const ViewAdmins: React.FC = () => {
           </MenuItem>
         </Menu>
 
-        <Dialog open={state.editModalOpen} onClose={handleEditClose} maxWidth="sm" fullWidth
-          sx={{
-            "& .MuiDialog-paper": {
-              borderRadius: 2,
-              bgcolor: '#2C2C2C',
-              color: "#F6F4FE",
-            },
-          }}
-        >        
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center">      
-              <Typography
-                variant={isMobile ? "h5" : "h5"}
-                component="h1"
-                fontWeight={600}
-                sx={{           
-                  fontSize: isLargeScreen ? '1.5rem' : undefined,
-                }}
-              >
-                Edit Admin
-              </Typography>
-              <IconButton onClick={handleEditClose}>
-                <Close className="text-gray-300"/>
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {state.currentAdmin && (
-              <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-                <TextField
-                  fullWidth
-                  label="Name"
-                  value={state.editName}
-                  onChange={(e) => handleStateChange("editName", e.target.value)}
-                  variant="outlined"
-                  sx={{
-                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
-                    "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
-                    },
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Email"
-                  value={state.editEmail}
-                  onChange={(e) => handleStateChange("editEmail", e.target.value)}
-                  variant="outlined"
-                  sx={{
-                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
-                    "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
-                    },
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  label="Phone"
-                  value={state.editPhone}
-                  onChange={(e) => handleStateChange("editPhone", e.target.value)}
-                  variant="outlined"
-                  sx={{
-                    "& .MuiInputLabel-root": { color: "#F6F4FE", fontSize: isLargeScreen ? "0.875rem" : undefined },
-                    "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
-                    },
-                  }}
-                />
-                {state.currentAdmin.scopeLevel === "branch" && (
-                  <FormControl fullWidth>
-                    <InputLabel id="branch-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
-                      Branch
-                    </InputLabel>
-                    <MuiSelect
-                      labelId="branch-select-label"
-                      id="branch-select"
-                      value={state.selectedBranch}
-                      label="Branch"
-                      onChange={(e) => handleStateChange("selectedBranch", e.target.value as number | string)}
-                      onOpen={fetchBranches}
-                      sx={{
-                        color: "#F6F4FE",
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
-                      }}
-                      renderValue={(selected) => {
-                        const branch = state.branches.find((b) => b.id === selected);
-                        return branch ? `${branch.name} - ${branch.address}` : "Select Branch";
-                      }}
-                    >
-                      {state.branches.length === 0 ? (
-                        <MenuItem disabled>
-                          <Typography variant="body2">No branches available</Typography>
-                        </MenuItem>
-                      ) : (
-                        state.branches.map((branch) => (
-                          <MenuItem key={branch.id} value={branch.id}>
-                            {`${branch.name} - ${branch.address}`}
-                          </MenuItem>
-                        ))
-                      )}
-                    </MuiSelect>
-                  </FormControl>
-                )}
-                {state.currentAdmin.scopeLevel === "department" && (
-                  <FormControl fullWidth>
-                    <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
-                      Department
-                    </InputLabel>
-                    <MuiSelect
-                      labelId="department-select-label"
-                      id="department-select"
-                      value={state.selectedDepartment}
-                      label="Department"
-                      onChange={(e) => handleStateChange("selectedDepartment", e.target.value as string)}
-                      onOpen={fetchDepartments}
-                      sx={{
-                        color: "#F6F4FE",
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
-                      }}
-                      renderValue={(selected) => {
-                        const dept = state.departments.find((d) => d.id === selected);
-                        return dept ? dept.name : "Select Department";
-                      }}
-                    >
-                      {state.departments.length === 0 ? (
-                        <MenuItem disabled>
-                          <Typography variant="body2">No departments available</Typography>
-                        </MenuItem>
-                      ) : (
-                        state.departments.map((dept) => (
-                          <MenuItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </MenuItem>
-                        ))
-                      )}
-                    </MuiSelect>
-                  </FormControl>
-                )}
-                {state.currentAdmin.scopeLevel === "unit" && (
-                  <>
-                    <FormControl fullWidth>
-                      <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
-                        Department
-                      </InputLabel>
-                      <MuiSelect
-                        labelId="department-select-label"
-                        id="department-select"
-                        value={state.selectedDepartment}
-                        label="Department"
-                        onChange={(e) => {
-                          handleStateChange("selectedDepartment", e.target.value as string);
-                          handleStateChange("selectedUnit", "");
-                          fetchUnits();
-                        }}
-                        onOpen={fetchDepartments}
-                        sx={{
-                          color: "#F6F4FE",
-                          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                          "& .MuiSelect-select": { color: "#F6F4FE" },
-                        }}
-                        renderValue={(selected) => {
-                          const dept = state.departments.find((d) => d.id === selected);
-                          return dept ? dept.name : "Select Department";
-                        }}
-                      >
-                        {state.departments.length === 0 ? (
-                          <MenuItem disabled>
-                            <Typography variant="body2">No departments available</Typography>
-                          </MenuItem>
-                        ) : (
-                          state.departments.map((dept) => (
-                            <MenuItem key={dept.id} value={dept.id}>
-                              {dept.name}
-                            </MenuItem>
-                          ))
-                        )}
-                      </MuiSelect>
-                    </FormControl>
-                    <FormControl fullWidth>
-                      <InputLabel id="unit-select-label" sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
-                        Unit
-                      </InputLabel>
-                      <MuiSelect
-                        labelId="unit-select-label"
-                        id="unit-select"
-                        value={state.selectedUnit}
-                        label="Unit"
-                        onChange={(e) => handleStateChange("selectedUnit", e.target.value as string)}
-                        onOpen={fetchUnits}
-                        sx={{
-                          color: "#F6F4FE",
-                          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                          "& .MuiSelect-select": { color: "#F6F4FE" },
-                        }}
-                        disabled={!state.selectedDepartment}
-                      >
-                        {state.units.length === 0 ? (
-                          <MenuItem disabled>
-                            <Typography variant="body2">No units available</Typography>
-                          </MenuItem>
-                        ) : (
-                          state.units.map((unit) => (
-                            <MenuItem key={unit.id} value={unit.id}>
-                              {unit.name}
-                            </MenuItem>
-                          ))
-                        )}
-                      </MuiSelect>
-                    </FormControl>
-                  </>
-                )} 
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={state.isSuperAdmin}
-                      onChange={(e) => handleStateChange("isSuperAdmin", e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label="Is Super Admin?"
-                  sx={{
-                    "& .MuiTypography-root": {
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                    },
-                  }}
-                />
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={handleEditSubmit}
-              sx={{
-                py: 1,
-                backgroundColor: "#F6F4FE",
-                px: { xs: 7, sm: 2 },
-                borderRadius: 50,
-                color: "#2C2C2C",
-                fontWeight: "semibold",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "#F6F4FE",
-                  opacity: 0.9,
-                },
-              }}
-              variant="contained"
-              disabled={state.loading}
-            >
-              {state.loading ? <span className="text-gray-600">Saving...</span> : "Save Changes"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
         <Dialog
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
@@ -2027,6 +1688,31 @@ const ViewAdmins: React.FC = () => {
         </Dialog>
 
         <AdminModal open={state.openModal} onClose={handleCloseModal} />
+        <EditAdminModal
+          open={state.editModalOpen}
+          onClose={handleEditClose}
+          adminData={{
+            id: String(state.currentAdmin?.id ?? ""),
+            name: state.currentAdmin?.name ?? "",
+            title: state.currentAdmin?.title ?? "",
+            email: state.currentAdmin?.email ?? "",
+            phone: state.currentAdmin?.phone ?? "",
+            isSuperAdmin: !!state.currentAdmin?.isSuperAdmin,
+            scopeLevel: state.currentAdmin?.scopeLevel ?? "",
+            branches: state.currentAdmin?.branches?.map((b) => ({
+              id: String(b.id),
+              name: b.name,
+            })) || [],
+            departments: state.currentAdmin?.departments?.map((d) => ({
+              id: String(d.id),
+              name: d.name,
+            })) || [],
+            units: state.currentAdmin?.units?.map((u) => ({
+              id: String(u.id),
+              name: u.name,
+            })) || [],
+          }}
+        />
       </Box>
     </DashboardManager>
   );

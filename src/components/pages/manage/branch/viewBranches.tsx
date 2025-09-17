@@ -485,30 +485,51 @@ const fetchBranches = useCallback(
   const handleEditSubmit = async () => {
     if (!state.currentBranch?.id) {
       console.error("Branch ID is undefined");
-      showPageToast("Invalid branch data", 'error');
+      showPageToast("Invalid branch data", "error");
       return;
     }
 
     try {
       handleStateChange("loading", true);
-      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, state.editFormData);
+
+      // Build payload with only changed fields
+      const payload: Partial<typeof state.editFormData> = {};
+      const original = state.currentBranch;
+
+      Object.keys(state.editFormData).forEach((key) => {
+        const k = key as keyof typeof state.editFormData;
+        const newValue = state.editFormData[k];
+        const oldValue = original[k];
+
+        if (newValue !== oldValue) {
+          payload[k] = newValue;
+        }
+      });
+
+      // If no changes, stop here
+      if (Object.keys(payload).length === 0) {
+        showPageToast("No changes to update", "warning");
+        return;
+      }
+
+      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, payload);
 
       setState((prev) => ({
         ...prev,
         branches: prev.branches.map((branch) =>
-          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+          branch.id === prev.currentBranch!.id ? { ...branch, ...payload } : branch
         ),
         filteredBranches: prev.filteredBranches.map((branch) =>
-          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+          branch.id === prev.currentBranch!.id ? { ...branch, ...payload } : branch
         ),
       }));
 
-      showPageToast("Branch updated successfully!", 'success');
+      showPageToast("Branch updated successfully!", "success");
       handleStateChange("editModalOpen", false);
       handleStateChange("currentBranch", null);
     } catch (error) {
       console.error("Update error:", error);
-      showPageToast("Failed to update branch", 'error');
+      showPageToast("Failed to update branch", "error");
     } finally {
       handleStateChange("loading", false);
     }
