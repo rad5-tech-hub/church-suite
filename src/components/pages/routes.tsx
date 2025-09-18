@@ -15,7 +15,6 @@ const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
-const EditMember = React.lazy(() => import("./members/singleMember/editmember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewSingleFollowUp = React.lazy(() => import("./members/new-comers/singlefollowup"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
@@ -98,11 +97,6 @@ const AppRoutes: React.FC = () => {
           <Route path="/members/view/:memberId" element={
             <PrivateRoute>
               <ViewSingleMember />
-            </PrivateRoute>
-          } />
-           <Route path="/members/edit/:memberId" element={
-            <PrivateRoute>
-              <EditMember/>
             </PrivateRoute>
           } />
             <Route path="/members/view-followup" element={

@@ -3,8 +3,8 @@ import { IoMailOutline, IoCallOutline } from "react-icons/io5";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import {showPageToast } from "../../../util/pageToast";
-// import { useSelector } from "react-redux";
-// import { RootState } from "../../../reduxstore/redux";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import {
   Box,
   Button,
@@ -131,13 +131,32 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  // const _authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
+  const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
 
-  const scopeLevels: { value: string; label: string }[] = [
-    { value: "branch", label: "Branch" },
-    { value: "department", label: "Department" },
-    { value: "unit", label: "Unit" },
-  ];
+  const getScopeLevels = (role?: string) => {
+    switch (role) {
+      case "SuperAdmin":
+        return [
+          { value: "branch", label: "Branch" },
+          { value: "department", label: "Department" },
+          { value: "unit", label: "Unit" },
+        ];
+      case "BranchAdmin":
+        return [
+          { value: "department", label: "Department" },
+          { value: "unit", label: "Unit" },
+        ];
+      case "DepartmentAdmin":
+        return [{ value: "unit", label: "Unit" }];
+      case "UnitAdmin":
+        return []; // no further scope to assign
+      default:
+        return [];
+    }
+  };
+
+  const scopeLevels = getScopeLevels(authData?.role);
+
 
   const fetchBranches = async () => {
     if (hasFetchedBranches || isFetchingBranches) return;

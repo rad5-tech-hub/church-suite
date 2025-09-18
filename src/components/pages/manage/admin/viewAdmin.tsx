@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { IoMdAttach, IoMdClose } from "react-icons/io";
@@ -39,7 +39,7 @@ import {
   ChevronRight,
   Close,
 } from "@mui/icons-material";
-import { MdOutlineEdit, MdRefresh} from "react-icons/md";
+import { MdOutlineEdit, MdRefresh } from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
@@ -49,8 +49,9 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import EditAdminModal from "./editAdmin";
 
+// Interfaces
 interface Branch {
-  id: number | string;
+  id: string | number;
   name: string;
   address: string;
 }
@@ -59,6 +60,7 @@ interface Department {
   id: string;
   name: string;
   type?: string;
+  branchId?: string | number;
 }
 
 interface Unit {
@@ -70,7 +72,7 @@ interface Unit {
 }
 
 interface Admin {
-  id: number | string;
+  id: string | number;
   name: string;
   email: string;
   title?: string;
@@ -78,13 +80,25 @@ interface Admin {
   isSuperAdmin: boolean;
   isSuspended?: boolean;
   scopeLevel: string;
-  branchId?: number | string;
+  branchId?: string | number;
   departmentIds?: string[];
   unitIds?: string[];
   isDeleted?: boolean;
+  branches?: Branch[];
   departments?: Department[];
   units?: Unit[];
-  branches?: Branch[];
+}
+
+interface Pagination {
+  hasNextPage: boolean;
+  nextCursor: string | null;
+  nextPage: string | null;
+}
+
+interface FetchAdminsResponse {
+  message: string;
+  pagination: Pagination;
+  admins: Admin[];
 }
 
 interface State {
@@ -103,13 +117,12 @@ interface State {
   branches: Branch[];
   departments: Department[];
   units: Unit[];
-  selectedBranch: number | string;
+  selectedBranch: string | number;
   selectedDepartment: string;
   selectedUnit: string;
   isSuperAdmin: boolean;
   searchTerm: string;
   accessLevel: string;
-  assignLevel: string;
   superAdminFilter: boolean | null;
   isSearching: boolean;
   isDrawerOpen: boolean;
@@ -117,16 +130,10 @@ interface State {
   searchError: string | null;
 }
 
-interface Pagination {
-  hasNextPage: boolean;
-  nextCursor: string | null;
-  nextPage: string | null;
-}
-
-interface FetchAdminsResponse {
-  message: string;
-  pagination: Pagination;
-  admins: Admin[];
+interface LoadingStates {
+  branches: boolean;
+  departments: boolean;
+  units: boolean;
 }
 
 interface CustomPaginationProps {
@@ -138,14 +145,10 @@ interface CustomPaginationProps {
   isLoading?: boolean;
 }
 
-
+// Initial State
 const initialState: State = {
   admins: [],
-  pagination: {
-    hasNextPage: false,
-    nextCursor: null,
-    nextPage: null,
-  },
+  pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
   currentPage: 1,
   pageHistory: [],
   loading: false,
@@ -165,14 +168,14 @@ const initialState: State = {
   isSuperAdmin: false,
   searchTerm: "",
   accessLevel: "",
-  assignLevel: "",
-  superAdminFilter: true,
+  superAdminFilter: null,
   isSearching: false,
   isDrawerOpen: false,
   isNameDropdownOpen: false,
   searchError: null,
 };
 
+// Custom Pagination Component
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
   hasPrevPage,
@@ -180,150 +183,221 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   currentPage,
   isLargeScreen,
   isLoading = false,
-}) => {
-  return (
-    <Box
+}) => (
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      py: 2,
+      px: { xs: 2, sm: 3 },
+      color: "#777280",
+      gap: 2,
+      flexWrap: "wrap",
+    }}
+  >
+    <Typography
       sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        py: 2,
-        px: { xs: 2, sm: 3 },
+        fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
         color: "#777280",
-        gap: 2,
-        flexWrap: "wrap",
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          sx={{
-            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
-          }}
-        >
-          Page {currentPage}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          onClick={() => onPageChange('prev')}
-          disabled={!hasPrevPage || isLoading}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: (!hasPrevPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
-            color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          onClick={() => onPageChange('next')}
-          disabled={!hasNextPage || isLoading}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: (!hasNextPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
-            color: (!hasNextPage || isLoading) ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-        >
-          <ChevronRight />
-        </Button>
-      </Box>
+      Page {currentPage}
+    </Typography>
+    <Box sx={{ display: "flex", gap: 1 }}>
+      <Button
+        onClick={() => onPageChange('prev')}
+        disabled={!hasPrevPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: (!hasPrevPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
+          color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+      >
+        <ChevronLeft />
+      </Button>
+      <Button
+        onClick={() => onPageChange('next')}
+        disabled={!hasNextPage || isLoading}
+        sx={{
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
+          backgroundColor: (!hasNextPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
+          color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
+          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+        }}
+      >
+        <ChevronRight />
+      </Button>
     </Box>
-  );
-};
+  </Box>
+);
 
+// Main Component
 const ViewAdmins: React.FC = () => {
-  usePageToast('view-admin')
-  const authData = useSelector((state: RootState) => state?.auth?.authData);
+  usePageToast('view-admin');
+  const authData = useSelector((state) => (state as RootState)?.auth?.authData);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("xl"));
 
   const [state, setState] = useState<State>(initialState);
-
-  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
-    setState((prev) => ({ ...prev, [key]: value }));
-  }, []);
-
-  // Add loading states to your state management
-  const [loadingStates, setLoadingStates] = useState({
+  const [loadingStates, setLoadingStates] = useState<LoadingStates>({
     branches: false,
     departments: false,
     units: false,
   });
 
-  const columnWidths = useMemo(() => ({
-    number: "2%",
-    name: "21%",
-    email: "15%",
-    access: "14%",
-    assign: "14%",
-    phone: "14%",
-    superAdmin: "10%",
-    actions: "10%",
-  }), []);
+  // Debounce Ref to Prevent Rapid Fetch Calls
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredNames = useMemo(() => {
-    if (!state.searchTerm) return [];
-    return state.admins.filter((admin) =>
-      admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-      admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-      admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
-    );
-  }, [state.searchTerm, state.admins]);
-
-  // Fetch admins function
-  const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
-    const response = await (url ? Api.get(url) : Api.get(`/church/view-admins${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`));
-    return response.data;
+  // State Update Helper
+  const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
+    setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Initial load
+  // Fetch Utilities with Debouncing
+  const fetchBranches = useCallback(async () => {
+    if (loadingStates.branches) return [];
+    setLoadingStates((prev) => ({ ...prev, branches: true }));
+    try {
+      const response = await Api.get("/church/get-branches");
+      const branches = response?.data?.branches || [];
+      setState((prev) => ({ ...prev, branches }));
+      return branches;
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      showPageToast("Failed to load branches", 'error');
+      return [];
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, branches: false }));
+    }
+  }, [loadingStates.branches]);
+
+  const fetchDepartments = useCallback(async (branchId?: string | number) => {
+    if (loadingStates.departments || !branchId) return [];
+    setLoadingStates((prev) => ({ ...prev, departments: true }));
+    try {
+      const response = await Api.get("/church/get-departments", {
+        params: { branchId },
+      });
+      const departments = response?.data?.departments?.map((dept: Department) => ({
+        ...dept,
+        branchId,
+      })) || [];
+      setState((prev) => ({ ...prev, departments }));
+      return departments;
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      showPageToast("Failed to load departments", 'error');
+      return [];
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, departments: false }));
+    }
+  }, [loadingStates.departments]);
+
+  const fetchUnits = useCallback(async (departmentId?: string) => {
+    if (loadingStates.units || !departmentId) return [];
+    setLoadingStates((prev) => ({ ...prev, units: true }));
+    try {
+      const response = await Api.get("/church/all-units", {
+        params: { departmentId },
+      });
+      const units = response?.data?.units?.map((unit: Unit) => ({
+        ...unit,
+        departmentId,
+      })) || [];
+      setState((prev) => ({ ...prev, units }));
+      return units;
+    } catch (error) {
+      console.error("Error fetching units:", error);
+      showPageToast("Failed to load units", 'error');
+      return [];
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, units: false }));
+    }
+  }, [loadingStates.units]);
+
+  // Debounced Hierarchical Data Load
+  const loadHierarchicalData = useCallback(async () => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+
+    fetchTimeoutRef.current = setTimeout(async () => {
+      if (!state.accessLevel) return;
+
+      if (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") {
+        if (state.branches.length === 0 && !loadingStates.branches) {
+          await fetchBranches();
+        }
+      }
+
+      if (state.accessLevel === "department" && state.selectedBranch && !loadingStates.departments) {
+        if (state.departments.length === 0 || !state.departments.some((dept) => dept.branchId === state.selectedBranch)) {
+          await fetchDepartments(state.selectedBranch);
+        }
+      }
+
+      if (state.accessLevel === "unit" && state.selectedDepartment && !loadingStates.units) {
+        if (state.units.length === 0 || !state.units.some((unit) => unit.departmentId === state.selectedDepartment)) {
+          await fetchUnits(state.selectedDepartment);
+        }
+      }
+    }, 300); // Debounce for 300ms
+  }, [
+    state.accessLevel,
+    state.selectedBranch,
+    state.selectedDepartment,
+    state.branches,
+    state.departments,
+    state.units,
+    loadingStates.branches,
+    loadingStates.departments,
+    loadingStates.units,
+    fetchBranches,
+    fetchDepartments,
+    fetchUnits,
+  ]);
+
+  // Initial Data Load
+  const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
+    const baseUrl = authData?.branchId
+      ? `/church/view-admins?branchId=${authData.branchId}`
+      : "/church/view-admins";
+    const response = await Api.get(url || baseUrl);
+    return response.data;
+  }, [authData?.branchId]);
+
   useEffect(() => {
     let isMounted = true;
 
     const loadInitialData = async () => {
-      setState((prev) => ({ ...prev, loading: true, error: null }));
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
       try {
         const data = await fetchAdmins();
         if (isMounted) {
-          setState((prev) => ({
-            ...prev,
-            admins: data.admins || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            currentPage: 1,
-            pageHistory: [],
-            loading: false,
-          }));
+          handleStateChange("admins", data.admins || []);
+          handleStateChange("pagination", {
+            hasNextPage: data.pagination?.hasNextPage || false,
+            nextCursor: data.pagination?.nextCursor || null,
+            nextPage: data.pagination?.nextPage || null,
+          });
+          handleStateChange("currentPage", 1);
+          handleStateChange("pageHistory", []);
         }
       } catch (error) {
         console.error("Error loading initial admins:", error);
-        const errorMessage = "Failed to load admins";
-        setState((prev) => ({ ...prev, error: errorMessage, loading: false }));        
+        handleStateChange("error", "Failed to load admins");
+      } finally {
+        if (isMounted) handleStateChange("loading", false);
       }
     };
 
@@ -334,113 +408,17 @@ const ViewAdmins: React.FC = () => {
     };
   }, [fetchAdmins]);
 
-  // Update your fetch functions to include loading states
-  const fetchBranches = useCallback(async () => {
-    try {
-      setLoadingStates(prev => ({ ...prev, branches: true }));
-      const response = await Api.get("/church/get-branches");
-      setState((prev) => ({ ...prev, branches: response.data.branches || [] }));
-    } catch (error) {
-      console.error("Error fetching branches:", error);
-      showPageToast("Failed to load branches", 'error');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, branches: false }));
-    }
-  }, []);
-
-  const fetchDepartments = useCallback(async () => {
-    try {
-      setLoadingStates(prev => ({ ...prev, departments: true }));
-      const response = await Api.get("/church/get-departments");
-      setState((prev) => ({ ...prev, departments: response.data.departments || [] }));
-    } catch (error) {
-      console.error("Error fetching departments:", error);
-      showPageToast("Failed to load departments", 'error');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, departments: false }));
-    }
-  }, []);
-
-  const fetchUnits = useCallback(async () => {
-    try {
-      setLoadingStates(prev => ({ ...prev, units: true }));
-      const response = await Api.get(`/church/all-units`);
-      setState((prev) => ({ ...prev, units: response.data.units || [] }));
-    } catch (error) {
-      console.error("Error fetching units:", error);
-      showPageToast("Failed to load units", 'error');
-    } finally {
-      setLoadingStates(prev => ({ ...prev, units: false }));
-    }
-  }, []);
-
+  // Load Hierarchical Data
   useEffect(() => {
-    const loadDataForAccessLevel = async () => {
-      switch (state.accessLevel) {
-        case "branch":
-          await fetchBranches();
-          break;
-        case "department":        
-          await fetchDepartments();
-          break;
-        case "unit":          
-          await fetchUnits();       
-          break;
-        default:
-          break;
+    loadHierarchicalData();
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
       }
     };
+  }, [loadHierarchicalData]);
 
-    loadDataForAccessLevel();
-  }, [state.accessLevel,  fetchBranches, fetchDepartments, fetchUnits]);
-
-
-  // Pagination handlers
-  const handlePageChange = useCallback(async (direction: 'next' | 'prev') => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      if (direction === 'next') {
-        const url = state.pagination.nextPage;
-        if (!url) throw new Error("No next page available");
-        const data = await fetchAdmins(url);
-        setState((prev) => ({
-          ...prev,
-          admins: data.admins || [],
-          pagination: {
-            hasNextPage: data.pagination?.hasNextPage || false,
-            nextCursor: data.pagination?.nextCursor || null,
-            nextPage: data.pagination?.nextPage || null,
-          },
-          pageHistory: [...prev.pageHistory, url],
-          currentPage: prev.currentPage + 1,
-          loading: false,
-        }));
-      } else if (direction === 'prev') {
-        if (state.pageHistory.length === 0) throw new Error("No previous page available");
-        const prevIndex = state.pageHistory.length - 2;
-        const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : null;
-        const data = await fetchAdmins(url);
-        setState((prev) => ({
-          ...prev,
-          admins: data.admins || [],
-          pagination: {
-            hasNextPage: data.pagination?.hasNextPage || false,
-            nextCursor: data.pagination?.nextCursor || null,
-            nextPage: data.pagination?.nextPage || null,
-          },
-          pageHistory: prev.pageHistory.slice(0, -1),
-          currentPage: prev.currentPage - 1,
-          loading: false,
-        }));
-      }
-    } catch (error) {
-      console.error(`Error fetching ${direction} page:`, error);
-      const errorMessage = "Failed to load page";
-      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
-      showPageToast(errorMessage, 'error');
-    }
-  }, [state.pagination.nextPage, state.pageHistory, fetchAdmins]);
-
+  // Search and Filter Logic
   const handleSearch = useCallback(async () => {
     handleStateChange("isSearching", true);
     handleStateChange("searchError", null);
@@ -452,15 +430,21 @@ const ViewAdmins: React.FC = () => {
         params.search = state.searchTerm;
         params.searchField = "name";
       }
-
-      if (state.accessLevel) params.scopeLevel = state.accessLevel.toLowerCase();
-
-      if (state.assignLevel) {
-        if (state.accessLevel === "branch") params.branchId = state.assignLevel;
-        if (state.accessLevel === "department") params.departmentId = state.assignLevel;
-        if (state.accessLevel === "unit") params.unitId = state.assignLevel;
+      if (state.accessLevel) {
+        params.scopeLevel = state.accessLevel.toLowerCase();
+        if (state.accessLevel === "branch" && state.selectedBranch) {
+          params.branchId = state.selectedBranch.toString();
+        }
+        if (state.accessLevel === "department" && state.selectedDepartment) {
+          params.branchId = state.selectedBranch.toString();
+          params.departmentId = state.selectedDepartment;
+        }
+        if (state.accessLevel === "unit" && state.selectedUnit) {
+          params.branchId = state.selectedBranch.toString();
+          params.departmentId = state.selectedDepartment;
+          params.unitId = state.selectedUnit;
+        }
       }
-
       if (state.superAdminFilter !== null) {
         params.isSuperAdmin = state.superAdminFilter;
       }
@@ -468,56 +452,16 @@ const ViewAdmins: React.FC = () => {
       const response = await Api.get("/church/view-admins", { params });
 
       if (response.data.admins.length === 0) {
-        // Client-side fallback filtering
-        const filtered = state.admins.filter((admin) => {
-          let match: boolean = true;
-
-          if (state.searchTerm) {
-            match =
-              match &&
-              (
-                admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-                admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
-                (admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase()) ?? false)
-              );
-          }
-
-          if (state.accessLevel) {
-            match = match && admin.scopeLevel === state.accessLevel.toLowerCase();
-          }
-
-          if (state.assignLevel) {
-            if (state.accessLevel === "branch") match = match && admin.branchId === state.assignLevel;
-            if (state.accessLevel === "department") match = match && (admin.departmentIds?.includes(state.assignLevel) ?? false);
-            if (state.accessLevel === "unit") match = match && (admin.unitIds?.includes(state.assignLevel) ?? false);
-          }
-
-          if (state.superAdminFilter !== null) {
-            match = match && (admin.isSuperAdmin === state.superAdminFilter || false);
-          }
-
-          return match;
-        });
-
-        if (filtered.length === 0) {
-          throw new Error("No admins found matching the search criteria");
-        }
-
-        setState((prev) => ({
-          ...prev,
-          admins: filtered,
-          pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
-        }));
+        handleStateChange("searchError", "No admins found matching the search criteria");
+        handleStateChange("admins", []);
+        handleStateChange("pagination", { hasNextPage: false, nextCursor: null, nextPage: null });
       } else {
-        setState((prev) => ({
-          ...prev,
-          admins: response.data.admins || [],
-          pagination: {
-            hasNextPage: response.data.pagination?.hasNextPage || false,
-            nextCursor: response.data.pagination?.nextCursor || null,
-            nextPage: response.data.pagination?.nextPage || null,
-          },
-        }));
+        handleStateChange("admins", response.data.admins || []);
+        handleStateChange("pagination", {
+          hasNextPage: response.data.pagination?.hasNextPage || false,
+          nextCursor: response.data.pagination?.nextCursor || null,
+          nextPage: response.data.pagination?.nextPage || null,
+        });
       }
 
       handleStateChange("currentPage", 1);
@@ -525,15 +469,57 @@ const ViewAdmins: React.FC = () => {
       showPageToast("Search completed successfully!", "success");
     } catch (error: any) {
       console.error("Error searching admins:", error);
-      const errorMessage = error.response?.data.error.message || "No admins found matching the search criteria";
+      const errorMessage = error.response?.data?.error?.message || "No admins found matching the search criteria";
       handleStateChange("searchError", errorMessage);
+      handleStateChange("admins", []);
+      handleStateChange("pagination", { hasNextPage: false, nextCursor: null, nextPage: null });
     } finally {
       handleStateChange("isSearching", false);
       handleStateChange("isDrawerOpen", false);
     }
-  }, [state.searchTerm, state.accessLevel, state.assignLevel, state.superAdminFilter, state.admins]);
+  }, [state.searchTerm, state.accessLevel, state.selectedBranch, state.selectedDepartment, state.selectedUnit, state.superAdminFilter]);
 
-  // Menu handlers
+  // Pagination Handler
+  const handlePageChange = useCallback(async (direction: 'next' | 'prev') => {
+    handleStateChange("loading", true);
+    handleStateChange("error", null);
+    try {
+      if (direction === 'next') {
+        const url = state.pagination.nextPage;
+        if (!url) throw new Error("No next page available");
+        const data = await fetchAdmins(url);
+        handleStateChange("admins", data.admins || []);
+        handleStateChange("pagination", {
+          hasNextPage: data.pagination?.hasNextPage || false,
+          nextCursor: data.pagination?.nextCursor || null,
+          nextPage: data.pagination?.nextPage || null,
+        });
+        handleStateChange("pageHistory", [...state.pageHistory, url]);
+        handleStateChange("currentPage", state.currentPage + 1);
+      } else if (direction === 'prev') {
+        if (state.pageHistory.length === 0) throw new Error("No previous page available");
+        const prevIndex = state.pageHistory.length - 2;
+        const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : null;
+        const data = await fetchAdmins(url);
+        handleStateChange("admins", data.admins || []);
+        handleStateChange("pagination", {
+          hasNextPage: data.pagination?.hasNextPage || false,
+          nextCursor: data.pagination?.nextCursor || null,
+          nextPage: data.pagination?.nextPage || null,
+        });
+        handleStateChange("pageHistory", state.pageHistory.slice(0, -1));
+        handleStateChange("currentPage", state.currentPage - 1);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${direction} page:`, error);
+      handleStateChange("error", "Failed to load page");
+      showPageToast("Failed to load page", 'error');
+    } finally {
+      handleStateChange("loading", false);
+    }
+  }, [state.pagination.nextPage, state.pageHistory, fetchAdmins]);
+
+  // Menu and Action Handlers
   const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>, admin: Admin) => {
     handleStateChange("anchorEl", event.currentTarget);
     handleStateChange("currentAdmin", admin);
@@ -547,8 +533,6 @@ const ViewAdmins: React.FC = () => {
     handleStateChange("anchorEl", null);
   }, []);
 
-
-
   const showConfirmation = useCallback((action: string) => {
     handleStateChange("actionType", action);
     handleStateChange("confirmModalOpen", true);
@@ -557,84 +541,126 @@ const ViewAdmins: React.FC = () => {
 
   const handleConfirmedAction = useCallback(async () => {
     if (!state.currentAdmin || !state.actionType) return;
-
-    setState((prev) => ({ ...prev, loading: true }));
+    handleStateChange("loading", true);
     try {
       if (state.actionType === "delete") {
         await Api.delete(`/church/delete-admin/${state.currentAdmin.id}`);
-        setState((prev) => ({
-          ...prev,
-          admins: prev.admins.filter((admin) => admin.id !== state.currentAdmin?.id),
-        }));
+        handleStateChange("admins", state.admins.filter((admin) => admin.id !== state.currentAdmin?.id));
         showPageToast("Admin deleted successfully!", 'success');
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentAdmin.isSuspended;
         await Api.patch(`/church/${newStatus ? "suspend" : "activate"}-admin/${state.currentAdmin.id}`);
-        setState((prev) => ({
-          ...prev,
-          admins: prev.admins.map((admin) =>
-            admin.id === state.currentAdmin?.id ? { ...admin, isSuspended: newStatus } : admin
-          ),
-        }));
+        handleStateChange("admins", state.admins.map((admin) =>
+          admin.id === state.currentAdmin?.id ? { ...admin, isSuspended: newStatus } : admin
+        ));
         showPageToast(`Admin ${newStatus ? "suspended" : "activated"} successfully!`, 'success');
       }
     } catch (error) {
-      console.error("Action error:", error);
-      showPageToast(`Failed to ${state.actionType} admin`, 'success');
+      console.error(`Error performing ${state.actionType}:`, error);
+      showPageToast(`Failed to ${state.actionType} admin`, 'error');
     } finally {
-      setState((prev) => ({ ...prev, loading: false, confirmModalOpen: false, actionType: null, currentAdmin: null }));
+      handleStateChange("loading", false);
+      handleStateChange("confirmModalOpen", false);
+      handleStateChange("actionType", null);
+      handleStateChange("currentAdmin", null);
     }
-  }, [state.currentAdmin, state.actionType]);
+  }, [state.currentAdmin, state.actionType, state.admins]);
 
-  // Modal handlers
+  // Modal Handlers
   const handleCloseModal = useCallback(async () => {
     handleStateChange("openModal", false);
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    handleStateChange("loading", true);
+    handleStateChange("error", null);
     try {
       const data = await fetchAdmins();
-      setState((prev) => ({
-        ...prev,
-        admins: data.admins || [],
-        pagination: {
-          hasNextPage: data.pagination?.hasNextPage || false,
-          nextCursor: data.pagination?.nextCursor || null,
-          nextPage: data.pagination?.nextPage || null,
-        },
-        currentPage: 1,
-        pageHistory: [],
-        loading: false,
-      }));
+      handleStateChange("admins", data.admins || []);
+      handleStateChange("pagination", {
+        hasNextPage: data.pagination?.hasNextPage || false,
+        nextCursor: data.pagination?.nextCursor || null,
+        nextPage: data.pagination?.nextPage || null,
+      });
+      handleStateChange("currentPage", 1);
+      handleStateChange("pageHistory", []);
     } catch (error) {
-      console.error("Error refreshing admins after modal close:", error);
-      const errorMessage = "Failed to refresh admins";
-      setState((prev) => ({ ...prev, error: errorMessage, loading: false }));
-      showPageToast(errorMessage, 'error');
+      console.error("Error refreshing admins:", error);
+      handleStateChange("error", "Failed to refresh admins");
+      showPageToast("Failed to refresh admins", 'error');
+    } finally {
+      handleStateChange("loading", false);
     }
   }, [fetchAdmins]);
 
-  // Helper functions
+  const handleEditOpen = useCallback(() => {
+    handleStateChange("editModalOpen", true);
+    handleMenuClose();
+  }, [handleMenuClose]);
+
+  const handleEditClose = useCallback(async () => {
+    handleStateChange("editModalOpen", false);
+    handleStateChange("currentAdmin", null);
+        handleStateChange("loading", true);
+    handleStateChange("error", null);
+    try {
+      const data = await fetchAdmins();
+      handleStateChange("admins", data.admins || []);
+      handleStateChange("pagination", {
+        hasNextPage: data.pagination?.hasNextPage || false,
+        nextCursor: data.pagination?.nextCursor || null,
+        nextPage: data.pagination?.nextPage || null,
+      });
+      handleStateChange("currentPage", 1);
+      handleStateChange("pageHistory", []);
+    } catch (error) {
+      console.error("Error refreshing admins:", error);
+      handleStateChange("error", "Failed to refresh admins");
+      showPageToast("Failed to refresh admins", 'error');
+    } finally {
+      handleStateChange("loading", false);
+    }
+    handleMenuClose();
+
+  }, [handleMenuClose, fetchAdmins]);
+
+  // Helper Functions
   const truncateText = useCallback((text: string | null | undefined, maxLength = 30) => {
     if (!text) return "-";
     return text.length <= maxLength ? text : `${text.substring(0, maxLength)}...`;
   }, []);
 
-  const getAssignLevelText = (admin: Admin) => {
+  const getAssignLevelText = useCallback((admin: Admin) => {
     if (admin.scopeLevel === "branch") {
       return admin.branches?.map((b) => b.name).join(", ") || "-";
-    } 
-    
+    }
     if (admin.scopeLevel === "department") {
       return admin.departments?.map((d) => d.name).join(", ") || "-";
-    } 
-    
+    }
     if (admin.scopeLevel === "unit") {
       return admin.units?.map((u) => u.name).join(", ") || "-";
     }
-
     return admin.scopeLevel || "-";
-  };
+  }, []);
 
-  // Filter components (mobile)
+  const columnWidths = useMemo(() => ({
+    number: "2%",
+    name: "21%",
+    email: "15%",
+    phone: "14%",
+    access: "14%",
+    assign: "14%",
+    superAdmin: "10%",
+    actions: "10%",
+  }), []);
+
+  const filteredNames = useMemo(() => {
+    if (!state.searchTerm) return [];
+    return state.admins.filter((admin) =>
+      admin.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      admin.email.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      admin.title?.toLowerCase().includes(state.searchTerm.toLowerCase())
+    );
+  }, [state.searchTerm, state.admins]);
+
+  // Filter Components
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -655,17 +681,16 @@ const ViewAdmins: React.FC = () => {
         </IconButton>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, px: 2, pb: 2 }}>
-        <Box sx={{ position: "relative" }}>
+        <Box>
           <Typography
             variant="caption"
             sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
           >
             Search by name
           </Typography>
-
           <Autocomplete
             freeSolo
-            options={state.admins.map((admin) => admin.name)} // 👈 suggestions list
+            options={filteredNames.map((admin) => admin.name)}
             value={state.searchTerm || ""}
             onInputChange={(_, newValue) => handleStateChange("searchTerm", newValue)}
             renderInput={(params) => (
@@ -685,26 +710,37 @@ const ViewAdmins: React.FC = () => {
                 }}
               />
             )}
+            componentsProps={{
+              clearIndicator: { sx: { color: "#F6F4FE" } },
+            }}
+            clearIcon={<Close sx={{ color: "#F6F4FE" }} />}
           />
         </Box>
-
-        
-        <Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
-          >
-            Access level
-          </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
+            >
+              Access Level
+            </Typography>
+            {state.isSearching && (
+              <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+            )}
+          </Box>
           <TextField
             select
             fullWidth
             value={state.accessLevel}
             onChange={(e) => {
-              handleStateChange("accessLevel", e.target.value);
-              handleStateChange("assignLevel", "");
-              if (e.target.value === "branch") fetchBranches();
-              if (e.target.value === "department" || e.target.value === "unit") fetchDepartments();
+              const value = e.target.value;
+              handleStateChange("accessLevel", value);
+              handleStateChange("selectedBranch", "");
+              handleStateChange("selectedDepartment", "");
+              handleStateChange("selectedUnit", "");
+              if (value === "branch" || value === "department" || value === "unit") {
+                fetchBranches();
+              }
             }}
             variant="outlined"
             size="small"
@@ -712,6 +748,7 @@ const ViewAdmins: React.FC = () => {
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
               "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
           >
             <MenuItem value="">None</MenuItem>
@@ -720,117 +757,197 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="unit">Unit</MenuItem>
           </TextField>
         </Box>
-
+        {(state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
+              >
+                Select Branch
+              </Typography>
+              {loadingStates.branches && (
+                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+              )}
+            </Box>
+            <TextField
+              select
+              fullWidth
+              value={state.selectedBranch}
+              onChange={(e) => {
+                const branchId = e.target.value;
+                handleStateChange("selectedBranch", branchId);
+                handleStateChange("selectedDepartment", "");
+                handleStateChange("selectedUnit", "");
+                if (state.accessLevel === "department" || state.accessLevel === "unit") {
+                  fetchDepartments(branchId);
+                }
+              }}
+              variant="outlined"
+              size="small"
+              sx={{
+                backgroundColor: "#4d4d4e8e",
+                borderRadius: "8px",
+                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
+              }}
+            >
+              <MenuItem value="">Select Branch</MenuItem>
+              {loadingStates.branches ? (
+                <MenuItem value="" disabled>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2">Loading branches...</Typography>
+                  </Box>
+                </MenuItem>
+              ) : state.branches.length === 0 ? (
+                <MenuItem value="" disabled>
+                  <Typography variant="body2">No branches available</Typography>
+                </MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+          </Box>
+        )}
+        {(state.accessLevel === "department" || state.accessLevel === "unit") && state.selectedBranch && (
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
+              >
+                Select Department
+              </Typography>
+              {loadingStates.departments && (
+                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+              )}
+            </Box>
+            <TextField
+              select
+              fullWidth
+              value={state.selectedDepartment}
+              onChange={(e) => {
+                const deptId = e.target.value;
+                handleStateChange("selectedDepartment", deptId);
+                handleStateChange("selectedUnit", "");
+                if (state.accessLevel === "unit") {
+                  fetchUnits(deptId);
+                }
+              }}
+              variant="outlined"
+              size="small"
+              sx={{
+                backgroundColor: "#4d4d4e8e",
+                borderRadius: "8px",
+                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
+              }}
+            >
+              <MenuItem value="">Select Department</MenuItem>
+              {loadingStates.departments ? (
+                <MenuItem value="" disabled>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2">Loading departments...</Typography>
+                  </Box>
+                </MenuItem>
+              ) : state.departments.length === 0 ? (
+                <MenuItem value="" disabled>
+                  <Typography variant="body2">No departments available</Typography>
+                </MenuItem>
+              ) : (
+                state.departments.filter((dept) => dept.branchId === state.selectedBranch).map((dept) => (
+                  <MenuItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+          </Box>
+        )}
+        {state.accessLevel === "unit" && state.selectedDepartment && (
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
+              >
+                Select Unit
+              </Typography>
+              {loadingStates.units && (
+                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+              )}
+            </Box>
+            <TextField
+              select
+              fullWidth
+              value={state.selectedUnit}
+              onChange={(e) => {
+                handleStateChange("selectedUnit", e.target.value);
+              }}
+              variant="outlined"
+              size="small"
+              sx={{
+                backgroundColor: "#4d4d4e8e",
+                borderRadius: "8px",
+                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
+              }}
+            >
+              <MenuItem value="">Select Unit</MenuItem>
+              {loadingStates.units ? (
+                <MenuItem value="" disabled>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2">Loading units...</Typography>
+                  </Box>
+                </MenuItem>
+              ) : state.units.length === 0 ? (
+                <MenuItem value="" disabled>
+                  <Typography variant="body2">No units available</Typography>
+                </MenuItem>
+              ) : (
+                state.units.filter((unit) => unit.departmentId === state.selectedDepartment).map((unit) => (
+                  <MenuItem key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+          </Box>
+        )}
         <Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
-          >
-            Assign Area
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
+            >
+              Super Admin?
+            </Typography>
+            {state.isSearching && (
+              <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+            )}
+          </Box>
           <TextField
             select
             fullWidth
-            value={state.assignLevel}
-            onChange={(e) => handleStateChange("assignLevel", e.target.value)}
+            value={state.superAdminFilter === null ? "" : String(state.superAdminFilter)}
+            onChange={(e) => {
+              const value = e.target.value;
+              handleStateChange("superAdminFilter", value === "" ? null : value === "true");
+            }}
             variant="outlined"
             size="small"
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
               "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-            }}
-            disabled={!state.accessLevel}
-          >
-            {/* Loading states */}
-            {state.accessLevel === "branch" && loadingStates.branches && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2">Loading branches...</Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {state.accessLevel === "department" && loadingStates.departments && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2">Loading departments...</Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {state.accessLevel === "unit" && loadingStates.units && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2">Loading units...</Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {/* HeadQuarter option first, only for branch access */}
-            {state.accessLevel === "branch" && (
-              <MenuItem value="HeadQuarter">HeadQuarter</MenuItem>
-            )}
-
-            {/* Branches */}
-            {state.accessLevel === "branch" && state.branches.length > 0 && 
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>
-                  {branch.name}
-                </MenuItem>
-              ))
-            }
-
-            {/* Departments */}
-            {state.accessLevel === "department" &&
-              state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>
-                  {dept.name}
-                </MenuItem>
-              ))
-            }
-
-            {/* Units */}
-            {state.accessLevel === "unit" &&
-              state.units.map((unit) => (
-                <MenuItem key={unit.id} value={unit.id}>
-                  {unit.name}
-                </MenuItem>
-              ))
-            }
-          </TextField>
-        </Box>
-
-        <Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
-          >
-            Super Admin?
-          </Typography>
-          <TextField
-            select
-            fullWidth
-            value={state.superAdminFilter === null ? "" : state.superAdminFilter} // null → no filter
-            onChange={(e) => {
-              const value = e.target.value;
-              handleStateChange(
-                "superAdminFilter",
-                value === "" ? null : value === 'true' // convert string → boolean or null
-              );
-            }}
-            variant="outlined"
-            size="small"
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              "& .MuiOutlinedInput-root": {
-                color: "#F6F4FE",
-                "& fieldset": { borderColor: "transparent" }
-              },
+              "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
           >
             <MenuItem value="">None</MenuItem>
@@ -838,8 +955,6 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="false">False</MenuItem>
           </TextField>
         </Box>
-
-
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button
             variant="contained"
@@ -878,19 +993,8 @@ const ViewAdmins: React.FC = () => {
           "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            minWidth: "200px",
-            padding: "4px 16px",
-            position: "relative",
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-          >
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -913,33 +1017,37 @@ const ViewAdmins: React.FC = () => {
                   },
                   "& .MuiInput-underline:before": { borderBottom: "none" },
                   "& .MuiInput-underline:after": { borderBottom: "none" },
-                  "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
-                    borderBottom: "none",
-                  },
+                  "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
                 }}
               />
             )}
             componentsProps={{
-              clearIndicator: {
-                sx: {
-                  color: "#F6F4FE", // cancel icon color
-                },
-              },
+              clearIndicator: { sx: { color: "#F6F4FE" } },
             }}
             clearIcon={<Close sx={{ color: "#F6F4FE" }} />}
           />
         </Box>
-
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Access level
-          </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+              Access Level
+            </Typography>
+            {state.isSearching && (
+              <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
+            )}
+          </Box>
           <MuiSelect
             value={state.accessLevel}
             onChange={(e) => {
-              handleStateChange("accessLevel", e.target.value as string);
-              handleStateChange("assignLevel", "");
+              const value = e.target.value as string;
+              handleStateChange("accessLevel", value);
+              handleStateChange("selectedBranch", "");
+              handleStateChange("selectedDepartment", "");
+              handleStateChange("selectedUnit", "");
+              if (value === "branch" || value === "department" || value === "unit") {
+                fetchBranches();
+              }
             }}
             displayEmpty
             sx={{
@@ -959,133 +1067,195 @@ const ViewAdmins: React.FC = () => {
           </MuiSelect>
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Assign Area
-          </Typography>
+        {(state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
+          <>
+            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                  Branch
+                </Typography>
+                {loadingStates.branches && (
+                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
+                )}
+              </Box>
+              <MuiSelect
+                value={state.selectedBranch}
+                onChange={(e) => {
+                  const branchId = e.target.value as string;
+                  handleStateChange("selectedBranch", branchId);
+                  handleStateChange("selectedDepartment", "");
+                  handleStateChange("selectedUnit", "");
+                  if (state.accessLevel === "department" || state.accessLevel === "unit") {
+                    fetchDepartments(branchId);
+                  }
+                }}
+                displayEmpty
+                sx={{
+                  color: state.selectedBranch ? "#F6F4FE" : "#777280",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                  ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                  "& .MuiSelect-icon": { display: "none", },
+                }}
+                renderValue={(selected) => selected ? state.branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"}
+              >
+                <MenuItem value="">Select Branch</MenuItem>
+                {loadingStates.branches ? (
+                  <MenuItem value="" disabled>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Loading branches...</Typography>
+                    </Box>
+                  </MenuItem>
+                ) : state.branches.length === 0 ? (
+                  <MenuItem value="" disabled>
+                    <Typography variant="body2">No branches available</Typography>
+                  </MenuItem>
+                ) : (
+                  state.branches.map((branch) => (
+                    <MenuItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </MenuItem>
+                  ))
+                )}
+              </MuiSelect>
+            </Box>
+            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          </>
+        )}
+        {(state.accessLevel === "department" || state.accessLevel === "unit") && state.selectedBranch && (
+          <>
+            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                  Department
+                </Typography>
+                {loadingStates.departments && (
+                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
+                )}
+              </Box>
+              <MuiSelect
+                value={state.selectedDepartment}
+                onChange={(e) => {
+                  const deptId = e.target.value as string;
+                  handleStateChange("selectedDepartment", deptId);
+                  handleStateChange("selectedUnit", "");
+                  if (state.accessLevel === "unit") {
+                    fetchUnits(deptId);
+                  }
+                }}
+                displayEmpty
+                sx={{
+                  color: state.selectedDepartment ? "#F6F4FE" : "#777280",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                  ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                  "& .MuiSelect-icon": { display: "none" },
+                }}
+                renderValue={(selected) => selected ? state.departments.find((d) => d.id === selected)?.name || "Select Department" : "Select Department"}
+              >
+                <MenuItem value="">Select Department</MenuItem>
+                {loadingStates.departments ? (
+                  <MenuItem value="" disabled>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Loading departments...</Typography>
+                    </Box>
+                  </MenuItem>
+                ) : state.departments.length === 0 ? (
+                  <MenuItem value="" disabled>
+                    <Typography variant="body2">No departments available</Typography>
+                  </MenuItem>
+                ) : (
+                  state.departments.filter((dept) => dept.branchId === state.selectedBranch).map((dept) => (
+                    <MenuItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </MenuItem>
+                  ))
+                )}
+              </MuiSelect>
+            </Box>
+            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          </>
+        )}
+        {state.accessLevel === "unit" && state.selectedDepartment && (
+          <>
+            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                  Unit
+                </Typography>
+                {loadingStates.units && (
+                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
+                )}
+              </Box>
+              <MuiSelect
+                value={state.selectedUnit}
+                onChange={(e) => {
+                  handleStateChange("selectedUnit", e.target.value as string);
+                }}
+                displayEmpty
+                sx={{
+                  color: state.selectedUnit ? "#F6F4FE" : "#777280",
+                  fontWeight: 500,
+                  fontSize: "14px",
+                  ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                  ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                  "& .MuiSelect-icon": { display: "none" },
+                }}
+                renderValue={(selected) => selected ? state.units.find((u) => u.id === selected)?.name || "Select Unit" : "Select Unit"}
+              >
+                <MenuItem value="">Select Unit</MenuItem>
+                {loadingStates.units ? (
+                  <MenuItem value="" disabled>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Loading units...</Typography>
+                    </Box>
+                  </MenuItem>
+                ) : state.units.length === 0 ? (
+                  <MenuItem value="" disabled>
+                    <Typography variant="body2">No units available</Typography>
+                  </MenuItem>
+                ) : (
+                  state.units.filter((unit) => unit.departmentId === state.selectedDepartment).map((unit) => (
+                    <MenuItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </MenuItem>
+                  ))
+                )}
+              </MuiSelect>
+            </Box>
+            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          </>
+        )}
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "140px", padding: "4px 8px" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+              Super Admin?
+            </Typography>
+            {state.isSearching && (
+              <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
+            )}
+          </Box>
           <MuiSelect
-            value={state.assignLevel}
+            value={state.superAdminFilter === null ? "" : String(state.superAdminFilter)}
             onChange={(e) => {
-              const newValue = e.target.value as string;
-              handleStateChange("assignLevel", newValue);
-              if (state.accessLevel === "unit" && state.departments.some((dept) => dept.id === newValue)) {
-                // If a department is selected when accessLevel is "unit", update selectedDepartment and fetch units
-                handleStateChange("selectedDepartment", newValue);
-                handleStateChange("assignLevel", ""); // Reset assignLevel to force unit selection
-                fetchUnits();
-              }
+              const value = e.target.value;
+              handleStateChange("superAdminFilter", value === "" ? null : value === "true");
             }}
             displayEmpty
             sx={{
-              color: state.assignLevel ? "#F6F4FE" : "#777280",
+              color: state.superAdminFilter !== null ? "#F6F4FE" : "#777280",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
             }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Area";
-              if (state.accessLevel === "branch") {
-                const branch = state.branches.find((b) => b.id === selected);
-                return branch ? branch.name : "Select Area";
-              }
-              if (state.accessLevel === "department") {
-                const dept = state.departments.find((d) => d.id === selected);
-                return dept ? dept.name : "Select Area";
-              }
-              if (state.accessLevel === "unit") {
-                const unit = state.units.find((u) => u.id === selected);
-                return unit ? unit.name : "Select Area";
-              }
-              return "Select Area";
-            }}
-            disabled={!state.accessLevel}
-          >       
-
-            {state.accessLevel === "branch" && loadingStates.branches && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16}  />
-                  <Typography variant="body2" >
-                    Loading branches...
-                  </Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {state.accessLevel === "department" && loadingStates.departments && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2" >
-                    Loading departments...
-                  </Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {state.accessLevel === "unit" && loadingStates.units && (
-              <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16}  />
-                  <Typography variant="body2" >
-                    Loading units...
-                  </Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {state.accessLevel === "branch" &&
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>
-                  {branch.name}
-                </MenuItem>
-              ))}
-            {state.accessLevel === "department" &&
-              state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>
-                  {dept.name}
-                </MenuItem>
-              ))}
-            {state.accessLevel === "unit" &&
-              state.units.map((unit) => (
-                <MenuItem key={unit.id} value={unit.id}>
-                  {unit.name}
-                </MenuItem>
-              ))}
-          </MuiSelect>
-        </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "140px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Super Admin?
-          </Typography>
-          <MuiSelect
-             value={
-              (state.superAdminFilter === null
-                ? ""
-                : state.superAdminFilter
-                ? "true"
-                : "false") as string // ✅ only here
-            }
-            onChange={(e) => {
-              const value = e.target.value as string; // ✅ safe cast
-              handleStateChange(
-                "superAdminFilter",
-                value === "" ? null : value === "true"
-              );
-            }}
-            displayEmpty
-            sx={{
-              color: state.superAdminFilter ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => selected || "Select Option"}
+            renderValue={(selected) => selected ? selected === "true" ? "True" : "False" : "Select Option"}
           >
             <MenuItem value="">None</MenuItem>
             <MenuItem value="true">True</MenuItem>
@@ -1114,7 +1284,7 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
-  // Empty state component
+  // Empty State Component
   const EmptyState = () => (
     <Box
       sx={{
@@ -1149,10 +1319,7 @@ const ViewAdmins: React.FC = () => {
           mt: 2,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
           color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
+          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
         }}
       >
         Create New Admin
@@ -1160,33 +1327,16 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
-  const handleEditOpen = () => {
-    setState((prev) => ({
-      ...prev,
-      editModalOpen: true,
-    }));
-    handleMenuClose();
-  };
-
-  const handleEditClose = () => {
-    setState((prev) => ({
-      ...prev,
-      editModalOpen: false,
-      currentAdmin: null,
-    }));
-    handleMenuClose();
-  };
-
+  // Render
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 12, lg: 9 }}>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }}>
             <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
+              variant={isMobile ? "h5" : "h5"}
               component="h4"
               fontWeight={600}
-              gutterBottom
               sx={{
                 color: theme.palette.text.primary,
                 fontSize: isLargeScreen ? "1.1rem" : undefined,
@@ -1197,7 +1347,7 @@ const ViewAdmins: React.FC = () => {
             >
               <span className="text-[#777280]">Manage</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]"> Admins</span>
+              <span className="text-[#F6F4FE]">Admins</span>
             </Typography>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
@@ -1216,7 +1366,7 @@ const ViewAdmins: React.FC = () => {
                         "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                       }}
                     >
-                      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", padding: "4px 16px", position: "relative" }}>
+                      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", padding: "4px 16px" }}>
                         <TextField
                           value={state.searchTerm}
                           onChange={(e) => handleStateChange("searchTerm", e.target.value)}
@@ -1260,8 +1410,7 @@ const ViewAdmins: React.FC = () => {
                                   color: "#F6F4FE",
                                   cursor: "pointer",
                                   "&:hover": { backgroundColor: "#4d4d4e8e" },
-                                  borderBottom:
-                                    index < filteredNames.length - 1 ? "1px solid #777280" : "none",
+                                  borderBottom: index < filteredNames.length - 1 ? "1px solid #777280" : "none",
                                 }}
                                 onClick={() => {
                                   handleStateChange("searchTerm", admin.name);
@@ -1312,7 +1461,7 @@ const ViewAdmins: React.FC = () => {
               )}
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 3 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("openModal", true)}
@@ -1360,94 +1509,29 @@ const ViewAdmins: React.FC = () => {
             <Table sx={{ minWidth: { xs: "auto", sm: 'auto' } }}>
               <TableHead>
                 <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.number,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     #
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.name,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.name, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Full Name
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.email,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Email
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.phone,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Phone Number
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.access,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Access Level
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.assign,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Assigned Area
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 600,
-                      width: columnWidths.superAdmin,
-                      fontSize: isLargeScreen ? "0.875rem" : undefined,
-                      color: "#777280",
-                      py: 2,
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Super Admin
                   </TableCell>
                   {authData?.isSuperAdmin && (
-                    <TableCell
-                      sx={{
-                        fontWeight: 600,
-                        width: columnWidths.actions,
-                        textAlign: "center",
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        color: "#777280",
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                       Actions
                     </TableCell>
                   )}
@@ -1461,38 +1545,15 @@ const ViewAdmins: React.FC = () => {
                       "& td": { border: "none" },
                       backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
                       borderRadius: "4px",
-                      "&:hover": {
-                        backgroundColor: "#4d4d4e8e",
-                        transform: "translateY(-2px)",
-                        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                      },
+                      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
                       transition: "all 0.2s ease",
                       mb: 2,
                     }}
                   >
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.number,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {(state.currentPage - 1) * 5 + index + 1}
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                        flex: 1,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
                       <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
                         {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
                       </Box>
@@ -1502,77 +1563,28 @@ const ViewAdmins: React.FC = () => {
                         <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
                       </Box>
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.email,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       <Tooltip title={admin.email || "-"} arrow>
                         <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
                           {truncateText(admin.email)}
                         </Box>
                       </Tooltip>
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.phone,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.phone || "-"}
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.access,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.scopeLevel || "-"}
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.assign,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {getAssignLevelText(admin)}
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        textDecoration: admin.isDeleted ? "line-through" : "none",
-                        color: admin.isDeleted ? "gray" : "#F6F4FE",
-                        width: columnWidths.superAdmin,
-                        fontSize: isLargeScreen ? "0.875rem" : undefined,
-                        py: 2,
-                      }}
-                    >
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.isSuperAdmin ? "Yes" : "No"}
                     </TableCell>
                     {authData?.isSuperAdmin && (
-                      <TableCell
-                        sx={{
-                          width: columnWidths.actions,
-                          textAlign: "center",
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          py: 2,
-                          borderTopRightRadius: "8px",
-                          borderBottomRightRadius: "8px",
-                        }}
-                      >
-                        <IconButton
+                      <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, borderTopRightRadius: "8px", borderBottomRightRadius: "8px" }}>
+                        { admin.scopeLevel !== 'branch' && <IconButton
                           aria-label="more"
                           onClick={(e) => handleMenuOpen(e, admin)}
                           disabled={state.loading}
@@ -1584,7 +1596,7 @@ const ViewAdmins: React.FC = () => {
                           }}
                         >
                           <MoreVertIcon fontSize="small" />
-                        </IconButton>
+                        </IconButton>}
                       </TableCell>
                     )}
                   </TableRow>
@@ -1614,10 +1626,12 @@ const ViewAdmins: React.FC = () => {
             sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } },
           }}
         >
+        {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
           <MenuItem onClick={handleEditOpen} disabled={state.currentAdmin?.isDeleted}>
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
+        )}
           <MenuItem
             onClick={() => showConfirmation("suspend")}
             disabled={state.loading || state.currentAdmin?.isSuperAdmin}
@@ -1652,19 +1666,15 @@ const ViewAdmins: React.FC = () => {
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"
               ? "Delete Admin"
-              : state.actionType === "suspend"
-              ? state.currentAdmin?.isSuspended
-                ? "Activate Admin"
-                : "Suspend Admin"
-              : ""}
+              : state.currentAdmin?.isSuspended
+              ? "Activate Admin"
+              : "Suspend Admin"}
           </DialogTitle>
           <DialogContent>
             <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
               {state.actionType === "delete"
                 ? `Are you sure you want to delete "${state.currentAdmin?.name}"?`
-                : `Are you sure you want to ${state.currentAdmin?.isSuspended ? "activate" : "suspend"} "${
-                    state.currentAdmin?.name
-                  }"?`}
+                : `Are you sure you want to ${state.currentAdmin?.isSuspended ? "activate" : "suspend"} "${state.currentAdmin?.name}"?`}
               {state.currentAdmin?.isSuperAdmin && " Super admin cannot be modified."}
             </Typography>
           </DialogContent>
@@ -1698,7 +1708,7 @@ const ViewAdmins: React.FC = () => {
             email: state.currentAdmin?.email ?? "",
             phone: state.currentAdmin?.phone ?? "",
             isSuperAdmin: !!state.currentAdmin?.isSuperAdmin,
-            scopeLevel: state.currentAdmin?.scopeLevel ?? "",
+            scopeLevel: state.currentAdmin?.scopeLevel ?? "branch",
             branches: state.currentAdmin?.branches?.map((b) => ({
               id: String(b.id),
               name: b.name,
@@ -1719,3 +1729,13 @@ const ViewAdmins: React.FC = () => {
 };
 
 export default ViewAdmins;
+
+export async function fetchBranches(): Promise<Branch[]> {
+  try {
+    const response = await Api.get("/church/get-branches");
+    return response?.data?.branches ?? [];
+  } catch (error) {
+    console.error("Error fetching branches:", error);
+    return [];
+  }
+}

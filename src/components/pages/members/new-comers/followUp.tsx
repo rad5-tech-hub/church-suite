@@ -135,7 +135,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const handleDownloadTemplate = async () => {
     setDownLoading(true);
     try {
-      const response = await Api.get("/member/import-followup-template", {
+      const response = await Api.get(`/member/import-followup-template/${authData?.branchId}`, {
         responseType: "blob",
       });
 

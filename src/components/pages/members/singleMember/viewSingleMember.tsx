@@ -15,7 +15,6 @@ import {
   Phone as PhoneIcon, 
   Email as EmailIcon, 
   WhatsApp as WhatsAppIcon,
-  Edit as EditIcon
 } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { useNavigate, useParams } from "react-router-dom";
@@ -185,35 +184,6 @@ const ViewSingleMember: React.FC = () => {
               >
                 View and manage your profile information.
               </Typography>
-            </Grid>
-            <Grid 
-              size={{ xs: 12, md: 4 }} 
-              sx={{ 
-                display: 'flex', 
-                justifyContent: { xs: 'flex-start', md: 'flex-end' },
-                alignItems: 'center'
-              }}
-            >
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={() =>{navigate('/members/edit/' + member.id)}}
-                size="medium"
-                sx={{
-                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable                 
-                  borderRadius: 1,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                  fontSize: isLargeScreen ? '1rem' : undefined,
-                  "&:hover": {
-                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                    opacity: 0.9, // Add hover effect
-                  },
-                }}
-              >
-                Edit Profile
-              </Button>
             </Grid>
           </Grid>
 

@@ -327,7 +327,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const handleDownloadTemplate = async () => {
     setDownLoading(true);
     try {
-      const response = await Api.get(`/member/import-template?churchId=${authData?.churchId}`, { responseType: "blob" });
+      const response = await Api.get(`/member/import-template/${authData?.branchId}`, { responseType: "blob" });
       const contentDisposition = response.headers["content-disposition"];
       let filename = "workers-template.xlsx";
       if (contentDisposition) {

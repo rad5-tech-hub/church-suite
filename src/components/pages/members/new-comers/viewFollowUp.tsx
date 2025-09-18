@@ -33,7 +33,6 @@ import {
 import {
   MoreVert as MoreVertIcon,
   SentimentVeryDissatisfied as EmptyIcon,
-  PersonOutline,
   ChevronRight,
   ChevronLeft,
   Search,
@@ -51,7 +50,8 @@ import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 import RegistrationModal from "./followUp";
-import { MdOutlineFileUpload } from "react-icons/md";
+import { MdOutlineEdit, MdOutlineFileUpload } from "react-icons/md";
+import EditRegistrationModal from "./editNewcomers";
 
 // Types
 interface FollowUp {
@@ -292,8 +292,8 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, on
     PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
   >
     <MenuItem onClick={onView} disabled={loading}>
-      <PersonOutline sx={{ mr: 1, fontSize: "1rem" }} />
-      Profile
+      <MdOutlineEdit className="mr-2 text-lg"/>
+      Edit
     </MenuItem>
     <MenuItem onClick={() => onAction("delete")} disabled={loading}>
       <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
@@ -366,13 +366,15 @@ const ViewFollowUp: React.FC = () => {
     error: null as string | null,
     confirmModalOpen: false,
     isModalOpen: false,
+    // Added missing state keys used elsewhere
+    editModalOpen: false,
+    currentFollowUp: null as FollowUp | null,
     isBranchSelectOpen: false,
     isDrawerOpen: false,
     isNameDropdownOpen: false,
     openExcelDialog: false,
     selectedFile: null as File | null,
     isDragging: false,
-    currentFollowUp: null as FollowUp | null,
     actionType: null as string | null,
     anchorEl: null as HTMLElement | null,
     searchName: "",
@@ -655,6 +657,16 @@ const ViewFollowUp: React.FC = () => {
     handleMenuClose();
   };
 
+  const handleEditOpen = useCallback(() => {
+    handleStateChange("editModalOpen", true);
+    handleMenuClose();
+  }, [handleMenuClose]);
+
+  const handleEditClose = useCallback(() => {
+    handleStateChange("editModalOpen", false);
+    handleStateChange("currentFollowUp", null);
+  }, [handleStateChange]);
+
   const handleConfirmedAction = async () => {
     if (!state.currentFollowUp || !state.actionType) return;
 
@@ -689,7 +701,7 @@ const ViewFollowUp: React.FC = () => {
   const handleExportExcel = useCallback(async () => {
     setState((prev) => ({ ...prev, exportLoading: true }));
     try {
-      const response = await Api.get("/member/export-followup", { responseType: "blob" });
+      const response = await Api.get(`/member/export-followup${authData?.branchId ? `?branchId=${authData?.branchId}` : ''}`, { responseType: "blob" });
       const contentDisposition = response.headers["content-disposition"];
       let filename = "newcomers_export.xlsx";
       
@@ -820,16 +832,6 @@ const ViewFollowUp: React.FC = () => {
     setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null, isDragging: false }));
   };
 
-  const handleViewFollowUp = useCallback(() => {
-    if (state.currentFollowUp) {
-      window.location.href = `/view/single-follower/${state.currentFollowUp.id}`;
-      handleMenuClose();
-    }
-  }, [state.currentFollowUp]);
-
-  const handleAddFollowUp = useCallback(() => {
-    setState((prev) => ({ ...prev, isModalOpen: true }));
-  }, []);
 
   // Filter components
   const renderMobileFilters = () => (
@@ -965,7 +967,7 @@ const ViewFollowUp: React.FC = () => {
             }}
             renderValue={(selected) => (selected ? selected : "Select Address")}
           >
-            <MenuItem value="">All</MenuItem>
+            <MenuItem value="">None</MenuItem>
             {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
               <MenuItem key={address} value={address}>
                 {address}
@@ -1088,7 +1090,7 @@ const ViewFollowUp: React.FC = () => {
             }}
             renderValue={(selected) => (selected ? selected : "Select Address")}
           >
-            <MenuItem value="">All</MenuItem>
+            <MenuItem value="">None</MenuItem>
             {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
               <MenuItem key={address} value={address}>
                 {address}
@@ -1160,6 +1162,18 @@ const ViewFollowUp: React.FC = () => {
   useEffect(() => {
     fetchFollowUps();
   }, [fetchFollowUps]);
+
+  function handleAddFollowUp(): void {
+    // Open the registration modal for adding a new newcomer.
+    // Ensure edit state is cleared and any action menu is closed.
+    setState((prev) => ({
+      ...prev,
+      isModalOpen: true,
+      editModalOpen: false,
+      currentFollowUp: null,
+      anchorEl: null,
+    }));
+  }
 
   return (
     <DashboardManager>
@@ -1428,7 +1442,15 @@ const ViewFollowUp: React.FC = () => {
                 isLoading={state.loading}
               />
             </TableContainer>
-            <Box sx={{ p: 3, display: "flex", justifyContent: "flex-end" }}>
+            <Box 
+              sx={{
+                position: "fixed",       // keeps it fixed on screen
+                bottom: 100,              // distance from bottom
+                right: 24,               // distance from right
+                zIndex: 1300,            // ensure it stays on top
+                p: 0,
+              }}
+            >
               <Tooltip title="Download Newcomers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
@@ -1438,10 +1460,10 @@ const ViewFollowUp: React.FC = () => {
                     backgroundColor: "#363740",
                     px: { xs: 2, sm: 2 },
                     py: 1,
-                    borderRadius: 1,
+                    borderRadius: 50,
                     fontWeight: 500,
                     textTransform: "none",
-                    color: "var(--color-text-on-primary)",
+                    color: "#f6f4fe",
                     fontSize: isLargeScreen ? "1rem" : undefined,
                     "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                   }}
@@ -1452,7 +1474,11 @@ const ViewFollowUp: React.FC = () => {
                       Downloading...
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1">Download Newcomers <PiDownloadThin /></span>
+                    <span className="flex items-center gap-1">
+                      {/* Show text only on medium and above */}
+                      <span className="hidden md:inline">Download Newcomers</span>
+                      <PiDownloadThin className="text-lg" />
+                    </span>
                   )}
                 </Button>
               </Tooltip>
@@ -1466,7 +1492,7 @@ const ViewFollowUp: React.FC = () => {
           currentFollowUp={state.currentFollowUp}
           onClose={handleMenuClose}
           onAction={showConfirmation}
-          onView={handleViewFollowUp}
+          onView={handleEditOpen}
           isLargeScreen={isLargeScreen}
           loading={state.loading}
         />
@@ -1617,7 +1643,7 @@ const ViewFollowUp: React.FC = () => {
             disabled={state.isLoading || !state.selectedFile}
             sx={{
               backgroundColor: "#777280",
-              color: "var(--color-text-on-primary)",
+              color: "#f6f4fe",
               "&:hover": {
                 backgroundColor: "#777280",
                 opacity: 0.9,
@@ -1635,6 +1661,15 @@ const ViewFollowUp: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <EditRegistrationModal 
+          open={state.editModalOpen}
+          onClose={handleEditClose}
+          onSuccess={() => {
+            refreshFollowUps();
+            setState((prev) => ({ ...prev, editModalOpen: false, currentFollowUp: null }));
+          }}
+          memberId={state.currentFollowUp?.id || ""}
+      />
     </DashboardManager>
   );
 };

@@ -58,6 +58,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [fetchingDepartments, setFetchingDepartments] = useState(false);
+  const [fetchingBranches, setFetchingBranches] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
   const theme = useTheme();
@@ -68,6 +69,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
+        setFetchingBranches(true);
         const response = await Api.get<{ branches: Branch[] }>("/church/get-branches");
         const branchesData = response.data?.branches || [];
         setBranches(branchesData);
@@ -76,6 +78,9 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
       } catch (error) {
         console.error("Failed to fetch branches:", error);
         showPageToast("Failed to load branches. Please try again.", "error");
+      }
+      finally{
+        setFetchingBranches(false);
       }
     };
 
@@ -276,9 +281,19 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               }}
               aria-label="Select branch"
             >
-              {branches.map((branch) => (
+              {fetchingBranches ? (
+                <MenuItem disabled>
+                  <Box display="flex" alignItems="center" width="100%">
+                    <CircularProgress size={20} sx={{ color: "#F6F4FE", mr: 1 }} />
+                    Loading branches...
+                  </Box>
+                </MenuItem>
+              ) : branches.length === 0 ? (
+                <MenuItem disabled>No branches available</MenuItem>
+              ) :
+               (branches.map((branch) => (
                 <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-              ))}
+              )))}
             </Select>
           </FormControl>
 

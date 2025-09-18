@@ -19,7 +19,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Close, Save } from '@mui/icons-material';
-import { toast, ToastContainer } from 'react-toastify';
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import Api from '../../../shared/api/api';
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
@@ -113,6 +114,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  usePageToast('record-attendance');
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({
     eventId: eventId,
     total: '',
@@ -145,7 +147,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
         } catch (err) {
           const errorMessage = 'Error fetching event data';
           setFetchError(errorMessage);
-          toast.error(errorMessage);
+          showPageToast(errorMessage,'error');
         } finally {
           setLoading(false);
         }
@@ -281,7 +283,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
       
       // Check if both payloads are empty
       if (Object.keys(attendancePayload).length === 0 && collectionUpdates.length === 0) {
-        toast.error('Please enter at least one attendance or collection value');
+        showPageToast('Please enter at least one attendance or collection value','error');
         return;
       }
       
@@ -304,11 +306,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
       
       // Show appropriate success message
       if (attendanceSuccess && collectionSuccess) {
-        toast.success('Attendance and collections saved successfully!', {autoClose: 1000});
+        showPageToast('Attendance and collections saved successfully!', 'success');
       } else if (attendanceSuccess) {
-        toast.success('Attendance saved successfully!');
+        showPageToast('Attendance saved successfully!', 'success');
       } else if (collectionSuccess) {
-        toast.success('Collections updated successfully!');
+        showPageToast('Collections updated successfully!', 'success');
       }
       
       setTimeout(() => {
@@ -320,7 +322,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
           female: '',
           children: ''
         });
-      }, 1500);
+      }, 3000);
     } catch (err: any) {
       console.error('Save error:', err);
       
@@ -337,11 +339,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
       
       // Show specific error messages based on the endpoint
       if (err.config?.url?.includes('create-attendance')) {
-        toast.error(`Attendance Error: ${errorMessage}`);
+        showPageToast(`Attendance Error: ${errorMessage}`, 'error');
       } else if (err.config?.url?.includes('event-collections')) {
-        toast.error(`Collections Error: ${errorMessage}`);
+        showPageToast(`Collections Error: ${errorMessage}`, 'error');
       } else {
-        toast.error(errorMessage);
+        showPageToast(errorMessage, 'error');
       }
     } finally {
       setSubmitting(false);
@@ -361,8 +363,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
             bgcolor: "#2C2C2C",
           },
         }}
-      >
-        <ToastContainer/>
+      >      
         <DialogTitle sx={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -447,17 +448,6 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
         },
       }}
     >
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
       <DialogTitle sx={{ 
         display: 'flex', 
         alignItems: 'center', 
