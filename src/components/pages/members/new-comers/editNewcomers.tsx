@@ -208,7 +208,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
       const params = new URLSearchParams();
       params.append("churchId", authData?.churchId || "");
 
-      await Api.patch(`/member/edit-newcomers/${formData.id}/branch/${formData.branchId}`, changedFields);
+      await Api.patch(`/member/edit-follow-up/${formData.id}?branchId=${formData.branchId}`, changedFields);
       showPageToast("Newcomer updated successfully!", "success");
       setInitialFormData(formData);
       onSuccess?.();

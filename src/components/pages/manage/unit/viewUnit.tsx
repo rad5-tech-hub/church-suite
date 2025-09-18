@@ -246,7 +246,7 @@ const ViewUnit: React.FC = () => {
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
-  const authData = useSelector((state: RootState) => state?.auth?.authData);
+  const authData = useSelector((state: unknown) => (state as RootState)?.auth?.authData);
 
   const [state, setState] = useState<{
     units: Unit[];
