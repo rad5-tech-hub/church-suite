@@ -556,6 +556,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       date: formData.date,
       branchId: formData.branchId,
     };
+
     if (formData.recurrenceType === "weekly" && formData.byWeekday?.length) {
       payload.byWeekday = formData.byWeekday.map((day) => ({
         weekday: day.weekday,
@@ -563,6 +564,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
         endTime: day.endTime,
       }));
     }
+
     if (formData.recurrenceType === "monthly") {
       if (monthlyOption === "byWeek") {
         if (formData.nthWeekdays?.length) {
@@ -572,6 +574,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             startTime: w.startTime || "",
             endTime: w.endTime || "",
           }));
+          // no start/end time at root level in this case
           delete payload.startTime;
           delete payload.endTime;
         } else {
@@ -585,15 +588,28 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
         delete payload.nthWeekdays;
       }
     }
+
     if (formData.recurrenceType === "custom" && formData.customRecurrenceDates?.length) {
       payload.customRecurrenceDates = formData.customRecurrenceDates;
+      // custom dates replace single date + start/end time
       delete payload.date;
       delete payload.startTime;
       delete payload.endTime;
     }
-    if (["weekly", "monthly"].includes(formData.recurrenceType)) {
-      payload.endDate = formData.endDate || moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+
+    // ✅ ensure start/end time are included when recurrence = none
+    if (formData.recurrenceType === "none") {
+      payload.startTime = formData.startTime;
+      payload.endTime = formData.endTime;
     }
+
+    // weekly/monthly end date default
+    if (["weekly", "monthly"].includes(formData.recurrenceType)) {
+      payload.endDate =
+        formData.endDate ||
+        moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+    }
+
     return payload;
   };
 
