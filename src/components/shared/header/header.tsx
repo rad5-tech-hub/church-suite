@@ -1,34 +1,49 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../../reduxstore/redux";
-import Popover from "@mui/material/Popover";
 import { FiLogOut } from "react-icons/fi";
-import { Tooltip } from "@mui/material";
-import Typography from "@mui/material/Typography";
-import Modal from "@mui/material/Modal";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import ButtonGroup from "@mui/material/ButtonGroup";
-import { store } from "../../reduxstore/redux";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, store } from "../../reduxstore/redux";
 import { clearAuth, setAuthData } from "../../reduxstore/authstore";
-import MobileNav from "../mobileNav/mobilenav";
 import { useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
-import { CircularProgress, Select, MenuItem } from "@mui/material";
+import {
+  Popover,
+  Tooltip,
+  Typography,
+  Modal,
+  Box,
+  Button,
+  ButtonGroup,
+  CircularProgress,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+} from "@mui/material";
 import Api from "../api/api";
+import MobileNav from "../mobileNav/mobilenav";
+import axios from "axios";
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
 const Header: React.FC<HeaderProps> = () => {
-  const [activeButton, setActiveButton] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const authData = useSelector((state: RootState) => state.auth?.authData);
 
-  // Map button labels to route patterns
+  // Navigation button configuration
   const buttonRoutePatterns: { [key: string]: RegExp } = {
     Dashboard: /^\/dashboard(\/|$)/,
     Manage: /^\/manage(\/|$)/,
@@ -39,17 +54,6 @@ const Header: React.FC<HeaderProps> = () => {
     Settings: /^\/settings(\/|$)/,
   };
 
-  const buttons = [
-    "Dashboard",
-    "Manage",
-    "Membership",
-    "Message",
-    "Finance",
-    "Programs",
-    "Settings",
-  ];
-
-  // Default routes for each button
   const defaultRoutes: { [key: string]: string } = {
     Dashboard: "/dashboard",
     Manage: "/manage/view-admins",
@@ -60,85 +64,145 @@ const Header: React.FC<HeaderProps> = () => {
     Settings: "/settings",
   };
 
-  // Sync activeButton with current route
+  const buttons = Object.keys(defaultRoutes);
+
+  // State management
+  const [activeButton, setActiveButton] = useState<string | null>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
+  const [openLogoutModal, setOpenLogoutModal] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [currentDepartmentId, setCurrentDepartmentId] = useState<string | null>(null);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [errorBranches, setErrorBranches] = useState<string>("");
+  const [errorDepartments, setErrorDepartments] = useState<string>("");
+
+  const open = Boolean(anchorEl);
+  const id = open ? "profile-popover" : undefined;
+
+  // Sync active button with current route
   useEffect(() => {
     const currentPath = location.pathname;
-
-    // Find the first button whose route pattern matches the current path
-    const activeLabel =
-      Object.keys(buttonRoutePatterns).find((label) =>
-        buttonRoutePatterns[label].test(currentPath)
-      ) || null;
-
+    const activeLabel = Object.keys(buttonRoutePatterns).find((label) =>
+      buttonRoutePatterns[label].test(currentPath)
+    ) || null;
     setActiveButton(activeLabel);
   }, [location.pathname]);
 
-  const authData = useSelector((state: RootState) => state.auth?.authData);
-  const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
-  const open = Boolean(anchorEl);
-  const id = open ? "profile-popover" : undefined;
-  const [openLogoutModal, setOpenLogoutModal] = useState(false);
-    // 🔹 State for branches
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const dispatch = useDispatch();
+  // Fetch branches when popover opens
+  const fetchBranches = useCallback(async () => {
+    if (!authData?.id || !open) return;
 
-  // 🔹 Fetch branches only when popover opens
-  useEffect(() => {
-    const fetchBranches = async () => {
-      try {
-        if (!authData?.id) return;
+    try {
+      setLoadingBranches(true);
+      setErrorBranches("");
 
-        setLoading(true);
+      let branchesData: Branch[] = [];
+      if (authData.isSuperAdmin && authData.isHeadQuarter) {
+        const response = await Api.get("/church/get-branches");
+        branchesData = response.data.branches || [];
+      } else {
         const response = await Api.get(`/church/an-admin/${authData.id}`);
-        const adminData = response.data.admin;
-
-        setBranches(adminData.branches || []);
-        setCurrentBranchId(authData.branchId || null); // sync with current branch
-      } catch (err) {
-        setError(
-          (axios.isAxiosError(err) && err.response?.data?.message) ||
-            "Failed to fetch branches"
-        );
-      } finally {
-        setLoading(false);
+        branchesData = response.data.admin.branches || [];
       }
-    };
 
-    if (open) {
-      fetchBranches();
+      setBranches(branchesData);
+      setCurrentBranchId(authData.branchId || branchesData[0]?.id || null);
+    } catch (err) {
+      setErrorBranches(
+        axios.isAxiosError(err) && err.response?.data?.message
+          ? err.response.data.message
+          : "Failed to fetch branches"
+      );
+      setBranches([]);
+    } finally {
+      setLoadingBranches(false);
     }
-  }, [authData?.id, authData?.branchId, open]);
+  }, [authData?.id, authData?.isSuperAdmin, authData?.isHeadQuarter, authData?.branchId, open]);
 
-  // 🔹 Handle branch switch
-  const handleBranchSelect = (branchId: string) => {
+  // Fetch departments when branch changes
+  const fetchDepartments = useCallback(async () => {
+    if (!currentBranchId || authData?.role !== "department") return;
+
+    try {
+      setLoadingDepartments(true);
+      setErrorDepartments("");
+
+      const response = await Api.get(`/church/get-departments?branchId=${currentBranchId}`);
+      const departmentsData = response.data.departments || [];
+      setDepartments(departmentsData);
+      setCurrentDepartmentId(authData?.department || departmentsData[0]?.id || null);
+    } catch (err) {
+      setErrorDepartments(
+        axios.isAxiosError(err) && err.response?.data?.message
+          ? err.response.data.message
+          : "Failed to fetch departments"
+      );
+      setDepartments([]);
+    } finally {
+      setLoadingDepartments(false);
+    }
+  }, [currentBranchId, authData?.role, authData?.department]);
+
+  // Trigger branch fetching when popover opens
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  // Trigger department fetching when branch changes or role is department
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
+
+  // Handle branch selection
+  const handleBranchSelect = (event: SelectChangeEvent<string>) => {
+    const branchId = event.target.value;
     setCurrentBranchId(branchId);
-     if (!authData) return; // 🚨 prevents spreading null
- 
-     setCurrentBranchId(branchId);
- 
+    setCurrentDepartmentId(null); // Reset department when branch changes
+    setDepartments([]); // Clear departments until new ones are fetched
+
+    if (authData) {
       dispatch(
-       setAuthData({
-         ...authData,
-         branchId,
-         backgroundImg: authData.backgroundImg ?? "",
-         church_name: authData.church_name ?? "",
-         churchId: authData.churchId ?? "", // 👈 fixes your error
-       })
-     );;
+        setAuthData({
+          ...authData,
+          branchId,
+          backgroundImg: authData.backgroundImg ?? "",
+          church_name: authData.church_name ?? "",
+          churchId: authData.churchId ?? "",        
+        })
+      );
+    }
   };
 
+  // Handle department selection
+  const handleDepartmentSelect = (event: SelectChangeEvent<string>) => {
+    const departmentId = event.target.value;
+    setCurrentDepartmentId(departmentId);
 
+    if (authData) {
+      dispatch(
+        setAuthData({
+          ...authData,
+          department: departmentId,
+        })
+      );
+    }
+  };
+
+  // Handle profile popover
   const handleProfileClick = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
   const handleClose = () => {
     setAnchorEl(null);
+    setErrorBranches("");
+    setErrorDepartments("");
   };
 
+  // Handle logout modal
   const handleOpenLogoutModal = () => {
     setOpenLogoutModal(true);
     handleClose();
@@ -154,9 +218,9 @@ const Header: React.FC<HeaderProps> = () => {
     navigate("/login");
   };
 
+  // Handle navigation button click
   const handleButtonClick = (label: string) => {
     navigate(defaultRoutes[label]);
-    // Don't set activeButton manually — useEffect handles it
   };
 
   return (
@@ -165,15 +229,13 @@ const Header: React.FC<HeaderProps> = () => {
         <Tooltip title={authData?.church_name || ""} arrow>
           {authData?.logo ? (
             <img
-              src={authData?.logo || undefined}
+              src={authData.logo}
               alt={`${authData?.church_name} logo`}
               className="h-16 w-16 object-contain rounded-full"
             />
           ) : (
             <div className="h-16 w-16 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
-              {authData?.church_name
-                ? authData.church_name.charAt(0).toUpperCase()
-                : "C"}
+              {authData?.church_name?.charAt(0).toUpperCase() || "C"}
             </div>
           )}
         </Tooltip>
@@ -182,20 +244,13 @@ const Header: React.FC<HeaderProps> = () => {
           <ButtonGroup
             sx={{
               backgroundColor: "#4d4d4e8e",
-              border: "none",
               borderRadius: "9999px",
               padding: "0.5px",
-              overflow: "hidden",
               boxShadow: "none",
-              "& .MuiButtonGroup-grouped": {
-                border: "none",
-                "&:not(:last-of-type)": {
-                  borderRight: "none",
-                },
-              },
+              "& .MuiButtonGroup-grouped": { border: "none" },
             }}
             size="large"
-            aria-label="Large button group"
+            aria-label="Navigation buttons"
           >
             {buttons.map((label, index) => (
               <Button
@@ -203,9 +258,7 @@ const Header: React.FC<HeaderProps> = () => {
                 onClick={() => handleButtonClick(label)}
                 sx={{
                   color: activeButton === label ? "#160F38" : "#777280",
-                  backgroundColor:
-                    activeButton === label ? "#F6F4FE" : "#363740",
-                  border: "none",
+                  backgroundColor: activeButton === label ? "#F6F4FE" : "#363740",
                   textTransform: "none",
                   padding: "12px 18px",
                   fontSize: "0.875rem",
@@ -220,7 +273,6 @@ const Header: React.FC<HeaderProps> = () => {
                   }),
                   "&:hover": {
                     backgroundColor: "#F6F4FE",
-                    borderRadius: "9999px",
                     color: "#160F38",
                   },
                   transition: "all 0.3s ease",
@@ -267,76 +319,152 @@ const Header: React.FC<HeaderProps> = () => {
             open={open}
             anchorEl={anchorEl}
             onClose={handleClose}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "left",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "left",
-            }}
+            anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            transformOrigin={{ vertical: "top", horizontal: "left" }}
+            PaperProps={{ sx: { p: 1, my: 1 } }}
           >
-            <div className="m-1 my-2">
-              {/* Profile link */}
-              <div
-                className="flex items-center gap-2 px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
+            <Box sx={{ m: 1 }}>
+              {/* Profile Link */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  px: 2,
+                  py: 1,
+                  "&:hover": { bgcolor: "#f5f5f5", borderRadius: 1 },
+                  cursor: "pointer",
+                }}
                 onClick={() => {
                   navigate("/settings");
                   handleClose();
                 }}
               >
                 <IoPersonOutline className="text-lg text-gray-700" />
-                <Typography variant="body2" className="text-gray-700">
+                <Typography variant="body2" color="textSecondary">
                   Profile
                 </Typography>
-              </div>
+              </Box>
 
               {/* Logout */}
-              <div
-                className="flex items-center gap-2 px-5 py-2 m-1 cursor-pointer hover:bg-gray-100 rounded-md"
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  px: 2,
+                  py: 1,
+                  "&:hover": { bgcolor: "#f5f5f5", borderRadius: 1 },
+                  cursor: "pointer",
+                }}
                 onClick={handleOpenLogoutModal}
               >
                 <FiLogOut className="text-lg text-gray-700" />
-                <Typography variant="body2" className="text-gray-700">
+                <Typography variant="body2" color="textSecondary">
                   Logout
                 </Typography>
-              </div>
+              </Box>
 
               {/* Switch Branch */}
-              <Box
-                sx={{
-                  px: 2,
-                  py: 2,
-                  borderTop: "1px solid #eee",
-                  mt: 1,
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{ mb: 1, color: "gray", fontWeight: 500 }}
-                >
+              <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
                   Switch Branch
                 </Typography>
                 <Select
                   value={currentBranchId || ""}
-                  onChange={(e) => handleBranchSelect(e.target.value)}
+                  onChange={handleBranchSelect}
                   fullWidth
                   size="small"
-                  sx={{
-                    backgroundColor: "#f9f9f9",
-                    borderRadius: 1,
-                  }}
+                  disabled={loadingBranches || !branches.length}
+                  sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
+                  displayEmpty
+                  renderValue={(value) =>
+                    value
+                      ? branches.find((b) => b.id === value)?.name || "Select Branch"
+                      : "Select Branch"
+                  }
                 >
-                  {branches.map((branch) => (
-                    <MenuItem key={branch.id} value={branch.id}>
-                      {branch.name}
+                  {loadingBranches ? (
+                    <MenuItem disabled>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <CircularProgress size={12} />
+                        <Typography variant="body2">Loading...</Typography>
+                      </Box>
                     </MenuItem>
-                  ))}
-                </Select>                                
-                {error && (<span color="text-red-300">{error}</span>)}
-                {loading && (<span><CircularProgress size={10} /> Loading...</span>)}
+                  ) : errorBranches ? (
+                    <MenuItem disabled>
+                      <Typography variant="body2">{errorBranches}</Typography>
+                    </MenuItem>
+                  ) : branches.length === 0 ? (
+                    <MenuItem disabled>
+                      <Typography variant="body2">No branches available</Typography>
+                    </MenuItem>
+                  ) : (
+                    branches.map((branch) => (
+                      <MenuItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+                {errorBranches && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                    {errorBranches}
+                  </Typography>
+                )}
               </Box>
-            </div>
+
+              {/* Switch Department */}
+              {authData?.role === "department" && (
+                <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
+                    Select Department
+                  </Typography>
+                  <Select
+                    value={currentDepartmentId || ""}
+                    onChange={handleDepartmentSelect}
+                    fullWidth
+                    size="small"
+                    disabled={!currentBranchId || loadingDepartments || !departments.length}
+                    sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
+                    displayEmpty
+                    renderValue={(value) =>
+                      value
+                        ? departments.find((d) => d.id === value)?.name || "Select Department"
+                        : "Select Department"
+                    }
+                  >
+                    {loadingDepartments ? (
+                      <MenuItem disabled>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <CircularProgress size={12} />
+                          <Typography variant="body2">Loading...</Typography>
+                        </Box>
+                      </MenuItem>
+                    ) : errorDepartments ? (
+                      <MenuItem disabled>
+                        <Typography variant="body2">{errorDepartments}</Typography>
+                      </MenuItem>
+                    ) : departments.length === 0 ? (
+                      <MenuItem disabled>
+                        <Typography variant="body2">No departments available</Typography>
+                      </MenuItem>
+                    ) : (
+                      departments.map((dept) => (
+                        <MenuItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                  {errorDepartments && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                      {errorDepartments}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
           </Popover>
         </div>
       </div>
@@ -346,31 +474,16 @@ const Header: React.FC<HeaderProps> = () => {
         onClose={handleCloseLogoutModal}
         aria-labelledby="logout-modal-title"
         aria-describedby="logout-modal-description"
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backdropFilter: "blur(3px)",
-        }}
+        sx={{ display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(3px)" }}
       >
         <Box
           sx={{
-            position: "relative",
-            width: {
-              xs: "90%",
-              sm: "400px",
-            },
+            width: { xs: "90%", sm: 400 },
             maxWidth: "95vw",
             bgcolor: "background.paper",
             boxShadow: 24,
-            p: {
-              xs: 2,
-              sm: 4,
-            },
-            border: "none",
+            p: { xs: 2, sm: 4 },
             borderRadius: 1,
-            mx: "auto",
-            my: "auto",
           }}
         >
           <Typography id="logout-modal-title" variant="h6" component="h2">
@@ -379,32 +492,11 @@ const Header: React.FC<HeaderProps> = () => {
           <Typography id="logout-modal-description" sx={{ mt: 2 }}>
             Are you sure you want to logout?
           </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              mt: 3,
-              gap: 2,
-              flexDirection: {
-                xs: "column",
-                sm: "row",
-              },
-            }}
-          >
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
             <Button
               variant="outlined"
               onClick={handleCloseLogoutModal}
-              sx={{
-                borderColor: "gray",
-                color: "#111827",
-                "&:hover": {
-                  borderColor: "darkgray",
-                },
-                width: {
-                  xs: "100%",
-                  sm: "auto",
-                },
-              }}
+              sx={{ borderColor: "gray", color: "#111827", width: { xs: "100%", sm: "auto" } }}
               fullWidth
             >
               Cancel
@@ -415,15 +507,8 @@ const Header: React.FC<HeaderProps> = () => {
               sx={{
                 backgroundColor: "#FB2C36",
                 color: "white",
-                "&:hover": {
-                  backgroundColor: "#FF6467",
-                },
-                border: "none",
-                boxShadow: "none",
-                width: {
-                  xs: "100%",
-                  sm: "auto",
-                },
+                "&:hover": { backgroundColor: "#FF6467" },
+                width: { xs: "100%", sm: "auto" },
               }}
               fullWidth
             >
@@ -433,10 +518,7 @@ const Header: React.FC<HeaderProps> = () => {
         </Box>
       </Modal>
 
-      <MobileNav
-        activeButton={activeButton}
-        handleButtonClick={handleButtonClick}
-      />
+      <MobileNav activeButton={activeButton} handleButtonClick={handleButtonClick} />
     </header>
   );
 };

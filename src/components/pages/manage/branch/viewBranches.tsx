@@ -256,15 +256,15 @@ const fetchBranches = useCallback(
       try {
         const params = new URLSearchParams();
 
-        // Only append one search + searchField at a time
         if (state.searchTerm) {
           params.append("search", state.searchTerm);
           params.append("searchField", "name");
-        } else if (state.locationFilter) {
+        }
+
+        if (state.locationFilter) {
           params.append("search", state.locationFilter);
           params.append("searchField", "address");
         }
-
         const fullUrl =
           url && url.includes("?")
             ? `${url}&${params.toString()}`
@@ -639,7 +639,7 @@ const fetchBranches = useCallback(
     <DashboardManager> 
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 5 }}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Typography
               variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
               component="h4"
@@ -666,14 +666,14 @@ const fetchBranches = useCallback(
                   alignItems: "center",
                   backgroundColor: "#4d4d4e8e",
                   padding: "4px",
-                  width: "fit-content",
+                  width: "auto",
                   gap: "8px",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                   "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                 }}
               >
                 {/* Name Autocomplete */}
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 16px", minWidth: 180 }}>
+                <Box sx={{ display: "flex", flex: 1, flexDirection: "column", padding: "4px 16px", minWidth: 180 }}>
                   <Typography
                     variant="caption"
                     sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
@@ -712,7 +712,7 @@ const fetchBranches = useCallback(
                 <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
 
                 {/* Location Autocomplete */}
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 8px", minWidth: 160 }}>
+                <Box sx={{ display: "flex", flex: 1, flexDirection: "column", padding: "4px 8px", minWidth: 160 }}>
                   <Autocomplete
                     options={uniqueBranches.map((branch) => ({
                       id: branch.id,
@@ -780,7 +780,7 @@ const fetchBranches = useCallback(
             </Box>
           </Grid>
           <Grid
-            size={{ xs: 12, md: 7 }}
+            size={{ xs: 12, md: 5 }}
             sx={{
               display: "flex",
               justifyContent: { xs: "flex-end", md: "flex-end" },

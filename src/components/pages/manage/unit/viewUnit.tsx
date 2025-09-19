@@ -1233,7 +1233,7 @@ const ViewUnit: React.FC = () => {
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.currentUnit?.isDeleted || state.loading || authData?.isSuperAdmin === false}>
+          <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.currentUnit?.isDeleted || state.loading}>
             {state.currentUnit?.isActive ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
@@ -1246,7 +1246,7 @@ const ViewUnit: React.FC = () => {
               </>
             )}
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.currentUnit?.isDeleted || state.loading || authData?.isSuperAdmin === false}>
+          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.currentUnit?.isDeleted || state.loading}>
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
           </MenuItem>

@@ -1002,25 +1002,26 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   </Grid>
                 );
               })}
-            <Grid size={{ xs: 12 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.isSuperAdmin}
-                    onChange={handleChange}
-                    name="isSuperAdmin"
-                    color="default"
+              {formData.scopeLevel === "branch" && (
+                <Grid size={{ xs: 12 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.isSuperAdmin}
+                        onChange={handleChange}
+                        name="isSuperAdmin"          
+                      />
+                    }
+                    label="Is Super Admin?"
+                    sx={{
+                      "& .MuiTypography-root": {
+                        fontSize: isLargeScreen ? "1rem" : undefined,
+                        color: "#F6F4FE",
+                      },
+                    }}
                   />
-                }
-                label="Is Super Admin?"
-                sx={{
-                  "& .MuiTypography-root": {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",
-                  },
-                }}
-              />
-            </Grid>
+                </Grid>
+              )}
           </Grid>
         </Box>
       </DialogContent>

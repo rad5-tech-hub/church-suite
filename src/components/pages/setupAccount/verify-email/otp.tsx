@@ -40,6 +40,7 @@ interface AuthPayload {
   name: string;
   tenantId: string;
   token: string;
+  department: string;
 }
 
 // Constants
@@ -137,6 +138,7 @@ const EmailVerification: React.FC = () => {
         name: decodedToken.name || "",
         tenantId: decodedToken.tenantId || "",
         token: responseData.accessToken || "",
+        department: decodedToken?.department || ''
       };
 
       dispatch(setAuthData(authPayload));
