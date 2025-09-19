@@ -23,6 +23,8 @@ import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import Api from '../../../shared/api/api';
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 
 interface CollectionItem {
   id: string;
@@ -114,6 +116,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   usePageToast('record-attendance');
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({
     eventId: eventId,
@@ -468,7 +471,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
 
       <DialogContent sx={{ p: 3, mt: 2 }}>
         <Box>  
-          <Box>
+          <Box sx={{display: authData?.role === 'unit' ? 'none' : 'block'}}>
             <Typography variant='h6' color='#F6F4FE' fontWeight='medium'>Expected Departments </Typography>
             <div className='my-5'>
               {eventData?.event?.assignedDepartments.map((dept) => (

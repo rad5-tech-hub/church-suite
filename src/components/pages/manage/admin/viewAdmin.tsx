@@ -253,6 +253,21 @@ const ViewAdmins: React.FC = () => {
     departments: false,
     units: false,
   });
+  const roleHierarchy: Record<string, number> = {
+    superadmin: 3,
+    admin: 2,
+    branch: 1,
+    unit: 0,
+  };
+
+  // Resolve numeric levels
+  const authRoleLevel = roleHierarchy[(authData?.role ?? "").toLowerCase()] ?? -1;
+  const targetRoleLevel = roleHierarchy[(state.currentAdmin?.scopeLevel ?? "").toLowerCase()] ?? -1;
+
+  // Permission checks
+  const canSuspend =
+    authData?.isSuperAdmin || authRoleLevel > targetRoleLevel;
+  const canDelete = authData?.isSuperAdmin;
 
   // Debounce Ref to Prevent Rapid Fetch Calls
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1551,7 +1566,7 @@ const ViewAdmins: React.FC = () => {
                     }}
                   >
                     <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
-                      {(state.currentPage - 1) * 5 + index + 1}
+                      {(index + 1).toString().padStart(2, "0")}
                     </TableCell>
                     <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
                       <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
@@ -1634,23 +1649,28 @@ const ViewAdmins: React.FC = () => {
         )}
           <MenuItem
             onClick={() => showConfirmation("suspend")}
-            disabled={state.loading || state.currentAdmin?.isSuperAdmin}
+            disabled={state.loading || !canSuspend}
           >
             {!state.currentAdmin?.isSuspended ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
+                {state.loading && state.actionType === "suspend"
+                  ? "Suspending..."
+                  : "Suspend"}
               </>
             ) : (
               <>
                 <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
+                {state.loading && state.actionType === "suspend"
+                  ? "Activating..."
+                  : "Activate"}
               </>
             )}
           </MenuItem>
+
           <MenuItem
             onClick={() => showConfirmation("delete")}
-            disabled={state.loading || state.currentAdmin?.isSuperAdmin}
+            disabled={state.loading || !canDelete}
           >
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
@@ -1661,6 +1681,7 @@ const ViewAdmins: React.FC = () => {
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
+          sx={{ "& .MuiPaper-root": { bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
           fullWidth
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
@@ -1687,10 +1708,9 @@ const ViewAdmins: React.FC = () => {
             </Button>
             <Button
               onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              color={state.actionType === "delete" ? "error" : "primary"}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined,color: state.actionType === 'delete' ? '#f6f4fe' : '#2c2c2c' , backgroundColor: state.actionType === "delete" ? "#E61E4D" : "#f6f4fe", "&:hover": { backgroundColor: state.actionType === "delete" ? "#b91535" : "#f6f4fe" } }}
               variant="contained"
-              disabled={state.loading || state.currentAdmin?.isSuperAdmin}
+              disabled={state.loading || !canDelete || !canSuspend}
             >
               {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Confirm"}
             </Button>

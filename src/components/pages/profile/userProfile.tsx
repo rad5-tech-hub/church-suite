@@ -9,18 +9,13 @@ import {
   Container,
   useTheme,
   useMediaQuery,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Menu, MenuItem, Fade,
 } from "@mui/material";
 import { 
   Phone as PhoneIcon, 
   Email as EmailIcon, 
-  Edit as EditIcon,
-  ArrowDownward
+  ArrowDownward,
+  ArrowBack
 } from "@mui/icons-material";
 import DashboardManager from "../../shared/dashboardManager";
 import { useSelector , useDispatch} from "react-redux";
@@ -28,6 +23,7 @@ import { RootState } from "../../reduxstore/redux";
 import { setAuthData } from "../../reduxstore/authstore";
 import axios from "axios";
 import Api from "../../shared/api/api";
+import { useNavigate } from "react-router-dom";
 
 interface Admin {
   id: string;
@@ -50,31 +46,18 @@ interface Branch{
 }
 
 const ViewAdmin: React.FC = () => {
-  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
-    
-  const [editForm, setEditForm] = useState({
-    name: '',
-    phoneNo: '',
-    email: '',
-  });
-  const [formErrors, setFormErrors] = useState({
-    name: '',
-    phoneNo: '',
-    email: '',
-  });
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchAdminData = async () => {
       try {
         if (authData) {
@@ -91,12 +74,7 @@ const ViewAdmin: React.FC = () => {
             logo: authData.logo,
             backgroundImg: authData.backgroundImg
           };
-          setAdmin(adminData);
-          setEditForm({
-            name: adminData.name,
-            phoneNo: adminData.phone || '',
-            email: adminData.email
-          });
+          setAdmin(adminData); 
         } else {
           setError("No admin data available");
         }
@@ -169,104 +147,6 @@ const ViewAdmin: React.FC = () => {
 
   const currentBranchName =
   admin?.branches?.find((b) => b.id === currentBranchId)?.name || "Select Branch";
-
-  const validateForm = () => {
-    let valid = true;
-    const newErrors = {
-      name: '',
-      phoneNo: '',
-      email: '',
-    };
-
-    if (!editForm.name.trim()) {
-      newErrors.name = 'Full name is required';
-      valid = false;
-    }
-
-    if (!editForm.email.trim()) {
-      newErrors.email = 'Email is required';
-      valid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
-      newErrors.email = 'Enter a valid email';
-      valid = false;
-    }
-
-    if (editForm.phoneNo && !/^[0-9]{10,15}$/.test(editForm.phoneNo)) {
-      newErrors.phoneNo = 'Phone number is not valid';
-      valid = false;
-    }
-
-    setFormErrors(newErrors);
-    return valid;
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when user types
-    if (formErrors[name as keyof typeof formErrors]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-  
-    if (!validateForm()) {
-      return;
-    }
-  
-    try {
-      setEditLoading(true);
-      setEditError(null);
-  
-      await Api.patch("/church/edit-admin", editForm);
-  
-      // Fetch updated admin data after successful update
-      const response = await Api.get(`/church/an-admin/${authData?.id}`);
-      const updatedAdmin: Admin = response.data.admin;
-  
-      setAdmin({
-        id: updatedAdmin.id,
-        name: updatedAdmin.name || '',
-        email: updatedAdmin.email,
-        phone: updatedAdmin.phone || '',
-        role: updatedAdmin.isSuperAdmin ? 'Super Admin' : 'Admin',
-        profilePicture: updatedAdmin.profilePicture || updatedAdmin.logo,
-        createdAt: updatedAdmin.createdAt || new Date().toISOString(),
-        isSuperAdmin: updatedAdmin.isSuperAdmin,
-        church_name: updatedAdmin.church_name,
-        logo: updatedAdmin.logo,
-        backgroundImg: updatedAdmin.backgroundImg,
-      });
-  
-      setEditDialogOpen(false);
-    } catch (err: any) {
-      setEditError(
-        (axios.isAxiosError(err) && err.response?.data?.message) || "Failed to update admin profile"
-      );
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleEditClick = () => {
-    if (admin) {
-        setEditForm({
-        name: admin.name,
-        phoneNo: admin.phone,
-        email: admin.email
-      });
-    }
-    setEditDialogOpen(true);
-  };
 
   const getAdminSince = () => {
     if (admin?.createdAt) {
@@ -353,26 +233,26 @@ const ViewAdmin: React.FC = () => {
                 alignItems: 'center'
               }}
             >
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                onClick={handleEditClick}
-                size="medium"
-                sx={{
-                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable                
-                  borderRadius: 1,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  fontSize: isLargeScreen ? '1rem' : undefined,
-                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                  "&:hover": {
-                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                    opacity: 0.9, // Add hover effect
-                  },
-                }}
-              >
-                Edit Profile
-              </Button>
+            <Button
+              variant="contained"
+              startIcon={<ArrowBack />}
+              onClick={() => navigate(-1)} // go back one page
+              size="medium"
+              sx={{
+                backgroundColor: "var(--color-primary)",
+                borderRadius: 1,
+                fontWeight: 500,
+                textTransform: "none",
+                fontSize: isLargeScreen ? "1rem" : undefined,
+                color: "var(--color-text-on-primary)",
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)",
+                  opacity: 0.9,
+                },
+              }}
+            >
+              Back
+            </Button>
             </Grid>
           </Grid>
 
@@ -556,84 +436,6 @@ const ViewAdmin: React.FC = () => {
           </Box>
         </Box>
       </Container>
-
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle
-        sx={{
-            bgcolor: theme.palette.background.paper,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-        }}
-        >
-        Edit Admin Profile
-        </DialogTitle>
-        <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ py: 3 }}>
-            {editError && (
-            <Typography color="error" sx={{ mb: 2 }}>
-                {editError}
-            </Typography>
-            )}
-            <TextField
-            fullWidth
-            margin="normal"
-            name="name"
-            label="Full Name"
-            value={editForm.name}
-            onChange={handleInputChange}
-            error={!!formErrors.name}
-            helperText={formErrors.name}
-            />
-            <TextField
-            fullWidth
-            margin="normal"
-            name="phoneNo"
-            label="Phone Number"
-            value={editForm.phoneNo}
-            onChange={handleInputChange}
-            error={!!formErrors.phoneNo}
-            helperText={formErrors.phoneNo}
-            />
-            <TextField
-            fullWidth
-            margin="normal"
-            name="email"
-            label="Email Address"
-            type="email"
-            value={editForm.email}
-            onChange={handleInputChange}
-            error={!!formErrors.email}
-            helperText={formErrors.email}
-            />
-        </DialogContent>
-        <DialogActions
-            sx={{
-            bgcolor: theme.palette.background.paper,
-            borderTop: `1px solid ${theme.palette.divider}`,
-            px: 3,
-            py: 2,
-            }}
-        >
-            <Button onClick={() => setEditDialogOpen(false)} disabled={editLoading}>
-            Cancel
-            </Button>
-            <Button
-            type="submit"
-            variant="contained"
-            disabled={editLoading}
-            sx={{
-              backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable
-              color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-              "&:hover": {
-                backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                opacity: 0.9, // Add hover effect
-              },
-            }}
-            >
-            {editLoading ? 'Saving' : "Save Changes"}
-            </Button>
-        </DialogActions>
-        </form>
-    </Dialog>
     </DashboardManager>
   );
 };

@@ -135,21 +135,19 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
   const getScopeLevels = (role?: string) => {
     switch (role) {
-      case "SuperAdmin":
+      case "branch":
         return [
           { value: "branch", label: "Branch" },
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
-      case "BranchAdmin":
+      case "department":
         return [
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
-      case "DepartmentAdmin":
+      case "unit ":
         return [{ value: "unit", label: "Unit" }];
-      case "UnitAdmin":
-        return []; // no further scope to assign
       default:
         return [];
     }

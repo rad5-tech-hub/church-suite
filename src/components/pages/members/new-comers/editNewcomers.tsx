@@ -184,40 +184,56 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
     e.preventDefault();
     setIsLoading(true);
     try {
-      if (!formData.name || !formData.phoneNo || !formData.sex || !formData.birthMonth || !formData.birthDay) {
+      if (
+        !formData.name ||
+        !formData.phoneNo ||
+        !formData.sex ||
+        !formData.birthMonth ||
+        !formData.birthDay
+      ) {
         throw new Error("Please fill in all required fields");
       }
 
-      // Determine changed fields
-      const changedFields: Partial<FormData> = { branchId: formData.branchId };
+      // Determine changed fields (branchId excluded from body)
+      const changedFields: Partial<FormData> = {};
       Object.keys(formData).forEach((key) => {
         if (key !== "id" && key !== "branchId") {
           const k = key as keyof FormData;
-          if (JSON.stringify(formData[k]) !== JSON.stringify(initialFormData[k])) {
+          if (
+            JSON.stringify(formData[k]) !==
+            JSON.stringify(initialFormData[k])
+          ) {
             (changedFields as any)[k] = formData[k];
           }
         }
       });
 
-      if (Object.keys(changedFields).length === 1 && !changedFields.branchId) {
+      if (Object.keys(changedFields).length === 0) {
         showPageToast("No changes detected", "warning");
         setIsLoading(false);
         return;
       }
 
-      const params = new URLSearchParams();
-      params.append("churchId", authData?.churchId || "");
+      // ✅ branchId goes only in query params
+      await Api.patch(
+        `/member/edit-follow-up/${formData.id}?branchId=${formData.branchId}`,
+        changedFields
+      );
 
-      await Api.patch(`/member/edit-follow-up/${formData.id}?branchId=${formData.branchId}`, changedFields);
       showPageToast("Newcomer updated successfully!", "success");
       setInitialFormData(formData);
       onSuccess?.();
+
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (error: any) {
-      console.error("Error updating newcomer:", error.response?.data || error.message);
+      console.error(
+        "Error updating newcomer:",
+        error.response?.data || error.message
+      );
       let errorMessage = "Failed to update newcomer. Please try again.";
+
       if (error.response?.data?.error?.message) {
         errorMessage = `${error.response.data.error.message} Please try again.`;
       } else if (error.response?.data?.message) {
@@ -229,6 +245,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
       } else if (error.response?.data?.errors) {
         errorMessage = error.response.data.errors.join(", ");
       }
+
       showPageToast(errorMessage, "error");
     } finally {
       setIsLoading(false);

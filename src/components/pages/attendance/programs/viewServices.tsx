@@ -19,11 +19,14 @@ import {
   Chip,
   Grid,
   CircularProgress,
+  FormControl,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { Check } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
-import CreateProgramModal from "./services";
+import { CreateProgramModal } from "./services";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 const localizer = momentLocalizer(moment);
@@ -83,6 +86,11 @@ interface FetchEventsResponse {
   events: Event[];
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
 const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
   return (
     !!data &&
@@ -105,7 +113,31 @@ const ViewServices: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
-  usePageToast('view-programs')
+  usePageToast('view-programs');
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
+  const [branchLoading, setBranchLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fetched, setFetched] = useState(false); // ✅ prevent refetch on every open
+
+  const fetchBranches = async () => {
+    if (fetched) return; // fetch only once
+    setBranchLoading(true);
+    setError(null);
+    try {
+      const res = await Api.get("/church/get-branches");
+
+      // ✅ Axios returns the data directly in res.data
+      const data: Branch[] = res.data.branches;
+
+      setBranches(data);
+      setFetched(true);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || "Something went wrong");
+    } finally {
+      setBranchLoading(false);
+    }
+  };
   
   const eventStatusColors = {
     ongoing: "green",
@@ -128,34 +160,40 @@ const ViewServices: React.FC = () => {
     return eventStatusColors[event.extendedProps.status as keyof typeof eventStatusColors] || eventStatusColors.upcoming;
   };
 
-  const fetchEvents = useCallback(async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
-    setLoading(true);
-    try {
-      let url = `/church/get-events${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`;
-      
-      if (viewType === "month") {
-        const startOfMonth = moment(date).startOf('month').format('YYYY-MM-DD');
-        const endOfMonth = moment(date).endOf('month').format('YYYY-MM-DD');
-        url = `/church/get-events?startDate=${startOfMonth}&endDate=${endOfMonth}`;
-      } else if (viewType === "day") {
-        const day = moment(date).format('YYYY-MM-DD');
-        url = `/church/get-events?date=${day}`;
-      } else{
-        url = `/church/get-events${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`
-      }
+  const fetchEvents = useCallback(
+    async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
+      setLoading(true);
+      try {
+        const branchId = selectedBranch || authData?.branchId;
 
-      const response = await Api.get<FetchEventsResponse>(url);
-      const data = response.data;
-      if (!isFetchEventsResponse(data)) {
-        throw new Error("Invalid response structure");
+        // Build query params
+        const params = new URLSearchParams({ branchId: String(branchId) });
+
+        if (viewType === "month") {
+          params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
+          params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
+        } else if (viewType === "day") {
+          params.append("date", moment(date).format("YYYY-MM-DD"));
+        }
+
+        const url = `/church/get-events?${params.toString()}`;
+
+        const response = await Api.get<FetchEventsResponse>(url);
+        const data = response.data;
+
+        if (!isFetchEventsResponse(data)) {
+          throw new Error("Invalid response structure");
+        }
+
+        setEvents(data.events || []);
+      } catch (error) {
+        showPageToast("Failed to load events", "error");
+      } finally {
+        setLoading(false);
       }
-      setEvents(data.events || []);
-    } catch (error) {
-      showPageToast("Failed to load events", 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [isMobile, view, currentDate]);
+    },
+    [view, currentDate, selectedBranch, authData?.branchId]
+  );
 
   useEffect(() => {
     fetchEvents();
@@ -295,11 +333,26 @@ const ViewServices: React.FC = () => {
 
           <Grid size={{xs:12 , lg: 10.5}}>
             <Box sx={{ borderRadius: 2, boxShadow: 1, p: 2 }}>
-              <Box sx={{ 
-                display: "flex", 
-                flexDirection: { xs: "column", sm: "row" }, 
-                justifyContent: "space-between", 
-                alignItems: { xs: "flex-start", sm: "center" },
+              <Box sx={{                 
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",       // 📱 mobile → single column
+                  md: "1fr 1fr 1fr",  // 💻 medium → main + side by side
+                  lg: "1fr 1fr 1fr",   // 🖥️ large → 2 equal columns
+                  xl: "1fr 1fr 1fr"        // 🖥️ extra large → back to stacked
+                },
+                justifyContent: {
+                  xs: "center",
+                  md: "center",
+                  lg: "space-between",
+                  xl: "space-between"
+                },
+                alignItems: {
+                  xs: "ceneter",
+                  md: "center",
+                  lg: "flex-start",
+                  xl: "flex-start"
+                },
                 mb: 2,
                 gap: 1,
                 backgroundColor: 'transparent',
@@ -307,8 +360,7 @@ const ViewServices: React.FC = () => {
               }}>
                 <Box sx={{ 
                   display: "flex", 
-                  alignItems: "center", 
-                  gap: 1,
+                  alignItems: "center",                 
                   flexWrap: 'wrap',
                   backgroundColor: 'transparent',
                 }}>
@@ -332,9 +384,60 @@ const ViewServices: React.FC = () => {
                   </svg>
                 </Button>
                 </Box>
+
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="body2" sx={{ color: "#777280" , display: { xs: 'none', lg: 'block' }}}>
+                      Branch:
+                    </Typography>
+
+                    <FormControl
+                      size="small"
+                      sx={{
+                        minWidth: 180,
+                        "& .MuiInputBase-root": {
+                          borderRadius: 2,
+                          bgcolor: "#f6f4fe",
+                          color: "#000",
+                        },
+                      }}
+                    >
+                      <Select
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        onOpen={fetchBranches} // ✅ fetch on open
+                        displayEmpty
+                        renderValue={(selected) =>
+                          selected ? branches.find((b) => b.id === selected)?.name : "Select Branch"
+                        }
+                      >
+                        {branchLoading && (
+                          <MenuItem disabled>
+                            <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
+                          </MenuItem>
+                        )}
+
+                        <MenuItem value=""> None</MenuItem>
+
+                        {error && (
+                          <MenuItem disabled sx={{ color: "red" }}>
+                            {error}
+                          </MenuItem>
+                        )}
+
+                        {!branchLoading &&
+                          !error &&
+                          branches.map((branch) => (
+                            <MenuItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+
                 
                 <Box sx={{ display: "flex", gap: 0.5, alignItems:'center'}}>   
-                  <Typography variant="body2" sx={{ color: '#777280' }}>Program for the</Typography>               
+                  <Typography variant="body2" sx={{ color: '#777280', display: { xs: 'none', lg: 'block' } }}>Program for the</Typography>               
                   {["month", "week", "day"].map((viewType) => (
                     <Chip
                       key={viewType}
@@ -425,7 +528,7 @@ const ViewServices: React.FC = () => {
           }}
         />
 
-        <CreateProgramModal
+        <CreateProgramModal        
           open={isOpen}
           onClose={() => setIsOpen(false)}
           onSuccess={() => {

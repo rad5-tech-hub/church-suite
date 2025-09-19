@@ -112,10 +112,18 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
     }
   };
 
-  // Filter manage items to hide "Branches" if not at headquarters
-  const filteredManage = authData?.isHeadQuarter === false
-    ? manage.filter((item) => item.to !== "/manage/view-branches")
-    : manage;
+  // Filter manage items
+  let filteredManage = manage;
+
+  // 🔹 If not HQ → remove branches
+  if (authData?.isHeadQuarter === false) {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
+  }
+
+  // 🔹 If role is unit → remove departments
+  if (authData?.role === "unit") {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-departments");
+  }
 
   const renderSubmenu = (label: string) => {
     if (clickedSubmenu !== label) return null;

@@ -225,89 +225,95 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
 
       <DialogContent dividers>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, py: 2 }}>
-        <FormControl fullWidth size="medium" error={!!errors.branchId}>
-          <Autocomplete
-            disablePortal
-            options={branches.map((branch) => ({
-              label: branch.name,
-              value: branch.id,
-              address: branch.address, // ✅ include address
-            }))}
-            value={
-              formData.branchId
-                ? {
-                    label: branches.find((b) => b.id === formData.branchId)?.name || "",
-                    value: formData.branchId,
-                    address: branches.find((b) => b.id === formData.branchId)?.address || "",
-                  }
-                : null
-            }
-            onChange={(_, newValue) => {
-              handleSelectChange({
-                target: {
-                  name: "branchId",
-                  value: newValue?.value || "",
-                },
-              } as unknown as React.ChangeEvent<HTMLInputElement>);
-            }}
-            getOptionLabel={(option) =>
-              option && typeof option === "object"
-                ? `${option.label}${option.address ? ` — ${option.address}` : ""}`
-                : ""
-            }
-            loading={branchesLoading}
-            renderOption={(props, option) => (
-              <li {...props} key={option.value}>
-                <Box>
-                  <Typography sx={{ fontWeight: 500 }}>{option.label}</Typography>
-                  {option.address && (
-                    <Typography variant="body2" sx={{ fontSize: "0.8rem", color: "#aaa" }}>
-                      {option.address}
-                    </Typography>
-                  )}
-                </Box>
-              </li>
-            )}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Branch *"
-                variant="outlined"
-                placeholder="Select a branch"
-                InputLabelProps={{
-                  sx: {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+          <FormControl fullWidth size="medium" error={!!errors.branchId}>
+            <Autocomplete
+              disablePortal
+              options={branches.map((branch) => ({
+                label: branch.name,
+                value: branch.id,
+                address: branch.address,
+              }))}
+              value={
+                formData.branchId
+                  ? {
+                      label: branches.find((b) => b.id === formData.branchId)?.name || "",
+                      value: formData.branchId,
+                      address: branches.find((b) => b.id === formData.branchId)?.address || "",
+                    }
+                  : null
+              }
+              onChange={(_, newValue) => {
+                handleSelectChange({
+                  target: {
+                    name: "branchId",
+                    value: newValue?.value || "",
                   },
-                }}
-                InputProps={{
-                  ...params.InputProps,
-                  sx: {
-                    color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#F6F4FE",
+                } as unknown as React.ChangeEvent<HTMLInputElement>);
+              }}
+              getOptionLabel={(option) =>
+                option && typeof option === "object"
+                  ? `${option.label}${option.address ? ` — ${option.address}` : ""}`
+                  : ""
+              }
+              loading={branchesLoading}
+              renderOption={(props, option) => (
+                <li {...props} key={option.value}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 500 }}>{option.label}</Typography>
+                    {option.address && (
+                      <Typography variant="body2" sx={{ fontSize: "0.8rem", color: "#aaa" }}>
+                        {option.address}
+                      </Typography>
+                    )}
+                  </Box>
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Branch *"
+                  variant="outlined"
+                  placeholder="Select a branch"
+                  InputLabelProps={{
+                    sx: {
+                      fontSize: isLargeScreen ? "1rem" : undefined,
+                      color: "#F6F4FE",
+                      "&.Mui-focused": { color: "#F6F4FE" },
                     },
-                    "& .MuiAutocomplete-clearIndicator": {
-                      color: "#F6F4FE", // ✅ clear icon styled
+                  }}
+                  InputProps={{
+                    ...params.InputProps,
+                    sx: {
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#F6F4FE",
+                      },
+                      "& .MuiAutocomplete-clearIndicator": {
+                        color: "#F6F4FE", // ✅ clear icon color
+                      },
+                      "& .MuiAutocomplete-popupIndicator": {
+                        color: "#F6F4FE", // ✅ dropdown arrow icon color
+                      },
                     },
-                  },
-                  endAdornment: (
-                    <>
-                      {branchesLoading ? (
-                        <CircularProgress color="inherit" size={16} sx={{ mr: 1 }} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-              />
-            )}
-          />
-          {errors.branchId && <FormHelperText>{errors.branchId}</FormHelperText>}
-        </FormControl>
-
+                    endAdornment: (
+                      <>
+                        {branchesLoading ? (
+                          <CircularProgress
+                            size={16}
+                            sx={{ mr: 1, color: "#F6F4FE" }} // ✅ loader color
+                          />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+            {errors.branchId && <FormHelperText>{errors.branchId}</FormHelperText>}
+          </FormControl>
+          
           <TextField
             fullWidth
             label="Department Name *"

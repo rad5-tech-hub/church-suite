@@ -21,7 +21,7 @@ import { Close } from '@mui/icons-material';
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import dayjs from "dayjs"; // for formatting date
 import Api from '../../../shared/api/api';
-import CreateProgramModal from './services';
+import { EditProgramModal } from './services';
 import RecordDialogue from './record';
 import { CiMoneyBill } from "react-icons/ci";
 
@@ -616,7 +616,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
       </Dialog>
       
       {/* Edit Program Dialog */}
-      <CreateProgramModal
+      <EditProgramModal
         open={EditOpen}
         eventId={eventData.id}
         onClose={() => setEditOpen(false)}

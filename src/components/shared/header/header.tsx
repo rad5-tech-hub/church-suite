@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import Popover from "@mui/material/Popover";
 import { FiLogOut } from "react-icons/fi";
@@ -12,9 +12,12 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ButtonGroup from "@mui/material/ButtonGroup";
 import { store } from "../../reduxstore/redux";
-import { clearAuth } from "../../reduxstore/authstore";
+import { clearAuth, setAuthData } from "../../reduxstore/authstore";
 import MobileNav from "../mobileNav/mobilenav";
 import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
+import { CircularProgress, Select, MenuItem } from "@mui/material";
+import Api from "../api/api";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -72,7 +75,61 @@ const Header: React.FC<HeaderProps> = () => {
 
   const authData = useSelector((state: RootState) => state.auth?.authData);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
+  const open = Boolean(anchorEl);
+  const id = open ? "profile-popover" : undefined;
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
+    // 🔹 State for branches
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const dispatch = useDispatch();
+
+  // 🔹 Fetch branches only when popover opens
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        if (!authData?.id) return;
+
+        setLoading(true);
+        const response = await Api.get(`/church/an-admin/${authData.id}`);
+        const adminData = response.data.admin;
+
+        setBranches(adminData.branches || []);
+        setCurrentBranchId(authData.branchId || null); // sync with current branch
+      } catch (err) {
+        setError(
+          (axios.isAxiosError(err) && err.response?.data?.message) ||
+            "Failed to fetch branches"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (open) {
+      fetchBranches();
+    }
+  }, [authData?.id, authData?.branchId, open]);
+
+  // 🔹 Handle branch switch
+  const handleBranchSelect = (branchId: string) => {
+    setCurrentBranchId(branchId);
+     if (!authData) return; // 🚨 prevents spreading null
+ 
+     setCurrentBranchId(branchId);
+ 
+      dispatch(
+       setAuthData({
+         ...authData,
+         branchId,
+         backgroundImg: authData.backgroundImg ?? "",
+         church_name: authData.church_name ?? "",
+         churchId: authData.churchId ?? "", // 👈 fixes your error
+       })
+     );;
+  };
+
 
   const handleProfileClick = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
@@ -101,9 +158,6 @@ const Header: React.FC<HeaderProps> = () => {
     navigate(defaultRoutes[label]);
     // Don't set activeButton manually — useEffect handles it
   };
-
-  const open = Boolean(anchorEl);
-  const id = open ? "profile-popover" : undefined;
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
@@ -223,6 +277,7 @@ const Header: React.FC<HeaderProps> = () => {
             }}
           >
             <div className="m-1 my-2">
+              {/* Profile link */}
               <div
                 className="flex items-center gap-2 px-5 py-2 m-1 hover:bg-gray-100 rounded-md cursor-pointer"
                 onClick={() => {
@@ -235,6 +290,8 @@ const Header: React.FC<HeaderProps> = () => {
                   Profile
                 </Typography>
               </div>
+
+              {/* Logout */}
               <div
                 className="flex items-center gap-2 px-5 py-2 m-1 cursor-pointer hover:bg-gray-100 rounded-md"
                 onClick={handleOpenLogoutModal}
@@ -244,6 +301,41 @@ const Header: React.FC<HeaderProps> = () => {
                   Logout
                 </Typography>
               </div>
+
+              {/* Switch Branch */}
+              <Box
+                sx={{
+                  px: 2,
+                  py: 2,
+                  borderTop: "1px solid #eee",
+                  mt: 1,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{ mb: 1, color: "gray", fontWeight: 500 }}
+                >
+                  Switch Branch
+                </Typography>
+                <Select
+                  value={currentBranchId || ""}
+                  onChange={(e) => handleBranchSelect(e.target.value)}
+                  fullWidth
+                  size="small"
+                  sx={{
+                    backgroundColor: "#f9f9f9",
+                    borderRadius: 1,
+                  }}
+                >
+                  {branches.map((branch) => (
+                    <MenuItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </MenuItem>
+                  ))}
+                </Select>                                
+                {error && (<span color="text-red-300">{error}</span>)}
+                {loading && (<span><CircularProgress size={10} /> Loading...</span>)}
+              </Box>
             </div>
           </Popover>
         </div>

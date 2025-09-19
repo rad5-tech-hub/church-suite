@@ -46,6 +46,7 @@ import DashboardManager from "../../../shared/dashboardManager";
 import DepartmentModal from "./department";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
+import { Navigate } from "react-router-dom";
 
 interface Department {
   id: string;
@@ -279,6 +280,10 @@ const ViewDepartment: React.FC = () => {
       setBranchesLoaded(true);
     }
   };
+
+  if (authData?.role === "unit") {
+    return <Navigate to="/manage/view-admins" replace />;
+  }
 
   const fetchDepartments = useCallback(
     async (url: string | null = `/church/get-departments${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`): Promise<FetchDepartmentsResponse> => {
@@ -703,7 +708,11 @@ const ViewDepartment: React.FC = () => {
                         disableUnderline: true,
                         sx: { color: "#F6F4FE", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
                       }}
-                      sx={{ "& .MuiOutlinedInput-root": { border: "none" } }}
+                      sx={{ "& .MuiOutlinedInput-root": { border: "none" },
+                          "& .MuiAutocomplete-clearIndicator": {
+                            color: "#F6F4FE", // ✅ ensure cancel icon stays styled
+                          },
+                      }}
                     />
                   )}
                   sx={{ flex: 1, minWidth: 200 }}

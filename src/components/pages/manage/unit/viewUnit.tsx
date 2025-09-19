@@ -24,7 +24,6 @@ import {
   CircularProgress,
   Select,
   FormControl,
-  InputLabel,
   Drawer,
   Autocomplete,
 } from "@mui/material";
@@ -617,48 +616,38 @@ const ViewUnit: React.FC = () => {
   );
 
   const handleEditSubmit = useCallback(async () => {
-    if (
-      !state.currentUnit?.id ||
-      !state.editFormData.name.trim() ||
-      !state.editFormData.branchId ||
-      !state.editFormData.departmentId
-    ) {
+    if (!state.currentUnit?.id || !state.editFormData.name.trim()) {
       handleStateChange(
         "nameError",
         !state.editFormData.name.trim() ? "Unit name is required" : null
       );
-      if (!state.editFormData.branchId) showPageToast("Branch is required", "error");
-      if (!state.editFormData.departmentId) showPageToast("Department is required", "error");
       return;
     }
 
     try {
       handleStateChange("loading", true);
 
-      const payload: Partial<typeof state.editFormData> = {
-        branchId: state.editFormData.branchId, // ✅ always include branchId
-      };
+      const payload: Partial<typeof state.editFormData> = {};
 
       const original = state.currentUnit;
 
-      Object.keys(state.editFormData).forEach((key) => {
-        const k = key as keyof typeof state.editFormData;
+      // Only check name and description
+      (["name", "description"] as (keyof typeof state.editFormData)[]).forEach(
+        (k) => {
+          const newValue =
+            k === "description"
+              ? state.editFormData[k]?.trim() || null
+              : state.editFormData[k];
+          const oldValue = original[k] ?? null;
 
-        if (k === "branchId") return; // already included
-
-        const newValue =
-          k === "description"
-            ? (state.editFormData[k]?.trim() || null)
-            : state.editFormData[k];
-        const oldValue = original[k] ?? null;
-
-        if (newValue !== oldValue) {
-          payload[k] = newValue as any;
+          if (newValue !== oldValue) {
+            payload[k] = newValue as any;
+          }
         }
-      });
+      );
 
-      if (Object.keys(payload).length === 1 && payload.branchId) {
-        // only branchId present, no actual changes
+      if (Object.keys(payload).length === 0) {
+        // no changes
         showPageToast("No changes to update", "warning");
         handleStateChange("loading", false);
         return;
@@ -836,7 +825,11 @@ const ViewUnit: React.FC = () => {
                         disableUnderline: true,
                         sx: { color: "#F6F4FE", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
                       }}
-                      sx={{ "& .MuiOutlinedInput-root": { border: "none" } }}
+                      sx={{ "& .MuiOutlinedInput-root": { border: "none" },                                            
+                          "& .MuiAutocomplete-clearIndicator": {
+                            color: "#F6F4FE", // ✅ ensure cancel icon stays styled
+                          },
+                      }}                    
                     />
                   )}
                   sx={{ flex: 1, minWidth: 200 }}
@@ -1240,7 +1233,7 @@ const ViewUnit: React.FC = () => {
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.currentUnit?.isDeleted || state.loading}>
+          <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.currentUnit?.isDeleted || state.loading || authData?.isSuperAdmin === false}>
             {state.currentUnit?.isActive ? (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
@@ -1253,7 +1246,7 @@ const ViewUnit: React.FC = () => {
               </>
             )}
           </MenuItem>
-          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.currentUnit?.isDeleted || state.loading}>
+          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.currentUnit?.isDeleted || state.loading || authData?.isSuperAdmin === false}>
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
           </MenuItem>
@@ -1300,7 +1293,7 @@ const ViewUnit: React.FC = () => {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-              <FormControl fullWidth>
+              {/* <FormControl fullWidth>
                 <InputLabel 
                   id="edit-branch-select-label" 
                   sx={{ 
@@ -1388,7 +1381,7 @@ const ViewUnit: React.FC = () => {
                     ))
                   )}
                 </Select>
-              </FormControl>
+              </FormControl> */}
               <TextField
                 fullWidth
                 label="Unit Name *"

@@ -16,7 +16,6 @@ const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartme
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
-const ViewSingleFollowUp = React.lazy(() => import("./members/new-comers/singlefollowup"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
@@ -103,12 +102,7 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <ViewFollowUp/>
             </PrivateRoute>
-          } />
-            <Route path="/view/single-fellower/:followUpId" element={
-            <PrivateRoute>
-              <ViewSingleFollowUp/>
-            </PrivateRoute>
-          } />
+          } />           
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>

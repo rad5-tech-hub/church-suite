@@ -452,9 +452,19 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
     try {
       // Validate required fields
-      if (!formData.name || !formData.address || !formData.phoneNo || !formData.birthMonth || !formData.birthDay || !formData.state || !formData.nationality || !formData.branchId) {
+      if (
+        !formData.name ||
+        !formData.address ||
+        !formData.phoneNo ||
+        !formData.birthMonth ||
+        !formData.birthDay ||
+        !formData.state ||
+        !formData.nationality ||
+        !formData.branchId
+      ) {
         throw new Error("Please fill in all required fields");
       }
 
@@ -471,24 +481,32 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       }
 
       // Determine changed fields
-      const changedFields: Partial<FormData> & Record<string, unknown> = { branchId: formData.branchId };
+      const changedFields: Partial<FormData> & Record<string, unknown> = {};
+
       Object.keys(formData).forEach((key) => {
-        if (key !== "branchId" && key !== "id" && key !== "activity" && key !== "branch") {
+        if (key !== "id" && key !== "activity" && key !== "branch") {
           const k = key as keyof FormData;
-          if (JSON.stringify(formData[k]) !== JSON.stringify(initialFormData[k])) {
-            (changedFields as Record<string, unknown>)[k as string] = formData[k];
+          const newValue = formData[k];
+          const oldValue = initialFormData[k];
+
+          if (JSON.stringify(newValue) !== JSON.stringify(oldValue)) {
+            (changedFields as Record<string, unknown>)[k as string] = newValue;
           }
         }
       });
 
-      if (Object.keys(changedFields).length === 1 && !changedFields.branchId) {
+      // If nothing changed
+      if (Object.keys(changedFields).length === 0) {
         showPageToast("No changes detected", "warning");
         setIsLoading(false);
         return;
       }
 
-      // Call API to patch with only changed fields
-      await Api.patch(`member/edit-member/${formData.id}/branch/${formData.branchId}`, changedFields);
+      // Call API with only changed fields
+      await Api.patch(
+        `member/edit-member/${formData.id}/branch/${formData.branchId}`,
+        changedFields
+      );
 
       showPageToast("Worker updated successfully!", "success");
 
@@ -500,10 +518,12 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         setCurrentStep(0);
         onClose();
       }, 1500);
-
     } catch (error: any) {
       console.error(error);
-      const errorMessage = error.response?.data?.message || error.message || "Failed to update worker. Please try again.";
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update worker. Please try again.";
       showPageToast(errorMessage, "error");
     } finally {
       setIsLoading(false);

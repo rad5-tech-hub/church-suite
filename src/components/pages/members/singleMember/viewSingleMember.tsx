@@ -15,6 +15,7 @@ import {
   Phone as PhoneIcon, 
   Email as EmailIcon, 
   WhatsApp as WhatsAppIcon,
+  ArrowBack,
 } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { useNavigate, useParams } from "react-router-dom";
@@ -184,6 +185,35 @@ const ViewSingleMember: React.FC = () => {
               >
                 View and manage your profile information.
               </Typography>
+            </Grid>
+            <Grid 
+                size={{xs:12, md:4}}
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                  alignItems: 'center'
+                }}
+              >
+              <Button
+                variant="contained"
+                startIcon={<ArrowBack />}
+                onClick={() => navigate(-1)} // go back one page
+                size="medium"
+                sx={{
+                  backgroundColor: "var(--color-primary)",
+                  borderRadius: 1,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "var(--color-text-on-primary)",
+                  "&:hover": {
+                    backgroundColor: "var(--color-primary)",
+                    opacity: 0.9,
+                  },
+                }}
+              >
+                Back
+              </Button>
             </Grid>
           </Grid>
 

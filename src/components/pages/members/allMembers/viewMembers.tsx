@@ -1017,7 +1017,7 @@ const ViewMembers: React.FC = () => {
 
         {state.filteredMembers.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
+            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 5 }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
                   <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
@@ -1093,7 +1093,7 @@ const ViewMembers: React.FC = () => {
             <Box
               sx={{
                 position: "fixed",       // keeps it fixed on screen
-                bottom: 100,              // distance from bottom
+                bottom: 70,              // distance from bottom
                 right: 24,               // distance from right
                 zIndex: 1300,            // ensure it stays on top
                 p: 0,
@@ -1131,7 +1131,7 @@ const ViewMembers: React.FC = () => {
                   ) : (
                     <span className="flex items-center gap-1">
                       {/* Show text only on medium and above */}
-                      <span className="hidden md:inline">Download Workers</span>
+                      <span className="hidden lg:inline">Download Workers</span>
                       <PiDownloadThin className="text-lg" />
                     </span>
                   )}
@@ -1180,6 +1180,7 @@ const ViewMembers: React.FC = () => {
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
+          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete" ? "Delete Worker" : "Suspend Worker"}

@@ -28,10 +28,19 @@ const Sidebar: React.FC = () => {
     { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
   ];
 
-  // Filter manage items to hide "Branches" if not at headquarters
-  const filteredManage = authData?.isHeadQuarter === false
-    ? manage.filter((item) => item.to !== "/manage/view-branches")
-    : manage;
+  // Filter manage items
+  let filteredManage = manage;
+
+  // 🔹 If not HQ → remove branches
+  if (authData?.isHeadQuarter === false) {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
+  }
+
+  // 🔹 If role is unit → remove departments
+  if (authData?.role === "unit") {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-departments");
+  }
+
 
   return (
     <div className={`flex-shrink-0 h-screen ${isManageRoute || isMemberRoute ? 'w-23' : ''}    bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col z-40`}>

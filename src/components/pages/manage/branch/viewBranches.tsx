@@ -628,6 +628,13 @@ const fetchBranches = useCallback(
     return <Navigate to="/manage/view-admins" replace />;
   }
 
+  // ✅ Deduplicate by address
+  const uniqueBranches = Array.from(
+    new Map(
+      state.branches.map((branch) => [branch.address, branch]) // address as key
+    ).values()
+  );
+
   return (
     <DashboardManager> 
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
@@ -661,7 +668,7 @@ const fetchBranches = useCallback(
                   padding: "4px",
                   width: "fit-content",
                   gap: "8px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                   "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                 }}
               >
@@ -675,7 +682,8 @@ const fetchBranches = useCallback(
                   </Typography>
                   <Autocomplete
                     freeSolo
-                    options={state.branches.map((branch) => branch.name)} // Suggest branch names
+                    options={state.branches} // Pass full branch objects
+                    getOptionLabel={(option) => (typeof option === "string" ? option : option.name)} // Handle both string & object
                     value={state.searchTerm}
                     onInputChange={(_, newValue) => handleStateChange("searchTerm", newValue)}
                     renderInput={(params) => (
@@ -691,6 +699,9 @@ const fetchBranches = useCallback(
                             fontWeight: 500,
                             fontSize: "14px",
                             py: "4px",
+                            "& .MuiAutocomplete-clearIndicator": {
+                              color: "#F6F4FE",
+                            },
                           },
                         }}
                       />
@@ -702,22 +713,27 @@ const fetchBranches = useCallback(
 
                 {/* Location Autocomplete */}
                 <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 8px", minWidth: 160 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-                  >
-                    Location
-                  </Typography>
                   <Autocomplete
-                    freeSolo
-                    options={state.branches.map((branch) => branch.address)} // ✅ show branch locations
-                    value={state.locationFilter}
-                    onInputChange={(_, newValue) => handleStateChange("locationFilter", newValue)}
+                    options={uniqueBranches.map((branch) => ({
+                      id: branch.id,
+                      label: branch.address || "",
+                    }))}
+                    value={
+                      state.locationFilter
+                        ? { id: state.locationFilter, label: state.locationFilter }
+                        : null
+                    }
+                    onChange={(_, newValue) =>
+                      handleStateChange("locationFilter", newValue?.label || "")
+                    }
+                    getOptionLabel={(option) => option.label || ""}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    popupIcon={null} // ✅ removes dropdown arrow
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        variant="standard"
                         placeholder="Search by location"
+                        variant="standard"
                         InputProps={{
                           ...params.InputProps,
                           disableUnderline: true,
@@ -727,7 +743,7 @@ const fetchBranches = useCallback(
                             fontSize: "14px",
                             py: "4px",
                             "& .MuiAutocomplete-clearIndicator": {
-                              color: "#F6F4FE", // ✅ cancel/clear icon color
+                              color: "#F6F4FE",
                             },
                           },
                         }}
@@ -735,7 +751,6 @@ const fetchBranches = useCallback(
                     )}
                   />
                 </Box>
-
 
                 {/* Search button */}
                 <Box sx={{ pr: "8px" }}>
@@ -930,7 +945,7 @@ const fetchBranches = useCallback(
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("suspend")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
           >
             {state.currentBranch?.isActive ? (
               <>
@@ -946,7 +961,7 @@ const fetchBranches = useCallback(
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("delete")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
           >
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
@@ -1120,6 +1135,13 @@ const fetchBranches = useCallback(
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: 2,
+              bgcolor: "#2C2C2C",
+              color: "#F6F4FE",
+            },
+          }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"
@@ -1148,7 +1170,8 @@ const fetchBranches = useCallback(
             </Button>
             <Button
               onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400",
+                "&:hover": { backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400", opacity: 0.9 } }}
               color={state.actionType === "delete" ? "error" : "primary"}
               variant="contained"
               disabled={state.loading || (state.actionType === "delete" && state.currentBranch?.isHeadQuarter)}

@@ -394,8 +394,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   type="tel"
                   value={formData.phoneNo}
                   onChange={handleChange}
-                  placeholder="Enter your phone number"
-                  required
+                  placeholder="Enter your phone number"                  
                   disabled={isLoading}
                   InputProps={{
                     startAdornment: (
@@ -521,7 +520,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             <Grid size={{ xs: 12, md: 6 }}>
               <Autocomplete
-                id="birthDate"
+                id="birthDate"              
                 options={(() => {
                   const options = [];
                   for (const month of months) {
@@ -583,8 +582,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <TextField
                     {...params}
                     label="Date of Birth *"
-                    variant="outlined"
                     required
+                    variant="outlined"                    
                     InputLabelProps={{
                       sx: {
                         color: '#F6F4FE',
@@ -639,6 +638,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   label="Attendance Duration"
                   onChange={handleChange}
                   disabled={isLoading}
+                  required
                   startAdornment={
                     <InputAdornment position="start">
                       <FiClock style={{ color: '#F6F4FE' }} />
