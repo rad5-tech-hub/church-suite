@@ -257,13 +257,11 @@ const fetchBranches = useCallback(
         const params = new URLSearchParams();
 
         if (state.searchTerm) {
-          params.append("search", state.searchTerm);
-          params.append("searchField", "name");
+          params.append("search[name]", state.searchTerm);        
         }
 
         if (state.locationFilter) {
-          params.append("search", state.locationFilter);
-          params.append("searchField", "address");
+          params.append("search[address]", state.locationFilter);
         }
         const fullUrl =
           url && url.includes("?")

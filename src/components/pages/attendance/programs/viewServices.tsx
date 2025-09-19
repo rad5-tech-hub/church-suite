@@ -170,6 +170,12 @@ const ViewServices: React.FC = () => {
         const params = new URLSearchParams({ branchId: String(branchId) });
 
         if (viewType === "month") {
+          // For month view, fetch the entire month
+          params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
+          params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
+        } else if (viewType === "week") {
+          // If the week is not exact (e.g., partial week in the month), fetch the entire month
+          // You can adjust logic here if you want only the current week
           params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
           params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
         } else if (viewType === "day") {
