@@ -1,11 +1,11 @@
-import React from "react";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import { showPageToast } from "../../../util/pageToast";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import EventSummaryDialog from "./programOverview";
 import { RRule } from "rrule";
 import {
   Box,
@@ -27,16 +27,21 @@ import { Check } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { CreateProgramModal } from "./services";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../reduxstore/redux";
+import EventSummaryDialog from "./programOverview";
+
 const localizer = momentLocalizer(moment);
+
+interface Branch {
+  id: string;
+  name: string;
+}
 
 interface Occurrence {
   id: string;
   eventId: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
   isCancelled: boolean;
   hasAttendance: boolean;
   dayOfWeek: string;
@@ -47,7 +52,7 @@ interface Occurrence {
 interface Event {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   date: string;
   customRecurrenceDates: string[] | null;
   recurrenceType: string;
@@ -69,11 +74,12 @@ interface CalendarEvent {
   end: Date;
   color: string;
   extendedProps: {
-    description: string;
+    description: string | null;
     recurrenceType: string;
     eventId: string;
     occurrenceId: string;
     status: string;
+    dayOfWeek: string;
   };
   rrule?: {
     freq: number;
@@ -86,9 +92,8 @@ interface FetchEventsResponse {
   events: Event[];
 }
 
-interface Branch {
-  id: string;
-  name: string;
+interface AuthData {
+  branchId?: string;
 }
 
 const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
@@ -104,41 +109,23 @@ const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
 const ViewServices: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const authData = useSelector((state: RootState) => state?.auth?.authData as AuthData | undefined);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [, setCurrentEvent] = useState<Event | null>(null);
   const [currentOccurrence, setCurrentOccurrence] = useState<Occurrence | null>(null);
-  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [view, setView] = useState<"month" | "week" | "day">("week");
   const [isOpen, setIsOpen] = useState(false);
-  usePageToast('view-programs');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [branchLoading, setBranchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fetched, setFetched] = useState(false); // ✅ prevent refetch on every open
+  const [fetched, setFetched] = useState(false);
 
-  const fetchBranches = async () => {
-    if (fetched) return; // fetch only once
-    setBranchLoading(true);
-    setError(null);
-    try {
-      const res = await Api.get("/church/get-branches");
+  usePageToast("view-programs");
 
-      // ✅ Axios returns the data directly in res.data
-      const data: Branch[] = res.data.branches;
-
-      setBranches(data);
-      setFetched(true);
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || "Something went wrong");
-    } finally {
-      setBranchLoading(false);
-    }
-  };
-  
   const eventStatusColors = {
     ongoing: "green",
     pending: "orange",
@@ -148,11 +135,9 @@ const ViewServices: React.FC = () => {
 
   const getEventStatus = (start: Date, end: Date): keyof typeof eventStatusColors => {
     const now = new Date();
-    
     if (now > end) return "past";
     if (now >= start && now <= end) return "ongoing";
-    if (now < start && (start.getTime() - now.getTime()) <= 24 * 60 * 60 * 1000) return "pending";
-    
+    if (now < start && start.getTime() - now.getTime() <= 24 * 60 * 60 * 1000) return "pending";
     return "upcoming";
   };
 
@@ -160,30 +145,45 @@ const ViewServices: React.FC = () => {
     return eventStatusColors[event.extendedProps.status as keyof typeof eventStatusColors] || eventStatusColors.upcoming;
   };
 
+  const fetchBranches = useCallback(async () => {
+    if (fetched) return;
+    setBranchLoading(true);
+    setError(null);
+    try {
+      const res = await Api.get("/church/get-branches");
+      const data: Branch[] = res.data.branches || [];
+      setBranches(data);
+      setSelectedBranch(authData?.branchId || data[0]?.id || "");
+      setFetched(true);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || "Failed to fetch branches");
+    } finally {
+      setBranchLoading(false);
+    }
+  }, [fetched, authData?.branchId]);
+
   const fetchEvents = useCallback(
     async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
       setLoading(true);
       try {
-        const branchId = selectedBranch || authData?.branchId;
+        const branchId = selectedBranch || authData?.branchId || "";
+        if (!branchId) {
+          throw new Error("No branch selected");
+        }
 
-        // Build query params
-        const params = new URLSearchParams({ branchId: String(branchId) });
+        const params = new URLSearchParams({ branchId });
 
         if (viewType === "month") {
-          // For month view, fetch the entire month
           params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
           params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
         } else if (viewType === "week") {
-          // If the week is not exact (e.g., partial week in the month), fetch the entire month
-          // You can adjust logic here if you want only the current week
-          params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
-          params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
+          params.append("startDate", moment(date).startOf("week").format("YYYY-MM-DD"));
+          params.append("endDate", moment(date).endOf("week").format("YYYY-MM-DD"));
         } else if (viewType === "day") {
           params.append("date", moment(date).format("YYYY-MM-DD"));
         }
 
         const url = `/church/get-events?${params.toString()}`;
-
         const response = await Api.get<FetchEventsResponse>(url);
         const data = response.data;
 
@@ -202,57 +202,70 @@ const ViewServices: React.FC = () => {
   );
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (selectedBranch || authData?.branchId) {
+      fetchEvents();
+    }
+  }, [fetchEvents, selectedBranch, authData?.branchId]);
 
-  const handleViewChange = useCallback((newView: "month" | "week" | "day") => {
-    setView(newView);
-    fetchEvents(newView, currentDate);
-  }, [fetchEvents, currentDate]);
+  const handleViewChange = useCallback(
+    (newView: "month" | "week" | "day") => {
+      setView(newView);
+      fetchEvents(newView, currentDate);
+    },
+    [fetchEvents, currentDate]
+  );
 
-  const handleNavigate = useCallback((newDate: Date) => {
-    setCurrentDate(newDate);
-    fetchEvents(view, newDate);
-  }, [fetchEvents, view]);
+  const handleNavigate = useCallback(
+    (newDate: Date) => {
+      setCurrentDate(newDate);
+      fetchEvents(view, newDate);
+    },
+    [fetchEvents, view]
+  );
 
   const calendarEvents: CalendarEvent[] = events.flatMap((e) =>
-    e.occurrences.map((occ) => {
-      const startDateTime = occ.startTime 
-        ? moment(`${occ.date.split("T")[0]}T${occ.startTime}`).toDate()
-        : moment(occ.date).startOf('day').toDate();
-      
-      const endDateTime = occ.endTime 
-        ? moment(`${occ.date.split("T")[0]}T${occ.endTime}`).toDate()
-        : moment(occ.date).endOf('day').toDate();
-      
-      const eventStatus = getEventStatus(startDateTime, endDateTime);
-      
-      return {
-        id: `${e.id}-${occ.id}`,
-        title: e.title,
-        start: startDateTime,
-        end: endDateTime,
-        color: eventStatusColors[eventStatus],
-        extendedProps: {
-          description: e.description,
-          recurrenceType: e.recurrenceType,
-          eventId: e.id,
-          occurrenceId: occ.id,
-          status: eventStatus,
-        },
-        rrule: e.recurrenceType && e.recurrenceType !== "none"
-          ? {
-              freq:
-                e.recurrenceType === "weekly"
-                  ? RRule.WEEKLY
-                  : e.recurrenceType === "monthly"
-                  ? RRule.MONTHLY
-                  : RRule.DAILY,
-              dtstart: new Date(e.date),
-            }
-          : undefined,
-      };
-    })
+    e.occurrences
+      .filter((occ) => !occ.isCancelled) // Skip cancelled occurrences
+      .map((occ) => {
+        // Recalculate dayOfWeek to ensure accuracy
+        const eventDate = moment(occ.date).toDate();
+        const dayOfWeek = moment(eventDate).format("dddd");
+
+        // Handle null startTime and endTime with fallback times
+        const startTime = occ.startTime || "09:00"; // Default to 9:00 AM
+        const endTime = occ.endTime || "17:00"; // Default to 5:00 PM
+        const startDateTime = moment(`${occ.date.split("T")[0]}T${startTime}`).toDate();
+        const endDateTime = moment(`${occ.date.split("T")[0]}T${endTime}`).toDate();
+
+        const eventStatus = getEventStatus(startDateTime, endDateTime);
+
+        return {
+          id: `${e.id}-${occ.id}`,
+          title: e.title,
+          start: startDateTime,
+          end: endDateTime,
+          color: eventStatusColors[eventStatus],
+          extendedProps: {
+            description: e.description,
+            recurrenceType: e.recurrenceType,
+            eventId: e.id,
+            occurrenceId: occ.id,
+            status: eventStatus,
+            dayOfWeek, // Include recalculated dayOfWeek
+          },
+          rrule: e.recurrenceType && e.recurrenceType !== "none"
+            ? {
+                freq:
+                  e.recurrenceType === "weekly"
+                    ? RRule.WEEKLY
+                    : e.recurrenceType === "monthly"
+                    ? RRule.MONTHLY
+                    : RRule.DAILY,
+                dtstart: new Date(e.date),
+              }
+            : undefined,
+        };
+      })
   );
 
   const handleSelectEvent = useCallback(
@@ -270,29 +283,34 @@ const ViewServices: React.FC = () => {
     [events]
   );
 
-  // Custom event component to show time
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
     const formatTime = (date: Date) => moment(date).format("h:mm A");
-    
+    const isTimeAvailable = event.start && event.end && !moment(event.start).isSame(moment(event.end), "day");
+
     return (
       <div style={{ padding: "2px", overflow: "hidden" }}>
         <div style={{ fontSize: "10px", fontWeight: "bold" }}>
-          {formatTime(event.start)} - {formatTime(event.end)}
+          {isTimeAvailable ? `${formatTime(event.start)} - ${formatTime(event.end)}` : "No time specified"}
         </div>
         <div style={{ fontSize: "12px" }}>{event.title}</div>
+        <div style={{ fontSize: "10px", color: "gray" }}>{event.extendedProps.dayOfWeek}</div>
       </div>
     );
   };
 
   return (
-    <DashboardManager>    
-      <Box sx={{ minHeight: "100vh", py:3, px:1 }}>
+    <DashboardManager>
+      <Box sx={{ minHeight: "100vh", py: 3, px: 1 }}>
         <Grid container spacing={2}>
-          <Grid size={{xs:12 , lg: 1.5,}}>
-            <Box sx={{ borderRadius: 2, boxShadow: {lg: 0, sm: 1},            
-              display: 'flex', 
-              flexDirection: 'column',
-              }}>
+          <Grid size={{ xs: 12, lg: 1.5 }}>
+            <Box
+              sx={{
+                borderRadius: 2,
+                boxShadow: { lg: 0, sm: 1 },
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
               <Button
                 variant="contained"
                 onClick={() => setIsOpen(true)}
@@ -328,161 +346,138 @@ const ViewServices: React.FC = () => {
                     >
                       <Check sx={{ fontSize: "20px" }} />
                     </IconButton>
-                    <span className="text-sm" style={{ textTransform: 'capitalize' }}>
-                      {status}
-                    </span>
+                    <span style={{ textTransform: "capitalize" }}>{status}</span>
                   </ListItem>
                 ))}
               </List>
             </Box>
           </Grid>
 
-          <Grid size={{xs:12 , lg: 10.5}}>
+          <Grid size={{ xs: 12, lg: 10.5 }}>
             <Box sx={{ borderRadius: 2, boxShadow: 1, p: 2 }}>
-              <Box sx={{                 
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",       // 📱 mobile → single column
-                  md: "1fr 1fr 1fr",  // 💻 medium → main + side by side
-                  lg: "1fr 1fr 1fr",   // 🖥️ large → 2 equal columns
-                  xl: "1fr 1fr 1fr"        // 🖥️ extra large → back to stacked
-                },
-                justifyContent: {
-                  xs: "center",
-                  md: "center",
-                  lg: "space-between",
-                  xl: "space-between"
-                },
-                alignItems: {
-                  xs: "ceneter",
-                  md: "center",
-                  lg: "flex-start",
-                  xl: "flex-start"
-                },
-                mb: 2,
-                gap: 1,
-                backgroundColor: 'transparent',
-                color: '#f6f4fe'
-              }}>
-                <Box sx={{ 
-                  display: "flex", 
-                  alignItems: "center",                 
-                  flexWrap: 'wrap',
-                  backgroundColor: 'transparent',
-                }}>
-                <Typography variant="h6" sx={{ fontSize: "1.125rem", fontWeight: "medium" }}>
-                  {moment(currentDate).format("MMMM YYYY")}
-                </Typography>
-                <Button
-                  onClick={() => handleNavigate(moment(currentDate).subtract(1, view).toDate())}
-                  sx={{ p: 1, color: '#f6f4fe', "&:hover": { bgcolor: "grey.100" , color: 'purple'}, borderRadius: 1 }}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </Button>
-                <Button
-                  onClick={() => handleNavigate(moment(currentDate).add(1, view).toDate())}
-                  sx={{ p: 1,  color: '#f6f4fe', "&:hover": { bgcolor: "grey.100" , color: 'purple'},  borderRadius: 1 }}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Button>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    md: "1fr 1fr 1fr",
+                    lg: "1fr 1fr 1fr",
+                    xl: "1fr 1fr 1fr",
+                  },
+                  justifyContent: { xs: "center", md: "space-between", lg: "space-between" },
+                  alignItems: { xs: "center", md: "center", lg: "flex-start" },
+                  mb: 2,
+                  gap: 1,
+                  backgroundColor: "transparent",
+                  color: "#f6f4fe",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+                  <Typography variant="h6" sx={{ fontSize: "1.125rem", fontWeight: "medium" }}>
+                    {moment(currentDate).format("MMMM YYYY")}
+                  </Typography>
+                  <Button
+                    onClick={() => handleNavigate(moment(currentDate).subtract(1, view).toDate())}
+                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </Button>
+                  <Button
+                    onClick={() => handleNavigate(moment(currentDate).add(1, view).toDate())}
+                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Button>
                 </Box>
 
-                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                    <Typography variant="body2" sx={{ color: "#777280" , display: { xs: 'none', lg: 'block' }}}>
-                      Branch:
-                    </Typography>
-
-                    <FormControl
-                      size="small"
-                      sx={{
-                        minWidth: 180,
-                        "& .MuiInputBase-root": {
-                          borderRadius: 2,
-                          bgcolor: "#f6f4fe",
-                          color: "#000",
-                        },
-                      }}
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
+                    Branch:
+                  </Typography>
+                  <FormControl
+                    size="small"
+                    sx={{
+                      minWidth: 180,
+                      "& .MuiInputBase-root": { borderRadius: 2, bgcolor: "#f6f4fe", color: "#000" },
+                    }}
+                  >
+                    <Select
+                      value={selectedBranch}
+                      onChange={(e) => setSelectedBranch(e.target.value)}
+                      onOpen={fetchBranches}
+                      displayEmpty
+                      renderValue={(selected) =>
+                        selected ? branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"
+                      }
                     >
-                      <Select
-                        value={selectedBranch}
-                        onChange={(e) => setSelectedBranch(e.target.value)}
-                        onOpen={fetchBranches} // ✅ fetch on open
-                        displayEmpty
-                        renderValue={(selected) =>
-                          selected ? branches.find((b) => b.id === selected)?.name : "Select Branch"
-                        }
-                      >
-                        {branchLoading && (
-                          <MenuItem disabled>
-                            <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
+                      {branchLoading && (
+                        <MenuItem disabled>
+                          <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
+                        </MenuItem>
+                      )}
+                      <MenuItem value="">None</MenuItem>
+                      {error && (
+                        <MenuItem disabled sx={{ color: "red" }}>
+                          {error}
+                        </MenuItem>
+                      )}
+                      {!branchLoading &&
+                        !error &&
+                        branches.map((branch) => (
+                          <MenuItem key={branch.id} value={branch.id}>
+                            {branch.name}
                           </MenuItem>
-                        )}
+                        ))}
+                    </Select>
+                  </FormControl>
+                </Box>
 
-                        <MenuItem value=""> None</MenuItem>
-
-                        {error && (
-                          <MenuItem disabled sx={{ color: "red" }}>
-                            {error}
-                          </MenuItem>
-                        )}
-
-                        {!branchLoading &&
-                          !error &&
-                          branches.map((branch) => (
-                            <MenuItem key={branch.id} value={branch.id}>
-                              {branch.name}
-                            </MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-
-                
-                <Box sx={{ display: "flex", gap: 0.5, alignItems:'center'}}>   
-                  <Typography variant="body2" sx={{ color: '#777280', display: { xs: 'none', lg: 'block' } }}>Program for the</Typography>               
+                <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                  <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
+                    Program for the
+                  </Typography>
                   {["month", "week", "day"].map((viewType) => (
                     <Chip
                       key={viewType}
                       label={viewType.charAt(0).toUpperCase() + viewType.slice(1)}
-                      onClick={() => handleViewChange(viewType as "month" | "week" | "day")}                      
+                      onClick={() => handleViewChange(viewType as "month" | "week" | "day")}
                       sx={{
-                        p: 2, 
-                        color: view === viewType ? "grey" : "#777280", 
-                        bgcolor: view === viewType ? '#f6f4fe' : 'none', 
-                        cursor: 'pointer'
+                        p: 2,
+                        color: view === viewType ? "grey" : "#777280",
+                        bgcolor: view === viewType ? "#f6f4fe" : "none",
+                        cursor: "pointer",
                       }}
                       variant={view === viewType ? "filled" : "outlined"}
                       size="small"
                     />
                   ))}
                 </Box>
-              </Box>                         
-              <Box sx={{ backgroundColor: '#f6f4fe', borderRadius: 2, p: 1, position: "relative" }}>
+              </Box>
+
+              <Box sx={{ backgroundColor: "#f6f4fe", borderRadius: 2, p: 1, position: "relative" }}>
                 <Calendar
                   localizer={localizer}
                   events={calendarEvents}
                   startAccessor="start"
                   endAccessor="end"
-                  style={{ 
+                  style={{
                     height: "calc(100vh - 180px)",
-                    minHeight: "600px"
+                    minHeight: "600px",
                   }}
                   eventPropGetter={(event) => ({
-                    style: {                  
+                    style: {
                       color: "#000",
                       backgroundColor: getEventColor(event as CalendarEvent),
                       borderRadius: "3px",
                       border: "none",
                     },
                   })}
-                  components={{
-                    event: EventComponent
-                  }}
-                  onSelectEvent={handleSelectEvent}    
+                  components={{ event: EventComponent }}
+                  onSelectEvent={handleSelectEvent}
                   selectable
                   popup
                   view={view}
@@ -492,17 +487,15 @@ const ViewServices: React.FC = () => {
                     }
                   }}
                   date={currentDate}
-                  onNavigate={handleNavigate}        
+                  onNavigate={handleNavigate}
                   dayLayoutAlgorithm="no-overlap"
                   showMultiDayTimes
                   step={15}
                   timeslots={isMobile ? 2 : 4}
                   views={["month", "week", "day"]}
-                  min={new Date(2025, 7, 1, 6, 0)}
-                  max={new Date(2025, 7, 1, 22, 0)}
+                  min={new Date(2025, 0, 1, 6, 0)} // Start at 6 AM
+                  max={new Date(2025, 0, 1, 22, 0)} // End at 10 PM
                 />
-
-                {/* ✅ Overlay when loading */}
                 {loading && (
                   <Box
                     sx={{
@@ -519,7 +512,7 @@ const ViewServices: React.FC = () => {
                     <CircularProgress size={40} sx={{ color: "white" }} />
                   </Box>
                 )}
-              </Box>          
+              </Box>
             </Box>
           </Grid>
         </Grid>
@@ -534,7 +527,7 @@ const ViewServices: React.FC = () => {
           }}
         />
 
-        <CreateProgramModal        
+        <CreateProgramModal
           open={isOpen}
           onClose={() => setIsOpen(false)}
           onSuccess={() => {
