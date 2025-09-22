@@ -190,10 +190,11 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   </Box>
 );
 
-const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLargeScreen: boolean }> = ({
+const EmptyState: React.FC<{ error: string | null; role: string | null; openModal: () => void; isLargeScreen: boolean }> = ({
   error,
   openModal,
   isLargeScreen,
+  role ,
 }) => (
   <Box
     sx={{
@@ -214,7 +215,7 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
     >
       {error || "No departments yet"}
     </Typography>
-    <Button
+    {role === 'branch' && <Button
       variant="contained"
       onClick={openModal}
       sx={{
@@ -231,7 +232,7 @@ const EmptyState: React.FC<{ error: string | null; openModal: () => void; isLarg
       aria-label="Create new department"
     >
       Create New Department
-    </Button>
+    </Button>}
   </Box>
 );
 
@@ -814,7 +815,7 @@ const ViewDepartment: React.FC = () => {
               </Box>
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, lg: 5 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          {authData?.role === 'branch' && <Grid size={{ xs: 12, lg: 5 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
@@ -834,7 +835,7 @@ const ViewDepartment: React.FC = () => {
             >
               Create Department +
             </Button>
-          </Grid>
+          </Grid>}
         </Grid>
 
         <Drawer
@@ -977,7 +978,7 @@ const ViewDepartment: React.FC = () => {
         )}
 
         {(!state.loading || state.error) && state.filteredDepartments.length === 0 && (
-          <EmptyState error={state.error} openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} />
+          <EmptyState error={state.error}openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} role={authData?.role ?? null}/>
         )}
 
         {state.filteredDepartments.length > 0 && (

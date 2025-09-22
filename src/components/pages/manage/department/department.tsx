@@ -79,10 +79,10 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const isSuperAdmin = authData?.isSuperAdmin === true;
 
   useEffect(() => {
-    if (open && isSuperAdmin) {
+    if (open) {
       fetchBranches();
     }
-  }, [open, isSuperAdmin]);
+  }, [open]);
 
   const fetchBranches = async () => {
     try {
@@ -150,7 +150,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
         name: formData.name.trim(),
         type: formData.type,
         description: formData.description.trim(),
-        ...(isSuperAdmin && formData.branchId ? { branchId: formData.branchId } : {}),
+        ...(formData.branchId ? { branchId: formData.branchId } : {}),
       };
 
       const response = await Api.post("/church/create-dept", payload);

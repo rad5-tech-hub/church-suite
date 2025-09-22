@@ -44,6 +44,7 @@ interface FormData {
   birthDay: string;
   timer: number | null;
   branchId?: string;
+  eventOccurrenceId: string;
 }
 
 interface Branch {
@@ -53,6 +54,7 @@ interface Branch {
 
 interface RegistrationModalProps {
   open: boolean;
+  eventId: string ;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -81,6 +83,7 @@ const getDaysInMonth = (month: string): number => {
 const RegistrationModal: React.FC<RegistrationModalProps> = ({
   open,
   onClose,
+  eventId,
   onSuccess,
 }) => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -93,6 +96,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
     sex: "",
     address: "",
     birthMonth: "",
+    eventOccurrenceId: eventId || "",
     birthDay: "",
     timer: null,
     branchId: authData?.branchId || "",
@@ -185,6 +189,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     // ✅ decide if branchId should go to params
     const branchIdParam = branchId ? `&branchId=${branchId}` : "";
 
+    if (eventId) {
+      payload
+    }
+
     await Api.post(
       `/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`,
       payload
@@ -198,8 +206,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       sex: "",
       address: "",
       birthMonth: "",
-      birthDay: "",
+      birthDay: "",      
       timer: null,
+      eventOccurrenceId: "",
       branchId: "", // keep state consistent
     });
 

@@ -49,7 +49,6 @@ import Select, { SelectChangeEvent } from "@mui/material/Select";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
-import RegistrationModal from "./followUp";
 import { MdOutlineEdit, MdOutlineFileUpload } from "react-icons/md";
 import EditRegistrationModal from "./editNewcomers";
 
@@ -1338,29 +1337,6 @@ const ViewFollowUp: React.FC = () => {
               >
                 Upload Newcomers <MdOutlineFileUpload className="ml-1" />
               </Button>
-              <Button
-                variant="contained"
-                onClick={() => setState((prev) => ({ ...prev, isModalOpen: true }))}
-                size="medium"
-                sx={{
-                  backgroundColor: "#363740",
-                  px: { xs: 2, sm: 2 },
-                  py: 1,
-                  borderRadius: 50,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": {
-                    backgroundColor: "#363740",
-                    opacity: 0.9,
-                  },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content"
-                }}
-              >
-                Add Newcomer +
-              </Button>
             </Box>
           </Grid>
         </Grid>
@@ -1504,16 +1480,6 @@ const ViewFollowUp: React.FC = () => {
           followUpName={state.currentFollowUp?.name}
           isLargeScreen={isLargeScreen}
           loading={state.loading}
-        />
-
-        {/* Registration Modal */}
-        <RegistrationModal
-          open={state.isModalOpen}
-          onClose={() => setState((prev) => ({ ...prev, isModalOpen: false }))}
-          onSuccess={() => {
-            refreshFollowUps();
-            setState((prev) => ({ ...prev, isModalOpen: false }));
-          }}
         />
       </Box>
       {/* Excel Import Dialog */}

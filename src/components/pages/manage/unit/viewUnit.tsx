@@ -333,11 +333,28 @@ const ViewUnit: React.FC = () => {
   }, [handleStateChange, departmentsLoading]);
 
   const fetchUnits = useCallback(
-    async (url: string | null = `/church/all-units${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`): Promise<FetchUnitsResponse> => {
+    async (
+      url: string | null = (() => {
+        let baseUrl = "/church/all-units";
+        const params = new URLSearchParams();
+
+        if (authData?.branchId) {
+          params.append("branchId", authData.branchId);
+        }
+
+        if (authData?.role !== "branch" && authData?.department) {
+          params.append("departmentId", authData.department);
+        }
+
+        return params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+      })()
+    ): Promise<FetchUnitsResponse> => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
       try {
         const apiUrl = url || "/church/all-units";
+        console.log(authData?.department);
+        
         const response = await Api.get<FetchUnitsResponse>(apiUrl);
         const data: unknown = response.data;
 
@@ -348,15 +365,16 @@ const ViewUnit: React.FC = () => {
         handleStateChange("loading", false);
         return data;
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || "Failed to load units. Please try again later.";
+        const errorMessage =
+          error.response?.data?.message ||
+          "Failed to load units. Please try again later.";
         console.error("Failed to fetch units:", error);
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        showPageToast(errorMessage, "error");
         throw error;
       }
     },
-    [handleStateChange]
+    [handleStateChange, authData?.branchId, authData?.department, authData?.role]
   );
 
   const searchUnits = useCallback(
@@ -1071,7 +1089,7 @@ const ViewUnit: React.FC = () => {
                 renderValue={(selected) => (selected ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department" : "Select Department")}
                 aria-label="Filter units by department"
               >
-                <MenuItem value="">All</MenuItem>
+                <MenuItem value="">None</MenuItem>
                 {departmentsLoading ? (
                   <MenuItem disabled>Loading...</MenuItem>
                 ) : (

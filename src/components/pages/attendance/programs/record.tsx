@@ -25,6 +25,7 @@ import Api from '../../../shared/api/api';
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
+import RegistrationModal from '../../members/new-comers/followUp';
 
 interface CollectionItem {
   id: string;
@@ -114,6 +115,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   const [depMessage, setDepMessage] = useState<Record<string, string>>({});
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [openNewcomers, setOpenNewcomers] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -725,6 +727,25 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, pt: 4 }}>          
             <Button
+              onClick={()=>{setOpenNewcomers(true)}}
+              variant="contained"
+              startIcon={submitting ? <CircularProgress size={20}/> : <Save />}
+              disabled={submitting}
+              sx={{
+                py: 1,
+                backgroundColor: "#F6F4FE",
+                px: { xs: 2, sm: 2 },
+                borderRadius: 50,
+                color: "#2C2C2C",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+              }}
+            >
+              Record NewComers
+            </Button>
+            <Button
               onClick={handleSave}
               variant="contained"
               startIcon={submitting ? <CircularProgress size={20}/> : <Save />}
@@ -746,6 +767,12 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
           </Box>
         </Box>
       </DialogContent>
+      <RegistrationModal
+        open={openNewcomers}
+        onClose={() => {setOpenNewcomers(false)}}
+        onSuccess={() => {setOpenNewcomers(false)}}
+        eventId={eventId} 
+      />
     </Dialog>
   );
 };

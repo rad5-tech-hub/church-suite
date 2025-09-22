@@ -13,17 +13,17 @@ export default defineConfig({
       manifest: {
         name: 'ChurchSuite PWA',
         short_name: 'ChurchSuite',
-        description: 'A React TypeScript PWA for ChurchSuite built with Vite',
+        description: 'ChurchSuite, church management system',
         theme_color: '#111827',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
         icons: [
           {
-            src: './vite.svg',
+            src: './churchsuite.png',
             sizes: '192x192',
-            type: 'image/svg',
-          },         
+            type: 'image/png',
+          }  
         ],
       },
       workbox: {

@@ -14,7 +14,7 @@ export interface AuthData {
   logo: string;
   name: string;
   tenantId: string;
-  department: string;
+  department: string | null;
   token: string;
   branchId: string;
   role: string;          // ✅ added

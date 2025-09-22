@@ -71,9 +71,9 @@ const Header: React.FC<HeaderProps> = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
+  const [currentBranchId, setCurrentBranchId] = useState<string>("");
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [currentDepartmentId, setCurrentDepartmentId] = useState<string | null>(null);
+  const [currentDepartmentId, setCurrentDepartmentId] = useState<string>("");
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [errorBranches, setErrorBranches] = useState<string>("");
@@ -85,11 +85,9 @@ const Header: React.FC<HeaderProps> = () => {
   // Sync active button with current route
   useEffect(() => {
     const currentPath = location.pathname;
-    const activeLabel = Object.keys(buttonRoutePatterns).find((label) =>
-      buttonRoutePatterns[label].test(currentPath)
-    ) || null;
+    const activeLabel = buttons.find((label) => buttonRoutePatterns[label].test(currentPath)) || null;
     setActiveButton(activeLabel);
-  }, [location.pathname]);
+  }, [location.pathname, buttons]);
 
   // Fetch branches when popover opens
   const fetchBranches = useCallback(async () => {
@@ -105,11 +103,23 @@ const Header: React.FC<HeaderProps> = () => {
         branchesData = response.data.branches || [];
       } else {
         const response = await Api.get(`/church/an-admin/${authData.id}`);
-        branchesData = response.data.admin.branches || [];
+        branchesData = response.data.admin?.branches || [];
       }
 
       setBranches(branchesData);
-      setCurrentBranchId(authData.branchId || branchesData[0]?.id || null);
+      const newBranchId = authData.branchId || branchesData[0]?.id || "";
+      setCurrentBranchId(newBranchId);
+
+      // Update authData with the selected branch and reset department if changed
+      if (authData && newBranchId !== authData.branchId) {
+        dispatch(
+          setAuthData({
+            ...authData,
+            branchId: newBranchId,
+            department: "",
+          })
+        );
+      }
     } catch (err) {
       setErrorBranches(
         axios.isAxiosError(err) && err.response?.data?.message
@@ -117,12 +127,13 @@ const Header: React.FC<HeaderProps> = () => {
           : "Failed to fetch branches"
       );
       setBranches([]);
+      setCurrentBranchId("");
     } finally {
       setLoadingBranches(false);
     }
-  }, [authData?.id, authData?.isSuperAdmin, authData?.isHeadQuarter, authData?.branchId, open]);
+  }, [authData, open, dispatch]);
 
-  // Fetch departments when branch changes
+  // Fetch departments when branch or role changes
   const fetchDepartments = useCallback(async () => {
     if (!currentBranchId || authData?.role !== "department") return;
 
@@ -131,9 +142,21 @@ const Header: React.FC<HeaderProps> = () => {
       setErrorDepartments("");
 
       const response = await Api.get(`/church/get-departments?branchId=${currentBranchId}`);
-      const departmentsData = response.data.departments || [];
+      const departmentsData: Department[] = response.data.departments || [];
       setDepartments(departmentsData);
-      setCurrentDepartmentId(authData?.department || departmentsData[0]?.id || null);
+
+      const newDepartmentId = authData?.department || departmentsData[0]?.id || "";
+      setCurrentDepartmentId(newDepartmentId);
+
+      // Update authData with the selected department if changed
+      if (authData && newDepartmentId && newDepartmentId !== authData.department) {
+        dispatch(
+          setAuthData({
+            ...authData,
+            department: newDepartmentId,
+          })
+        );
+      }
     } catch (err) {
       setErrorDepartments(
         axios.isAxiosError(err) && err.response?.data?.message
@@ -141,17 +164,18 @@ const Header: React.FC<HeaderProps> = () => {
           : "Failed to fetch departments"
       );
       setDepartments([]);
+      setCurrentDepartmentId("");
     } finally {
       setLoadingDepartments(false);
     }
-  }, [currentBranchId, authData?.role, authData?.department]);
+  }, [currentBranchId, authData, dispatch]);
 
   // Trigger branch fetching when popover opens
   useEffect(() => {
     fetchBranches();
   }, [fetchBranches]);
 
-  // Trigger department fetching when branch changes or role is department
+  // Trigger department fetching when branch or role changes
   useEffect(() => {
     fetchDepartments();
   }, [fetchDepartments]);
@@ -160,17 +184,15 @@ const Header: React.FC<HeaderProps> = () => {
   const handleBranchSelect = (event: SelectChangeEvent<string>) => {
     const branchId = event.target.value;
     setCurrentBranchId(branchId);
-    setCurrentDepartmentId(null); // Reset department when branch changes
+    setCurrentDepartmentId(""); // Reset department when branch changes
     setDepartments([]); // Clear departments until new ones are fetched
 
     if (authData) {
       dispatch(
         setAuthData({
           ...authData,
-          branchId,
-          backgroundImg: authData.backgroundImg ?? "",
-          church_name: authData.church_name ?? "",
-          churchId: authData.churchId ?? "",        
+          branchId: branchId,
+          department: "",
         })
       );
     }
@@ -179,16 +201,16 @@ const Header: React.FC<HeaderProps> = () => {
   // Handle department selection
   const handleDepartmentSelect = (event: SelectChangeEvent<string>) => {
     const departmentId = event.target.value;
+    if (!authData || departmentId === currentDepartmentId) return;
+
     setCurrentDepartmentId(departmentId);
 
-    if (authData) {
-      dispatch(
-        setAuthData({
-          ...authData,
-          department: departmentId,
-        })
-      );
-    }
+    dispatch(
+      setAuthData({
+        ...authData,
+        department: departmentId || "",
+      })
+    );
   };
 
   // Handle profile popover
@@ -225,12 +247,12 @@ const Header: React.FC<HeaderProps> = () => {
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
-      <div className="flex items-center lg:gap-17 gap-4">
+      <div className="flex items-center gap-4 lg:gap-17">
         <Tooltip title={authData?.church_name || ""} arrow>
           {authData?.logo ? (
             <img
               src={authData.logo}
-              alt={`${authData?.church_name} logo`}
+              alt={`${authData?.church_name || "Church"} logo`}
               className="h-16 w-16 object-contain rounded-full"
             />
           ) : (
@@ -276,7 +298,7 @@ const Header: React.FC<HeaderProps> = () => {
                     color: "#160F38",
                   },
                   transition: "all 0.3s ease",
-                  fontWeight: "600",
+                  fontWeight: 600,
                 }}
               >
                 {label}
@@ -287,10 +309,7 @@ const Header: React.FC<HeaderProps> = () => {
       </div>
 
       <div className="flex items-center gap-6">
-        <button
-          className="relative bg-[#4d4d4e8e] p-2 rounded-full"
-          aria-label="Notifications"
-        >
+        <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
           <IoNotificationsOutline className="text-2xl" />
           <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             3
@@ -301,16 +320,14 @@ const Header: React.FC<HeaderProps> = () => {
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={handleProfileClick}
+            title={`${authData?.name || ""} ${authData?.email || ""}`}
           >
-            <div
-              className="p-2 border border-[var(--color-text-on-primary)] rounded-full"
-              title={`${authData?.name || ""} ${authData?.email || ""}`}
-            >
+            <div className="p-2 border border-[var(--color-text-on-primary)] rounded-full">
               <BsPerson className="text-xl" aria-label="Person" />
             </div>
             <span className="hidden xl:block text-sm font-medium">
-              <span className="block">{authData?.name || ""}</span>
-              <span className="block text-[10px]">{authData?.email || ""}</span>
+              <span className="block">{authData?.name || "User"}</span>
+              <span className="block text-[10px]">{authData?.email || "No email"}</span>
             </span>
           </div>
 
@@ -324,7 +341,6 @@ const Header: React.FC<HeaderProps> = () => {
             PaperProps={{ sx: { p: 1, my: 1 } }}
           >
             <Box sx={{ m: 1 }}>
-              {/* Profile Link */}
               <Box
                 sx={{
                   display: "flex",
@@ -346,7 +362,6 @@ const Header: React.FC<HeaderProps> = () => {
                 </Typography>
               </Box>
 
-              {/* Logout */}
               <Box
                 sx={{
                   display: "flex",
@@ -365,13 +380,12 @@ const Header: React.FC<HeaderProps> = () => {
                 </Typography>
               </Box>
 
-              {/* Switch Branch */}
               <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
                 <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
                   Switch Branch
                 </Typography>
                 <Select
-                  value={currentBranchId || ""}
+                  value={currentBranchId}
                   onChange={handleBranchSelect}
                   fullWidth
                   size="small"
@@ -393,7 +407,9 @@ const Header: React.FC<HeaderProps> = () => {
                     </MenuItem>
                   ) : errorBranches ? (
                     <MenuItem disabled>
-                      <Typography variant="body2">{errorBranches}</Typography>
+                      <Typography variant="body2" color="error">
+                        {errorBranches}
+                      </Typography>
                     </MenuItem>
                   ) : branches.length === 0 ? (
                     <MenuItem disabled>
@@ -414,14 +430,13 @@ const Header: React.FC<HeaderProps> = () => {
                 )}
               </Box>
 
-              {/* Switch Department */}
               {authData?.role === "department" && (
                 <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
                   <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
                     Select Department
                   </Typography>
                   <Select
-                    value={currentDepartmentId || ""}
+                    value={currentDepartmentId}
                     onChange={handleDepartmentSelect}
                     fullWidth
                     size="small"
@@ -443,7 +458,9 @@ const Header: React.FC<HeaderProps> = () => {
                       </MenuItem>
                     ) : errorDepartments ? (
                       <MenuItem disabled>
-                        <Typography variant="body2">{errorDepartments}</Typography>
+                        <Typography variant="body2" color="error">
+                          {errorDepartments}
+                        </Typography>
                       </MenuItem>
                     ) : departments.length === 0 ? (
                       <MenuItem disabled>
@@ -492,12 +509,11 @@ const Header: React.FC<HeaderProps> = () => {
           <Typography id="logout-modal-description" sx={{ mt: 2 }}>
             Are you sure you want to logout?
           </Typography>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
+          <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end", gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
             <Button
               variant="outlined"
               onClick={handleCloseLogoutModal}
               sx={{ borderColor: "gray", color: "#111827", width: { xs: "100%", sm: "auto" } }}
-              fullWidth
             >
               Cancel
             </Button>
@@ -510,7 +526,6 @@ const Header: React.FC<HeaderProps> = () => {
                 "&:hover": { backgroundColor: "#FF6467" },
                 width: { xs: "100%", sm: "auto" },
               }}
-              fullWidth
             >
               Logout
             </Button>

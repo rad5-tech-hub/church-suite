@@ -32,8 +32,9 @@ const Sidebar: React.FC = () => {
   let filteredManage = manage;
 
   // 🔹 If not HQ → remove branches
-  if (authData?.isHeadQuarter === false) {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
+  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
+    const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
+    filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
   }
 
   // 🔹 If role is unit → remove departments

@@ -138,21 +138,19 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
 
   const getScopeLevels = (role?: string) => {
     switch (role) {
-      case "SuperAdmin":
+      case "branch":
         return [
           { value: "branch", label: "Branch" },
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
-      case "BranchAdmin":
+      case "department":
         return [
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
-      case "DepartmentAdmin":
+      case "units":
         return [{ value: "unit", label: "Unit" }];
-      case "UnitAdmin":
-        return []; // no further scope to assign
       default:
         return [];
     }
@@ -1096,25 +1094,27 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                   </Grid>
                 );
               })}
-            <Grid size={{ xs: 12 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.isSuperAdmin}
-                    onChange={handleChange}
-                    name="isSuperAdmin"
-                    color="default"
+              {formData.scopeLevel === "branch" && 
+                <Grid size={{ xs: 12 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={formData.isSuperAdmin}
+                        onChange={handleChange}
+                        name="isSuperAdmin"
+                        color="default"
+                      />
+                    }
+                    label="Is Super Admin?"
+                    sx={{
+                      "& .MuiTypography-root": {
+                        fontSize: isLargeScreen ? "1rem" : undefined,
+                        color: "#F6F4FE",
+                      },
+                    }}
                   />
-                }
-                label="Is Super Admin?"
-                sx={{
-                  "& .MuiTypography-root": {
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",
-                  },
-                }}
-              />
-            </Grid>
+                </Grid>
+              }
           </Grid>
         </Box>
       </DialogContent>
