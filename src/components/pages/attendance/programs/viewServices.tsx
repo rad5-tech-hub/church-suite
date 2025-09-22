@@ -92,10 +92,6 @@ interface FetchEventsResponse {
   events: Event[];
 }
 
-interface AuthData {
-  branchId?: string;
-}
-
 const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
   return (
     !!data &&
@@ -109,7 +105,7 @@ const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
 const ViewServices: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const authData = useSelector((state: RootState) => state?.auth?.authData as AuthData | undefined);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [, setCurrentEvent] = useState<Event | null>(null);
@@ -359,17 +355,19 @@ const ViewServices: React.FC = () => {
                 sx={{
                   display: "grid",
                   gridTemplateColumns: {
-                    xs: "1fr",
-                    md: "1fr 1fr 1fr",
-                    lg: "1fr 1fr 1fr",
-                    xl: "1fr 1fr 1fr",
+                    xs: "1fr", // stack vertically on mobile
+                    md: "1fr 1fr 1fr", // 3 columns from md up
                   },
-                  justifyContent: { xs: "center", md: "space-between", lg: "space-between" },
-                  alignItems: { xs: "center", md: "center", lg: "flex-start" },
+                  justifyItems: {
+                    xs: "center", // center content horizontally on mobile
+                    md: "stretch", // normal alignment on desktop
+                  },
+                  alignItems: "center", // vertical centering
                   mb: 2,
-                  gap: 1,
+                  gap: 2,
                   backgroundColor: "transparent",
                   color: "#f6f4fe",
+                  textAlign: { xs: "center", md: "left" }, // center text on mobile
                 }}
               >
                 <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
@@ -394,7 +392,7 @@ const ViewServices: React.FC = () => {
                   </Button>
                 </Box>
 
-                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                {(authData?.isHeadQuarter && authData?.isSuperAdmin) && <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                   <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
                     Branch:
                   </Typography>
@@ -434,7 +432,7 @@ const ViewServices: React.FC = () => {
                         ))}
                     </Select>
                   </FormControl>
-                </Box>
+                </Box>}
 
                 <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
                   <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
