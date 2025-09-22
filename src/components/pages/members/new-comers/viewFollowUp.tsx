@@ -1444,11 +1444,9 @@ const ViewFollowUp: React.FC = () => {
             </TableContainer>
             <Box 
               sx={{
-                position: "fixed",       // keeps it fixed on screen
-                bottom: 70,              // distance from bottom
-                right: 24,               // distance from right
-                zIndex: 1300,            // ensure it stays on top
-                p: 0,
+                display: 'flex',
+                justifyContent: 'flex-end',
+                mb: 3,                
               }}
             >
               <Tooltip title="Download Newcomers Data" placement="top" arrow>

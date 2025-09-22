@@ -412,12 +412,12 @@ const ViewServices: React.FC = () => {
                         selected ? branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"
                       }
                     >
+                      <MenuItem value="">None</MenuItem>
                       {branchLoading && (
                         <MenuItem disabled>
                           <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
                         </MenuItem>
-                      )}
-                      <MenuItem value="">None</MenuItem>
+                      )}                      
                       {error && (
                         <MenuItem disabled sx={{ color: "red" }}>
                           {error}
