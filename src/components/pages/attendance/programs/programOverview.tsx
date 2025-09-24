@@ -15,17 +15,15 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Grid
+  Grid,
+  Tooltip,
 } from '@mui/material';
-import { Close } from '@mui/icons-material';
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import dayjs from "dayjs"; // for formatting date
-import Api from '../../../shared/api/api';
-import { EditProgramModal } from './services';
-import RecordDialogue from './record';
-import { CiMoneyBill } from "react-icons/ci";
-
-// Import Chart.js components
+import { Close, EditDocument, Save } from '@mui/icons-material';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import moment from 'moment-timezone';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../reduxstore/redux';
+import { CiMoneyBill } from 'react-icons/ci';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -33,25 +31,31 @@ import {
   BarElement,
   ArcElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import Api from '../../../shared/api/api';
+import { EditProgramModal } from './services';
+// import RecordDialogue from './record';
+import WorkerAttendanceDialogue from './workersAttendance';
+import RegistrationModal from '../../members/new-comers/followUp';
+import MembersCountDialogue from './memberAttendance';
+import CollectionsDialogue from './recordCollections';
 
-// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
   ArcElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend,
   ChartDataLabels
 );
 
-// Type definitions (unchanged)
+// Interfaces
 interface Attendance {
   id: string;
   eventOccurrenceId: string;
@@ -70,26 +74,21 @@ interface Attendance {
 
 interface CollectionItem {
   id: string;
-  amount: string; // Note: API returns amount as string
+  amount: string;
   collection: {
     id: string;
     name: string;
   };
 }
 
-interface EventOccurrence {
-  // ... other properties
-  collection: CollectionItem[]; // Changed from collections to collection
-}
-
 interface Event {
   id: string;
   title: string;
   recurrenceType: string;
-  assignedDepartments: Departments[];
 }
 
-interface Departments {
+interface Dept {
+  id: string;
   name: string;
 }
 
@@ -106,7 +105,8 @@ interface EventOccurrence {
   createdAt: string;
   updatedAt: string;
   attendances: Attendance[];
-  collections: CollectionItem[];
+  assignedDepartments: Dept[];
+  collection: CollectionItem[];
   event: Event;
 }
 
@@ -121,48 +121,78 @@ interface EventSummaryDialogProps {
   onClose: () => void;
 }
 
-const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ 
-  eventId, 
-  open, 
-  onClose 
-}) => {
+// Component
+const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
+
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [EditOpen, setEditOpen] = useState<boolean>(false);
+  const [editOpen, setEditOpen] = useState<boolean>(false);
   const [recordOpen, setRecordOpen] = useState<boolean>(false);
+  const [recordMemberOpen, setRecordMemberOpen] = useState<boolean>(false);
+  const [workerOpen, setWorkerOpen] = useState<boolean>(false);
+  const [openNewcomers, setOpenNewcomers] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [workersPercentage, setWorkersPercentage] = useState<number>(0);
   const [nonWorkersPercentage, setNonWorkersPercentage] = useState<number>(0);
+  const [eventStatus, setEventStatus] = useState<string>('');
 
+  // Determine event status based on date and time
+  const getEventStatus = (date: string, startTime: string, endTime: string): string => {
+    const now = moment().tz('Africa/Lagos');
+    const today = moment().tz('Africa/Lagos').startOf('day');
+    const eventDate = moment.tz(date, 'YYYY-MM-DD', 'Africa/Lagos').startOf('day');
 
+    if (!startTime || !endTime || !startTime.match(/^\d{2}:\d{2}$/) || !endTime.match(/^\d{2}:\d{2}$/)) {
+      return 'upcoming';
+    }
+
+    const eventStart = moment.tz(`${date} ${startTime}`, 'YYYY-MM-DD HH:mm', 'Africa/Lagos');
+    const eventEnd = moment.tz(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm', 'Africa/Lagos');
+
+    if (eventDate.isBefore(today)) return 'past';
+    if (eventDate.isSame(today, 'day')) {
+      if (now.isAfter(eventEnd)) return 'past';
+      if (now.isBefore(eventStart)) return 'pending';
+      return 'ongoing';
+    }
+    if (eventDate.isSame(today.clone().add(1, 'day'), 'day')) return 'pending';
+    return 'upcoming';
+  };
+
+  // Fetch event data and attendance stats
   useEffect(() => {
     if (open && eventId) {
       const fetchData = async () => {
         try {
           setLoading(true);
+          setError(null);
 
-          // Run both requests in parallel
-          const [eventRes, attendanceRes] = await Promise.all([
-            Api.get<EventResponse>(`/church/get-event/${eventId}`),
-            Api.get<{ overall: { attendanceRate: number } }>(
-              `/church/worker-attendace-stats/${eventId}`
-            ),
-          ]);
-
+          const eventRes = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
           setEventData(eventRes.data.eventOccurrence);
 
-          // Extract attendance rate
-          const rate = attendanceRes.data.overall.attendanceRate || 0;
-          setWorkersPercentage(rate);
-          setNonWorkersPercentage(100 - rate);
+          if (eventRes.data.eventOccurrence) {
+            const status = getEventStatus(
+              eventRes.data.eventOccurrence.date,
+              eventRes.data.eventOccurrence.startTime,
+              eventRes.data.eventOccurrence.endTime
+            );
+            setEventStatus(status);
 
-          setError(null);
+            if (eventRes.data.eventOccurrence.assignedDepartments?.length > 0) {
+              const attendanceRes = await Api.get<{ overall: { attendanceRate: number } }>(
+                `/church/worker-attendace-stats/${eventId}`
+              );
+              const rate = attendanceRes.data.overall.attendanceRate || 0;
+              setWorkersPercentage(rate);
+              setNonWorkersPercentage(100 - rate);
+            }
+          }
         } catch (err) {
-          console.error("Error fetching data:", err);
-          setError("Failed to fetch event or attendance data");
+          console.error('Error fetching data:', err);
+          setError('Failed to fetch event or attendance data');
         } finally {
           setLoading(false);
         }
@@ -172,32 +202,23 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     }
   }, [open, eventId]);
 
-  // Get attendance data from API or use empty defaults
+  // Chart data for members attendance
   const attendance = eventData?.attendances?.[0] || {
-    male: 0, // Sample data from the design
-    female: 0, // Sample data from the design
-    children: 0, // Sample data from the design
+    male: 0,
+    female: 0,
+    children: 0,
     adults: 0,
-    total: 0
+    total: 0,
   };
 
-  // Chart.js data configuration for attendance bar chart
   const barChartData = {
     labels: ['Men', 'Women', 'Children'],
     datasets: [
       {
         label: 'Attendance',
         data: [attendance.male, attendance.female, attendance.children],
-        backgroundColor: [
-          '#F6F4FE',
-          '#F6F4FE', 
-          '#F6F4FE', 
-        ],
-        borderColor: [
-          '#F6F4FE',
-          '#F6F4FE',
-          '#F6F4FE',
-        ],
+        backgroundColor: ['#F6F4FE', '#F6F4FE', '#F6F4FE'],
+        borderColor: ['#F6F4FE', '#F6F4FE', '#F6F4FE'],
         borderWidth: 0,
         borderRadius: 5,
         barThickness: 60,
@@ -205,14 +226,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     ],
   };
 
-  // Find max attendance value
-  const maxAttendance = Math.max(
-    attendance.male || 0,
-    attendance.female || 0,
-    attendance.children || 0
-  );
-
-  // Round up to nearest 50 for chart scale
+  const maxAttendance = Math.max(attendance.male || 0, attendance.female || 0, attendance.children || 0);
   const suggestedMax = Math.ceil(maxAttendance / 50) * 50;
 
   const barChartOptions: any = {
@@ -229,9 +243,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         borderWidth: 1,
         displayColors: false,
         callbacks: {
-          label: function (context: any) {
-            return `${context.dataset.label}: ${context.raw}`;
-          },
+          label: (context: any) => `${context.dataset.label}: ${context.raw}`,
         },
       },
       datalabels: {
@@ -245,7 +257,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     scales: {
       y: {
         beginAtZero: true,
-        suggestedMax: suggestedMax || 50, // fallback if all zero
+        suggestedMax: suggestedMax || 50,
         grid: {
           color: 'rgba(255, 255, 255, 0.1)',
           drawTicks: false,
@@ -253,9 +265,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         ticks: {
           color: 'rgba(255, 255, 255, 0.7)',
           stepSize: 50,
-          callback: function (value: any) {
-            return value; // dynamically show every 50
-          },
+          callback: (value: any) => value,
         },
         border: { display: false },
       },
@@ -270,17 +280,13 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     },
   };
 
-
-  // Chart.js data configuration for workers doughnut chart
+  // Chart data for workers attendance
   const doughnutChartData = {
     labels: ['Present', 'Absent'],
     datasets: [
       {
         data: [workersPercentage, nonWorkersPercentage],
-        backgroundColor: [
-          '#211930', // Workers - indigo
-          '#F6F4FE', // Non-workers - gray
-        ],
+        backgroundColor: ['#211930', '#F6F4FE'],
         borderColor: 'transparent',
         borderWidth: 0,
         cutout: '52%',
@@ -288,7 +294,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
     ],
   };
 
-  // Fix: Properly type the doughnut chart options
   const doughnutChartOptions: any = {
     responsive: true,
     maintainAspectRatio: false,
@@ -296,7 +301,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
       legend: {
         position: 'bottom' as const,
         labels: {
-          color: 'rgba(255, 255, 255, 0.7)',        
+          color: 'rgba(255, 255, 255, 0.7)',
           usePointStyle: true,
           pointStyle: 'circle',
         },
@@ -309,203 +314,232 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
         borderWidth: 1,
         displayColors: false,
         callbacks: {
-          label: function(context: any) {
-            return `${context.label}: ${context.raw}%`;
-          }
-        }
+          label: (context: any) => `${context.label}: ${context.raw}%`,
+        },
       },
       datalabels: {
-        color: (context: any) => {
-          // Get the background color of the current segment
-          const backgroundColor = context.dataset.backgroundColor[context.dataIndex];
-          // If background color is light (#F6F4FE), use dark text color
-          return backgroundColor === '#F6F4FE' ? '#1f2937' : 'white';
-        },
-        formatter: (value: number) => {
-          return `${value}%`;
-        },
-        font: {
-          weight: 'bold',
-          size: 14
-        }
-      }
+        color: (context: any) =>
+          context.dataset.backgroundColor[context.dataIndex] === '#F6F4FE' ? '#1f2937' : 'white',
+        formatter: (value: number) => `${value}%`,
+        font: { weight: 'bold', size: 14 },
+      },
     },
   };
 
-  // Update the formatCurrency function to handle string amounts
+  // Format currency for collections
   const formatCurrency = (amount: string | number, currency: string = 'NGN'): string => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: currency,
+      currency,
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(numAmount);
   };
 
-  // In the component, update how you access collections
   const collections = eventData?.collection || [];
 
+  // StatCard component for collections
   const StatCard = ({ title, value }: { title: string; value: string }) => (
-    <Box sx={{ 
-      bgcolor: '#F6F4FE', 
-      p: 2, 
-      borderRadius: 2, 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      minWidth: 100,
-      flex: '1 0 auto',
-      maxWidth: 120
-    }}>
-      <Box sx={{ bgcolor: '#211930', borderRadius: '10%', mb: 1 }} >
+    <Box
+      sx={{
+        bgcolor: '#F6F4FE',
+        p: 2,
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        minWidth: 100,
+        flex: '1 0 auto',
+        maxWidth: 120,
+      }}
+    >
+      <Box sx={{ bgcolor: '#211930', borderRadius: '10%', mb: 1 }}>
         <CiMoneyBill size={54} style={{ color: '#F6F4FE', margin: '3px 8px' }} />
       </Box>
       <Typography variant="body2" sx={{ color: 'grey.800', fontWeight: 'semibold', textAlign: 'center' }}>
         {title}
       </Typography>
-      <Typography variant="body2" sx={{ color: 'grey.800', display: 'flex', justifyContent: 'center', alignContent: 'center', height: 'full'}}>
+      <Typography
+        variant="body2"
+        sx={{ color: 'grey.800', display: 'flex', justifyContent: 'center', alignContent: 'center' }}
+      >
         {value}
       </Typography>
     </Box>
   );
 
+  // Loading state
   if (loading) {
     return (
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="md" 
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
         fullWidth
-        sx={{
-          "& .MuiDialog-paper": {
-            borderRadius: 2,
-            bgcolor: "#2C2C2C",
-            color: 'white',
-            p: 2
-          },
-        }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: 2, bgcolor: '#2C2C2C', color: 'white', p: 2 } }}
       >
         <DialogTitle sx={{ p: 0, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
-            Loading...
-          </Typography>
+          <Typography sx={{ fontWeight: 'bold', fontSize: '1rem' }}>Loading...</Typography>
           <IconButton onClick={onClose} sx={{ color: 'white' }}>
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center'}} >
+        <DialogContent sx={{ minHeight: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <CircularProgress sx={{ color: '#777280' }} />
         </DialogContent>
       </Dialog>
     );
   }
 
+  // Error state
   if (error || !eventData) {
     return (
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="md" 
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
         fullWidth
-        sx={{
-          "& .MuiDialog-paper": {
-            borderRadius: 2,
-            bgcolor: "#2C2C2C",
-            color: 'white',
-            p: 2
-          },
-        }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: 2, bgcolor: '#2C2C2C', color: 'white', p: 2 } }}
       >
         <DialogTitle sx={{ p: 0, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            Error
-          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Error</Typography>
           <IconButton onClick={onClose} sx={{ color: 'white' }}>
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{minHeight: '300px'}}>
+        <DialogContent sx={{ minHeight: '300px' }}>
           <Typography>{error || 'No data available'}</Typography>
         </DialogContent>
       </Dialog>
     );
   }
 
+  const showWorkersChart = eventData?.assignedDepartments?.length > 0;
+
   return (
     <>
-      <Dialog 
-        open={open} 
-        onClose={onClose} 
-        maxWidth="md" 
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
         fullWidth
-        sx={{
-          "& .MuiDialog-paper": {
-            borderRadius: 2,
-            bgcolor: "#2C2C2C",
-            py: 2,
-            px: 3,
-            color: 'white',
-          },
-        }}
+        sx={{ '& .MuiDialog-paper': { borderRadius: 2, bgcolor: '#2C2C2C', py: 2, px: 3, color: 'white' } }}
       >
         <DialogTitle sx={{ p: 0, mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
             {eventData.event.title}
+            {eventStatus && (
+              <Typography component="span" sx={{ ml: 2, fontSize: '0.8rem', color: 'grey.300' }}>
+                ({eventStatus.charAt(0).toUpperCase() + eventStatus.slice(1)})
+              </Typography>
+            )}
           </Typography>
           <IconButton onClick={onClose} sx={{ color: 'white' }}>
             <Close />
           </IconButton>
         </DialogTitle>
-        
+
         <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 3, mb: 4 }}>
-            {/* Attendance Bar Chart */}
-            <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#393939',border: '1.5px #404040 solid', height: 380 }}>
-              <Typography variant="h6" sx={{ color: 'white', mb: 3, fontWeight: 'bold' }}>
-                Members Attendance
-              </Typography>
-              <Box sx={{ height: 250 }}>
-                <Bar data={barChartData} options={barChartOptions} plugins={[ChartDataLabels]} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>                
-                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
-                    {attendance.male} Men
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: showWorkersChart || authData?.role !== 'branch' ? (isMobile ? '1fr' : '1fr 1fr') : '1fr',
+              gap: 3,
+              mb: 4,
+            }}
+          >
+            {/* Members Attendance Bar Chart */}
+            {authData?.role === 'branch' && (
+              <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#393939', border: '1.5px #404040 solid', height: 398 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
+                    Members Attendance
                   </Typography>
+                  {['ongoing', 'past'].includes(eventStatus) && authData?.role === 'branch' && <Tooltip title="Record Members Attendance" arrow>
+                    <IconButton
+                      onClick={() => {
+                        setRecordMemberOpen(true);
+                        onClose();
+                      }}
+                      sx={{
+                        color: 'white',
+                        backgroundColor: '#2C2C2C',
+                        '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
+                        borderRadius: 50,
+                      }}
+                    >
+                      <EditDocument />
+                    </IconButton>
+                  </Tooltip>}
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>             
-                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
-                    {attendance.female} Women
-                  </Typography>
+                <Box sx={{ height: 250 }}>
+                  <Bar data={barChartData} options={barChartOptions} plugins={[ChartDataLabels]} />
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
-                    {attendance.children} Children
-                  </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>{attendance.male} Men</Typography>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>{attendance.female} Women</Typography>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>{attendance.children} Children</Typography>
                 </Box>
-              </Box>
-            </Paper>
+              </Paper>
+            )}
 
             {/* Workers Attendance Doughnut Chart */}
-            <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#393939', height: 380, border: '1.5px #404040 solid', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" sx={{ color: 'white', mb: 3, fontWeight: 'bold' }}>
-                Workers Attendance
-              </Typography>
-              <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-                <Box sx={{ width: isMobile ? 250 : 280, height: isMobile ? 250 : 280 }}>
-                  <Doughnut data={doughnutChartData} options={doughnutChartOptions} plugins={[ChartDataLabels]} />
-                </Box>
-                <Box sx={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
-                  <Typography variant="body1" sx={{ color: 'white', fontSize: '12px', fontWeight: '300' }}>
-                    workers
+            {showWorkersChart && (
+              <Paper
+                sx={{
+                  p: 3,
+                  borderRadius: 2,
+                  bgcolor: '#393939',
+                  height: 398,
+                  border: '1.5px #404040 solid',
+                  position: 'relative',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
+                    Workers Attendance
                   </Typography>
-                  <Typography variant="body2" sx={{ color: 'grey.400', fontSize: '12px', fontWeight: '300'  }}>
-                    Attendance
-                  </Typography>
+                  {['ongoing', 'past'].includes(eventStatus) && <Tooltip title="Record Workers Attendance" arrow>
+                    <IconButton
+                      onClick={() => {
+                        setWorkerOpen(true);
+                        onClose();
+                      }}
+                      sx={{
+                        color: 'white',
+                        backgroundColor: '#2C2C2C',
+                        '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
+                        borderRadius: 50,
+                      }}
+                    >
+                      <EditDocument />
+                    </IconButton>
+                  </Tooltip>}
                 </Box>
-              </Box>
-            </Paper>
+                <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                  <Box sx={{ width: isMobile ? 250 : 280, height: isMobile ? 250 : 280 }}>
+                    <Doughnut data={doughnutChartData} options={doughnutChartOptions} plugins={[ChartDataLabels]} />
+                  </Box>
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: '45%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ color: 'white', fontSize: '12px', fontWeight: 300 }}>
+                      workers
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'grey.400', fontSize: '12px', fontWeight: 300 }}>
+                      Attendance
+                    </Typography>
+                  </Box>
+                </Box>
+              </Paper>
+            )}
           </Box>
 
           {/* Collections Section */}
@@ -516,49 +550,49 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
               </Typography>
               <Grid container spacing={2}>
                 {collections.map((collection, index) => (
-                  <Grid size={{xs: 12, sm: 6, md: 4, lg: 3}} key={index}>
-                    <StatCard
-                      title={collection.collection.name}
-                      value={formatCurrency(collection.amount)}
-                    />
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={index}>
+                    <StatCard title={collection.collection.name} value={formatCurrency(collection.amount)} />
                   </Grid>
                 ))}
               </Grid>
             </Box>
           )}
 
-          <Box sx={{marginBottom: 4}}>
-            <Accordion sx={{ bgcolor: "#393939", color: "white" }}>
-              <AccordionSummary
-                expandIcon={<ArrowDownwardIcon sx={{ color: "white" }} />}
-                aria-controls="panel1-content"
-                id="panel1-header"
-              >
-                <Typography component="span" sx={{ fontWeight: "bold" }}>
-                  Program Details
-                </Typography>
+          {/* Program Details Accordion */}
+          <Box sx={{ mb: 4 }}>
+            <Accordion sx={{ bgcolor: '#393939', color: 'white' }}>
+              <AccordionSummary expandIcon={<ArrowDownwardIcon sx={{ color: 'white' }} />}>
+                <Typography component="span" sx={{ fontWeight: 'bold' }}>Program Details</Typography>
               </AccordionSummary>
               <AccordionDetails>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2" sx={{ color: "grey.300" }}>
-                    <strong>Date Created:</strong>{" "}
-                    {dayjs(eventData.date).format("dddd, MMMM D, YYYY")}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
+                    <strong>Date Created:</strong> {moment(eventData.date).tz('Africa/Lagos').format('dddd, MMMM D, YYYY')}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
                     <strong>Program Type:</strong> {eventData.event.recurrenceType === 'none' ? 'Single' : eventData.event.recurrenceType}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: "grey.300" }}>
-                    <strong>Time:</strong> {eventData.startTime} - {eventData.endTime}
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
+                    <strong>Time:</strong>{" "}
+                    {new Date(`1970-01-01T${eventData.startTime}`).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}{" "}
+                    -{" "}
+                    {new Date(`1970-01-01T${eventData.endTime}`).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: "grey.300" }}>
+                  <Typography variant="body2" sx={{ color: 'grey.300' }}>
                     <strong>Day:</strong> {eventData.dayOfWeek}
                   </Typography>
-                  {eventData.event?.assignedDepartments?.length > 0 && (
-                    <Typography variant="body2" sx={{ color: "grey.300" }}>
-                      <strong>Assigned Departments:</strong>{" "}
-                      {eventData.event.assignedDepartments
-                        .map((dept) => dept.name)
-                        .join(", ")}
+                  {eventData?.assignedDepartments?.length > 0 && (
+                    <Typography variant="body2" sx={{ color: 'grey.300' }}>
+                      <strong>Assigned Departments:</strong>{' '}
+                      {eventData.assignedDepartments.map((dept) => dept.name).join(', ')}
                     </Typography>
                   )}
                 </Box>
@@ -566,65 +600,110 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({
             </Accordion>
           </Box>
         </DialogContent>
-        
-        <DialogActions sx={{ justifyContent: 'center', gap: 2, pt: 2 }}>
-          <Button 
-            variant="contained" 
+
+        {/* Dialog Actions */}
+        {eventData && eventStatus && (
+          <DialogActions
             sx={{
-              py: 1,
-              backgroundColor: "#F6F4FE",
-              px: { xs: 2, sm: 2 },
-              borderRadius: 50,
-              color: "#2C2C2C",
-              fontWeight: "semibold",
-              textTransform: "none",
-              fontSize: { xs: "1rem", sm: "1rem" },
-              "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-            }}
-            onClick={() => {
-              if (eventData.id) {
-                setEditOpen(true);
-                onClose(); // Close the Event Summary dialog
-              }
+              justifyContent: 'center',
+              gap: 2,
+              pt: 2,
+              flexDirection: { xs: 'column', sm: 'column', md: 'row' },
+              alignItems: 'center',
+              width: '100%',
             }}
           >
-            Edit Program
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={() => {
-              if (eventData.id) {
-                setRecordOpen(true);
-                onClose(); // Close the Event Summary dialog
-              }
-            }}
-            sx={{
-              py: 1,
-              backgroundColor: "#F6F4FE",
-              px: { xs: 2, sm: 2 },
-              borderRadius: 50,
-              color: "#2C2C2C",
-              fontWeight: "semibold",
-              textTransform: "none",
-              fontSize: { xs: "1rem", sm: "1rem" },
-              "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-            }}
-          >
-            Manage Program
-          </Button>
-        </DialogActions>
+            <Button
+              variant="contained"
+              sx={{
+                py: 1,
+                backgroundColor: '#F6F4FE',
+                px: { xs: 2, sm: 2 },
+                borderRadius: 50,
+                color: '#2C2C2C',
+                fontWeight: 'semibold',
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1rem' },
+                '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                width: { xs: '100%', sm: '100%', md: 'auto' },
+              }}
+              onClick={() => {
+                if (eventData.eventId) {
+                  setEditOpen(true);
+                  onClose();
+                }
+              }}
+            >
+              Edit Program
+            </Button>
+
+            {['ongoing', 'past'].includes(eventStatus) && (authData?.role === 'branch' &&  collections.length > 0) && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (eventData.id) {
+                    setRecordOpen(true);
+                    onClose();
+                  }
+                }}
+                sx={{
+                  py: 1,
+                  backgroundColor: '#F6F4FE',
+                  px: { xs: 2, sm: 2 },
+                  borderRadius: 50,
+                  color: '#2C2C2C',
+                  fontWeight: 'semibold',
+                  textTransform: 'none',
+                  fontSize: { xs: '1rem', sm: '1rem' },
+                  '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                  width: { xs: '100%', sm: '100%', md: 'auto' },
+                }}
+              >
+                Record Collections
+              </Button>
+            )}
+
+            {['ongoing', 'past'].includes(eventStatus) && (authData?.role === 'department' || authData?.role === 'branch') && (
+              <Button
+                onClick={() => {setOpenNewcomers(true); onClose()}}
+                variant="contained"
+                startIcon={<Save />}
+                sx={{
+                  py: 1,
+                  backgroundColor: '#F6F4FE',
+                  px: { xs: 2, sm: 2 },
+                  color: '#2C2C2C',
+                  fontWeight: 'semibold',
+                  borderRadius: 50,
+                  textTransform: 'none',
+                  fontSize: { xs: '1rem', sm: '1rem' },
+                  '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                  width: { xs: '100%', sm: '100%', md: 'auto' },
+                }}
+              >
+                Record Newcomers
+              </Button>
+            )}
+          </DialogActions>
+        )}
       </Dialog>
-      
-      {/* Edit Program Dialog */}
-      <EditProgramModal
-        open={EditOpen}
-        eventId={eventData.id}
-        onClose={() => setEditOpen(false)}
+
+      {/* Modals */}
+      <EditProgramModal open={editOpen} eventId={eventData?.id || ''} onClose={() => setEditOpen(false)} />
+      {/* <RecordDialogue eventId={eventData?.id || ''} open={recordOpen} onClose={() => setRecordOpen(false)} /> */}
+      <CollectionsDialogue eventId={eventData?.id || ''} open={recordOpen} onClose={() => setRecordOpen(false)} />
+      <MembersCountDialogue eventId={eventData?.id || ''} open={recordMemberOpen} onClose={() => setRecordMemberOpen(false)} />
+      <RegistrationModal
+        open={openNewcomers}
+        onClose={() => setOpenNewcomers(false)}
+        onSuccess={() => setOpenNewcomers(false)}
+        eventId={eventId}
       />
-      <RecordDialogue
-        eventId={eventData.id}
-        open={recordOpen}
-        onClose={() => setRecordOpen(false)}
+      <WorkerAttendanceDialogue
+        eventId={eventData?.id || ''}
+        open={workerOpen}
+        onClose={() => setWorkerOpen(false)}
+        assignedDepartments={eventData?.assignedDepartments || []}
       />
     </>
   );

@@ -13,8 +13,6 @@ import {
   IconButton,
   List,
   ListItem,
-  useTheme,
-  useMediaQuery,
   Typography,
   Chip,
   Grid,
@@ -26,7 +24,7 @@ import {
 import { Check } from "@mui/icons-material";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
-import { CreateProgramModal } from "./services";
+import { CreateProgramModal, EditProgramModal } from "./services";
 import EventSummaryDialog from "./programOverview";
 
 const localizer = momentLocalizer(moment);
@@ -103,8 +101,6 @@ const isFetchEventsResponse = (data: unknown): data is FetchEventsResponse => {
 };
 
 const ViewServices: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,22 +119,58 @@ const ViewServices: React.FC = () => {
   usePageToast("view-programs");
 
   const eventStatusColors = {
-    ongoing: "green",
-    pending: "orange",
-    upcoming: "purple",
-    past: "gray",
+    ongoing: {
+      background: "#e8f5e8", // Light green
+      text: "#2d5016", // Dark green
+      legend: "#4caf50" // Original green for legend
+    },
+    pending: {
+      background: "#fff3e0", // Light orange
+      text: "#e65100", // Dark orange
+      legend: "#ff9800" // Original orange for legend
+    },
+    upcoming: {
+      background: "#f3e5f5", // Light purple
+      text: "#4a148c", // Dark purple
+      legend: "#9c27b0" // Original purple for legend
+    },
+    past: {
+      background: "#f5f5f5", // Light gray
+      text: "#424242", // Dark gray
+      legend: "#757575" // Original gray for legend
+    },
   };
 
   const getEventStatus = (start: Date, end: Date): keyof typeof eventStatusColors => {
     const now = new Date();
-    if (now > end) return "past";
-    if (now >= start && now <= end) return "ongoing";
-    if (now < start && start.getTime() - now.getTime() <= 24 * 60 * 60 * 1000) return "pending";
-    return "upcoming";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // start of today
+
+    const eventStart = new Date(start);
+    const eventEnd = new Date(end);
+
+    const eventDate = new Date(eventStart);
+    eventDate.setHours(0, 0, 0, 0); // event's day start
+
+    if (eventDate < today) {
+      return "past"; // whole event was before today
+    }
+
+    if (eventDate.getTime() === today.getTime()) {
+      if (now > eventEnd) return "past";       // ended earlier today
+      if (now < eventStart) return "pending";  // not started yet
+      return "ongoing";                        // within event time
+    }
+
+    if (eventDate.getTime() === today.getTime() + 24 * 60 * 60 * 1000) {
+      return "pending"; // tomorrow
+    }
+
+    return "upcoming"; // future
   };
 
-  const getEventColor = (event: CalendarEvent): string => {
-    return eventStatusColors[event.extendedProps.status as keyof typeof eventStatusColors] || eventStatusColors.upcoming;
+  const getEventColors = (status: keyof typeof eventStatusColors) => {
+    return eventStatusColors[status] || eventStatusColors.upcoming;
   };
 
   const fetchBranches = useCallback(async () => {
@@ -158,50 +190,58 @@ const ViewServices: React.FC = () => {
     }
   }, [fetched, authData?.branchId]);
 
-  const fetchEvents = useCallback(
-    async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
-      setLoading(true);
-      try {
-        const branchId = selectedBranch || authData?.branchId || "";
-        if (!branchId) {
-          throw new Error("No branch selected");
+    const fetchEvents = useCallback(
+      async (viewType: "month" | "week" | "day" = view, date: Date = currentDate) => {
+        setLoading(true);
+        try {
+          let params = new URLSearchParams();
+
+          // ✅ Branch always comes first
+          const branchId = selectedBranch || authData?.branchId || "";
+          if (!branchId) throw new Error("No branch selected");
+          params.append("branchId", branchId);
+
+          // ✅ Add departmentId if role = department
+          if (authData?.role === "department") {
+            if (!authData.department) throw new Error("No department found");
+            params.append("departmentId", authData.department);
+          }
+
+          // ✅ Add dates depending on view type
+          if (viewType === "month") {
+            params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
+            params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
+          } else if (viewType === "week") {
+            params.append("startDate", moment(date).startOf("week").format("YYYY-MM-DD"));
+            params.append("endDate", moment(date).endOf("week").format("YYYY-MM-DD"));
+          } else if (viewType === "day") {
+            params.append("date", moment(date).format("YYYY-MM-DD"));
+          }
+
+          const url = `/church/get-events?${params.toString()}`;
+          const response = await Api.get<FetchEventsResponse>(url);
+          const data = response.data;
+
+          if (!isFetchEventsResponse(data)) {
+            throw new Error("Invalid response structure");
+          }
+
+          setEvents(data.events || []);
+        } catch (error) {
+          console.error("fetchEvents error:", error);
+          showPageToast("Failed to load events", "error");
+        } finally {
+          setLoading(false);
         }
+      },
+      [view, currentDate, selectedBranch, authData?.branchId, authData?.department, authData?.role]
+    );
 
-        const params = new URLSearchParams({ branchId });
-
-        if (viewType === "month") {
-          params.append("startDate", moment(date).startOf("month").format("YYYY-MM-DD"));
-          params.append("endDate", moment(date).endOf("month").format("YYYY-MM-DD"));
-        } else if (viewType === "week") {
-          params.append("startDate", moment(date).startOf("week").format("YYYY-MM-DD"));
-          params.append("endDate", moment(date).endOf("week").format("YYYY-MM-DD"));
-        } else if (viewType === "day") {
-          params.append("date", moment(date).format("YYYY-MM-DD"));
-        }
-
-        const url = `/church/get-events?${params.toString()}`;
-        const response = await Api.get<FetchEventsResponse>(url);
-        const data = response.data;
-
-        if (!isFetchEventsResponse(data)) {
-          throw new Error("Invalid response structure");
-        }
-
-        setEvents(data.events || []);
-      } catch (error) {
-        showPageToast("Failed to load events", "error");
-      } finally {
-        setLoading(false);
+    useEffect(() => {
+      if (selectedBranch || authData?.branchId) {
+        fetchEvents();
       }
-    },
-    [view, currentDate, selectedBranch, authData?.branchId]
-  );
-
-  useEffect(() => {
-    if (selectedBranch || authData?.branchId) {
-      fetchEvents();
-    }
-  }, [fetchEvents, selectedBranch, authData?.branchId]);
+    }, [fetchEvents, selectedBranch, authData?.branchId]);
 
   const handleViewChange = useCallback(
     (newView: "month" | "week" | "day") => {
@@ -219,47 +259,70 @@ const ViewServices: React.FC = () => {
     [fetchEvents, view]
   );
 
+  // ✅ Utility to format HH:mm into AM/PM
+  const formatTime = (time: string | null, fallback: string): string => {
+    if (!time) return fallback;
+    const [hours, minutes] = time.split(":").map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const calendarEvents: CalendarEvent[] = events.flatMap((e) =>
     e.occurrences
-      .filter((occ) => !occ.isCancelled) // Skip cancelled occurrences
+      .filter((occ) => !occ.isCancelled)
       .map((occ) => {
-        // Recalculate dayOfWeek to ensure accuracy
-        const eventDate = moment(occ.date).toDate();
-        const dayOfWeek = moment(eventDate).format("dddd");
+        const eventDate = moment(occ.date).format("YYYY-MM-DD");
+        const dayOfWeek = moment(occ.date).format("dddd");
 
-        // Handle null startTime and endTime with fallback times
-        const startTime = occ.startTime || "09:00"; // Default to 9:00 AM
-        const endTime = occ.endTime || "17:00"; // Default to 5:00 PM
-        const startDateTime = moment(`${occ.date.split("T")[0]}T${startTime}`).toDate();
-        const endDateTime = moment(`${occ.date.split("T")[0]}T${endTime}`).toDate();
+        // ✅ Show fallback in AM/PM style
+        const formattedStart = formatTime(occ.startTime, "9:00 AM");
+        const formattedEnd = formatTime(occ.endTime, "5:00 PM");
+
+        // ✅ Keep raw values for Date objects
+        const startDateTime = moment(
+          `${eventDate} ${occ.startTime || "09:00"}`, 
+          "YYYY-MM-DD HH:mm"
+        ).toDate();
+
+        const endDateTime = moment(
+          `${eventDate} ${occ.endTime || "17:00"}`, 
+          "YYYY-MM-DD HH:mm"
+        ).toDate();
 
         const eventStatus = getEventStatus(startDateTime, endDateTime);
+        const colors = getEventColors(eventStatus);
 
         return {
           id: `${e.id}-${occ.id}`,
-          title: e.title,
+          title: `${e.title} (${formattedStart} - ${formattedEnd})`, // 👈 shows times properly
           start: startDateTime,
           end: endDateTime,
-          color: eventStatusColors[eventStatus],
+          color: colors.background,
           extendedProps: {
             description: e.description,
             recurrenceType: e.recurrenceType,
             eventId: e.id,
             occurrenceId: occ.id,
             status: eventStatus,
-            dayOfWeek, // Include recalculated dayOfWeek
+            dayOfWeek,
           },
-          rrule: e.recurrenceType && e.recurrenceType !== "none"
-            ? {
-                freq:
-                  e.recurrenceType === "weekly"
-                    ? RRule.WEEKLY
-                    : e.recurrenceType === "monthly"
-                    ? RRule.MONTHLY
-                    : RRule.DAILY,
-                dtstart: new Date(e.date),
-              }
-            : undefined,
+          rrule:
+            e.recurrenceType && e.recurrenceType !== "none"
+              ? {
+                  freq:
+                    e.recurrenceType === "weekly"
+                      ? RRule.WEEKLY
+                      : e.recurrenceType === "monthly"
+                      ? RRule.MONTHLY
+                      : RRule.DAILY,
+                  dtstart: startDateTime,
+                }
+              : undefined,
         };
       })
   );
@@ -280,16 +343,18 @@ const ViewServices: React.FC = () => {
   );
 
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
-    const formatTime = (date: Date) => moment(date).format("h:mm A");
-    const isTimeAvailable = event.start && event.end && !moment(event.start).isSame(moment(event.end), "day");
-
+    const colors = getEventColors(event.extendedProps.status as keyof typeof eventStatusColors);
+    
     return (
-      <div style={{ padding: "2px", overflow: "hidden" }}>
-        <div style={{ fontSize: "10px", fontWeight: "bold" }}>
-          {isTimeAvailable ? `${formatTime(event.start)} - ${formatTime(event.end)}` : "No time specified"}
+      <div style={{ 
+        padding: "4px", 
+        overflow: "hidden",
+        color: colors.text,
+        fontWeight: "500"
+      }}>
+        <div style={{ fontSize: "12px", fontWeight: "600", padding: 3 }}>
+          {event.title}
         </div>
-        <div style={{ fontSize: "12px" }}>{event.title}</div>
-        <div style={{ fontSize: "10px", color: "gray" }}>{event.extendedProps.dayOfWeek}</div>
       </div>
     );
   };
@@ -328,13 +393,13 @@ const ViewServices: React.FC = () => {
                   padding: 0,
                 }}
               >
-                {Object.entries(eventStatusColors).map(([status, color]) => (
+                {Object.entries(eventStatusColors).map(([status, colors]) => (
                   <ListItem key={status} sx={{ color: "white" }}>
                     <IconButton
                       size="small"
                       sx={{
                         borderRadius: "50%",
-                        bgcolor: color,
+                        bgcolor: colors.legend,
                         mr: 1,
                         width: 25,
                         height: 25,
@@ -353,23 +418,18 @@ const ViewServices: React.FC = () => {
             <Box sx={{ borderRadius: 2, boxShadow: 1, p: 2 }}>
               <Box
                 sx={{
-                  display: "grid",
-                  gridTemplateColumns: {
-                    xs: "1fr", // stack vertically on mobile
-                    md: "1fr 1fr 1fr", // 3 columns from md up
-                  },
-                  justifyItems: {
-                    xs: "center", // center content horizontally on mobile
-                    md: "stretch", // normal alignment on desktop
-                  },
-                  alignItems: "center", // vertical centering
+                  display: "flex",
+                  flexDirection: { xs: "column", md: "row" },
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   mb: 2,
                   gap: 2,
                   backgroundColor: "transparent",
                   color: "#f6f4fe",
-                  textAlign: { xs: "center", md: "left" }, // center text on mobile
+                  textAlign: { xs: "center", md: "left" },
                 }}
               >
+                {/* Left: Date & Navigation */}
                 <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
                   <Typography variant="h6" sx={{ fontSize: "1.125rem", fontWeight: "medium" }}>
                     {moment(currentDate).format("MMMM YYYY")}
@@ -392,48 +452,52 @@ const ViewServices: React.FC = () => {
                   </Button>
                 </Box>
 
-                {(authData?.isHeadQuarter && authData?.isSuperAdmin) && <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                  <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
-                    Branch:
-                  </Typography>
-                  <FormControl
-                    size="small"
-                    sx={{
-                      minWidth: 180,
-                      "& .MuiInputBase-root": { borderRadius: 2, bgcolor: "#f6f4fe", color: "#000" },
-                    }}
-                  >
-                    <Select
-                      value={selectedBranch}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
-                      onOpen={fetchBranches}
-                      displayEmpty
-                      renderValue={(selected) =>
-                        selected ? branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"
-                      }
+                {/* Middle: Branch Selector (only for HQ + SuperAdmin) */}
+                {(authData?.isHeadQuarter && authData?.isSuperAdmin) && (
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
+                      Branch:
+                    </Typography>
+                    <FormControl
+                      size="small"
+                      sx={{
+                        minWidth: 180,
+                        "& .MuiInputBase-root": { borderRadius: 2, bgcolor: "#f6f4fe", color: "#000" },
+                      }}
                     >
-                      <MenuItem value="">None</MenuItem>
-                      {branchLoading && (
-                        <MenuItem disabled>
-                          <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
-                        </MenuItem>
-                      )}                      
-                      {error && (
-                        <MenuItem disabled sx={{ color: "red" }}>
-                          {error}
-                        </MenuItem>
-                      )}
-                      {!branchLoading &&
-                        !error &&
-                        branches.map((branch) => (
-                          <MenuItem key={branch.id} value={branch.id}>
-                            {branch.name}
+                      <Select
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        onOpen={fetchBranches}
+                        displayEmpty
+                        renderValue={(selected) =>
+                          selected ? branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"
+                        }
+                      >
+                        <MenuItem value="">None</MenuItem>
+                        {branchLoading && (
+                          <MenuItem disabled>
+                            <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
                           </MenuItem>
-                        ))}
-                    </Select>
-                  </FormControl>
-                </Box>}
+                        )}
+                        {error && (
+                          <MenuItem disabled sx={{ color: "red" }}>
+                            {error}
+                          </MenuItem>
+                        )}
+                        {!branchLoading &&
+                          !error &&
+                          branches.map((branch) => (
+                            <MenuItem key={branch.id} value={branch.id}>
+                              {branch.name}
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                )}
 
+                {/* Right: Program View Selector */}
                 <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
                   <Typography variant="body2" sx={{ color: "#777280", display: { xs: "none", lg: "block" } }}>
                     Program for the
@@ -444,7 +508,7 @@ const ViewServices: React.FC = () => {
                       label={viewType.charAt(0).toUpperCase() + viewType.slice(1)}
                       onClick={() => handleViewChange(viewType as "month" | "week" | "day")}
                       sx={{
-                        p: 2,
+                        p: 1,
                         color: view === viewType ? "grey" : "#777280",
                         bgcolor: view === viewType ? "#f6f4fe" : "none",
                         cursor: "pointer",
@@ -457,6 +521,33 @@ const ViewServices: React.FC = () => {
               </Box>
 
               <Box sx={{ backgroundColor: "#f6f4fe", borderRadius: 2, p: 1, position: "relative" }}>
+                <style>{`
+                  .rbc-time-gutter {
+                    width: 60px !important;
+                    display: block !important;
+                  }
+
+                  .rbc-time-slot {                   
+                    font-size: 12px !important;
+                    font-weight: 500 !important;
+                  }
+
+                  .rbc-time-header-gutter {
+                    display: block !important;
+                  }               
+
+                  .rbc-time-view .rbc-time-gutter .rbc-timeslot-group {
+                    display: block !important;
+                  }       
+
+                  .rbc-label {
+                    font-size: 12px !important;
+                    font-weight: 500 !important;
+                    color: #333 !important;
+                  }
+                `}</style>
+
+
                 <Calendar
                   localizer={localizer}
                   events={calendarEvents}
@@ -466,15 +557,22 @@ const ViewServices: React.FC = () => {
                     height: "calc(100vh - 180px)",
                     minHeight: "600px",
                   }}
-                  eventPropGetter={(event) => ({
-                    style: {
-                      color: "#000",
-                      backgroundColor: getEventColor(event as CalendarEvent),
-                      borderRadius: "3px",
-                      border: "none",
-                    },
-                  })}
-                  components={{ event: EventComponent }}
+                  eventPropGetter={(event) => {
+                    const colors = getEventColors(event.extendedProps.status as keyof typeof eventStatusColors);
+                    return {
+                      style: {
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        border: `1px solid ${colors.legend}`,
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                      },
+                    };
+                  }}
+                  components={{ 
+                    event: EventComponent,
+                    timeGutterHeader: () => <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px' }}>Time</div>,
+                  }}
                   onSelectEvent={handleSelectEvent}
                   selectable
                   popup
@@ -487,12 +585,51 @@ const ViewServices: React.FC = () => {
                   date={currentDate}
                   onNavigate={handleNavigate}
                   dayLayoutAlgorithm="no-overlap"
-                  showMultiDayTimes
-                  step={15}
-                  timeslots={isMobile ? 2 : 4}
+                  showMultiDayTimes={true}
+                  step={60} // 60-minute intervals for cleaner 24-hour display
+                  timeslots={1} // One slot per hour
                   views={["month", "week", "day"]}
-                  min={new Date(2025, 0, 1, 6, 0)} // Start at 6 AM
-                  max={new Date(2025, 0, 1, 22, 0)} // End at 10 PM
+                  min={new Date(2025, 0, 1, 6, 0)} // Start at 6:00 AM
+                  max={new Date(2025, 0, 1, 22, 0)} // End at 10:00 PM
+                  formats={{
+                    timeGutterFormat: (date) => {
+                      const hour = date.getHours();
+                      const period = hour >= 12 ? "PM" : "AM";
+                      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                      return `${displayHour}:00${period}`;
+                    },
+                    eventTimeRangeFormat: ({ start, end }, culture, localizer) => {
+                      if (!localizer) {
+                        const startTime = moment(start).format("h:mm A");
+                        const endTime = moment(end).format("h:mm A");
+                        return `${startTime} - ${endTime}`;
+                      }
+                      return `${localizer.format(start, "h:mm A", culture)} - ${localizer.format(
+                        end,
+                        "h:mm A",
+                        culture
+                      )}`;
+                    },
+                    agendaTimeFormat: (date, culture, localizer) => {
+                      if (!localizer) {
+                        return moment(date).format("h:mm A");
+                      }
+                      return localizer.format(date, "h:mm A", culture);
+                    },
+                    agendaTimeRangeFormat: ({ start, end }, culture, localizer) => {
+                      if (!localizer) {
+                        const startTime = moment(start).format("h:mm A");
+                        const endTime = moment(end).format("h:mm A");
+                        return `${startTime} - ${endTime}`;
+                      }
+                      return `${localizer.format(start, "h:mm A", culture)} - ${localizer.format(
+                        end,
+                        "h:mm A",
+                        culture
+                      )}`;
+                    },
+                  }}
+
                 />
                 {loading && (
                   <Box
@@ -531,8 +668,13 @@ const ViewServices: React.FC = () => {
           onSuccess={() => {
             setIsOpen(false);
             fetchEvents(view, currentDate);
-          }}
+          }}          
         />
+        <EditProgramModal
+          open={false}
+          eventId={currentOccurrence?.eventId || ""}
+          onClose={() => {}}      
+          />
       </Box>
     </DashboardManager>
   );

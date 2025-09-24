@@ -264,7 +264,7 @@ const ViewDepartment: React.FC = () => {
     searchTerm: "",
     typeFilter: "",
     branches: [],
-    selectedBranchId: "",
+    selectedBranchId: authData?.branchId || "",
     searchDrawerOpen: false,
     errors: { name: "", description: "" },
   };
@@ -303,7 +303,6 @@ const ViewDepartment: React.FC = () => {
         console.error("Failed to fetch departments:", error);
         handleStateChange("loading", false);
         handleStateChange("error", errorMessage);
-        showPageToast(errorMessage, "error");
         throw error;
       }
     },

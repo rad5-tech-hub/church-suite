@@ -91,7 +91,6 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       setBranches(response.data.branches || []);
     } catch (error: any) {
       console.error("Error fetching branches:", error);
-      showPageToast("Failed to load branches. Please try again.", "error");
     } finally {
       setBranchesLoading(false);
     }
@@ -234,11 +233,17 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                 address: branch.address,
               }))}
               value={
-                formData.branchId
+                formData.branchId || authData?.branchId
                   ? {
-                      label: branches.find((b) => b.id === formData.branchId)?.name || "",
-                      value: formData.branchId,
-                      address: branches.find((b) => b.id === formData.branchId)?.address || "",
+                      label:
+                        branches.find(
+                          (b) => b.id === (formData.branchId || authData?.branchId)
+                        )?.name || "",
+                      value: formData.branchId || authData?.branchId,
+                      address:
+                        branches.find(
+                          (b) => b.id === (formData.branchId || authData?.branchId)
+                        )?.address || "",
                     }
                   : null
               }

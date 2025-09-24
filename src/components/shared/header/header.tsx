@@ -240,10 +240,21 @@ const Header: React.FC<HeaderProps> = () => {
     navigate("/login");
   };
 
-  // Handle navigation button click
+// Handle navigation button click
   const handleButtonClick = (label: string) => {
-    navigate(defaultRoutes[label]);
+    if (label === "Manage") {
+      if (authData?.role === "branch") {
+        navigate("/manage/view-admins");
+      } else if (authData?.role === "department") {
+        navigate("/manage/view-departments");
+      } else if (authData?.role === "unit") {
+        navigate("/manage/view-units");
+      } 
+    } else {
+      navigate(defaultRoutes[label]);
+    }
   };
+
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">

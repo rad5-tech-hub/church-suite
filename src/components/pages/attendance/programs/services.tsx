@@ -81,6 +81,12 @@ interface Branch {
 interface Collection {
   id: string;
   name: string;
+  collection: collectionData;
+}
+
+interface collectionData {
+  id: string;
+  name: string;
 }
 
 interface Event {
@@ -98,8 +104,8 @@ interface EventOccurrence {
   hasAttendance: boolean;
   dayOfWeek: string;
   createdAt: string;
-  departmentIds: Department[];
-  collections: Collection[];
+  collection: Collection[];
+  assignedDeparments: Department[];
   event: Event;
   branchId?: string;
 }
@@ -210,7 +216,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
     branchId: authData?.branchId || "",
     recurrenceType: "none",
   });
-  const [initialFormData, _setinitialFormData] = useState<ServiceFormData>({
+  const [initialFormData, setInitialFormData] = useState<ServiceFormData>({
     title: "",
     date: "",
     startTime: "",
@@ -247,50 +253,61 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   const selectRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (open && isEdit && eventId) {
-      const fetchEventData = async () => {
-        try {
-          setLoadingEdit(true);
-          const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-          setEventData(response.data.eventOccurrence);
-        } catch (err) {
-          showPageToast('Failed to fetch event data', 'error');
-          console.error('Error fetching event data:', err);
-        } finally {
-          setLoadingEdit(false);
-        }
+    if (open) {
+      const fetchInitialData = async () => {
+        await Promise.all([
+          fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError),
+          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, formData.branchId || authData?.branchId),
+          formData.branchId ? fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, formData.branchId) : Promise.resolve(),
+          isEdit && eventId ? fetchEventData() : Promise.resolve()
+        ]);
       };
-      fetchEventData();
+      fetchInitialData();
     }
-  }, [open, isEdit, eventId]);
+  }, [open]);
+
+  const fetchEventData = async () => {
+    if (!isEdit || !eventId) return;
+    try {
+      setLoadingEdit(true);
+      const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
+      setEventData(response.data.eventOccurrence);
+    } catch (err) {
+      showPageToast('Failed to fetch event data', 'error');
+      console.error('Error fetching event data:', err);
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   useEffect(() => {
     if (eventData && isEdit) {
-      setFormData({
+      const newFormData = {
         title: eventData.event.title,
         date: moment(eventData.date).format("YYYY-MM-DD"),
         startTime: eventData.startTime,
         endTime: eventData.endTime,
-        departmentIds: [],
-        collectionIds: eventData.collections ? eventData.collections.map((col) => col.id) : [],
+        departmentIds: eventData?.assignedDeparments?.map((dept) => dept.id) || [],
+        collectionIds: eventData.collection?.map((col) => col.collection.id) || [],
         recurrenceType: "none",
         branchId: eventData.branchId || authData?.branchId || "",
-      });
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
     }
   }, [eventData, isEdit, authData?.branchId]);
 
   useEffect(() => {
-    if (open) {
-      fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError);
-      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, formData.branchId || authData?.branchId);
-    }
-  }, [open, formData.branchId, authData?.branchId]);
-
-  useEffect(() => {
-    if (formData.branchId) {
+    if (open && formData.branchId && formData.branchId !== initialFormData.branchId) {
       fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, formData.branchId);
     }
-  }, [formData.branchId]);
+  }, [open, formData.branchId, initialFormData.branchId]);
+
+  useEffect(() => {
+    if (open && formData.branchId && formData.branchId !== initialFormData.branchId) {
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, formData.branchId || authData?.branchId);
+    }
+  }, [open, formData.branchId, initialFormData.branchId, authData?.branchId]);
 
   useEffect(() => {
     switch (formData.recurrenceType) {
@@ -496,6 +513,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       setTempNewCollection("");
       setFetchCollectionsError("Collection added successfully!");
       fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, formData.branchId || authData?.branchId);
+      onSuccess?.();
     } catch (error) {
       console.error("Failed to create collection:", error);
       setFetchCollectionsError("Failed to create collection. Please try again.");
@@ -574,7 +592,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             startTime: w.startTime || "",
             endTime: w.endTime || "",
           }));
-          // no start/end time at root level in this case
           delete payload.startTime;
           delete payload.endTime;
         } else {
@@ -591,19 +608,16 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
 
     if (formData.recurrenceType === "custom" && formData.customRecurrenceDates?.length) {
       payload.customRecurrenceDates = formData.customRecurrenceDates;
-      // custom dates replace single date + start/end time
       delete payload.date;
       delete payload.startTime;
       delete payload.endTime;
     }
 
-    // ✅ ensure start/end time are included when recurrence = none
     if (formData.recurrenceType === "none") {
       payload.startTime = formData.startTime;
       payload.endTime = formData.endTime;
     }
 
-    // weekly/monthly end date default
     if (["weekly", "monthly"].includes(formData.recurrenceType)) {
       payload.endDate =
         formData.endDate ||
@@ -634,18 +648,17 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       }
     };
 
-    // Basic fields
     addIfChanged("title");
     addIfChanged("departmentIds");
     addIfChanged("collectionIds");
     addIfChanged("date");
+    addIfChanged("startTime");
+    addIfChanged("endTime");
 
-    // Recurrence type itself
     if (formData.recurrenceType !== initial.recurrenceType) {
       payload.recurrenceType = formData.recurrenceType;
     }
 
-    // Handle recurrence-specific fields
     if (formData.recurrenceType === "weekly") {
       if (JSON.stringify(formData.byWeekday) !== JSON.stringify(initial.byWeekday)) {
         payload.byWeekday = formData.byWeekday;
@@ -726,7 +739,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       }
 
       await Api.patch(
-        `/church/edit-an-event/${eventId}/branch/${formData.branchId}`, // ✅ branchId only in params
+        `/church/edit-an-event/${eventId}/branch/${formData.branchId}`,
         payload
       );
 
@@ -1608,7 +1621,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       </DialogTitle>
       <DialogContent dividers>
         {isEdit && loadingEdit ? (
-          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px" }}>
+          <Box sx={{ display: "flex", justifyContent: "center", color: 'gray.400', alignItems: "center", height: "200px" }}>
             <CircularProgress />
           </Box>
         ) : (

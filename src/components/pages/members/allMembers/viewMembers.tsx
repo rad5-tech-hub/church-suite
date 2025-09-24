@@ -155,7 +155,8 @@ const ViewMembers: React.FC = () => {
     anchorEl: null as HTMLElement | null,
     isBranchSelectOpen: false,
     isDepartmentSelectOpen: false,
-    selectedBranchId: null as string | null,
+    selectedBranchId: authData?.branchId ?? null,
+    selectedDepartmentId: authData?.department ?? null,
     editModalOpen: false,
   });
 
@@ -177,32 +178,59 @@ const ViewMembers: React.FC = () => {
   );
 
   // Data Fetching Handlers
-  const fetchMembers = useCallback(async (url: string | null = null) => {
-    handleStateChange("loading", true);
-    handleStateChange("error", null);
-    try {
-      const apiUrl = url || `/member/all-members${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`;
-      const response = await Api.get<FetchMembersResponse>(apiUrl);
-      const data = {
-        members: response.data.data || [],
-        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
-      };
-      setState((prev) => ({
-        ...prev,
-        members: data.members,
-        filteredMembers: data.members,
-        filteredNames: data.members,
-        pagination: data.pagination,
-        loading: false,
-      }));
-      return data;
-    } catch (error) {
-      console.error("Failed to fetch members:", error);
-      handleStateChange("error", "Failed to load members. Please try again later.");
-      handleStateChange("loading", false);
-      return { members: [], pagination: { hasNextPage: false, nextPage: null } };
-    }
-  }, [authData?.branchId, handleStateChange]);
+  const fetchMembers = useCallback(
+    async (url: string | null = null) => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+
+      try {
+        // ✅ Build query params
+        const params = new URLSearchParams();
+
+        // Always include branchId if available
+        if (authData?.branchId) {
+          params.append("branchId", authData.branchId);
+        }
+
+        // Add departmentId if role is department
+        if (authData?.role === "department" && authData?.department) {
+          params.append("departmentId", authData.department);
+        }
+
+        // ✅ Final API URL
+        const apiUrl = url || `/member/all-members?${params.toString()}`;
+
+        const response = await Api.get<FetchMembersResponse>(apiUrl);
+
+        const data = {
+          members: response.data.data || [],
+          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        };
+
+        // ✅ Update state in one go
+        setState((prev) => ({
+          ...prev,
+          members: data.members,
+          filteredMembers: data.members,
+          filteredNames: data.members,
+          pagination: data.pagination,
+          loading: false,
+        }));
+
+        return data;
+      } catch (error) {
+        console.error("Failed to fetch members:", error);
+        handleStateChange("error", "Failed to load members. Please try again later.");
+        handleStateChange("loading", false);
+
+        return {
+          members: [],
+          pagination: { hasNextPage: false, nextPage: null },
+        };
+      }
+    },
+    [authData?.branchId, authData?.department, authData?.role, handleStateChange]
+  );
 
   const fetchDepartments = useCallback(async () => {
     if (!state.searchBranch && !authData?.branchId) return;
@@ -338,7 +366,7 @@ const ViewMembers: React.FC = () => {
           direction === "next"
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${authData?.branchId ? `?branchId=${authData.branchId}` : ''}`
+            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === 'branch' && authData?.branchId) ? `?branchId=${authData.branchId}` : ''}${(authData?.role === 'department' && authData?.department) ? `?departmentId=${authData.department}` : ''}`
             : null;
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
         const data = state.searchName || state.searchDepartment || state.searchBranch

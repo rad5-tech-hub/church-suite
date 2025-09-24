@@ -63,6 +63,7 @@ interface Unit {
   isDeleted?: boolean;
   branchId: string | null;
   departmentId: string | null;
+  department : Department;
 }
 
 interface Pagination {
@@ -260,7 +261,7 @@ const ViewUnit: React.FC = () => {
     currentUnit: Unit | null;
     actionType: "delete" | "suspend" | null;
     anchorEl: HTMLElement | null;
-    editFormData: Omit<Unit, "id" | "isActive" | "isDeleted">;
+    editFormData: Omit<Unit, "id" | "isActive" | "isDeleted" | 'department'>;
     nameError: string | null;
     searchTerm: string;
     selectedBranchId: string;
@@ -282,11 +283,11 @@ const ViewUnit: React.FC = () => {
     currentUnit: null,
     actionType: null,
     anchorEl: null,
-    editFormData: { name: "", description: "", branchId: null, departmentId: null },
+    editFormData: { name: "", description: "", branchId: null, departmentId: null },    
     nameError: null,
     searchTerm: "",
-    selectedBranchId: "",
-    selectedDepartmentId: "",
+    selectedBranchId: authData?.branchId || '',
+    selectedDepartmentId: authData?.department || '',
     currentPage: 1,
     pagination: { hasNextPage: false, nextPage: null },
     pageHistory: [],
@@ -1199,6 +1200,14 @@ const ViewUnit: React.FC = () => {
                           }}
                         >
                           {unit.name}
+                          {unit?.department && (
+                            <Typography
+                              component="span"
+                              sx={{ ml: 1, fontSize: "0.75rem", color: "orange", fontWeight: 500 }}
+                            >
+                              {`(${unit?.department?.name})`}
+                            </Typography>
+                          )}
                         </Typography>
                       </Box>
                       <Box mt={2}>

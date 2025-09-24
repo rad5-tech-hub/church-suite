@@ -28,7 +28,7 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({ children }) => {
       <Box
         sx={{          
           height: "100vh", // Full viewport height
-         background: "linear-gradient(135deg, #0d1421 0%, #1a1a2e 20%, #16213e 40%, #201339 80%, #533483 105%, #201339 200%)",
+          background: "linear-gradient(135deg, #0d1421 0%, #1a1a2e 20%, #16213e 40%, #201339 80%, #533483 105%, #201339 200%)",
           overflow: "hidden", // Prevent body overflow
         }}
       >        

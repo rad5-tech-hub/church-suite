@@ -31,9 +31,9 @@ import {
 import { BsCalendarDate } from "react-icons/bs";
 import { FaTransgender } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
-import { Close } from "@mui/icons-material";
+import { Close, DownloadOutlined, UploadFileOutlined } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
-import { PiDownload } from "react-icons/pi";
+import UploadNewcomersDialog from "./uploadExcel";
 
 interface FormData {
   name: string;
@@ -104,6 +104,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [branchLoading, setBranchLoading] = useState(false);
   const [downLoading, setDownLoading] = useState(false);
+  const [openUpload, setOpenUpload] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   usePageToast('newcomers')
 
@@ -271,7 +272,14 @@ const handleSubmit = async (e: React.FormEvent) => {
             <Close className="text-gray-300" />
           </IconButton>
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+        <Box 
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "center", md: "between" }, // center on mobile, end on desktop
+              flexDirection: { xs: "column", sm: "column", md: "row" }, // stack on mobile/tablet
+              gap: 2, // space between buttons
+            }}
+        >
           <Button
             variant="contained"
             onClick={handleDownloadTemplate}
@@ -298,9 +306,32 @@ const handleSubmit = async (e: React.FormEvent) => {
                 Downloading...
               </>
             ) : (
-               <span className="flex gap-1"> Download Template <PiDownload className="mt-1"/>
+               <span className="flex gap-1"> Download Template <DownloadOutlined className="mt-1"/>
                 </span>
             )}
+          </Button>
+          <Button
+            variant="contained"            
+            disabled={downLoading}
+            onClick={()=>{setOpenUpload(true)}}
+            sx={{
+              py: 1,
+              backgroundColor: "#F6F4FE",
+              px: { xs: 3, sm: 3 },
+              m: 2,
+              borderRadius: 50,
+              fontWeight: 500,
+              textTransform: "none",
+              color: "#2C2C2C",
+              fontSize: { xs: "1rem", md: "0.875rem", sm: "1rem" },
+              "&:hover": {
+                backgroundColor: "#F6F4FE",
+                opacity: 0.9,
+              },
+            }}
+          >            
+              <span className="flex gap-1"> Upload Newcomers <UploadFileOutlined className="text-base"/>
+              </span>        
           </Button>
         </Box>
       </DialogTitle>
@@ -729,6 +760,12 @@ const handleSubmit = async (e: React.FormEvent) => {
           </Box>
         </Box>
       </DialogContent>
+      <UploadNewcomersDialog
+        open={openUpload}
+        onClose={()=>{setOpenUpload(false)}}
+        onSuccess={()=>{setOpenUpload(false)}}
+        eventId={eventId}
+      />  
     </Dialog>
   );
 };

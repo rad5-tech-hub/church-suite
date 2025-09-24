@@ -109,7 +109,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
           `/church/get-departments?${params.toString()}`
         );
         setDepartments(response.data?.departments || []);
-        setSelectedDepartment(""); // Reset department selection on branch change
+        setSelectedDepartment(authData?.department || ''); // Reset department selection on branch change
       } catch (error) {
         console.error("Failed to fetch departments:", error);
         showPageToast("Failed to load departments. Please try again.", "error");

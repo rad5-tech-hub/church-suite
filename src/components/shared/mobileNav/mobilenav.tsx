@@ -208,7 +208,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
       
       {/* Submenu content */}
       {renderSubmenu('Manage')}
-      {renderSubmenu('Members')}
+      {renderSubmenu('Membership')}
       
       {/* Main navigation */}
       <Box
@@ -267,7 +267,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
           >
             <Button
               onClick={() => {
-                if (label === 'Manage' || label === 'Members') {
+                if (label === 'Manage' || label === 'Membership') {
                   handleSubmenuClick(label);
                 } else {
                   handleButtonClick(label);

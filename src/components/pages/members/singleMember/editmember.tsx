@@ -188,7 +188,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       setHasFetchedBranches(true);
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
-      showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
@@ -208,7 +207,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       setHasFetchedDepartments(true);
     } catch (error: any) {
       setDepartmentsError('Failed to load departments. Please try again.');
-      showPageToast('Failed to load departments. Please try again.', 'error');
     } finally {
       setIsFetchingDepartments(false);
     }
@@ -229,7 +227,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
     } catch (error: any) {
       setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-      showPageToast('Failed to load units for this department.', 'error');
     } finally {
       setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
     }
@@ -257,7 +254,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
     if (!memberId) {
       setFetchError("No member ID provided");
       setIsFetchingMember(false);
-      showPageToast("No member ID provided", "error");
       return;
     }
 
@@ -319,7 +315,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         error.response?.data?.message ||
         "Failed to fetch member data. Please try again.";
       setFetchError(errorMessage);
-      showPageToast(errorMessage, "error");
     } finally {
       setIsFetchingMember(false);
     }
@@ -362,12 +357,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         }
       } catch (error: any) {
         console.error("Error fetching states:", error);
-        showPageToast(
-          error.name === "AbortError"
-            ? "Request timed out while loading states. Please try again."
-            : "Failed to load states. Please try again.",
-          "error"
-        );
       } finally {
         setLoadingStates(false);
       }
@@ -978,6 +967,9 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <Autocomplete
+          loading={isFetchingCountries} // ✅ tell Autocomplete we're loading
+          loadingText="Loading..." // ✅ text to show while fetching
+          noOptionsText="No options available" // ✅ fallback after loading is done
           id="nationality"
           options={countries}
           onOpen={() => {

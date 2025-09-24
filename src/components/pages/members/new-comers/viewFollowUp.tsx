@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
 import {
   Box,
@@ -49,7 +49,7 @@ import Select, { SelectChangeEvent } from "@mui/material/Select";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
-import { MdOutlineEdit, MdOutlineFileUpload } from "react-icons/md";
+import { MdOutlineEdit } from "react-icons/md";
 import EditRegistrationModal from "./editNewcomers";
 
 // Types
@@ -345,7 +345,6 @@ const ViewFollowUp: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState) => state.auth?.authData);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
 
@@ -732,106 +731,6 @@ const ViewFollowUp: React.FC = () => {
     }
   }, [isMobile]);
 
-  // File Import Handlers
-  const handleImportExcel = () => {
-    setState((prev) => ({ ...prev, openExcelDialog: true }));
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (
-      file &&
-      (file.type === "application/vnd.ms-excel" ||
-        file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    ) {
-      setState((prev) => ({ ...prev, selectedFile: file }));
-    } else {
-      showPageToast("Please select a valid Excel file (.xlsx or .xls)",'error');
-      setState((prev) => ({ ...prev, selectedFile: null }));
-    }
-  };
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setState((prev) => ({ ...prev, isDragging: false }));
-    const file = event.dataTransfer.files?.[0];
-    if (
-      file &&
-      (file.type === "application/vnd.ms-excel" ||
-        file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    ) {
-      setState((prev) => ({ ...prev, selectedFile: file }));
-    } else {
-      showPageToast("Please drop a valid Excel file (.xlsx or .xls)",'error');
-      setState((prev) => ({ ...prev, selectedFile: null }));
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setState((prev) => ({ ...prev, isDragging: true }));
-  };
-
-  const handleDragLeave = () => {
-    setState((prev) => ({ ...prev, isDragging: false }));
-  };
-
-  const handleUpload = async () => {
-    if (!state.selectedFile) {
-      showPageToast("Please select an Excel file to upload", "error");
-      return;
-    }
-
-    setState((prev) => ({ ...prev, isLoading: true }));
-
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", state.selectedFile);
-
-      // ✅ prefer state.uploadBranchId if user selected one, otherwise fallback to authData?.branchId
-      const branchId =
-        state.uploadBranchId && state.uploadBranchId !== ""
-          ? state.uploadBranchId
-          : authData?.branchId;
-
-      const branchIdParam = branchId ? `&branchId=${branchId}` : "";
-
-      await Api.post(
-        `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
-        uploadFormData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      showPageToast("Excel file uploaded successfully!", "success");
-
-      setState((prev) => ({
-        ...prev,
-        openExcelDialog: false,
-        selectedFile: null,
-        uploadBranchId: null, // reset branch after upload
-      }));
-
-      setTimeout(() => {
-        fetchFollowUps();
-      }, 2500);
-    } catch (error: any) {
-      console.error("Error uploading file:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        "Failed to upload Excel file. Please try again.";
-      showPageToast(errorMessage, "error");
-    } finally {
-      setState((prev) => ({ ...prev, isLoading: false }));
-    }
-  };
-
-  const handleCloseExcelDialog = () => {
-    setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null, isDragging: false }));
-  };
-
-
   // Filter components
   const renderMobileFilters = () => (
     <Drawer
@@ -1175,8 +1074,7 @@ const ViewFollowUp: React.FC = () => {
   }
 
   return (
-    <DashboardManager>
-   
+    <DashboardManager>   
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
@@ -1299,45 +1197,6 @@ const ViewFollowUp: React.FC = () => {
               renderDesktopFilters()
             )}
             {isMobile && renderMobileFilters()}
-          </Grid>
-          <Grid
-            size={{ xs: 12, lg: 5 }}
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              mt: { xs: 2, md: 0 },
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                flexDirection: { xs: "column", sm: "row" },
-                width: { xs: "100%", sm: "auto" },
-              }}
-            >
-              <Button
-                variant="contained"
-                onClick={handleImportExcel}
-                disabled={state.isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#363740",
-                  px: { xs: 3, sm: 3 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content"
-                }}
-              >
-                Upload Newcomers <MdOutlineFileUpload className="ml-1" />
-              </Button>
-            </Box>
           </Grid>
         </Grid>
 
@@ -1482,149 +1341,6 @@ const ViewFollowUp: React.FC = () => {
           loading={state.loading}
         />
       </Box>
-      {/* Excel Import Dialog */}
-      <Dialog open={state.openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth
-        sx={{
-          "& .MuiDialog-paper": {
-            backgroundColor: "#2C2C2C",
-            color: "#F6F4FE",
-          },
-        }}
-      >
-        <DialogTitle sx={{display: 'flex', justifyContent: 'space-between'}}><h3>Import Newcomers Data</h3>
-          <IconButton 
-            onClick={handleCloseExcelDialog} 
-            disabled={state.isLoading}
-            sx={{ color: "#F6F4FE" }}
-          >
-            <Close sx={{ mr: 1 }} />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            options={state.branches}
-            getOptionLabel={(option) => option.name}
-            value={state.branches.find((b) => b.id === state.uploadBranchId) || null} // ✅ use uploadBranchId
-            onChange={(_, newValue) =>
-              setState((prev) => ({
-                ...prev,
-                uploadBranchId: newValue ? newValue.id : null, // ✅ update same key
-              }))
-            }
-            onOpen={() => {
-              handleStateChange("isBranchSelectOpen", true);
-              handleStateChange("isBranchLoading", true); // set loading true
-              fetchBranches().finally(() => {
-                handleStateChange("isBranchLoading", false); // stop loading
-              });
-            }}
-            clearIcon={null}
-            popupIcon={
-              state.uploadBranchId ? ( // ✅ check uploadBranchId
-                <Close
-                  sx={{ color: "#F6F4FE", cursor: "pointer" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setState((prev) => ({ ...prev, uploadBranchId: null })); // ✅ clear it properly
-                  }}
-                />
-              ) : null
-            }
-            loading={state.isBranchLoading}
-            loadingText="Loading branches..."
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Select Branch (optional)"
-                variant="outlined"
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {state.isBranchLoading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-                sx={{
-                  my: 3,
-                  "& .MuiInputBase-root": { color: "#F6F4FE" },
-                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .MuiInputLabel-root": { color: "#F6F4FE" },
-                }}
-              />
-            )}
-          />
-
-          <Box
-            sx={{
-              border: `2px dashed ${state.isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
-              borderRadius: 2,
-              p: 4,
-              textAlign: "center",
-              bgcolor: state.isDragging ? theme.palette.grey[100] : "transparent",
-              transition: "all 0.2s",
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <Typography variant="body1" color="#F6F4FE" gutterBottom>
-              Drag and drop your Excel file here or
-            </Typography>
-            <Button
-              variant="contained"
-              component="label"
-                sx={{
-                  mt: 2,
-                  backgroundColor: "#F6F4FE",
-                  color: "#2C2C2C",
-                  "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-                }}
-            >
-              Select File
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-              />
-            </Button>
-            {state.selectedFile && (
-              <Typography variant="body2" sx={{ mt: 2 }}>
-                Selected file: {state.selectedFile.name}
-              </Typography>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={handleUpload}
-            variant="contained"
-            disabled={state.isLoading || !state.selectedFile}
-            sx={{
-              backgroundColor: "#777280",
-              color: "#f6f4fe",
-              "&:hover": {
-                backgroundColor: "#777280",
-                opacity: 0.9,
-              },
-            }}
-          >
-            {state.isLoading ? (
-              <>
-                <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                Uploading...
-              </>
-            ) : (
-              "Upload"
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
       <EditRegistrationModal 
           open={state.editModalOpen}
           onClose={handleEditClose}

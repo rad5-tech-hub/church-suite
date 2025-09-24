@@ -207,7 +207,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       setHasFetchedDepartments(true);
     } catch (error: any) {
       setDepartmentsError('Failed to load departments. Please try again.');
-      showPageToast('Failed to load departments. Please try again.', 'error');
     } finally {
       setIsFetchingDepartments(false);
     }
@@ -228,7 +227,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
     } catch (error: any) {
       setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-      showPageToast('Failed to load units for this department.', 'error');
     } finally {
       setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
     }
@@ -786,6 +784,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         <Autocomplete
           id="nationality"
           options={countries}
+          loading={isFetchingCountries} // ✅ tell Autocomplete we're loading
+          loadingText="Loading..." // ✅ text to show while fetching
+          noOptionsText="No options available" // ✅ fallback after loading is done
           onOpen={() => {
             if (!hasFetchedCountries && !isFetchingCountries) {
               fetchLocations();
@@ -798,13 +799,19 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
           filterOptions={(options, state) => {
-            return options.filter(option => option.name.toLowerCase().includes(state.inputValue.toLowerCase()));
+            return options.filter(option =>
+              option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+            );
           }}
           renderOption={(props, option) => {
             const { key, ...otherProps } = props;
             return (
               <li key={key} {...otherProps} style={{ display: 'flex', alignItems: 'center' }}>
-                <img src={option.flag} alt={option.iso2} style={{ width: 24, height: 16, marginRight: 8, flexShrink: 0 }} />
+                <img
+                  src={option.flag}
+                  alt={option.iso2}
+                  style={{ width: 24, height: 16, marginRight: 8, flexShrink: 0 }}
+                />
                 <span>{option.name}</span>
               </li>
             );
@@ -829,14 +836,17 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   color: "#F6F4FE",
                   "&.Mui-focused": { color: "#F6F4FE" },
-                  transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
-                }
+                  transform: params.inputProps.value
+                    ? 'translate(14px, -9px) scale(0.75)'
+                    : undefined,
+                },
               }}
             />
           )}
           disabled={isLoading}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+          sx={{
+            '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
             '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
             '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
           }}
