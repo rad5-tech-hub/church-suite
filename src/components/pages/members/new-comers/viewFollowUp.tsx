@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -51,6 +52,9 @@ import Api from "../../../shared/api/api";
 import { RootState } from "../../../reduxstore/redux";
 import { MdOutlineEdit } from "react-icons/md";
 import EditRegistrationModal from "./editNewcomers";
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { Dayjs } from 'dayjs';
 
 // Types
 interface FollowUp {
@@ -59,7 +63,7 @@ interface FollowUp {
   sex: string;
   phoneNo: string;
   address: string;
-  branch: {name: string};
+  branch: { name: string };
   branchId: string;
   timer: number;
   birthMonth: string;
@@ -67,11 +71,29 @@ interface FollowUp {
   maritalStatus: string;
   isActive: boolean;
   isDeleted: boolean;
+  eventAttended: { event: EventAttended };
 }
 
 interface Branch {
   id: string;
   name: string;
+}
+
+interface EventAttended {
+  title: string;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  occurrenceDate?: string; // Optional, as it's not used in the new logic
+  occurrences: {
+    id: string;
+    date: string;
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+  }[];
 }
 
 interface Pagination {
@@ -100,7 +122,7 @@ const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
   name: "25%",
   branch: '13%',
   contact: "10%",
-  address: "25%",
+  address: "25%", // Used for event column width
   actions: "7%",
 };
 
@@ -161,7 +183,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           height: "40px",
           borderRadius: "8px",
           backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
+          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
           "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
           "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
         }}
@@ -181,7 +203,7 @@ interface EmptyStateProps {
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
-  <Box      
+  <Box
     sx={{
       textAlign: "center",
       py: 8,
@@ -256,7 +278,7 @@ const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, o
       {followUp.branch.name || "N/A"}
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
-      {followUp.address || "N/A"}
+      {followUp.eventAttended?.event?.title || "N/A"}
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
       <IconButton
@@ -338,6 +360,41 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
   </Dialog>
 );
 
+interface DatePickerDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onDateSelect: (date: Dayjs | null) => void;
+  onDateApply: () => void;
+}
+
+const DatePickerDialog: React.FC<DatePickerDialogProps> = ({ open, onClose, onDateSelect, onDateApply }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="xs">
+    <DialogTitle>Select Date</DialogTitle>
+    <DialogContent>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DatePicker
+          onChange={(newValue) => onDateSelect(newValue)}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: 'outlined',
+            }
+          }}
+        />
+      </LocalizationProvider>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose}>Cancel</Button>
+      <Button
+        onClick={onDateApply}
+        variant="contained"
+      >
+        Apply
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
 // Main Component
 const ViewFollowUp: React.FC = () => {
   usePageToast('view-newcomers')
@@ -345,6 +402,7 @@ const ViewFollowUp: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState) => state.auth?.authData);
+  const navigate = useNavigate();
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
 
@@ -352,7 +410,8 @@ const ViewFollowUp: React.FC = () => {
   const [state, setState] = useState({
     followUps: [] as FollowUp[],
     filteredFollowUps: [] as FollowUp[],
-     branches: [] as Branch[],
+    branches: [] as Branch[],
+    events: [] as Event[],
     filteredNames: [] as FollowUp[],
     pagination: { hasNextPage: false, nextPage: null } as Pagination,
     pageHistory: [] as string[],
@@ -364,7 +423,6 @@ const ViewFollowUp: React.FC = () => {
     error: null as string | null,
     confirmModalOpen: false,
     isModalOpen: false,
-    // Added missing state keys used elsewhere
     editModalOpen: false,
     currentFollowUp: null as FollowUp | null,
     isBranchSelectOpen: false,
@@ -377,10 +435,12 @@ const ViewFollowUp: React.FC = () => {
     anchorEl: null as HTMLElement | null,
     searchName: "",
     searchType: "",
-    selectedBranchId: "",
-    uploadBranchId: '' as string | null ,   
-    isBranchLoading: false,
-    searchAddress: "",
+    selectedBranchId: authData?.branchId || "",
+    uploadBranchId: '' as string | null,
+    selectedEventId: "",
+    eventsLoading: false,
+    dateDialogOpen: false,
+    selectedDate: null as Dayjs | null,
     types: [] as { id: string; name: string }[],
   });
 
@@ -417,6 +477,40 @@ const ViewFollowUp: React.FC = () => {
     }
   }, [handleStateChange, branchesLoaded, branchesLoading]);
 
+  const fetchEvents = useCallback(async (date: Dayjs | null = null) => {
+    if (!state.selectedBranchId) {
+      handleStateChange("events", []);
+      handleStateChange("selectedEventId", "");
+      handleStateChange("eventsLoading", false);
+      return;
+    }
+    handleStateChange("eventsLoading", true);
+    try {
+      const params = new URLSearchParams();
+      const branchId = state.selectedBranchId;
+      if (branchId) {
+        params.append("branchId", branchId);
+      }
+      if (authData?.role === "department") {
+        if (!authData.department) throw new Error("No department found");
+        params.append("departmentId", authData.department);
+      }
+      if (date) {
+        params.append("date", date.format('YYYY-MM-DD'));
+      }
+      const response = await Api.get<{ events: Event[] }>(`/church/get-events?${params.toString()}`);
+      handleStateChange("events", response.data?.events || []);
+      handleStateChange("selectedEventId", "");
+    } catch (error) {
+      console.error("Failed to fetch events:", error);
+      showPageToast("Failed to load events. Please try again.", "error");
+      handleStateChange("events", []);
+      handleStateChange("selectedEventId", "");
+    } finally {
+      handleStateChange("eventsLoading", false);
+    }
+  }, [handleStateChange, state.selectedBranchId, authData]);
+
   const handleBranchOpen = useCallback(() => {
     fetchBranches();
   }, [fetchBranches]);
@@ -424,20 +518,21 @@ const ViewFollowUp: React.FC = () => {
   const handleBranchChange = useCallback(
     (e: SelectChangeEvent<string>) => {
       const value = e.target.value;
-        if (value !== state.selectedBranchId) {
-          handleStateChange("selectedBranchId", value);
-        } else {
-          handleStateChange("selectedBranchId", value);
-        }
-      },
-    [handleStateChange, state.selectedBranchId]
+      handleStateChange("selectedBranchId", value);
+      handleStateChange("events", []);
+      handleStateChange("selectedEventId", "");
+      if (value) {
+        fetchEvents(state.selectedDate);
+      }
+    },
+    [handleStateChange, fetchEvents, state.selectedDate]
   );
 
   // Data fetching
   const fetchFollowUps = useCallback(async (url: string | null = "/member/get-follow-up") => {
     handleStateChange("loading", true);
     handleStateChange("error", null);
-    try {      
+    try {
       const apiUrl = (() => {
         const base = url || "/member/get-follow-up";
         const separator = base.includes("?") ? "&" : "?";
@@ -445,7 +540,7 @@ const ViewFollowUp: React.FC = () => {
       })();
 
       const response = await Api.get<FetchFollowUpsResponse>(apiUrl);
-      
+
       const data = {
         followUps: response.data.results || [],
         pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
@@ -475,7 +570,7 @@ const ViewFollowUp: React.FC = () => {
       showPageToast("Failed to load Newcomers", 'error');
       return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
     }
-  }, [handleStateChange, isMobile]);
+  }, [handleStateChange, authData]);
 
   const refreshFollowUps = useCallback(async () => {
     try {
@@ -509,8 +604,8 @@ const ViewFollowUp: React.FC = () => {
       if (state.selectedBranchId) {
         params.append("branchId", state.selectedBranchId);
       }
-      if (state.searchAddress) {
-        params.append("address", state.searchAddress);
+      if (state.selectedEventId) {
+        params.append("eventOccurrenceId", state.selectedEventId);
       }
 
       const response = await Api.get<FetchFollowUpsResponse>(
@@ -528,13 +623,12 @@ const ViewFollowUp: React.FC = () => {
       showPageToast("Search completed successfully!", "success");
     } catch (error: any) {
       console.error("❌ Error searching follow-ups:", error);
-
       const errorMessage =
         error.response?.data?.message || "Failed to search follow-ups. Please try again.";
 
       setState((prev) => ({
         ...prev,
-        filteredFollowUps: [], // clear results if error
+        filteredFollowUps: [],
         pagination: { hasNextPage: false, nextPage: null },
         currentPage: 1,
         pageHistory: [],
@@ -542,12 +636,12 @@ const ViewFollowUp: React.FC = () => {
         isSearching: false,
       }));
 
-      showPageToast(errorMessage, "error"); // 🔥 show error toast
+      showPageToast(errorMessage, "error");
     }
   }, [
     state.searchName,
     state.selectedBranchId,
-    state.searchAddress,
+    state.selectedEventId,
     handleStateChange,
   ]);
 
@@ -555,8 +649,8 @@ const ViewFollowUp: React.FC = () => {
     async (
       url: string,
       searchName: string,
-      searchAddress: string,
-      selectedBranchId: string
+      selectedBranchId: string,
+      selectedEventId: string
     ) => {
       try {
         const params = new URLSearchParams();
@@ -565,10 +659,10 @@ const ViewFollowUp: React.FC = () => {
           params.append("searchField", "name");
         }
         if (selectedBranchId) {
-          params.append("branchId", selectedBranchId); // ✅ use function arg, not state
+          params.append("branchId", selectedBranchId);
         }
-        if (searchAddress) {
-          params.append("address", searchAddress);
+        if (selectedEventId) {
+          params.append("eventOccurrenceId", selectedEventId);
         }
 
         const fullUrl = url.includes("?")
@@ -601,13 +695,18 @@ const ViewFollowUp: React.FC = () => {
             : state.pageHistory.length > 0
             ? state.pageHistory[state.pageHistory.length - 2] || "/member/get-follow-up"
             : null;
-            
+
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
-        
-        const data = state.searchName || state.searchType || state.searchAddress
-          ? await searchFollowUpsWithPagination(url, state.searchName, state.searchType, state.searchAddress)
+
+        const data = state.searchName || state.selectedBranchId || state.selectedEventId
+          ? await searchFollowUpsWithPagination(
+              url,
+              state.searchName,
+              state.selectedBranchId,
+              state.selectedEventId
+            )
           : await fetchFollowUps(url);
-          
+
         setState((prev) => ({
           ...prev,
           filteredFollowUps: data.followUps,
@@ -635,8 +734,8 @@ const ViewFollowUp: React.FC = () => {
       state.pagination.nextPage,
       state.pageHistory,
       state.searchName,
-      state.searchType,
-      state.searchAddress,
+      state.selectedBranchId,
+      state.selectedEventId,
       fetchFollowUps,
       handleStateChange,
       isMobile,
@@ -702,7 +801,7 @@ const ViewFollowUp: React.FC = () => {
       const response = await Api.get(`/member/export-followup${authData?.branchId ? `?branchId=${authData?.branchId}` : ''}`, { responseType: "blob" });
       const contentDisposition = response.headers["content-disposition"];
       let filename = "newcomers_export.xlsx";
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
         if (filenameMatch && filenameMatch[1]) {
@@ -729,9 +828,14 @@ const ViewFollowUp: React.FC = () => {
     } finally {
       setState((prev) => ({ ...prev, exportLoading: false }));
     }
-  }, [isMobile]);
+  }, [authData]);
 
-  // Filter components
+  // Fetch branches and events on mount
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches, authData?.branchId, state.selectedDate]);
+
+  // Updated renderMobileFilters function
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -746,7 +850,13 @@ const ViewFollowUp: React.FC = () => {
         },
       }}
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "#777280", fontWeight: 500, fontSize: "11px" }}
+        >
+          {state.selectedDate ? `Selected Date: ${state.selectedDate.format('MMMM D, YYYY')}` : "No Date Selected"}
+        </Typography>
         <IconButton
           onClick={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
           sx={{ color: "#F6F4FE" }}
@@ -769,7 +879,7 @@ const ViewFollowUp: React.FC = () => {
               <Close
                 sx={{ color: "#F6F4FE", cursor: "pointer" }}
                 onClick={(e) => {
-                  e.stopPropagation(); // prevent dropdown from opening
+                  e.stopPropagation();
                   handleStateChange("searchName", "");
                 }}
               />
@@ -815,62 +925,118 @@ const ViewFollowUp: React.FC = () => {
         <Box sx={{ display: "flex", flexDirection: "column"}}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
             Branch
-          </Typography>       
-            <Select
-              value={state.selectedBranchId}
-              onChange={(e) => handleBranchChange(e)}
-              onOpen={handleBranchOpen}
-              displayEmpty
-              sx={{
-                backgroundColor: "#4d4d4e8e",
-                borderRadius: "8px",
-                color: "#F6F4FE",
-                fontWeight: 500,
-                fontSize: "14px",
-                ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
-                ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                "& .MuiSelect-icon": { display: "none" },
-              }}
-              renderValue={(selected) =>
-                selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
-              }
-            >
-              <MenuItem value=''>None</MenuItem>
-              {branchesLoading ? (
-                <MenuItem disabled>Loading...</MenuItem>
-              ) : (
-                state.branches.map((branch) => (
-                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-                ))
-              )}
-            </Select>       
-        </Box>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
-            Address
           </Typography>
           <Select
-            value={state.searchAddress}
-            onChange={(e) => handleStateChange("searchAddress", e.target.value as string)}
+            value={state.selectedBranchId}
+            onChange={(e) => handleBranchChange(e)}
+            onOpen={handleBranchOpen}
             displayEmpty
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
-              color: state.searchAddress ? "#F6F4FE" : "#777280",
+              color: "#F6F4FE",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
             }}
-            renderValue={(selected) => (selected ? selected : "Select Address")}
+            renderValue={(selected) =>
+              selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
+            }
+          >
+            <MenuItem value=''>None</MenuItem>
+            {branchesLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : (
+              state.branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))
+            )}
+          </Select>
+        </Box>
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
+            Event
+          </Typography>
+          <Select
+            value={state.selectedEventId}
+            onChange={(e) => handleStateChange("selectedEventId", e.target.value as string)}
+            onOpen={() => fetchEvents(state.selectedDate)}
+            displayEmpty
+            disabled={!state.selectedBranchId}
+            sx={{
+              backgroundColor: "#4d4d4e8e",
+              borderRadius: "8px",
+              color: state.selectedEventId ? "#F6F4FE" : "#777280",
+              fontWeight: 500,
+              fontSize: "14px",
+              ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
+              ".MuiOutlinedInput-notchedOutline": { border: "none" },
+              "& .MuiSelect-icon": { display: "none" },
+              "&.Mui-disabled": { backgroundColor: "#4d4d4e4d", color: "#777280" },
+            }}
+            renderValue={(selected) => {
+              if (!state.selectedBranchId) return "Select Branch First";
+              if (!selected) return "Select Event";
+
+              const allOccurrences = state.events.flatMap(event =>
+                event.occurrences.map(occ => ({ ...occ, eventTitle: event.title }))
+              );
+              const occurrence = allOccurrences.find(occ => occ.id === selected);
+
+              if (occurrence) {
+                const formatTime = (time: string) => {
+                  const date = new Date(`1970-01-01T${time}`);
+                  return date.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                };
+
+                const formattedStart = formatTime(occurrence.startTime);
+                const formattedEnd = formatTime(occurrence.endTime);
+
+                return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
+              }
+
+              return "Select Event";
+            }}
           >
             <MenuItem value="">None</MenuItem>
-            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
-              <MenuItem key={address} value={address}>
-                {address}
-              </MenuItem>
-            ))}
+            {state.eventsLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : (
+              state.events.flatMap((event) =>
+                event.occurrences.map((occurrence) => {
+                  const start = new Date(`1970-01-01T${occurrence.startTime}`);
+                  const end = new Date(`1970-01-01T${occurrence.endTime}`);
+
+                  const formattedStart = start.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+
+                  const formattedEnd = end.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+
+                  return (
+                    <MenuItem key={occurrence.id} value={occurrence.id}>
+                      {`${event.title} (${formattedStart} - ${formattedEnd})`}
+                    </MenuItem>
+                  );
+                })
+              )
+            )}
+            <Divider />
+            <MenuItem onClick={() => handleStateChange("dateDialogOpen", true)}>
+              {state.selectedDate ? `Selected Date: ${state.selectedDate.format('MMMM D, YYYY')}` : "Select Date"}
+            </MenuItem>
           </Select>
         </Box>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
@@ -893,9 +1059,19 @@ const ViewFollowUp: React.FC = () => {
           </Button>
         </Box>
       </Box>
+      <DatePickerDialog
+        open={state.dateDialogOpen}
+        onClose={() => handleStateChange("dateDialogOpen", false)}
+        onDateSelect={(date) => handleStateChange("selectedDate", date)}
+        onDateApply={() => {
+          fetchEvents(state.selectedDate);
+          handleStateChange("dateDialogOpen", false);
+        }}
+      />
     </Drawer>
   );
 
+  // Updated renderDesktopFilters function
   const renderDesktopFilters = () => (
     <Box sx={{ display: "flex", width: "100%", mb: 3}}>
       <Box
@@ -931,7 +1107,6 @@ const ViewFollowUp: React.FC = () => {
           >
             Who?
           </Typography>
-
           <Autocomplete
             freeSolo
             options={state.filteredNames.map((n) => n.name)}
@@ -942,7 +1117,7 @@ const ViewFollowUp: React.FC = () => {
               <Close
                 sx={{ color: "#F6F4FE", cursor: "pointer" }}
                 onClick={(e) => {
-                  e.stopPropagation(); // prevent dropdown from opening
+                  e.stopPropagation();
                   handleStateChange("searchName", "");
                 }}
               />
@@ -968,33 +1143,6 @@ const ViewFollowUp: React.FC = () => {
               />
             )}
           />
-        </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Address
-          </Typography>
-          <MuiSelect
-            value={state.searchAddress}
-            onChange={(e: any) => handleStateChange("searchAddress", e.target.value as string)}
-            displayEmpty
-            sx={{
-              color: state.searchAddress ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => (selected ? selected : "Select Address")}
-          >
-            <MenuItem value="">None</MenuItem>
-            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
-              <MenuItem key={address} value={address}>
-                {address}
-              </MenuItem>
-            ))}
-          </MuiSelect>
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
@@ -1031,6 +1179,89 @@ const ViewFollowUp: React.FC = () => {
             </Select>
           </FormControl>
         </Box>
+        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+            Event
+          </Typography>
+          <MuiSelect
+            value={state.selectedEventId}
+            onChange={(e) => handleStateChange("selectedEventId", e.target.value as string)}
+            onOpen={() => fetchEvents(state.selectedDate)}
+            displayEmpty
+            disabled={!state.selectedBranchId}
+            sx={{
+              color: state.selectedEventId ? "#F6F4FE" : "#777280",
+              fontWeight: 500,
+              fontSize: "14px",
+              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+              ".MuiOutlinedInput-notchedOutline": { border: "none" },
+              "& .MuiSelect-icon": { display: "none" },
+              "&.Mui-disabled": { backgroundColor: "#4d4d4e4d", color: "#777280" },
+            }}
+            renderValue={(selected) => {
+              if (!state.selectedBranchId) return "Select Branch First";
+              if (!selected) return "Select Event";
+
+              const allOccurrences = state.events.flatMap(event =>
+                event.occurrences.map(occ => ({ ...occ, eventTitle: event.title }))
+              );
+              const occurrence = allOccurrences.find(occ => occ.id === selected);
+
+              if (occurrence) {
+                const formatTime = (time: string) => {
+                  const date = new Date(`1970-01-01T${time}`);
+                  return date.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                };
+
+                const formattedStart = formatTime(occurrence.startTime);
+                const formattedEnd = formatTime(occurrence.endTime);
+
+                return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
+              }
+
+              return "Select Event";
+            }}
+          >
+            <MenuItem value="">None</MenuItem>
+              {state.eventsLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : (
+                state.events.flatMap((event) =>
+                  event.occurrences.map((occurrence) => {
+                    const start = new Date(`1970-01-01T${occurrence.startTime}`);
+                    const end = new Date(`1970-01-01T${occurrence.endTime}`);
+
+                    const formattedStart = start.toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
+
+                    const formattedEnd = end.toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
+
+                    return (
+                      <MenuItem key={occurrence.id} value={occurrence.id}>
+                        {`${event.title} (${formattedStart} - ${formattedEnd})`}
+                      </MenuItem>
+                    );
+                  })
+                )
+              )}
+            <Divider />
+            <MenuItem onClick={() => handleStateChange("dateDialogOpen", true)}>
+              {state.selectedDate ? `${state.selectedDate.format('MMMM D, YYYY')}` : "Select Date"}
+            </MenuItem>
+          </MuiSelect>
+        </Box>
         <Box>
           <Button
             onClick={searchFollowUps}
@@ -1054,6 +1285,15 @@ const ViewFollowUp: React.FC = () => {
           </Button>
         </Box>
       </Box>
+      <DatePickerDialog
+        open={state.dateDialogOpen}
+        onClose={() => handleStateChange("dateDialogOpen", false)}
+        onDateSelect={(date) => handleStateChange("selectedDate", date)}
+        onDateApply={() => {
+          fetchEvents(state.selectedDate);
+          handleStateChange("dateDialogOpen", false);
+        }}
+      />
     </Box>
   );
 
@@ -1062,19 +1302,11 @@ const ViewFollowUp: React.FC = () => {
   }, [fetchFollowUps]);
 
   function handleAddFollowUp(): void {
-    // Open the registration modal for adding a new newcomer.
-    // Ensure edit state is cleared and any action menu is closed.
-    setState((prev) => ({
-      ...prev,
-      isModalOpen: true,
-      editModalOpen: false,
-      currentFollowUp: null,
-      anchorEl: null,
-    }));
+    navigate('/programs');
   }
 
   return (
-    <DashboardManager>   
+    <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
@@ -1103,7 +1335,7 @@ const ViewFollowUp: React.FC = () => {
                     "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                   }}
                 >
-                  <Box sx={{ flex: 1, padding: "4px 8px" }}>
+                  <Box sx={{ flex: 1, padding: "4px 8px" }}>                
                     <TextField
                       value={state.searchName}
                       onChange={(e) => handleStateChange("searchName", e.target.value)}
@@ -1180,10 +1412,10 @@ const ViewFollowUp: React.FC = () => {
                         minWidth: "48px",
                         height: "48px",
                         padding: 0,
-                        "&:hover": { backgroundColor: "transparent" },
+                        "&:hover": { backgroundColor: "#777280" },
                       }}
                       disabled={state.isSearching}
-                      >
+                    >
                       {state.isSearching ? (
                         <CircularProgress size={20} color="inherit" />
                       ) : (
@@ -1217,40 +1449,18 @@ const ViewFollowUp: React.FC = () => {
               <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
                 <TableHead>
                   <TableRow>
-                    {(["snumber", "name", "contact", 'branch', "address", "actions"] as const).map((key) => (
+                    {(["snumber", "name", "contact", "branch", "event", "actions"] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{
                           fontWeight: 600,
-                          width: TABLE_COLUMN_WIDTHS[key],
+                          width: TABLE_COLUMN_WIDTHS[key === "event" ? "address" : key],
                           fontSize: isLargeScreen ? "0.875rem" : undefined,
                           color: "#777280",
                           textAlign: key === "actions" ? "center" : "left",
-                          ...(key === "address" && {
-                            maxWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }),
                         }}
                       >
-                        {key === "address" ? (
-                          <Tooltip
-                            title={(key.charAt(0).toUpperCase() + key.slice(1)).length > 30 ? key.charAt(0).toUpperCase() + key.slice(1) : ""}
-                            placement="top"
-                            arrow
-                          >
-                            <span>
-                              {(key.charAt(0).toUpperCase() + key.slice(1)).length > 30
-                                ? `${(key.charAt(0).toUpperCase() + key.slice(1)).slice(0, 30)}...`
-                                : key.charAt(0).toUpperCase() + key.slice(1)}
-                            </span>
-                          </Tooltip>
-                        ) : key === "snumber" ? (
-                          "#"
-                        ) : (
-                          key.charAt(0).toUpperCase() + key.slice(1)
-                        )}
+                        {key === "snumber" ? "#" : key.charAt(0).toUpperCase() + key.slice(1)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -1277,11 +1487,11 @@ const ViewFollowUp: React.FC = () => {
                 isLoading={state.loading}
               />
             </TableContainer>
-            <Box 
+            <Box
               sx={{
                 display: 'flex',
                 justifyContent: 'flex-end',
-                mb: 3,                
+                mb: 3,
               }}
             >
               <Tooltip title="Download Newcomers Data" placement="top" arrow>
@@ -1308,7 +1518,6 @@ const ViewFollowUp: React.FC = () => {
                     </span>
                   ) : (
                     <span className="flex items-center gap-1">
-                      {/* Show text only on medium and above */}
                       <span className="hidden lg:inline">Download Newcomers</span>
                       <PiDownloadThin className="text-lg" />
                     </span>
@@ -1341,7 +1550,7 @@ const ViewFollowUp: React.FC = () => {
           loading={state.loading}
         />
       </Box>
-      <EditRegistrationModal 
+      <EditRegistrationModal
           open={state.editModalOpen}
           onClose={handleEditClose}
           onSuccess={() => {

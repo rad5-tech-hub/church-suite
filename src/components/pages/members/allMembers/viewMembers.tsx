@@ -24,7 +24,7 @@ import { RootState } from "../../../reduxstore/redux";
 import MemberModal from "../../members/allMembers/members";
 import EditMemberModal from "../singleMember/editmember";
 
-// Type Definitions
+// Type Definitions (unchanged)
 interface Member {
   id: string;
   memberId: string;
@@ -68,7 +68,7 @@ interface CustomPaginationProps {
   isLoading: boolean;
 }
 
-// Custom Pagination Component
+// Custom Pagination Component (unchanged)
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
   hasPrevPage,
@@ -135,8 +135,8 @@ const ViewMembers: React.FC = () => {
     currentPage: 1,
     page: 0,
     searchName: "",
-    searchDepartment: "",
-    searchBranch: "",
+    searchDepartment: authData?.role === 'department' && authData?.department ? authData.department : "",
+    searchBranch: authData?.branchId || "",
     loading: true,
     exportLoading: false,
     isLoading: false,
@@ -155,8 +155,8 @@ const ViewMembers: React.FC = () => {
     anchorEl: null as HTMLElement | null,
     isBranchSelectOpen: false,
     isDepartmentSelectOpen: false,
-    selectedBranchId: authData?.branchId ?? null,
-    selectedDepartmentId: authData?.department ?? null,
+    selectedBranchId: authData?.branchId || '',
+    selectedDepartmentId: authData?.role === 'department' && authData?.department ? authData.department : '',
     editModalOpen: false,
   });
 
@@ -171,10 +171,13 @@ const ViewMembers: React.FC = () => {
             member.name.toLowerCase().includes(searchTerm)
           );
         }
+        if (key === "searchBranch") {
+          newState.searchDepartment = authData?.role === 'department' && authData?.department ? authData.department : "";
+        }
         return newState;
       });
     },
-    []
+    [authData?.role, authData?.department]
   );
 
   // Data Fetching Handlers
@@ -184,30 +187,23 @@ const ViewMembers: React.FC = () => {
       handleStateChange("error", null);
 
       try {
-        // ✅ Build query params
         const params = new URLSearchParams();
-
-        // Always include branchId if available
         if (authData?.branchId) {
           params.append("branchId", authData.branchId);
         }
-
-        // Add departmentId if role is department
         if (authData?.role === "department" && authData?.department) {
           params.append("departmentId", authData.department);
         }
 
-        // ✅ Final API URL
         const apiUrl = url || `/member/all-members?${params.toString()}`;
+        console.log("Fetching members with URL:", apiUrl);
 
         const response = await Api.get<FetchMembersResponse>(apiUrl);
-
         const data = {
           members: response.data.data || [],
           pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
         };
 
-        // ✅ Update state in one go
         setState((prev) => ({
           ...prev,
           members: data.members,
@@ -222,7 +218,7 @@ const ViewMembers: React.FC = () => {
         console.error("Failed to fetch members:", error);
         handleStateChange("error", "Failed to load members. Please try again later.");
         handleStateChange("loading", false);
-
+        showPageToast("Failed to load members", "error");
         return {
           members: [],
           pagination: { hasNextPage: false, nextPage: null },
@@ -233,31 +229,43 @@ const ViewMembers: React.FC = () => {
   );
 
   const fetchDepartments = useCallback(async () => {
-    if (!state.searchBranch && !authData?.branchId) return;
+    if (state.loadingDepartments) return; // Prevent concurrent calls
+    const branchId = state.searchBranch || authData?.branchId;
+    if (!branchId) {
+      handleStateChange("departments", []);
+      handleStateChange("loadingDepartments", false);
+      showPageToast("Please select a branch to load departments", "warning");
+      return;
+    }
     handleStateChange("loadingDepartments", true);
     try {
-      const response = await Api.get(`/church/get-departments?branchId=${state.searchBranch || authData?.branchId || ''}`);
+      const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
+      console.log("Fetched departments:", response.data.departments);
       handleStateChange("departments", response.data.departments || []);
     } catch (error) {
       console.error("Error fetching departments:", error);
+      handleStateChange("departments", []);
       showPageToast("Failed to load departments", "error");
     } finally {
       handleStateChange("loadingDepartments", false);
     }
-  }, [authData?.branchId, handleStateChange, state.searchBranch]);
+  }, [authData?.branchId, state.searchBranch, state.loadingDepartments, handleStateChange]);
 
   const fetchBranches = useCallback(async () => {
+    if (state.isBranchLoading) return; // Prevent concurrent calls
     handleStateChange("isBranchLoading", true);
     try {
       const response = await Api.get("/church/get-branches");
+      console.log("Fetched branches:", response.data.branches);
       handleStateChange("branches", response.data.branches || []);
     } catch (error) {
       console.error("Error fetching branches:", error);
+      handleStateChange("branches", []);
       showPageToast("Failed to load branches", "error");
     } finally {
       handleStateChange("isBranchLoading", false);
     }
-  }, [handleStateChange]);
+  }, [state.isBranchLoading, handleStateChange]);
 
   const refreshMembers = useCallback(async () => {
     try {
@@ -278,6 +286,7 @@ const ViewMembers: React.FC = () => {
 
   // Search Handlers
   const searchMembers = useCallback(async () => {
+    console.log("Search triggered with:", { searchName: state.searchName, searchBranch: state.searchBranch, searchDepartment: state.searchDepartment });
     handleStateChange("isSearching", true);
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
@@ -366,7 +375,7 @@ const ViewMembers: React.FC = () => {
           direction === "next"
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === 'branch' && authData?.branchId) ? `?branchId=${authData.branchId}` : ''}${(authData?.role === 'department' && authData?.department) ? `?departmentId=${authData.department}` : ''}`
+            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === 'branch' && authData?.branchId) ? `?branchId=${authData.branchId}` : ''}${(authData?.role === 'department' && authData?.department) ? `&departmentId=${authData.department}` : ''}`
             : null;
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
         const data = state.searchName || state.searchDepartment || state.searchBranch
@@ -388,10 +397,10 @@ const ViewMembers: React.FC = () => {
         showPageToast(errorMessage, "error");
       }
     },
-    [authData?.branchId, state.pagination.nextPage, state.pageHistory, state.searchName, state.searchDepartment, state.searchBranch, fetchMembers, handleStateChange, searchMembersWithPagination]
+    [authData?.branchId, authData?.department, authData?.role, state.pagination.nextPage, state.pageHistory, state.searchName, state.searchDepartment, state.searchBranch, fetchMembers, handleStateChange, searchMembersWithPagination]
   );
 
-  // Action Handlers
+  // Action Handlers (unchanged)
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: Member) => {
     setState((prev) => ({ ...prev, anchorEl: event.currentTarget, currentMember: member }));
   };
@@ -444,7 +453,7 @@ const ViewMembers: React.FC = () => {
     }
   };
 
-  // File Import/Export Handlers
+  // File Import/Export Handlers (unchanged)
   const handleExportExcel = async () => {
     handleStateChange("exportLoading", true);
     try {
@@ -539,7 +548,7 @@ const ViewMembers: React.FC = () => {
       showPageToast("Excel file uploaded successfully!", "success");
       handleStateChange("openDialog", false);
       handleStateChange("selectedFile", null);
-      handleStateChange("selectedBranchId", null);
+      handleStateChange("selectedBranchId", '');
       setTimeout(() => fetchMembers(), 1500);
     } catch (error: any) {
       console.error("Error uploading file:", error);
@@ -602,7 +611,7 @@ const ViewMembers: React.FC = () => {
           <CloseIcon />
         </IconButton>
       </Box>
-      <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2, gap: 2 }}>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
             Who?
@@ -648,14 +657,15 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchBranch}
             onChange={(e) => {
+              console.log("Branch selected:", e.target.value);
               handleStateChange("searchBranch", e.target.value as string);
-              handleStateChange("searchDepartment", "");
-              fetchDepartments();
+              handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
+              if (e.target.value) fetchDepartments();
             }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isBranchSelectOpen", true);
-              fetchBranches();
+              if (state.branches.length === 0) fetchBranches(); // Fetch only if branches are empty
             }}
             onClose={() => handleStateChange("isBranchSelectOpen", false)}
             sx={{
@@ -674,10 +684,16 @@ const ViewMembers: React.FC = () => {
               return branch ? branch.name : "Select Branch";
             }}
           >
-            <MenuItem value="" disabled>Select Branch</MenuItem>
-            {state.branches.map((branch) => (
-              <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-            ))}
+            <MenuItem value="">None</MenuItem>
+            {state.isBranchLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : state.branches.length === 0 ? (
+              <MenuItem disabled>No branches available</MenuItem>
+            ) : (
+              state.branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))
+            )}
           </MuiSelect>
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
@@ -686,13 +702,17 @@ const ViewMembers: React.FC = () => {
           </Typography>
           <MuiSelect
             value={state.searchDepartment}
-            onChange={(e) => handleStateChange("searchDepartment", e.target.value as string)}
+            onChange={(e) => {
+              console.log("Department selected:", e.target.value);
+              handleStateChange("searchDepartment", e.target.value as string);
+            }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isDepartmentSelectOpen", true);
-              if (state.searchBranch || authData?.branchId) fetchDepartments();
+              if ((state.searchBranch || authData?.branchId) && state.departments.length === 0) fetchDepartments();
             }}
             onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
+            disabled={!state.searchBranch && !authData?.branchId}
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
@@ -709,10 +729,16 @@ const ViewMembers: React.FC = () => {
               return dept ? dept.name : "Select Department";
             }}
           >
-            <MenuItem value="" disabled>Select Department</MenuItem>
-            {state.departments.map((dept) => (
-              <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
-            ))}
+            <MenuItem value="">None</MenuItem>
+            {state.loadingDepartments ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : state.departments.length === 0 ? (
+              <MenuItem disabled>No departments available</MenuItem>
+            ) : (
+              state.departments.map((dept) => (
+                <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
+              ))
+            )}
           </MuiSelect>
         </Box>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
@@ -760,7 +786,6 @@ const ViewMembers: React.FC = () => {
                   "& .MuiInput-underline:before": { borderBottom: "none" },
                   "& .MuiInput-underline:after": { borderBottom: "none" },
                   "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
-                  "& .MuiAutocomplete-endAdornment": { display: state.searchName ? "block" : "none" },
                 }}
                 InputProps={{
                   ...params.InputProps,
@@ -786,14 +811,15 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchBranch}
             onChange={(e) => {
+              console.log("Branch selected:", e.target.value);
               handleStateChange("searchBranch", e.target.value as string);
-              handleStateChange("searchDepartment", "");
-              fetchDepartments();
+              handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
+              if (e.target.value) fetchDepartments();
             }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isBranchSelectOpen", true);
-              fetchBranches();
+              if (state.branches.length === 0) fetchBranches(); // Fetch only if branches are empty
             }}
             onClose={() => handleStateChange("isBranchSelectOpen", false)}
             sx={{
@@ -810,16 +836,15 @@ const ViewMembers: React.FC = () => {
               return branch ? branch.name : "Select Branch";
             }}
           >
-            <MenuItem value="" disabled>Select Branch</MenuItem>
+            <MenuItem value="">None</MenuItem>
             {state.isBranchLoading ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.branches.length === 0 ? (
+              <MenuItem disabled>No branches available</MenuItem>
             ) : (
-              <>
-                <MenuItem value="">None</MenuItem>
-                {state.branches.map((branch) => (
-                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-                ))}
-              </>
+              state.branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))
             )}
           </MuiSelect>
         </Box>
@@ -830,11 +855,14 @@ const ViewMembers: React.FC = () => {
           </Typography>
           <MuiSelect
             value={state.searchDepartment}
-            onChange={(e) => handleStateChange("searchDepartment", e.target.value as string)}
+            onChange={(e) => {
+              console.log("Department selected:", e.target.value);
+              handleStateChange("searchDepartment", e.target.value as string);
+            }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isDepartmentSelectOpen", true);
-              if (state.searchBranch || authData?.branchId) fetchDepartments();
+              if ((state.searchBranch || authData?.branchId) && state.departments.length === 0) fetchDepartments();
             }}
             onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
             disabled={!state.searchBranch && !authData?.branchId}
@@ -852,16 +880,15 @@ const ViewMembers: React.FC = () => {
               return dept ? dept.name : "Select Department";
             }}
           >
-            <MenuItem value="" disabled>{(!state.searchBranch && !authData?.branchId) ? "Select Branch first" : "Select Department"}</MenuItem>
+            <MenuItem value="">None</MenuItem>
             {state.loadingDepartments ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.departments.length === 0 ? (
+              <MenuItem disabled>No departments available</MenuItem>
             ) : (
-              <>
-                <MenuItem value="">None</MenuItem>
-                {state.departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
-                ))}
-              </>
+              state.departments.map((dept) => (
+                <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
+              ))
             )}
           </MuiSelect>
         </Box>
@@ -887,7 +914,7 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
-  // Table column widths
+  // Table column widths (unchanged)
   const columnWidths = {
     snumber: "3%",
     name: "25%",
@@ -900,13 +927,17 @@ const ViewMembers: React.FC = () => {
   // Effects
   useEffect(() => {
     fetchMembers();
-  }, [fetchMembers]);
+    // Pre-fetch branches to avoid fetching on every dropdown open
+    if (state.branches.length === 0) fetchBranches();
+    if (authData?.role === 'department' && authData?.department && (state.searchBranch || authData?.branchId)) {
+      fetchDepartments();
+    }
+  }, [fetchMembers, fetchBranches, state.branches.length, authData?.role, authData?.department, authData?.branchId, fetchDepartments]);
 
   // Main Render
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        {/* Header Section */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, lg: 7 }}>
             <Typography
@@ -1156,7 +1187,6 @@ const ViewMembers: React.FC = () => {
                     </>
                   ) : (
                     <span className="flex items-center gap-1">
-                      {/* Show text only on medium and above */}
                       <span className="hidden lg:inline">Download Workers</span>
                       <PiDownloadThin className="text-lg" />
                     </span>
@@ -1164,7 +1194,6 @@ const ViewMembers: React.FC = () => {
                 </Button>
               </Tooltip>
             </Box>
-
           </>
         )}
 
@@ -1250,14 +1279,14 @@ const ViewMembers: React.FC = () => {
               options={state.branches}
               getOptionLabel={(option) => option.name}
               value={state.branches.find((b) => b.id === state.selectedBranchId) || null}
-              onChange={(_, newValue) => handleStateChange("selectedBranchId", newValue ? newValue.id : null)}
+              onChange={(_, newValue) => handleStateChange("selectedBranchId", newValue ? newValue.id : '')}
               onOpen={() => {
                 handleStateChange("isBranchSelectOpen", true);
-                fetchBranches();
+                if (state.branches.length === 0) fetchBranches();
               }}
               clearIcon={null}
               popupIcon={state.selectedBranchId ? (
-                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", null); }} />
+                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ''); }} />
               ) : null}
               loading={state.isBranchLoading}
               loadingText="Loading branches..."
