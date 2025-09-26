@@ -400,7 +400,7 @@ const Header: React.FC<HeaderProps> = () => {
                   onChange={handleBranchSelect}
                   fullWidth
                   size="small"
-                  disabled={loadingBranches || !branches.length}
+                  disabled={!branches.length}
                   sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
                   displayEmpty
                   renderValue={(value) =>
@@ -451,7 +451,7 @@ const Header: React.FC<HeaderProps> = () => {
                     onChange={handleDepartmentSelect}
                     fullWidth
                     size="small"
-                    disabled={!currentBranchId || loadingDepartments || !departments.length}
+                    disabled={!currentBranchId || !departments.length}
                     sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
                     displayEmpty
                     renderValue={(value) =>
