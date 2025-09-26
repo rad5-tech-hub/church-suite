@@ -228,6 +228,7 @@ const ViewMembers: React.FC = () => {
     [authData?.branchId, authData?.department, authData?.role, handleStateChange]
   );
 
+// Modified fetchDepartments to prevent unnecessary state updates
   const fetchDepartments = useCallback(async () => {
     if (state.loadingDepartments) return; // Prevent concurrent calls
     const branchId = state.searchBranch || authData?.branchId;
@@ -924,15 +925,26 @@ const ViewMembers: React.FC = () => {
     actions: "17%",
   };
 
+
   // Effects
   useEffect(() => {
     fetchMembers();
     // Pre-fetch branches to avoid fetching on every dropdown open
     if (state.branches.length === 0) fetchBranches();
-    if (authData?.role === 'department' && authData?.department && (state.searchBranch || authData?.branchId)) {
+  }, [fetchMembers, fetchBranches, state.branches.length]);
+
+  // Separate useEffect for fetching departments
+  useEffect(() => {
+    if (
+      authData?.role === 'department' &&
+      authData?.department &&
+      (state.searchBranch || authData?.branchId) &&
+      state.departments.length === 0 && // Only fetch if departments are not already loaded
+      !state.loadingDepartments // Prevent fetching if already in progress
+    ) {
       fetchDepartments();
     }
-  }, [fetchMembers, fetchBranches, state.branches.length, authData?.role, authData?.department, authData?.branchId, fetchDepartments]);
+  }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departments.length, state.loadingDepartments, fetchDepartments]);
 
   // Main Render
   return (

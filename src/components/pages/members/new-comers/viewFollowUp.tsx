@@ -957,7 +957,7 @@ const ViewFollowUp: React.FC = () => {
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
-            Event
+            Program
           </Typography>
           <Select
             value={state.selectedEventId}
@@ -978,7 +978,7 @@ const ViewFollowUp: React.FC = () => {
             }}
             renderValue={(selected) => {
               if (!state.selectedBranchId) return "Select Branch First";
-              if (!selected) return "Select Event";
+              if (!selected) return "Select Program";
 
               const allOccurrences = state.events.flatMap(event =>
                 event.occurrences.map(occ => ({ ...occ, eventTitle: event.title }))
@@ -1001,7 +1001,7 @@ const ViewFollowUp: React.FC = () => {
                 return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
               }
 
-              return "Select Event";
+              return "Select Program";
             }}
           >
             <MenuItem value="">None</MenuItem>
@@ -1182,7 +1182,7 @@ const ViewFollowUp: React.FC = () => {
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Event
+            Program
           </Typography>
           <MuiSelect
             value={state.selectedEventId}
@@ -1201,7 +1201,7 @@ const ViewFollowUp: React.FC = () => {
             }}
             renderValue={(selected) => {
               if (!state.selectedBranchId) return "Select Branch First";
-              if (!selected) return "Select Event";
+              if (!selected) return "Select Program";
 
               const allOccurrences = state.events.flatMap(event =>
                 event.occurrences.map(occ => ({ ...occ, eventTitle: event.title }))
@@ -1224,7 +1224,7 @@ const ViewFollowUp: React.FC = () => {
                 return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
               }
 
-              return "Select Event";
+              return "Select Program";
             }}
           >
             <MenuItem value="">None</MenuItem>
