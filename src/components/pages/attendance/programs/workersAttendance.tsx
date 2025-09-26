@@ -33,6 +33,7 @@ export interface Worker {
   name: string;
 }
 
+// Updated interface to match the actual API response structure
 export interface WorkerAttendanceStats {
   eventOccurrenceId: string;
   eventId: string;
@@ -52,9 +53,15 @@ export interface WorkerAttendanceStats {
     members: {
       memberId: string;
       memberName: string;
-      status: string;
+      status: string; // 'present', 'late', 'absent'
     }[];
   }[];
+}
+
+// Interface for the API response from /member/members-event/${eventId}
+interface MembersResponse {
+  message: string;
+  members: { member: Worker }[];
 }
 
 export interface WorkerAttendanceDialogueProps {
@@ -84,6 +91,13 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
 
   useEffect(() => {
     if (open && eventId) {
+      // Reset state when dialog opens
+      setWorkers([]);
+      setAttendance({});
+      setAttendanceStatus({});
+      setCheckAll(false);
+      setSelectedDeptId(null);
+
       // Set default department
       if (authData?.department && assignedDepartments.some((dept) => dept.id === authData.department)) {
         setSelectedDeptId(authData.department);
@@ -98,8 +112,8 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
           setFetchError(null);
 
           const response = await Api.get<WorkerAttendanceStats>(`/church/worker-attendace-stats/${eventId}`);
-          console.log('Attendance Stats Response:', response.data);
-          setAttendanceStats(response.data);
+          console.log('Attendance stats response:', response.data);
+          setAttendanceStats(response.data || { eventOccurrenceId: '', eventId: '', overall: { totalMembers: 0, presentCount: 0, absentCount: 0, attendanceRate: 0 }, departments: [] });
         } catch (err: any) {
           const errorMessage = err.message || 'Error fetching attendance stats';
           console.error('Fetch error:', err);
@@ -115,10 +129,10 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
   }, [eventId, open, authData?.department, assignedDepartments]);
 
   useEffect(() => {
-    if (selectedDeptId && open) {
+    if (selectedDeptId && open && attendanceStats) {
       handleFetchWorkers(selectedDeptId);
     }
-  }, [selectedDeptId, open]);
+  }, [selectedDeptId, open, attendanceStats]);
 
   const handleFetchWorkers = async (deptId: string) => {
     try {
@@ -131,71 +145,79 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
       }
       params.append("departmentId", deptId);
 
-      const res = await Api.get(`/member/members-event/${eventId}?${params.toString()}`);
-      const fetchedWorkers: Worker[] = Array.isArray(res.data.data) ? res.data.data : [];
+      const res = await Api.get<MembersResponse>(`/member/members-event/${eventId}?${params.toString()}`);
+      const fetchedWorkers: Worker[] = Array.isArray(res.data.members)
+        ? res.data.members.map((item) => item.member)
+        : [];
       console.log(`Workers for department ${deptId}:`, fetchedWorkers);
 
       setWorkers(fetchedWorkers);
 
+      // Get department stats for the selected department
+      const deptStats = attendanceStats?.departments?.find((dept) => dept.departmentId === deptId);
       const newAttendance: Record<string, boolean> = {};
       const newStatus: Record<string, string> = {};
 
       fetchedWorkers.forEach((worker) => {
-        const deptStats = attendanceStats?.departments?.find(
-          (d) => d.departmentId === deptId
-        );
+        // Find the member's status in the department stats
         const member = deptStats?.members?.find((m) => m.memberId === worker.id);
-
-        newAttendance[worker.id] = member
-          ? ["present", "late"].includes(member.status)
-          : false;
-        newStatus[worker.id] = member ? member.status : "absent";
+        
+        // Set attendance to true if status is 'present' or 'late', false if 'absent'
+        const isPresent = member ? ['present', 'late'].includes(member.status) : false;
+        newAttendance[worker.id] = isPresent;
+        newStatus[worker.id] = member ? member.status : 'absent';
       });
 
       setAttendance(newAttendance);
       setAttendanceStatus(newStatus);
 
-      // Update checkAll based on whether all workers are checked
-      setCheckAll(fetchedWorkers.every((worker) => newAttendance[worker.id]));
+      // Update checkAll based on whether all workers are present (checked)
+      const allPresent = fetchedWorkers.length > 0 && fetchedWorkers.every((worker) => newAttendance[worker.id]);
+      setCheckAll(allPresent);
+      console.log(`Department ${deptId} attendance initialized:`, { allPresent, workerCount: fetchedWorkers.length });
+
     } catch (err) {
       console.error(`Error fetching workers for department ${deptId}:`, err);
-      showPageToast("Fetching Workers failed", "error");
+      showPageToast('Fetching Workers failed', 'error');
+      setWorkers([]);
+      setAttendance({});
+      setAttendanceStatus({});
+      setCheckAll(false);
     } finally {
       setDepLoading(false);
     }
   };
 
-
   const handleToggle = (workerId: string) => {
     setAttendance((prev) => {
       const newAttendance = { ...prev, [workerId]: !prev[workerId] };
       // Update checkAll based on whether all workers are checked
-      setCheckAll(Object.values(newAttendance).every((checked) => checked));
+      const allChecked = workers.length > 0 && Object.values(newAttendance).every((checked) => checked);
+      setCheckAll(allChecked);
       return newAttendance;
     });
-    setAttendanceStatus((prev) => ({
-      ...prev,
-      [workerId]: prev[workerId] === 'present' || prev[workerId] === 'late' ? 'absent' : 'present',
-    }));
+    
+    // Update status: if was present/late and now unchecked -> absent, if was absent and now checked -> present
+    setAttendanceStatus((prev) => {      
+      const newStatus = !attendance[workerId] ? 'present' : 'absent';
+      return { ...prev, [workerId]: newStatus };
+    });
   };
 
   const handleCheckAll = () => {
     const newCheckAll = !checkAll;
     setCheckAll(newCheckAll);
-    setAttendance(() => {
-      const newAttendance: Record<string, boolean> = {};
-      workers.forEach((worker) => {
-        newAttendance[worker.id] = newCheckAll;
-      });
-      return newAttendance;
+    
+    const newAttendance: Record<string, boolean> = {};
+    const newStatus: Record<string, string> = {};
+    
+    workers.forEach((worker) => {
+      newAttendance[worker.id] = newCheckAll;
+      newStatus[worker.id] = newCheckAll ? 'present' : 'absent';
     });
-    setAttendanceStatus(() => {
-      const newStatus: Record<string, string> = {};
-      workers.forEach((worker) => {
-        newStatus[worker.id] = newCheckAll ? 'present' : 'absent';
-      });
-      return newStatus;
-    });
+    
+    setAttendance(newAttendance);
+    setAttendanceStatus(newStatus);
   };
 
   const handleSubmit = async () => {
@@ -218,6 +240,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
         } submitted successfully!`,
         'success'
       );
+      onClose(); // Close dialog after successful submission
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || 'Error submitting attendance';
       showPageToast(errorMessage, 'error');
@@ -360,7 +383,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
         '& .MuiDialog-paper': {
           borderRadius: 2,
           bgcolor: '#2C2C2C',
-          minHeight: '400px', // Ensure dialog has enough height
+          minHeight: '400px',
         },
       }}
     >
@@ -379,7 +402,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
           <Close />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{overflowY: 'auto' }}>
+      <DialogContent sx={{ overflowY: 'auto' }}>
         <Box>
           <Autocomplete
             options={filteredDepartments}
@@ -392,23 +415,23 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
                 label="Select Department"
                 variant="outlined"
                 InputLabelProps={{
-                  sx: {                    
-                    color: "#F6F4FE",
-                    "&.Mui-focused": {
-                      color: "#F6F4FE", // label stays visible
+                  sx: {
+                    color: '#F6F4FE',
+                    '&.Mui-focused': {
+                      color: '#F6F4FE',
                     },
                   },
                 }}
                 sx={{
-                  my:3,              
-                  "& .MuiInputBase-root": { color: "#F6F4FE" },
-                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#F6F4FE",
+                  my: 3,
+                  '& .MuiInputBase-root': { color: '#F6F4FE' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#F6F4FE',
                   },
                   '& .MuiInputLabel-root': { color: '#F6F4FE' },
-                  "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" }, // dropdown arrow
-                  "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" }, // ❌ clear/close icon
+                  '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
+                  '& .MuiAutocomplete-clearIndicator': { color: '#F6F4FE' },
                 }}
               />
             )}
@@ -439,39 +462,62 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
                   />
                   <List dense sx={{ maxHeight: '400px', overflowY: 'auto' }}>
                     {workers.length > 0 ? (
-                      workers.map((worker) => (
-                        <ListItem
-                          key={worker.id}
-                          sx={{ display: 'flex', borderBottom: '0.5px solid #777280' , color: '#F6F4FE', justifyContent: 'space-between' }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <CheckCircle
+                      workers.map((worker) => {
+                        const currentStatus = attendanceStatus[worker.id] || 'absent';
+                        const isChecked = attendance[worker.id] || false;
+                        
+                        return (
+                          <ListItem
+                            key={worker.id}
+                            sx={{ 
+                              display: 'flex', 
+                              borderBottom: '0.5px solid #777280', 
+                              color: '#F6F4FE', 
+                              justifyContent: 'space-between',
+                              bgcolor: currentStatus === 'present' ? 'rgba(76, 175, 80, 0.1)' : 
+                                     currentStatus === 'late' ? 'rgba(255, 193, 7, 0.1)' : 'transparent'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <CheckCircle
+                                sx={{
+                                  color: isChecked ? 
+                                    (currentStatus === 'late' ? '#FFC107' : '#4CAF50') : 
+                                    '#777280',
+                                  mr: 1,
+                                  fontSize: '1.2rem',
+                                }}
+                              />
+                              <ListItemText 
+                                primary={worker.name}
+                                secondary={currentStatus}
+                                sx={{ 
+                                  '& .MuiListItemText-secondary': {
+                                    color: currentStatus === 'present' ? '#4CAF50' :
+                                           currentStatus === 'late' ? '#FFC107' : '#777280'
+                                  }
+                                }}
+                              />
+                            </Box>
+                            <Checkbox
+                              checked={isChecked}
+                              onChange={() => handleToggle(worker.id)}
                               sx={{
-                                color: attendance[worker.id] ? '#4CAF50' : '#777280',
-                                mr: 1,
-                                fontSize: '1.2rem',
+                                color: '#F6F4FE',
+                                '&.Mui-checked': {
+                                  color: currentStatus === 'late' ? '#FFC107' : '#4CAF50',
+                                },
                               }}
                             />
-                            <ListItemText primary={worker.name} />
-                          </Box>
-                          <Checkbox
-                            checked={attendance[worker.id] || false}
-                            onChange={() => handleToggle(worker.id)}
-                            sx={{
-                              color: '#F6F4FE',
-                              '&.Mui-checked': {
-                                color: attendanceStatus[worker.id] === 'late' ? '#FFC107' : '#4CAF50',
-                              },
-                            }}
-                          />
-                        </ListItem>
-                      ))
+                          </ListItem>
+                        );
+                      })
                     ) : (
                       <Typography variant="body2" color="#F6F4FE" sx={{ textAlign: 'center' }}>
                         No workers found
                       </Typography>
                     )}
-                  </List>                
+                  </List>
                 </>
               )}
             </>

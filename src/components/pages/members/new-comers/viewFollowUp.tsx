@@ -1053,7 +1053,7 @@ const ViewFollowUp: React.FC = () => {
               "&:hover": { backgroundColor: "#F6F4FE", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
             }}
             startIcon={<Search />}
-            disabled={state.isSearching}
+            disabled={state.isSearching || state.loading}
           >
             {state.isSearching ? <CircularProgress size={20} color="inherit" /> : "Search"}
           </Button>
@@ -1275,7 +1275,7 @@ const ViewFollowUp: React.FC = () => {
               padding: 0,
               "&:hover": { backgroundColor: "#777280" },
             }}
-            disabled={state.isSearching}
+            disabled={state.isSearching || state.loading}
           >
             {state.isSearching ? (
               <CircularProgress size={20} color="inherit" />
