@@ -784,9 +784,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         <Autocomplete
           id="nationality"
           options={countries}
-          loading={isFetchingCountries} // ✅ tell Autocomplete we're loading
-          loadingText="Loading..." // ✅ text to show while fetching
-          noOptionsText="No options available" // ✅ fallback after loading is done
+          loading={isFetchingCountries}
+          loadingText="Loading..."
+          noOptionsText="No options available"
           onOpen={() => {
             if (!hasFetchedCountries && !isFetchingCountries) {
               fetchLocations();
@@ -847,8 +847,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
+            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
           }}
         />
       </Grid>
@@ -906,8 +906,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           noOptionsText={!formData.nationality ? "Select a Nationality or Country first" : "No states found"}
           size="medium"
           sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
+            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
           }}
         />
       </Grid>
@@ -1086,7 +1086,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   );
 
   // Stepper Navigation
-  const handleNextStep = () => {
+  const handleNextStep = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (currentStep === 0) {
       if (!formData.name || !formData.address || !formData.phoneNo || !formData.sex || !formData.maritalStatus || !formData.branchId) {
         showPageToast("Please fill in all required fields", "error");
@@ -1096,7 +1098,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     setCurrentStep((prev) => prev + 1);
   };
 
-  const handlePrevStep = () => setCurrentStep((prev) => prev - 1);
+  const handlePrevStep = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentStep((prev) => prev - 1);
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}
@@ -1179,20 +1185,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               </Tooltip>
             )}
           </Box>
-          <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
-            {currentStep === 0 ? renderBasicInfo() : renderAdditionalDetails()}
-            <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
-              {currentStep === 1 ? (
-                <Button
-                  variant="outlined"
-                  onClick={handlePrevStep}
-                  disabled={isLoading}
-                  sx={{ py: 1, px: { xs: 2, sm: 2 }, borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
-                >
-                  Previous
-                </Button>
-              ) : <div />}
-              {currentStep === 0 ? (
+          {currentStep === 0 ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
+              {renderBasicInfo()}
+              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
                 <Button
                   variant="contained"
                   onClick={handleNextStep}
@@ -1211,7 +1207,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 >
                   Next
                 </Button>
-              ) : (
+              </Box>
+            </Box>
+          ) : (
+            <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
+              {renderAdditionalDetails()}
+              <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handlePrevStep}
+                  disabled={isLoading}
+                  sx={{ py: 1, px: { xs: 2, sm: 2 }, borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
+                >
+                  Previous
+                </Button>
                 <Button
                   type="submit"
                   variant="contained"
@@ -1237,9 +1246,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                     "Create Worker"
                   )}
                 </Button>
-              )}
+              </Box>
             </Box>
-          </Box>
+          )}
         </Container>
       </DialogContent>
     </Dialog>
