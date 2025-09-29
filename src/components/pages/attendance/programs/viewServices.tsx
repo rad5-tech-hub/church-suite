@@ -120,7 +120,7 @@ const ViewServices: React.FC = () => {
 
   const eventStatusColors = {
     ongoing: {
-      background: "#e8f5e8", // Light green
+      background: "#E4F4EC", // Light green
       text: "#2d5016", // Dark green
       legend: "#4caf50" // Original green for legend
     },
@@ -135,7 +135,7 @@ const ViewServices: React.FC = () => {
       legend: "#9c27b0" // Original purple for legend
     },
     past: {
-      background: "#f5f5f5", // Light gray
+      background: "#E5E3EC", // Light gray
       text: "#424242", // Dark gray
       legend: "#757575" // Original gray for legend
     },
