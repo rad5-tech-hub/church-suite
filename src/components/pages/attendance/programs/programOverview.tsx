@@ -38,7 +38,6 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import Api from '../../../shared/api/api';
 import { EditProgramModal } from './services';
-// import RecordDialogue from './record';
 import WorkerAttendanceDialogue from './workersAttendance';
 import RegistrationModal from '../../members/new-comers/followUp';
 import MembersCountDialogue from './memberAttendance';
@@ -55,7 +54,6 @@ ChartJS.register(
   ChartDataLabels
 );
 
-// Interfaces
 interface Attendance {
   id: string;
   eventOccurrenceId: string;
@@ -121,7 +119,6 @@ interface EventSummaryDialogProps {
   onClose: () => void;
 }
 
-// Component
 const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, onClose }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -139,7 +136,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   const [nonWorkersPercentage, setNonWorkersPercentage] = useState<number>(0);
   const [eventStatus, setEventStatus] = useState<string>('');
 
-  // Determine event status based on date and time
   const getEventStatus = (date: string, startTime: string, endTime: string): string => {
     const now = moment().tz('Africa/Lagos');
     const today = moment().tz('Africa/Lagos').startOf('day');
@@ -162,7 +158,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     return 'upcoming';
   };
 
-  // Fetch event data and attendance stats
   useEffect(() => {
     if (open && eventId) {
       const fetchData = async () => {
@@ -171,17 +166,22 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
           setError(null);
 
           const eventRes = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-          setEventData(eventRes.data.eventOccurrence);
+          const eventOccurrence = eventRes.data.eventOccurrence;
+          // Normalize assignedDepartments to always be an array
+          setEventData({
+            ...eventOccurrence,
+            assignedDepartments: eventOccurrence.assignedDepartments || [],
+          });
 
-          if (eventRes.data.eventOccurrence) {
+          if (eventOccurrence) {
             const status = getEventStatus(
-              eventRes.data.eventOccurrence.date,
-              eventRes.data.eventOccurrence.startTime,
-              eventRes.data.eventOccurrence.endTime
+              eventOccurrence.date,
+              eventOccurrence.startTime,
+              eventOccurrence.endTime
             );
             setEventStatus(status);
 
-            if (eventRes.data.eventOccurrence.assignedDepartments?.length > 0) {
+            if (eventOccurrence.assignedDepartments?.length > 0) {
               const attendanceRes = await Api.get<{ overall: { attendanceRate: number } }>(
                 `/church/worker-attendace-stats/${eventId}`
               );
@@ -202,7 +202,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     }
   }, [open, eventId]);
 
-  // Chart data for members attendance
   const attendance = eventData?.attendances?.[0] || {
     male: 0,
     female: 0,
@@ -280,7 +279,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     },
   };
 
-  // Chart data for workers attendance
   const doughnutChartData = {
     labels: ['Present', 'Absent'],
     datasets: [
@@ -326,7 +324,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     },
   };
 
-  // Format currency for collections
   const formatCurrency = (amount: string | number, currency: string = 'NGN'): string => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-NG', {
@@ -338,38 +335,8 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   };
 
   const collections = eventData?.collection || [];
+  // const showWorkersChart = eventData?.assignedDepartments?.length > 0;
 
-  // StatCard component for collections
-  const StatCard = ({ title, value }: { title: string; value: string }) => (
-    <Box
-      sx={{
-        bgcolor: '#F6F4FE',
-        p: 2,
-        borderRadius: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        minWidth: 100,
-        flex: '1 0 auto',
-        maxWidth: 120,
-      }}
-    >
-      <Box sx={{ bgcolor: '#211930', borderRadius: '10%', mb: 1 }}>
-        <CiMoneyBill size={54} style={{ color: '#F6F4FE', margin: '3px 8px' }} />
-      </Box>
-      <Typography variant="body2" sx={{ color: 'grey.800', fontWeight: 'semibold', textAlign: 'center' }}>
-        {title}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{ color: 'grey.800', display: 'flex', justifyContent: 'center', alignContent: 'center' }}
-      >
-        {value}
-      </Typography>
-    </Box>
-  );
-
-  // Loading state
   if (loading) {
     return (
       <Dialog
@@ -392,7 +359,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     );
   }
 
-  // Error state
   if (error || !eventData) {
     return (
       <Dialog
@@ -414,8 +380,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
       </Dialog>
     );
   }
-
-  const showWorkersChart = eventData?.assignedDepartments?.length > 0;
 
   return (
     <>
@@ -444,34 +408,35 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: showWorkersChart || authData?.role !== 'branch' ? (isMobile ? '1fr' : '1fr 1fr') : '1fr',
+              gridTemplateColumns: eventData?.assignedDepartments?.length > 0 || authData?.role !== 'branch' ? (isMobile ? '1fr' : '1fr 1fr') : '1fr',
               gap: 3,
               mb: 4,
             }}
           >
-            {/* Members Attendance Bar Chart */}
             {authData?.role === 'branch' && (
               <Paper sx={{ p: 3, borderRadius: 2, bgcolor: '#393939', border: '1.5px #404040 solid', height: 398 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
                     Members Attendance
                   </Typography>
-                  {['ongoing', 'past'].includes(eventStatus) && authData?.role === 'branch' && <Tooltip title="Record Members Attendance" arrow>
-                    <IconButton
-                      onClick={() => {
-                        setRecordMemberOpen(true);
-                        onClose();
-                      }}
-                      sx={{
-                        color: 'white',
-                        backgroundColor: '#2C2C2C',
-                        '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
-                        borderRadius: 50,
-                      }}
-                    >
-                      <EditDocument />
-                    </IconButton>
-                  </Tooltip>}
+                  {['ongoing', 'past'].includes(eventStatus) && authData?.role === 'branch' && !eventData.hasAttendance && (
+                    <Tooltip title="Record Members Attendance" arrow>
+                      <IconButton
+                        onClick={() => {
+                          setRecordMemberOpen(true);
+                          onClose();
+                        }}
+                        sx={{
+                          color: 'white',
+                          backgroundColor: '#2C2C2C',
+                          '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
+                          borderRadius: 50,
+                        }}
+                      >
+                        <EditDocument />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
                 <Box sx={{ height: 250 }}>
                   <Bar data={barChartData} options={barChartOptions} plugins={[ChartDataLabels]} />
@@ -484,8 +449,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
               </Paper>
             )}
 
-            {/* Workers Attendance Doughnut Chart */}
-            {showWorkersChart && (
+            {eventData?.assignedDepartments?.length > 0 && (
               <Paper
                 sx={{
                   p: 3,
@@ -500,22 +464,24 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
                     Workers Attendance
                   </Typography>
-                  {['ongoing', 'past'].includes(eventStatus) && <Tooltip title="Record Workers Attendance" arrow>
-                    <IconButton
-                      onClick={() => {
-                        setWorkerOpen(true);
-                        onClose();
-                      }}
-                      sx={{
-                        color: 'white',
-                        backgroundColor: '#2C2C2C',
-                        '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
-                        borderRadius: 50,
-                      }}
-                    >
-                      <EditDocument />
-                    </IconButton>
-                  </Tooltip>}
+                  {['ongoing', 'past'].includes(eventStatus) && !eventData.hasAttendance && (
+                    <Tooltip title="Record Workers Attendance" arrow>
+                      <IconButton
+                        onClick={() => {
+                          setWorkerOpen(true);
+                          onClose();
+                        }}
+                        sx={{
+                          color: 'white',
+                          backgroundColor: '#2C2C2C',
+                          '&:hover': { backgroundColor: '#2C2C2C', opacity: 0.9 },
+                          borderRadius: 50,
+                        }}
+                      >
+                        <EditDocument />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
                 <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
                   <Box sx={{ width: isMobile ? 250 : 280, height: isMobile ? 250 : 280 }}>
@@ -542,7 +508,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             )}
           </Box>
 
-          {/* Collections Section */}
           {collections.length > 0 && (
             <Box sx={{ mb: 4 }}>
               <Typography variant="h6" sx={{ color: 'white', mb: 2, fontWeight: 'bold' }}>
@@ -551,14 +516,38 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
               <Grid container spacing={2}>
                 {collections.map((collection, index) => (
                   <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={index}>
-                    <StatCard title={collection.collection.name} value={formatCurrency(collection.amount)} />
+                    <Box
+                      sx={{
+                        bgcolor: '#F6F4FE',
+                        p: 2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        minWidth: 100,
+                        flex: '1 0 auto',
+                        maxWidth: 120,
+                      }}
+                    >
+                      <Box sx={{ bgcolor: '#211930', borderRadius: '10%', mb: 1 }}>
+                        <CiMoneyBill size={54} style={{ color: '#F6F4FE', margin: '3px 8px' }} />
+                      </Box>
+                      <Typography variant="body2" sx={{ color: 'grey.800', fontWeight: 'semibold', textAlign: 'center' }}>
+                        {collection.collection.name}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: 'grey.800', display: 'flex', justifyContent: 'center', alignContent: 'center' }}
+                      >
+                        {formatCurrency(collection.amount)}
+                      </Typography>
+                    </Box>
                   </Grid>
                 ))}
               </Grid>
             </Box>
           )}
 
-          {/* Program Details Accordion */}
           <Box sx={{ mb: 4 }}>
             <Accordion sx={{ bgcolor: '#393939', color: 'white' }}>
               <AccordionSummary expandIcon={<ArrowDownwardIcon sx={{ color: 'white' }} />}>
@@ -601,18 +590,18 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
           </Box>
         </DialogContent>
 
-        {/* Dialog Actions */}
-        {eventData && eventStatus && (
-          <DialogActions
-            sx={{
-              justifyContent: 'center',
-              gap: 2,
-              pt: 2,
-              flexDirection: { xs: 'column', sm: 'column', md: 'row' },
-              alignItems: 'center',
-              width: '100%',
-            }}
-          >
+        <DialogActions
+          sx={{
+            justifyContent: 'center',
+            gap: 2,
+            pt: 2,
+            flexDirection: { xs: 'column', sm: 'column', md: 'row' },
+            alignItems: 'center',
+            width: '100%',
+          }}
+        >
+          {/* Show Edit Program button only if hasAttendance is false and eventStatus is not 'past' */}
+          {eventData && eventStatus && !eventData.hasAttendance && eventStatus !== 'past' && (
             <Button
               variant="contained"
               sx={{
@@ -636,68 +625,71 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             >
               Edit Program
             </Button>
+          )}
 
-            {['ongoing', 'past'].includes(eventStatus) && (authData?.role === 'branch' &&  collections.length > 0) && (
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  if (eventData.id) {
-                    setRecordOpen(true);
-                    onClose();
-                  }
-                }}
-                sx={{
-                  py: 1,
-                  backgroundColor: '#F6F4FE',
-                  px: { xs: 2, sm: 2 },
-                  borderRadius: 50,
-                  color: '#2C2C2C',
-                  fontWeight: 'semibold',
-                  textTransform: 'none',
-                  fontSize: { xs: '1rem', sm: '1rem' },
-                  '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
-                  width: { xs: '100%', sm: '100%', md: 'auto' },
-                }}
-              >
-                Record Collections
-              </Button>
-            )}
+          {/* Show Record Collections button only if hasAttendance is false, eventStatus is 'ongoing' or 'past', and collections exist */}
+          {eventData && eventStatus && !eventData.hasAttendance && ['ongoing', 'past'].includes(eventStatus) && authData?.role === 'branch' && collections.length > 0 && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                if (eventData.id) {
+                  setRecordOpen(true);
+                  onClose();
+                }
+              }}
+              sx={{
+                py: 1,
+                backgroundColor: '#F6F4FE',
+                px: { xs: 2, sm: 2 },
+                borderRadius: 50,
+                color: '#2C2C2C',
+                fontWeight: 'semibold',
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1rem' },
+                '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                width: { xs: '100%', sm: '100%', md: 'auto' },
+              }}
+            >
+              Record Collections
+            </Button>
+          )}
 
-            {['ongoing', 'past'].includes(eventStatus) && (authData?.role === 'department' || authData?.role === 'branch') && (
-              <Button
-                onClick={() => {setOpenNewcomers(true); onClose()}}
-                variant="contained"
-                startIcon={<Save />}
-                sx={{
-                  py: 1,
-                  backgroundColor: '#F6F4FE',
-                  px: { xs: 2, sm: 2 },
-                  color: '#2C2C2C',
-                  fontWeight: 'semibold',
-                  borderRadius: 50,
-                  textTransform: 'none',
-                  fontSize: { xs: '1rem', sm: '1rem' },
-                  '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
-                  width: { xs: '100%', sm: '100%', md: 'auto' },
-                }}
-              >
-                Record Newcomers
-              </Button>
-            )}
-          </DialogActions>
-        )}
+          {/* Show Record Newcomers button only if hasAttendance is false, eventStatus is 'ongoing' or 'past', and appropriate role */}
+          {eventData && eventStatus && !eventData.hasAttendance && ['ongoing', 'past'].includes(eventStatus) && (authData?.role === 'department' || authData?.role === 'branch') && (
+            <Button
+              onClick={() => {
+                setOpenNewcomers(true);
+                onClose();
+              }}
+              variant="contained"
+              startIcon={<Save />}
+              sx={{
+                py: 1,
+                backgroundColor: '#F6F4FE',
+                px: { xs: 2, sm: 2 },
+                color: '#2C2C2C',
+                fontWeight: 'semibold',
+                borderRadius: 50,
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1rem' },
+                '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                width: { xs: '100%', sm: '100%', md: 'auto' },
+              }}
+            >
+              Record Newcomers
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
 
-      {/* Modals */}
       <EditProgramModal open={editOpen} eventId={eventData?.id || ''} onClose={() => setEditOpen(false)} />
-      {/* <RecordDialogue eventId={eventData?.id || ''} open={recordOpen} onClose={() => setRecordOpen(false)} /> */}
       <CollectionsDialogue eventId={eventData?.id || ''} open={recordOpen} onClose={() => setRecordOpen(false)} />
       <MembersCountDialogue eventId={eventData?.id || ''} open={recordMemberOpen} onClose={() => setRecordMemberOpen(false)} />
       <RegistrationModal
         open={openNewcomers}
         onClose={() => setOpenNewcomers(false)}
         onSuccess={() => setOpenNewcomers(false)}
-        eventId={eventId}
+        eventId={eventData?.id || ''}
       />
       <WorkerAttendanceDialogue
         eventId={eventData?.id || ''}

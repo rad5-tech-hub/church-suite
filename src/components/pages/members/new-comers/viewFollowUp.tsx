@@ -1309,7 +1309,7 @@ const ViewFollowUp: React.FC = () => {
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         {/* Header */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, lg: 7 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
@@ -1445,8 +1445,21 @@ const ViewFollowUp: React.FC = () => {
         {/* Table */}
         {state.filteredFollowUps.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 5 }}>
-              <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
+            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 4,                        
+                maxHeight: '500px', // Set a fixed height for the table
+                overflowY: 'auto', // Enable vertical scrolling
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#777280',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: '#4d4d4e8e',
+                },
+              }}>
+                <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
                 <TableHead>
                   <TableRow>
                     {(["snumber", "name", "contact", "branch", "event", "actions"] as const).map((key) => (

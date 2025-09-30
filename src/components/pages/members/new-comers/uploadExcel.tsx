@@ -114,7 +114,7 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
+    if (!selectedFile || !eventId) {
       showPageToast('Please select an Excel file to upload', 'error');
       return;
     }

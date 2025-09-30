@@ -195,8 +195,7 @@ const ViewMembers: React.FC = () => {
           params.append("departmentId", authData.department);
         }
 
-        const apiUrl = url || `/member/all-members?${params.toString()}`;
-        console.log("Fetching members with URL:", apiUrl);
+        const apiUrl = url || `/member/all-members?${params.toString()}`;      
 
         const response = await Api.get<FetchMembersResponse>(apiUrl);
         const data = {
@@ -241,7 +240,6 @@ const ViewMembers: React.FC = () => {
     handleStateChange("loadingDepartments", true);
     try {
       const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
-      console.log("Fetched departments:", response.data.departments);
       handleStateChange("departments", response.data.departments || []);
     } catch (error) {
       console.error("Error fetching departments:", error);
@@ -257,7 +255,6 @@ const ViewMembers: React.FC = () => {
     handleStateChange("isBranchLoading", true);
     try {
       const response = await Api.get("/church/get-branches");
-      console.log("Fetched branches:", response.data.branches);
       handleStateChange("branches", response.data.branches || []);
     } catch (error) {
       console.error("Error fetching branches:", error);
@@ -287,7 +284,6 @@ const ViewMembers: React.FC = () => {
 
   // Search Handlers
   const searchMembers = useCallback(async () => {
-    console.log("Search triggered with:", { searchName: state.searchName, searchBranch: state.searchBranch, searchDepartment: state.searchDepartment });
     handleStateChange("isSearching", true);
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
@@ -658,7 +654,6 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchBranch}
             onChange={(e) => {
-              console.log("Branch selected:", e.target.value);
               handleStateChange("searchBranch", e.target.value as string);
               handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
               if (e.target.value) fetchDepartments();
@@ -704,7 +699,6 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchDepartment}
             onChange={(e) => {
-              console.log("Department selected:", e.target.value);
               handleStateChange("searchDepartment", e.target.value as string);
             }}
             displayEmpty
@@ -812,7 +806,6 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchBranch}
             onChange={(e) => {
-              console.log("Branch selected:", e.target.value);
               handleStateChange("searchBranch", e.target.value as string);
               handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
               if (e.target.value) fetchDepartments();
@@ -857,7 +850,6 @@ const ViewMembers: React.FC = () => {
           <MuiSelect
             value={state.searchDepartment}
             onChange={(e) => {
-              console.log("Department selected:", e.target.value);
               handleStateChange("searchDepartment", e.target.value as string);
             }}
             displayEmpty
@@ -1088,7 +1080,20 @@ const ViewMembers: React.FC = () => {
 
         {state.filteredMembers.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 5 }}>
+            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 4,                        
+                maxHeight: '500px', // Set a fixed height for the table
+                overflowY: 'auto', // Enable vertical scrolling
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#777280',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: '#4d4d4e8e',
+                },
+            }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
                   <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>

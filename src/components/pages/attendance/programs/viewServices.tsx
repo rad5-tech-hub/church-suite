@@ -141,32 +141,37 @@ const ViewServices: React.FC = () => {
     },
   };
 
-  const getEventStatus = (start: Date, end: Date): keyof typeof eventStatusColors => {
+  const getEventStatus = (start: Date, end: Date, hasAttendance: boolean): keyof typeof eventStatusColors => {
     const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // start of today
-
+    
     const eventStart = new Date(start);
     const eventEnd = new Date(end);
 
-    const eventDate = new Date(eventStart);
-    eventDate.setHours(0, 0, 0, 0); // event's day start
+    // Check if program has ended (endTime has passed)
+    const hasEnded = now > eventEnd;
 
-    if (eventDate < today) {
-      return "past"; // whole event was before today
+    // Past: hasAttendance is true and program has ended
+    if (hasEnded && hasAttendance) {
+      return "past";
     }
 
-    if (eventDate.getTime() === today.getTime()) {
-      if (now > eventEnd) return "past";       // ended earlier today
-      if (now < eventStart) return "pending";  // not started yet
-      return "ongoing";                        // within event time
+    // Pending: hasAttendance is false and program has ended
+    if (hasEnded && !hasAttendance) {
+      return "pending";
     }
 
-    if (eventDate.getTime() === today.getTime() + 24 * 60 * 60 * 1000) {
-      return "pending"; // tomorrow
+    // Ongoing: Current time is between startTime and endTime
+    if (now >= eventStart && now <= eventEnd) {
+      return "ongoing";
     }
 
-    return "upcoming"; // future
+    // Upcoming: Program has not started yet (startTime in future)
+    if (now < eventStart) {
+      return "upcoming";
+    }
+
+    // Default to upcoming for any edge cases
+    return "upcoming";
   };
 
   const getEventColors = (status: keyof typeof eventStatusColors) => {
@@ -279,27 +284,28 @@ const ViewServices: React.FC = () => {
         const eventDate = moment(occ.date).format("YYYY-MM-DD");
         const dayOfWeek = moment(occ.date).format("dddd");
 
-        // ✅ Show fallback in AM/PM style
+        // Show fallback in AM/PM style
         const formattedStart = formatTime(occ.startTime, "9:00 AM");
         const formattedEnd = formatTime(occ.endTime, "5:00 PM");
 
-        // ✅ Keep raw values for Date objects
+        // Keep raw values for Date objects
         const startDateTime = moment(
-          `${eventDate} ${occ.startTime || "09:00"}`, 
+          `${eventDate} ${occ.startTime || "09:00"}`,
           "YYYY-MM-DD HH:mm"
         ).toDate();
 
         const endDateTime = moment(
-          `${eventDate} ${occ.endTime || "17:00"}`, 
+          `${eventDate} ${occ.endTime || "17:00"}`,
           "YYYY-MM-DD HH:mm"
         ).toDate();
 
-        const eventStatus = getEventStatus(startDateTime, endDateTime);
+        // Pass hasAttendance to getEventStatus
+        const eventStatus = getEventStatus(startDateTime, endDateTime, occ.hasAttendance);
         const colors = getEventColors(eventStatus);
 
         return {
           id: `${e.id}-${occ.id}`,
-          title: `${e.title} (${formattedStart} - ${formattedEnd})`, // 👈 shows times properly
+          title: `${e.title} (${formattedStart} - ${formattedEnd})`,
           start: startDateTime,
           end: endDateTime,
           color: colors.background,
