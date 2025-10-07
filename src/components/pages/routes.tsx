@@ -15,7 +15,7 @@ const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
-const NewcomersForm = React.lazy(() => import("./members/createNewcomersForm/form"));
+const ViewNewcomersForm = React.lazy(() => import("./members/viewNewcomersForms/viewforms"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
@@ -109,12 +109,12 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <ViewFollowUp/>
             </PrivateRoute>
-          } />       
-          <Route path="/members/forms" element={
+          } />           
+          <Route path="/members/view-forms" element={
             <PrivateRoute>
-              <NewcomersForm/>
+              <ViewNewcomersForm/>
             </PrivateRoute>
-          } />     
+          } /> 
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>

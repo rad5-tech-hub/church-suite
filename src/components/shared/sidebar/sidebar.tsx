@@ -26,7 +26,7 @@ const Sidebar: React.FC = () => {
   const member = [
     { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
     { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
-    { to: "/members/forms", icon: <LuNotebookPen className="text-2xl" />, label: "Form" },
+    { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
   ];
 
   // Filter manage items

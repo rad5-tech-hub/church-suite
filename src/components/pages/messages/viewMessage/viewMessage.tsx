@@ -504,9 +504,9 @@ const fetchBranches = useCallback(
             opacity: 0.9,
           },
         }}
-        aria-label="Create new branch"
+        aria-label="send new messages"
       >
-        Create New Branch
+        Send Messages
       </Button>
     </Box>
   );
@@ -564,7 +564,7 @@ const fetchBranches = useCallback(
               }}
               aria-label="Create new branch"
             >
-              Create Branch +
+              Send Messages
             </Button>
           </Grid>
         </Grid>

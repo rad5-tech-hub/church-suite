@@ -132,7 +132,7 @@ const RenderAudienceType: React.FC<{
   isLoading: boolean;
 }> = ({ formData, handleChange, isLoading }) => (
   <Grid size={{ xs: 12 }}>
-    <FormLabel id="program-type-label" sx={{ fontSize: "1rem", color: "#F6F4FE" }}>
+    <FormLabel id="program-type-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
       Audience Type
     </FormLabel>
     <RadioGroup
@@ -199,7 +199,7 @@ const RenderMessageMode: React.FC<{
 }> = ({ formData, handleChange, isLoading }) => (
   <>
     <Grid size={{ xs: 12 }}>
-      <FormLabel id="message-mode-label" sx={{ fontSize: "1rem", color: "#F6F4FE" }}>
+      <FormLabel id="message-mode-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
         Message Mode
       </FormLabel>
     </Grid>
@@ -428,7 +428,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
   const renderProgramType = () => (
     <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="program-type-label" sx={{ color: "#F6F4FE", fontSize: "1rem", mb: 1 }}>
+      <InputLabel id="program-type-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
         Program Type
       </InputLabel>
       <Select
@@ -496,7 +496,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
   const renderNewcomersType = () => (
     <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="newcomers-type-label" sx={{ color: "#F6F4FE", fontSize: "1rem", mb: 1 }}>
+      <InputLabel id="newcomers-type-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
         Attendance Type
       </InputLabel>
       <Select
@@ -545,7 +545,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
   const renderDepartments = () => (
     <Grid size={{ xs: 12, md: 12 }}>
-      <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "1rem", mb: 1 }}>
+      <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
         Departments
       </InputLabel>
       <Select
@@ -600,7 +600,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
   const renderCategories = () => (
     <Grid size={{ xs: 12, md: 12 }}>
-      <InputLabel id="categories-label" sx={{ color: "#F6F4FE", fontSize: "1rem", mb: 1 }}>
+      <InputLabel id="categories-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
         Category
       </InputLabel>
       <Select
@@ -680,7 +680,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                    fontSize: "1rem",
+                    fontSize: "0.9rem",
                     borderColor: "#777280 !important",
                   },
                 },
@@ -688,7 +688,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                   sx: { 
                     color: "#F6F4FE", 
                     "&.Mui-focused": { color: "#F6F4FE" }, 
-                    fontSize: "1rem" 
+                    fontSize: "0.9rem" 
                   },
                 },
                 sx: {
@@ -705,7 +705,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                   "&.Mui-focused fieldset": { 
                     borderColor: "#777280 !important" 
                   },              
-                  fontSize: "1rem",
+                  fontSize: "0.9rem",
                 },
               },
             }}
@@ -728,7 +728,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                fontSize: "1rem",
+                fontSize: "0.9rem",
               },
             }}
             InputLabelProps={{
@@ -755,12 +755,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              fontSize: "1rem",
+              fontSize: "0.9rem",
               paddingY: 1,
             },
           }}
           InputLabelProps={{
-            sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "1rem" },
+            sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" },
           }}
           required
         />
@@ -789,7 +789,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
-            Create Message
+            Send Message
           </Typography>
           <IconButton onClick={onClose}>
             <Close sx={{ color: "#B0B0B0" }} />
@@ -827,17 +827,17 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
             color: "#2C2C2C",
             fontWeight: "semibold",
             textTransform: "none",
-            fontSize: { xs: "1rem", sm: "1rem" },
+            fontSize: { xs: "0.9rem", sm: "0.9rem" },
             "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
           }}
         >
           {isLoading ? (
             <Box display="flex" alignItems="center" color="gray">
               <CircularProgress size={18} sx={{ color: "gray", mr: 1 }} />
-              Creating...
+              Sending...
             </Box>
           ) : (
-            "Create Message"
+            "Send Message"
           )}
         </Button>
       </DialogActions>
