@@ -323,7 +323,7 @@ const Dashboard: React.FC = () => {
             <StatCard
               title="Total Branches"
               value={dashboardData.structure.totalBranches}
-              icon={<TbArrowFork className="text-[24px] font-black"/>}
+              icon={<TbArrowFork className="text-[24px] font-black text-[#F6F4FE]"/>}
               color="#2196F3"
             />
           </Grid>
@@ -331,7 +331,7 @@ const Dashboard: React.FC = () => {
             <StatCard
               title="Total Departments"
               value={dashboardData.structure.totalDepartments}
-              icon={<TbArrowBearRight2 className="text-[24px] font-black"/>}
+              icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]"/>}
               color="#FF9800"
             />
           </Grid>
@@ -339,7 +339,7 @@ const Dashboard: React.FC = () => {
             <StatCard
               title="Total Units"
               value={dashboardData.structure.totalUnits}
-              icon={<MdOutlineHub className="text-[24px] font-black" />}
+              icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
               color="#607D8B"
             />
           </Grid>
@@ -347,7 +347,7 @@ const Dashboard: React.FC = () => {
             <StatCard
               title="Total Workers"
               value={dashboardData.structure.totalWorkers}
-              icon={<FaPeopleCarry className="text-[24px] font-black" />}
+              icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
               color="#9C27B0"
             />
           </Grid>
@@ -401,7 +401,7 @@ const Dashboard: React.FC = () => {
               title={followUpsTitle}
               value={followUpsValue}
               change={followUpsChange}
-              icon={<FaPeopleGroup className="text-[24px] font-black" />}
+              icon={<FaPeopleGroup className="text-[24px] font-black text-[#F6F4FE]" />}
               color="#00BCD4"
             />
           </Grid>
@@ -411,7 +411,7 @@ const Dashboard: React.FC = () => {
               title={collectionsTitle}
               value={`₦${collectionsValue.toLocaleString()}`}
               change={collectionsChange}
-              icon={<CiMoneyBill className="text-[30px] font-black" />}
+              icon={<CiMoneyBill className="text-[30px] font-black text-[#F6F4FE]" />}
               color="#795548"
             />
           </Grid>

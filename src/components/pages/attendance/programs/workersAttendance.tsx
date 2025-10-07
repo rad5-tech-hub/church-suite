@@ -68,6 +68,7 @@ export interface WorkerAttendanceDialogueProps {
   eventId: string;
   open: boolean;
   onClose: () => void;
+  onSuccess: () => void;
   assignedDepartments: Dept[];
 }
 
@@ -75,6 +76,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
   eventId,
   open,
   onClose,
+  onSuccess,
   assignedDepartments,
 }) => {
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
@@ -239,8 +241,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
           assignedDepartments.find((d) => d.id === selectedDeptId)?.name
         } submitted successfully!`,
         'success'
-      );
-      onClose(); // Close dialog after successful submission
+      );     
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || 'Error submitting attendance';
       showPageToast(errorMessage, 'error');
@@ -258,7 +259,12 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
     return (
       <Dialog
         open={open}
-        onClose={onClose}
+        onClose={(_, reason) => {
+          if (reason !== "backdropClick") {
+          onClose();
+          onSuccess();
+          }
+        }}
         fullWidth
         maxWidth="md"
         sx={{
@@ -277,7 +283,7 @@ const WorkerAttendanceDialogue: React.FC<WorkerAttendanceDialogueProps> = ({
           }}
         >
           <Typography fontWeight="bold">Loading Worker Attendance...</Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={()=>{onClose(), onSuccess()}} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>

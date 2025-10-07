@@ -63,9 +63,10 @@ export interface CollectionsDialogueProps {
   eventId: string;
   open: boolean;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open, onClose }) => {
+const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open, onClose, onSuccess }) => {
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -155,6 +156,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         onClose();
         setCollectionData({});
       }, 3000);
+      onSuccess();
     } catch (err: any) {
       let errorMessage = 'Error saving collections';
       if (err.response?.data?.error?.message) {

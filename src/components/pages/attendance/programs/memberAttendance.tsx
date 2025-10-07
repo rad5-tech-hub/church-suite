@@ -63,9 +63,10 @@ export interface MembersCountDialogueProps {
   eventId: string;
   open: boolean;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, open, onClose }) => {
+const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, open, onClose , onSuccess}) => {
   const inputFields: InputField[] = [
     { label: 'Men', key: 'male' },
     { label: 'Women', key: 'female' },
@@ -176,6 +177,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
           children: '',
         });
       }, 3000);
+      onSuccess();
     } catch (err: any) {
       let errorMessage = 'Error saving attendance';
       if (err.response?.data?.error?.message) {
@@ -207,14 +209,22 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
         }}
       >
         <DialogTitle
+          component="div" // ✅ prevents nested <h2> issue
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            mb: 2,
+            p: 0,
           }}
         >
-          <Typography fontWeight="bold">Loading...</Typography>
+          <Typography
+            variant="h6" // slightly larger, fits dialog header better
+            component="span" // ✅ renders as <span> to avoid nested heading error
+            sx={{ fontWeight: 'bold', fontSize: '1rem', color: '#F6F4FE' }}
+          >
+            Loading...
+          </Typography>
           <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
             <Close />
           </IconButton>

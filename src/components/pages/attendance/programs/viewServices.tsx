@@ -666,6 +666,7 @@ const ViewServices: React.FC = () => {
             setCurrentEvent(null);
             setCurrentOccurrence(null);
           }}
+          onSuccess={fetchEvents}
         />
 
         <CreateProgramModal

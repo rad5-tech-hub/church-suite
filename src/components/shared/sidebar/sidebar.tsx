@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { People } from "@mui/icons-material";
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
+import { LuNotebookPen } from "react-icons/lu";
 import { MdOutlineHub } from "react-icons/md";
 import { FaPeopleCarry } from "react-icons/fa";
 // import { IoIosPeople } from "react-icons/io";
@@ -24,8 +25,8 @@ const Sidebar: React.FC = () => {
 
   const member = [
     { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
-    // { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Members" },
     { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
+    { to: "/members/forms", icon: <LuNotebookPen className="text-2xl" />, label: "Form" },
   ];
 
   // Filter manage items

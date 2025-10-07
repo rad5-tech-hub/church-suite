@@ -7,6 +7,7 @@ import ChangeColorButton from "./churchSettings/setting";
 import EmailVerification from "./setupAccount/verify-email/otp";
 
 // Lazy-loaded components
+const Login = React.lazy(() => import("./login/login"));
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
 const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
@@ -14,14 +15,15 @@ const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
+const NewcomersForm = React.lazy(() => import("./members/createNewcomersForm/form"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
-const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
+const ViewMessageHistory = React.lazy(() => import("./messages/viewMessage/viewMessage"));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));
@@ -33,7 +35,7 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const token = useSelector((state: RootState) => state.auth?.authData?.token);
+  const token = useSelector((state: RootState) => state?.auth?.authData?.token);
   
   return token ? (
     <>{children}</>
@@ -88,6 +90,11 @@ const AppRoutes: React.FC = () => {
               <ViewUnit/>
             </PrivateRoute>
           } />
+          <Route path="/messages" element={
+            <PrivateRoute>
+              <ViewMessageHistory/>
+            </PrivateRoute>
+          } />
           <Route path="/members/view-workers" element={
             <PrivateRoute>
               <ViewMember />
@@ -98,11 +105,16 @@ const AppRoutes: React.FC = () => {
               <ViewSingleMember />
             </PrivateRoute>
           } />
-            <Route path="/members/view-followup" element={
+          <Route path="/members/view-followup" element={
             <PrivateRoute>
               <ViewFollowUp/>
             </PrivateRoute>
-          } />           
+          } />       
+          <Route path="/members/forms" element={
+            <PrivateRoute>
+              <NewcomersForm/>
+            </PrivateRoute>
+          } />     
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>

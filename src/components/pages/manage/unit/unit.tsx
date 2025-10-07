@@ -387,7 +387,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                           onClick={() => removeUnitField(index)}
                           title="Remove Unit"
                           sx={{
-                            color: 'gray',                        
+                            color: 'red',                        
                             ml: 1,                           
                             borderRadius: '4px'
                           }}
