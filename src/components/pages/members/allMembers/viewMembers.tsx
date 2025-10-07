@@ -1,15 +1,44 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-  Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Menu, MenuItem, useTheme, useMediaQuery, Grid, Tooltip, CircularProgress,
-  TextField, Drawer, Divider, Select as MuiSelect, Autocomplete, InputAdornment,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Menu,
+  MenuItem,
+  useTheme,
+  useMediaQuery,
+  Grid,
+  Tooltip,
+  CircularProgress,
+  TextField,
+  Drawer,
+  Divider,
+  Select as MuiSelect,
+  Autocomplete,
+  InputAdornment,
+  Button,
 } from "@mui/material";
 import {
-  MoreVert as MoreVertIcon, Block as BlockIcon, ChevronLeft, ChevronRight,
-  Search, AttachFile, PersonOutline, SentimentVeryDissatisfied as EmptyIcon,
+  MoreVert as MoreVertIcon,
+  Block as BlockIcon,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  AttachFile,
+  PersonOutline,
+  SentimentVeryDissatisfied as EmptyIcon,
   Close as CloseIcon,
 } from "@mui/icons-material";
 import { MdOutlineEdit, MdOutlineFileUpload, MdRefresh } from "react-icons/md";
@@ -24,7 +53,7 @@ import { RootState } from "../../../reduxstore/redux";
 import MemberModal from "../../members/allMembers/members";
 import EditMemberModal from "../singleMember/editmember";
 
-// Type Definitions (unchanged)
+// Type Definitions
 interface Member {
   id: string;
   memberId: string;
@@ -68,7 +97,25 @@ interface CustomPaginationProps {
   isLoading: boolean;
 }
 
-// Custom Pagination Component (unchanged)
+interface MemberRowProps {
+  member: Member;
+  index: number;
+  onMenuOpen: (event: React.MouseEvent<HTMLElement>, member: Member) => void;
+  isLargeScreen: boolean;
+  loading: boolean;
+}
+
+// Column Widths
+const columnWidths = {
+  snumber: "3%",
+  name: "25%",
+  contact: "15%",
+  branch: "25%",
+  whatsapp: "15%",
+  actions: "17%",
+};
+
+// Custom Components
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
   hasPrevPage,
@@ -86,7 +133,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
         onClick={() => onPageChange("prev")}
         disabled={!hasPrevPage || isLoading}
         sx={{
-          minWidth: "40px", height: "40px", borderRadius: "8px",
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
           backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
           color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
           "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
@@ -100,7 +149,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
         onClick={() => onPageChange("next")}
         disabled={!hasNextPage || isLoading}
         sx={{
-          minWidth: "40px", height: "40px", borderRadius: "8px",
+          minWidth: "40px",
+          height: "40px",
+          borderRadius: "8px",
           backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
           color: !hasNextPage || isLoading ? "#777280" : "#160F38",
           "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
@@ -114,6 +165,166 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   </Box>
 );
 
+const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, isLargeScreen, loading }) => (
+  <TableRow
+    sx={{
+      "& td": { border: "none" },
+      backgroundColor: member.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+      borderRadius: "4px",
+      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
+      transition: "all 0.2s ease",
+      mb: 2,
+    }}
+  >
+    <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+      {(index + 1).toString().padStart(2, "0")}
+    </TableCell>
+    <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
+      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+        {member.name.split(" ").map((name) => name.charAt(0)).join("")}
+      </Box>
+      <Box>
+        {member.name}
+        <br />
+        <span className="text-[13px] text-[#777280]">{member.sex || "-"}</span>
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+      {member.phoneNo || "N/A"}
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {member.branch?.name || "N/A"}
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+      {member.whatappNo}
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+      <IconButton
+        aria-label="more"
+        onClick={(e) => onMenuOpen(e, member)}
+        disabled={loading}
+        sx={{ borderRadius: 1, backgroundColor: "#e1e1e1", "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9, color: "#e1e1e1" } }}
+        size="small"
+      >
+        <MoreVertIcon fontSize="small" />
+      </IconButton>
+    </TableCell>
+  </TableRow>
+));
+
+const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAddMember: () => void }> = ({ error, isLargeScreen, onAddMember }) => (
+  <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <Typography variant="h6" color="rgba(255, 255, 255, 0.1)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+      {error || "No Workers found"}
+    </Typography>
+    <Button
+      variant="contained"
+      onClick={onAddMember}
+      sx={{
+        backgroundColor: "#363740",
+        px: { xs: 2, sm: 2 },
+        mt: 2,
+        borderRadius: 50,
+        py: 1,
+        fontSize: isLargeScreen ? "0.875rem" : undefined,
+        color: "var(--color-text-on-primary)",
+        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+      }}
+    >
+      Add New Worker
+    </Button>
+  </Box>
+);
+
+const ActionMenu: React.FC<{
+  anchorEl: HTMLElement | null;
+  currentMember: Member | null;
+  onClose: () => void;
+  onAction: (action: string) => void;
+  onView: () => void;
+  onProfile: () => void;
+  isLargeScreen: boolean;
+  loading: boolean;
+}> = ({ anchorEl, currentMember, onClose, onAction, onView, onProfile, isLargeScreen, loading }) => (
+  <Menu
+    id="member-menu"
+    anchorEl={anchorEl}
+    keepMounted
+    open={Boolean(anchorEl)}
+    onClose={onClose}
+    anchorOrigin={{ vertical: "top", horizontal: "right" }}
+    transformOrigin={{ vertical: "top", horizontal: "right" }}
+    PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
+  >
+    <MenuItem onClick={onProfile} disabled={currentMember?.isDeleted || loading}>
+      <PersonOutline style={{ marginRight: 8, fontSize: "1rem" }} /> Profile
+    </MenuItem>
+    <MenuItem onClick={onView} disabled={currentMember?.isDeleted || loading}>
+      <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} /> Edit
+    </MenuItem>
+    <MenuItem onClick={() => onAction("suspend")} disabled={loading}>
+      {!currentMember?.isDeleted ? (
+        <>
+          <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
+          Suspend
+        </>
+      ) : (
+        <>
+          <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
+          Activate
+        </>
+      )}
+    </MenuItem>
+    <MenuItem onClick={() => onAction("delete")} disabled={loading}>
+      <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} /> Delete
+    </MenuItem>
+  </Menu>
+);
+
+const ConfirmationDialog: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  actionType: string | null;
+  memberName: string | undefined;
+  isLargeScreen: boolean;
+  loading: boolean;
+}> = ({ open, onClose, onConfirm, actionType, memberName, isLargeScreen, loading }) => (
+  <Dialog
+    open={open}
+    onClose={onClose}
+    maxWidth="xs"
+    sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
+  >
+    <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+      {actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
+    </DialogTitle>
+    <DialogContent>
+      <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+        Are you sure you want to {actionType} {memberName}?
+      </Typography>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
+        Cancel
+      </Button>
+      <Button
+        onClick={onConfirm}
+        sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+        color={actionType === "delete" ? "error" : "warning"}
+        variant="contained"
+        disabled={loading}
+      >
+        {actionType === "delete" ? "Delete" : "Suspend"}
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
+// Main Component
 const ViewMembers: React.FC = () => {
   usePageToast("view-members");
   const navigate = useNavigate();
@@ -135,13 +346,15 @@ const ViewMembers: React.FC = () => {
     currentPage: 1,
     page: 0,
     searchName: "",
-    searchDepartment: authData?.role === 'department' && authData?.department ? authData.department : "",
+    searchDepartment: authData?.role === "department" && authData?.department ? authData.department : "",
     searchBranch: authData?.branchId || "",
     loading: true,
     exportLoading: false,
     isLoading: false,
     isSearching: false,
     error: null as string | null,
+    branchesError: null as string | null,
+    departmentsError: null as string | null,
     confirmModalOpen: false,
     isModalOpen: false,
     isDrawerOpen: false,
@@ -149,14 +362,16 @@ const ViewMembers: React.FC = () => {
     selectedFile: null as File | null,
     isDragging: false,
     isBranchLoading: false,
+    branchesLoaded: false,
     loadingDepartments: false,
+    departmentsLoaded: false,
     currentMember: null as Member | null,
     actionType: null as string | null,
     anchorEl: null as HTMLElement | null,
     isBranchSelectOpen: false,
     isDepartmentSelectOpen: false,
-    selectedBranchId: authData?.branchId || '',
-    selectedDepartmentId: authData?.role === 'department' && authData?.department ? authData.department : '',
+    selectedBranchId: authData?.branchId || "",
+    selectedDepartmentId: authData?.role === "department" && authData?.department ? authData.department : "",
     editModalOpen: false,
   });
 
@@ -172,7 +387,10 @@ const ViewMembers: React.FC = () => {
           );
         }
         if (key === "searchBranch") {
-          newState.searchDepartment = authData?.role === 'department' && authData?.department ? authData.department : "";
+          newState.searchDepartment = authData?.role === "department" && authData?.department ? authData.department : "";
+          newState.departments = [];
+          newState.departmentsLoaded = false;
+          newState.departmentsError = null;
         }
         return newState;
       });
@@ -185,24 +403,18 @@ const ViewMembers: React.FC = () => {
     async (url: string | null = null) => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
-
       try {
         const params = new URLSearchParams();
-        if (authData?.branchId) {
-          params.append("branchId", authData.branchId);
-        }
+        if (authData?.branchId) params.append("branchId", authData.branchId);
         if (authData?.role === "department" && authData?.department) {
           params.append("departmentId", authData.department);
         }
-
-        const apiUrl = url || `/member/all-members?${params.toString()}`;      
-
+        const apiUrl = url || `/member/all-members?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(apiUrl);
         const data = {
           members: response.data.data || [],
           pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
         };
-
         setState((prev) => ({
           ...prev,
           members: data.members,
@@ -211,13 +423,17 @@ const ViewMembers: React.FC = () => {
           pagination: data.pagination,
           loading: false,
         }));
-
         return data;
-      } catch (error) {
-        console.error("Failed to fetch members:", error);
-        handleStateChange("error", "Failed to load members. Please try again later.");
+      } catch (error: any) {
+        console.error("Failed to fetch members:", {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
+        const errorMessage = error.response?.data?.message || "Failed to load members. Please try again later.";
+        handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        showPageToast("Failed to load members", "error");
+        showPageToast(errorMessage, "error");
         return {
           members: [],
           pagination: { hasNextPage: false, nextPage: null },
@@ -227,13 +443,13 @@ const ViewMembers: React.FC = () => {
     [authData?.branchId, authData?.department, authData?.role, handleStateChange]
   );
 
-// Modified fetchDepartments to prevent unnecessary state updates
   const fetchDepartments = useCallback(async () => {
-    if (state.loadingDepartments) return; // Prevent concurrent calls
+    if (state.loadingDepartments || state.departmentsLoaded || state.departmentsError) return;
     const branchId = state.searchBranch || authData?.branchId;
     if (!branchId) {
       handleStateChange("departments", []);
       handleStateChange("loadingDepartments", false);
+      handleStateChange("departmentsError", "Please select a branch to load departments");
       showPageToast("Please select a branch to load departments", "warning");
       return;
     }
@@ -241,29 +457,49 @@ const ViewMembers: React.FC = () => {
     try {
       const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
       handleStateChange("departments", response.data.departments || []);
-    } catch (error) {
-      console.error("Error fetching departments:", error);
+      handleStateChange("departmentsLoaded", true);
+      handleStateChange("departmentsError", null);
+    } catch (error: any) {
+      console.error("Error fetching departments:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again.";
+      handleStateChange("departmentsError", errorMessage);
       handleStateChange("departments", []);
-      showPageToast("Failed to load departments", "error");
+      handleStateChange("loadingDepartments", false);
+      handleStateChange("departmentsLoaded", false);
+      showPageToast(errorMessage, "error");
     } finally {
       handleStateChange("loadingDepartments", false);
     }
-  }, [authData?.branchId, state.searchBranch, state.loadingDepartments, handleStateChange]);
+  }, [authData?.branchId, state.searchBranch, state.loadingDepartments, state.departmentsLoaded, state.departmentsError, handleStateChange]);
 
   const fetchBranches = useCallback(async () => {
-    if (state.isBranchLoading) return; // Prevent concurrent calls
+    if (state.isBranchLoading || state.branchesLoaded || state.branchesError) return;
     handleStateChange("isBranchLoading", true);
     try {
       const response = await Api.get("/church/get-branches");
       handleStateChange("branches", response.data.branches || []);
-    } catch (error) {
-      console.error("Error fetching branches:", error);
+      handleStateChange("branchesLoaded", true);
+      handleStateChange("branchesError", null);
+    } catch (error: any) {
+      console.error("Error fetching branches:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage = error.response?.data?.message || "Failed to load branches. Please try again.";
+      handleStateChange("branchesError", errorMessage);
       handleStateChange("branches", []);
-      showPageToast("Failed to load branches", "error");
+      handleStateChange("isBranchLoading", false);
+      handleStateChange("branchesLoaded", false);
+      showPageToast(errorMessage, "error");
     } finally {
       handleStateChange("isBranchLoading", false);
     }
-  }, [state.isBranchLoading, handleStateChange]);
+  }, [state.isBranchLoading, state.branchesLoaded, state.branchesError, handleStateChange]);
 
   const refreshMembers = useCallback(async () => {
     try {
@@ -305,9 +541,14 @@ const ViewMembers: React.FC = () => {
         isSearching: false,
       }));
       showPageToast("Search completed successfully!", "success");
-    } catch (error) {
-      console.error("Error searching members:", error);
-      showPageToast("Server search failed, applying local filter", "warning");
+    } catch (error: any) {
+      console.error("Error searching members:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage = error.response?.data?.message || "Server search failed, applying local filter";
+      showPageToast(errorMessage, "warning");
       let filtered = [...state.members];
       if (state.searchName) {
         filtered = filtered.filter((member) =>
@@ -317,9 +558,7 @@ const ViewMembers: React.FC = () => {
       if (state.searchDepartment) {
         filtered = filtered.filter((member) =>
           state.departments.some(
-            (dept) =>
-              dept.id === state.searchDepartment &&
-              member.name.toLowerCase().includes(dept.name.toLowerCase())
+            (dept) => dept.id === state.searchDepartment && member.name.toLowerCase().includes(dept.name.toLowerCase())
           )
         );
       }
@@ -372,7 +611,7 @@ const ViewMembers: React.FC = () => {
           direction === "next"
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === 'branch' && authData?.branchId) ? `?branchId=${authData.branchId}` : ''}${(authData?.role === 'department' && authData?.department) ? `&departmentId=${authData.department}` : ''}`
+            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === "branch" && authData?.branchId) ? `?branchId=${authData.branchId}` : ""}${(authData?.role === "department" && authData?.department) ? `&departmentId=${authData.department}` : ""}`
             : null;
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
         const data = state.searchName || state.searchDepartment || state.searchBranch
@@ -388,7 +627,11 @@ const ViewMembers: React.FC = () => {
         }));
       } catch (error: any) {
         const errorMessage = error.response?.data?.message || "Failed to load page";
-        console.error(`Error fetching ${direction} page:`, error);
+        console.error(`Error fetching ${direction} page:`, {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+        });
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
         showPageToast(errorMessage, "error");
@@ -397,7 +640,7 @@ const ViewMembers: React.FC = () => {
     [authData?.branchId, authData?.department, authData?.role, state.pagination.nextPage, state.pageHistory, state.searchName, state.searchDepartment, state.searchBranch, fetchMembers, handleStateChange, searchMembersWithPagination]
   );
 
-  // Action Handlers (unchanged)
+  // Action Handlers
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, member: Member) => {
     setState((prev) => ({ ...prev, anchorEl: event.currentTarget, currentMember: member }));
   };
@@ -424,7 +667,7 @@ const ViewMembers: React.FC = () => {
     try {
       setState((prev) => ({ ...prev, loading: true }));
       if (state.actionType === "delete") {
-        await Api.delete(`/member/delete-member/${state.currentMember.id}`);
+        await Api.delete(`/member/delete-member/${state.currentMember.id}/branch/${authData?.branchId}`);
         setState((prev) => ({
           ...prev,
           members: prev.members.filter((member) => member.id !== state.currentMember!.id),
@@ -432,13 +675,18 @@ const ViewMembers: React.FC = () => {
         }));
         showPageToast("Member deleted successfully!", "success");
       } else if (state.actionType === "suspend") {
-        await Api.patch(`/member/suspend-member/${state.currentMember.id}`);
+        await Api.patch(`/member/suspend-member/${state.currentMember.id}/branch/${authData?.branchId}`);
         showPageToast("Member suspended successfully!", "success");
         fetchMembers();
       }
-    } catch (error) {
-      console.error("Action error:", error);
-      showPageToast(`Failed to ${state.actionType} member`, "error");
+    } catch (error: any) {
+      console.error("Action error:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage = error.response?.data?.message || `Failed to ${state.actionType} member`;
+      showPageToast(errorMessage, "error");
     } finally {
       setState((prev) => ({
         ...prev,
@@ -450,8 +698,15 @@ const ViewMembers: React.FC = () => {
     }
   };
 
-  // File Import/Export Handlers (unchanged)
-  const handleExportExcel = async () => {
+  const handleProfile = () => {
+    if (state.currentMember) {
+      navigate(`/members/view/${state.currentMember.id}`);
+      handleMenuClose();
+    }
+  };
+
+  // File Import/Export Handlers
+  const handleExportExcel = useCallback(async () => {
     handleStateChange("exportLoading", true);
     try {
       const response = await Api.get(`/member/export?branchId=${authData?.branchId}`, { responseType: "blob" });
@@ -474,13 +729,17 @@ const ViewMembers: React.FC = () => {
       window.URL.revokeObjectURL(url);
       showPageToast("Excel file exported successfully!", "success");
     } catch (error: any) {
-      console.error("Failed to export members:", error);
+      console.error("Failed to export members:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       const errorMessage = error.response?.data?.message || "Failed to export Excel file. Please try again.";
       showPageToast(errorMessage, "error");
     } finally {
       handleStateChange("exportLoading", false);
     }
-  };
+  }, [authData?.branchId, handleStateChange]);
 
   const handleImportExcel = () => {
     handleStateChange("openDialog", true);
@@ -545,10 +804,14 @@ const ViewMembers: React.FC = () => {
       showPageToast("Excel file uploaded successfully!", "success");
       handleStateChange("openDialog", false);
       handleStateChange("selectedFile", null);
-      handleStateChange("selectedBranchId", '');
+      handleStateChange("selectedBranchId", "");
       setTimeout(() => fetchMembers(), 1500);
     } catch (error: any) {
-      console.error("Error uploading file:", error);
+      console.error("Error uploading file:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
       const errorMessage =
         error.response?.data?.error?.message ||
         error.response?.data?.message ||
@@ -565,37 +828,11 @@ const ViewMembers: React.FC = () => {
     handleStateChange("isDragging", false);
   };
 
-  // UI Components
-  const EmptyState = () => (
-    <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography variant="h6" color="rgba(255, 255, 255, 0.1)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-        No Workers found
-      </Typography>
-      {state.error && (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {state.error}
-        </Typography>
-      )}
-      <Button
-        variant="contained"
-        onClick={() => handleStateChange("isModalOpen", true)}
-        sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
-          mt: 2,
-          borderRadius: 50,
-          py: 1,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-        }}
-      >
-        Add New Worker
-      </Button>
-    </Box>
-  );
+  const handleAddMember = () => {
+    handleStateChange("isModalOpen", true);
+  };
 
+  // UI Components
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -655,13 +892,12 @@ const ViewMembers: React.FC = () => {
             value={state.searchBranch}
             onChange={(e) => {
               handleStateChange("searchBranch", e.target.value as string);
-              handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
               if (e.target.value) fetchDepartments();
             }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isBranchSelectOpen", true);
-              if (state.branches.length === 0) fetchBranches(); // Fetch only if branches are empty
+              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
             }}
             onClose={() => handleStateChange("isBranchSelectOpen", false)}
             sx={{
@@ -683,6 +919,11 @@ const ViewMembers: React.FC = () => {
             <MenuItem value="">None</MenuItem>
             {state.isBranchLoading ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.branchesError ? (
+              <MenuItem disabled>
+                {state.branchesError}
+                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
+              </MenuItem>
             ) : state.branches.length === 0 ? (
               <MenuItem disabled>No branches available</MenuItem>
             ) : (
@@ -704,7 +945,7 @@ const ViewMembers: React.FC = () => {
             displayEmpty
             onOpen={() => {
               handleStateChange("isDepartmentSelectOpen", true);
-              if ((state.searchBranch || authData?.branchId) && state.departments.length === 0) fetchDepartments();
+              if ((state.searchBranch || authData?.branchId) && !state.departmentsLoaded && !state.departmentsError) fetchDepartments();
             }}
             onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
             disabled={!state.searchBranch && !authData?.branchId}
@@ -727,6 +968,11 @@ const ViewMembers: React.FC = () => {
             <MenuItem value="">None</MenuItem>
             {state.loadingDepartments ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.departmentsError ? (
+              <MenuItem disabled>
+                {state.departmentsError}
+                <Button onClick={() => { handleStateChange("departmentsError", null); fetchDepartments(); }} sx={{ ml: 1 }}>Retry</Button>
+              </MenuItem>
             ) : state.departments.length === 0 ? (
               <MenuItem disabled>No departments available</MenuItem>
             ) : (
@@ -807,13 +1053,12 @@ const ViewMembers: React.FC = () => {
             value={state.searchBranch}
             onChange={(e) => {
               handleStateChange("searchBranch", e.target.value as string);
-              handleStateChange("searchDepartment", authData?.role === 'department' && authData?.department ? authData.department : "");
               if (e.target.value) fetchDepartments();
             }}
             displayEmpty
             onOpen={() => {
               handleStateChange("isBranchSelectOpen", true);
-              if (state.branches.length === 0) fetchBranches(); // Fetch only if branches are empty
+              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
             }}
             onClose={() => handleStateChange("isBranchSelectOpen", false)}
             sx={{
@@ -833,6 +1078,11 @@ const ViewMembers: React.FC = () => {
             <MenuItem value="">None</MenuItem>
             {state.isBranchLoading ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.branchesError ? (
+              <MenuItem disabled>
+                {state.branchesError}
+                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
+              </MenuItem>
             ) : state.branches.length === 0 ? (
               <MenuItem disabled>No branches available</MenuItem>
             ) : (
@@ -855,7 +1105,7 @@ const ViewMembers: React.FC = () => {
             displayEmpty
             onOpen={() => {
               handleStateChange("isDepartmentSelectOpen", true);
-              if ((state.searchBranch || authData?.branchId) && state.departments.length === 0) fetchDepartments();
+              if ((state.searchBranch || authData?.branchId) && !state.departmentsLoaded && !state.departmentsError) fetchDepartments();
             }}
             onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
             disabled={!state.searchBranch && !authData?.branchId}
@@ -876,6 +1126,11 @@ const ViewMembers: React.FC = () => {
             <MenuItem value="">None</MenuItem>
             {state.loadingDepartments ? (
               <MenuItem disabled>Loading...</MenuItem>
+            ) : state.departmentsError ? (
+              <MenuItem disabled>
+                {state.departmentsError}
+                <Button onClick={() => { handleStateChange("departmentsError", null); fetchDepartments(); }} sx={{ ml: 1 }}>Retry</Button>
+              </MenuItem>
             ) : state.departments.length === 0 ? (
               <MenuItem disabled>No departments available</MenuItem>
             ) : (
@@ -896,7 +1151,7 @@ const ViewMembers: React.FC = () => {
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#777280" },
+              "&:hover": { backgroundColor: "#E61E4D" },
             }}
             disabled={state.isSearching}
           >
@@ -907,36 +1162,26 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
-  // Table column widths (unchanged)
-  const columnWidths = {
-    snumber: "3%",
-    name: "25%",
-    contact: "15%",
-    branch: "25%",
-    whatsapp: "15%",
-    actions: "17%",
-  };
-
-
   // Effects
   useEffect(() => {
     fetchMembers();
-    // Pre-fetch branches to avoid fetching on every dropdown open
-    if (state.branches.length === 0) fetchBranches();
-  }, [fetchMembers, fetchBranches, state.branches.length]);
+    if (!state.branchesLoaded && !state.branchesError) {
+      fetchBranches();
+    }
+  }, [fetchMembers, fetchBranches, state.branchesLoaded, state.branchesError]);
 
-  // Separate useEffect for fetching departments
   useEffect(() => {
     if (
-      authData?.role === 'department' &&
+      authData?.role === "department" &&
       authData?.department &&
       (state.searchBranch || authData?.branchId) &&
-      state.departments.length === 0 && // Only fetch if departments are not already loaded
-      !state.loadingDepartments // Prevent fetching if already in progress
+      !state.departmentsLoaded &&
+      !state.departmentsError &&
+      !state.loadingDepartments
     ) {
       fetchDepartments();
     }
-  }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departments.length, state.loadingDepartments, fetchDepartments]);
+  }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departmentsLoaded, state.departmentsError, state.loadingDepartments, fetchDepartments]);
 
   // Main Render
   return (
@@ -1047,7 +1292,7 @@ const ViewMembers: React.FC = () => {
               </Button>
               <Button
                 variant="contained"
-                onClick={() => handleStateChange("isModalOpen", true)}
+                onClick={handleAddMember}
                 size="medium"
                 sx={{
                   backgroundColor: "#363740",
@@ -1075,24 +1320,25 @@ const ViewMembers: React.FC = () => {
           </Box>
         )}
 
-        {state.error && !state.loading && state.filteredMembers.length === 0 && <EmptyState />}
-        {!state.loading && !state.error && state.filteredMembers.length === 0 && <EmptyState />}
+        {(state.error || state.branchesError || state.departmentsError) && !state.loading && state.filteredMembers.length === 0 && (
+          <EmptyState error={state.error || state.branchesError || state.departmentsError} isLargeScreen={isLargeScreen} onAddMember={handleAddMember} />
+        )}
+        {!state.loading && !state.error && !state.branchesError && !state.departmentsError && state.filteredMembers.length === 0 && (
+          <EmptyState error={null} isLargeScreen={isLargeScreen} onAddMember={handleAddMember} />
+        )}
 
         {state.filteredMembers.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto", mb: 4,                        
-                maxHeight: '500px', // Set a fixed height for the table
-                overflowY: 'auto', // Enable vertical scrolling
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: '#777280',
-                  borderRadius: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: '#4d4d4e8e',
-                },
+            <TableContainer sx={{
+              boxShadow: 2,
+              borderRadius: 1,
+              overflowX: "auto",
+              mb: 4,
+              maxHeight: "500px",
+              overflowY: "auto",
+              "&::-webkit-scrollbar": { width: "8px" },
+              "&::-webkit-scrollbar-thumb": { backgroundColor: "#777280", borderRadius: "4px" },
+              "&::-webkit-scrollbar-track": { backgroundColor: "#4d4d4e8e" },
             }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
@@ -1107,53 +1353,14 @@ const ViewMembers: React.FC = () => {
                 </TableHead>
                 <TableBody>
                   {state.filteredMembers.map((member, index) => (
-                    <TableRow
+                    <MemberRow
                       key={member.id}
-                      sx={{
-                        "& td": { border: "none" },
-                        backgroundColor: member.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
-                        borderRadius: "4px",
-                        "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
-                        transition: "all 0.2s ease",
-                        mb: 2,
-                      }}
-                    >
-                      <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
-                        {(index + 1).toString().padStart(2, "0")}
-                      </TableCell>
-                      <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
-                        <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-                          {member.name.split(" ").map((name) => name.charAt(0)).join("")}
-                        </Box>
-                        <Box>
-                          {member.name}
-                          <br />
-                          <span className="text-[13px] text-[#777280]">{member.sex || "-"}</span>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
-                        {member.phoneNo || "N/A"}
-                      </TableCell>
-                      <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
-                        <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {member.branch?.name || "N/A"}
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
-                        {member.whatappNo}
-                      </TableCell>
-                      <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                        <IconButton
-                          aria-label="more"
-                          onClick={(e) => handleMenuOpen(e, member)}
-                          disabled={state.loading}
-                          sx={{ borderRadius: 1, backgroundColor: "#e1e1e1", "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9, color: "#e1e1e1" } }}
-                          size="small"
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
+                      member={member}
+                      index={index}
+                      onMenuOpen={handleMenuOpen}
+                      isLargeScreen={isLargeScreen}
+                      loading={state.loading}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -1166,13 +1373,7 @@ const ViewMembers: React.FC = () => {
                 isLoading={state.loading}
               />
             </TableContainer>
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                mb: 3, 
-              }}
-            >
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
               <Tooltip title="Download Workers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
@@ -1188,18 +1389,12 @@ const ViewMembers: React.FC = () => {
                     color: "#f6f4fe",
                     fontSize: isLargeScreen ? "1rem" : undefined,
                     boxShadow: "0px 4px 12px rgba(0,0,0,0.3)",
-                    "&:hover": {
-                      backgroundColor: "#363740",
-                      opacity: 0.9,
-                    },
+                    "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                   }}
                 >
                   {state.exportLoading ? (
                     <>
-                      <CircularProgress
-                        size={18}
-                        sx={{ color: "var(--color-text-on-primary)", mr: 1 }}
-                      />
+                      <CircularProgress size={18} sx={{ color: "var(--color-text-on-primary)", mr: 1 }} />
                       Downloading...
                     </>
                   ) : (
@@ -1214,69 +1409,26 @@ const ViewMembers: React.FC = () => {
           </>
         )}
 
-        <Menu
-          id="member-menu"
+        <ActionMenu
           anchorEl={state.anchorEl}
-          keepMounted
-          open={Boolean(state.anchorEl)}
+          currentMember={state.currentMember}
           onClose={handleMenuClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
-        >
-          <MenuItem onClick={() => navigate(`/members/view/${state.currentMember?.id}`)} disabled={state.currentMember?.isDeleted}>
-            <PersonOutline style={{ marginRight: 8, fontSize: "1rem" }} /> Profile
-          </MenuItem>
-          <MenuItem onClick={handleEditOpen} disabled={state.currentMember?.isDeleted}>
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} /> Edit
-          </MenuItem>
-          <MenuItem onClick={() => showConfirmation("suspend")}>
-            {!state.currentMember?.isDeleted ? (
-              <>
-                <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
-              </>
-            ) : (
-              <>
-                <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
-              </>
-            )}
-          </MenuItem>
-          <MenuItem onClick={() => showConfirmation("delete")} disabled={state.loading}>
-            <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} /> Delete
-          </MenuItem>
-        </Menu>
+          onAction={showConfirmation}
+          onView={handleEditOpen}
+          onProfile={handleProfile}
+          isLargeScreen={isLargeScreen}
+          loading={state.loading}
+        />
 
-        <Dialog
+        <ConfirmationDialog
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
-          maxWidth="xs"
-          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
-        >
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            {state.actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
-          </DialogTitle>
-          <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              Are you sure you want to {state.actionType} {state.currentMember?.name}?
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => handleStateChange("confirmModalOpen", false)} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              color={state.actionType === "delete" ? "error" : "warning"}
-              variant="contained"
-              disabled={state.loading}
-            >
-              {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Suspend"}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          onConfirm={handleConfirmedAction}
+          actionType={state.actionType}
+          memberName={state.currentMember?.name}
+          isLargeScreen={isLargeScreen}
+          loading={state.loading}
+        />
 
         <Dialog
           open={state.openDialog}
@@ -1296,14 +1448,14 @@ const ViewMembers: React.FC = () => {
               options={state.branches}
               getOptionLabel={(option) => option.name}
               value={state.branches.find((b) => b.id === state.selectedBranchId) || null}
-              onChange={(_, newValue) => handleStateChange("selectedBranchId", newValue ? newValue.id : '')}
+              onChange={(_, newValue) => handleStateChange("selectedBranchId", newValue ? newValue.id : "")}
               onOpen={() => {
                 handleStateChange("isBranchSelectOpen", true);
-                if (state.branches.length === 0) fetchBranches();
+                if (!state.branchesLoaded && !state.branchesError) fetchBranches();
               }}
               clearIcon={null}
               popupIcon={state.selectedBranchId ? (
-                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ''); }} />
+                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ""); }} />
               ) : null}
               loading={state.isBranchLoading}
               loadingText="Loading branches..."
@@ -1327,11 +1479,11 @@ const ViewMembers: React.FC = () => {
             />
             <Box
               sx={{
-                border: `2px dashed ${state.isDragging ? theme.palette.primary.main : '#777280'}`,
+                border: `2px dashed ${state.isDragging ? theme.palette.primary.main : "#777280"}`,
                 borderRadius: 2,
                 p: 4,
                 textAlign: "center",
-                bgcolor: state.isDragging ? '#4d4d4e8e' : "transparent",
+                bgcolor: state.isDragging ? "#4d4d4e8e" : "transparent",
                 transition: "all 0.2s",
               }}
               onDrop={handleDrop}

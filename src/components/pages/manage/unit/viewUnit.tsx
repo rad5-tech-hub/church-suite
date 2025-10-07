@@ -742,7 +742,7 @@ const ViewUnit: React.FC = () => {
         showPageToast("Unit deleted successfully!", "success");
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentUnit.isActive;
-        await Api.patch(`/church/suspend-unit/${state.currentUnit.id}`, { isActive: newStatus });
+        await Api.patch(`/church/suspend-unit/${state.currentUnit.id}/branch/${authData?.branchId}`, { isActive: newStatus });
 
         const currentUrl = state.pageHistory[state.pageHistory.length - 1] || "/church/all-units";
         const data = state.searchTerm || state.selectedBranchId || state.selectedDepartmentId

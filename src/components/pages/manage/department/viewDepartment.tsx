@@ -616,7 +616,7 @@ const ViewDepartment: React.FC = () => {
     try {
       handleStateChange("loading", true);
       if (state.actionType === "delete") {
-        await Api.delete(`/church/delete-dept/${state.currentDepartment.id}`);
+        await Api.delete(`/church/delete-dept/${state.currentDepartment.id}/branch/${authData?.branchId}`);
         const newDepartments = state.departments.filter((dept) => dept.id !== state.currentDepartment!.id);
         handleStateChange("departments", newDepartments);
         handleStateChange("filteredDepartments", state.filteredDepartments.filter((dept) => dept.id !== state.currentDepartment!.id));
@@ -628,7 +628,7 @@ const ViewDepartment: React.FC = () => {
         showPageToast("Department deleted successfully!", "success");
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentDepartment.isActive;
-        await Api.patch(`/church/suspend-dept/${state.currentDepartment.id}`, { isActive: newStatus });
+        await Api.patch(`/church/suspend-dept/${state.currentDepartment.id}/branch/${authData?.branchId}`, { isActive: newStatus });
         const updatedDept = { ...state.currentDepartment, isActive: newStatus };
         handleStateChange("departments", state.departments.map((dept) =>
           dept.id === state.currentDepartment!.id ? updatedDept : dept

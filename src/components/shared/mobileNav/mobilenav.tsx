@@ -19,6 +19,7 @@ import { FaPeopleGroup } from "react-icons/fa6";
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
+import { LuNotebookPen } from 'react-icons/lu';
 
 interface MobileNavProps {
   activeButton: string | null;
@@ -53,8 +54,8 @@ const manage = [
 
 const member = [
   { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
-  // { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Members" },
   { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
+  { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
 ];
 
 const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }) => {
