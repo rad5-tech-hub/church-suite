@@ -31,11 +31,18 @@ const Sidebar: React.FC = () => {
 
   // Filter manage items
   let filteredManage = manage;
+  let filteredMembers = member;
 
   // 🔹 If not HQ → remove branches
   if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
     const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
     filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
+  }
+
+    // 🔹 If not superadmin → remove branches
+  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
+    const restrictedRoutes = ["/members/view-forms", "/members/view-forms"];
+    filteredMembers = filteredMembers.filter((item: any) => !restrictedRoutes.includes(item.to));
   }
 
   // 🔹 If role is unit → remove departments
@@ -71,7 +78,7 @@ const Sidebar: React.FC = () => {
         )}
         {isMemberRoute && (
           <ul className="space-y-8">
-            {member.map((item) => (
+            {filteredMembers.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

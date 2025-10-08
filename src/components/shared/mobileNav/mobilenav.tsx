@@ -115,12 +115,19 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
 
   // Filter manage items
   let filteredManage = manage;
+  let filteredMembers = member;
 
   // 🔹 If not HQ → remove branches
   if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
     const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
     filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
   }
+
+  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
+    const restrictedRoutes = ["/members/view-forms", "/members/view-forms"];
+    filteredMembers = filteredMembers.filter((item: any) => !restrictedRoutes.includes(item.to));
+  }
+
 
   // 🔹 If role is unit → remove departments
   if (authData?.role === "unit") {
@@ -130,7 +137,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
   const renderSubmenu = (label: string) => {
     if (clickedSubmenu !== label) return null;
 
-    const items = label === 'Manage' ? filteredManage : member; // <-- use filtered version here
+    const items = label === 'Manage' ? filteredManage : filteredMembers; // <-- use filtered version here
 
     return (
       <Box
