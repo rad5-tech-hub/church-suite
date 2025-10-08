@@ -202,7 +202,7 @@ const ViewForms: React.FC = () => {
     </Box>
   );
 
-  if (authData?.isHeadQuarter === false) {
+  if (authData?.isSuperAdmin === false) {
     return <Navigate to="/manage/view-admins" replace />;
   }
 
