@@ -34,7 +34,7 @@ const Sidebar: React.FC = () => {
   let filteredMembers = member;
 
   // 🔹 If not HQ → remove branches
-  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
+  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
     const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
     filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
   }

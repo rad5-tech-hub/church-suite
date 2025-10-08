@@ -30,6 +30,7 @@ import {
   FormControl,
   Autocomplete,
   InputAdornment,
+  Chip,
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -39,6 +40,7 @@ import {
   Search,
   AttachFile,
   Close,
+  HelpOutline,
 } from '@mui/icons-material';
 import { LiaLongArrowAltRightSolid } from 'react-icons/lia';
 import { AiOutlineDelete } from 'react-icons/ai';
@@ -55,6 +57,7 @@ import EditRegistrationModal from './editNewcomers';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { Dayjs } from 'dayjs';
+import { FiPhoneCall } from 'react-icons/fi';
 
 // Types
 interface FollowUp {
@@ -70,6 +73,8 @@ interface FollowUp {
   birthDay: string;
   maritalStatus: string;
   isActive: boolean;
+  adminComment: null | string;
+  isVisitor: boolean;
   isDeleted: boolean;
   eventAttended: { event: EventAttended };
 }
@@ -111,6 +116,8 @@ interface TableColumnWidths {
   name: string;
   branch: string;
   contact: string;
+  followed: string;
+  visitor: string;
   address: string;
   actions: string;
 }
@@ -118,13 +125,16 @@ interface TableColumnWidths {
 // Constants
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
   snumber: '3%',
+  followed: '5%',
+  visitor: '5%',
   name: '25%',
-  branch: '13%',
-  contact: '10%',
-  address: '25%', // Used for event column width
+  branch: '7%',
+  contact: '15%',
+  address: '15%', // Used for event column width
   actions: '7%',
 };
 
+// Components
 interface CustomPaginationProps {
   hasNextPage: boolean;
   hasPrevPage: boolean;
@@ -194,7 +204,6 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   </Box>
 );
 
-// Components
 interface EmptyStateProps {
   error: string | null;
   onAddFollowUp: () => void;
@@ -271,13 +280,59 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
       </Box>
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
-      {followUp.phoneNo || 'N/A'}
+      <div className='flex align-center gap-0.5'>
+        <span>{followUp.phoneNo || "N/A"}</span>
+        {!followUp.isDeleted && followUp.phoneNo && (
+          <Tooltip title={`Call ${followUp.phoneNo}`} arrow>
+            <IconButton
+              size="small"
+              onClick={() => window.open(`tel:${followUp.phoneNo}`)}
+              sx={{
+                color: "#F6F4FE",
+                "&:hover": {
+                  color: "#C49C6B",
+                },
+              }}
+            >
+              <FiPhoneCall size={16} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </div>
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.branch, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       {followUp.branch.name || 'N/A'}
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       {followUp.eventAttended?.event?.title || 'N/A'}
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.visitor, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      <Chip
+        label={followUp?.isVisitor ? "Yes" : "No"}
+        variant={followUp?.isDeleted ? "outlined" : "filled"}
+        sx={{
+          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          textDecoration: followUp.isDeleted ? "line-through" : "none",
+          "& .MuiChip-label": { fontWeight: 500, fontSize: "0.8rem" },
+        }}
+      />
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      <Chip
+        label={followUp?.adminComment ? "Yes" : "No"}
+        color={followUp?.isDeleted ? "default" : followUp?.adminComment ? "success" : "error"}
+        variant={followUp?.isDeleted ? "outlined" : "filled"}
+        sx={{
+          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          textDecoration: followUp.isDeleted ? "line-through" : "none",
+          backgroundColor: followUp.isDeleted
+            ? "transparent"
+            : followUp.adminComment
+            ? "#2E7D32" // dark green for true
+            : "#C62828", // dark red for false
+          "& .MuiChip-label": { fontWeight: 500, fontSize: "0.8rem" },
+        }}
+      />
     </TableCell>
     <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: 'center', fontSize: isLargeScreen ? '0.875rem' : undefined }}>
       <IconButton
@@ -292,17 +347,122 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
   </TableRow>
 ));
 
+interface FollowUpCommentDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (comment: string) => Promise<void>;
+  initialComment: string | null;
+  isLargeScreen: boolean;
+  loading: boolean;
+  fullname: string;
+}
+
+const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
+  open,
+  onClose,
+  onSubmit,
+  initialComment,
+  isLargeScreen,
+  loading,
+  fullname,
+}) => {
+  const [adminComment, setAdminComment] = useState(initialComment || '');
+
+  useEffect(() => {
+    setAdminComment(initialComment || '');
+  }, [initialComment]);
+
+  const handleSubmit = () => {
+    onSubmit(adminComment);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          onClose();
+        }
+      }}
+      maxWidth="sm"
+      fullWidth
+      sx={{
+        '& .MuiDialog-paper': {
+          borderRadius: 2,
+          bgcolor: '#2C2C2C',
+          color: 'white',
+          p: 2,
+        },
+      }}
+    >
+      <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined, color: '#F6F4FE' }}>
+        Comment On {fullname}
+      </DialogTitle>
+      <DialogContent>
+        <TextField
+          label={`Explain the response of ${fullname}`}
+          value={adminComment}
+          onChange={(e) => setAdminComment(e.target.value)}
+          multiline
+          rows={4}
+          fullWidth
+          disabled={loading}
+          InputProps={{
+            sx: {
+              color: '#F6F4FE',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+              fontSize: isLargeScreen ? '0.875rem' : undefined,
+            },
+          }}
+          InputLabelProps={{
+            sx: {
+              color: '#777280',
+              '&.Mui-focused': { color: '#777280' },
+              fontSize: isLargeScreen ? '0.875rem' : undefined,
+            },
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={()=>{onClose(); setAdminComment('')}}
+          disabled={loading}
+          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, color: '#F6F4FE' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+          sx={{
+            backgroundColor: '#F6F4FE',
+            color: '#2C2C2C',
+            '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+            fontSize: isLargeScreen ? '0.875rem' : undefined,
+          }}
+        >
+          {loading ? <CircularProgress size={20} sx={{ color: '#2C2C2C', mr: 1 }} /> : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 interface ActionMenuProps {
   anchorEl: HTMLElement | null;
   currentFollowUp: FollowUp | null;
   onClose: () => void;
   onAction: (action: string) => void;
-  onView: () => void;
+  onEdit: () => void;
+  onComment: () => void;
   isLargeScreen: boolean;
   loading: boolean;
 }
 
-const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, onView, isLargeScreen, loading }) => (
+const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, onEdit, onComment, isLargeScreen, loading }) => (
   <Menu
     anchorEl={anchorEl}
     open={Boolean(anchorEl)}
@@ -311,7 +471,11 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, on
     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
     PaperProps={{ sx: { '& .MuiMenuItem-root': { fontSize: isLargeScreen ? '0.875rem' : undefined } } }}
   >
-    <MenuItem onClick={onView} disabled={loading}>
+    <MenuItem onClick={onComment} disabled={loading}>
+      <HelpOutline className="mr-2 text-lg" />
+      Follow Up
+    </MenuItem>
+    <MenuItem onClick={onEdit} disabled={loading}>
       <MdOutlineEdit className="mr-2 text-lg" />
       Edit
     </MenuItem>
@@ -397,7 +561,7 @@ const ViewFollowUp: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
-  const authData = useSelector((state: RootState) => state.auth?.authData);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const navigate = useNavigate();
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -421,6 +585,7 @@ const ViewFollowUp: React.FC = () => {
     confirmModalOpen: false,
     isModalOpen: false,
     editModalOpen: false,
+    commentDialogOpen: false,
     currentFollowUp: null as FollowUp | null,
     isBranchSelectOpen: false,
     isDrawerOpen: false,
@@ -726,20 +891,59 @@ const ViewFollowUp: React.FC = () => {
 
   const handleMenuClose = () => setState((prev) => ({ ...prev, anchorEl: null }));
 
-  const showConfirmation = (action: string) => {
-    setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
+  const handleCommentOpen = useCallback(() => {
+    handleStateChange('commentDialogOpen', true);
     handleMenuClose();
-  };
+  }, [handleStateChange]);
+
+  const handleCommentClose = useCallback(() => {
+    handleStateChange('commentDialogOpen', false);
+    handleStateChange('currentFollowUp', null);
+  }, [handleStateChange]);
 
   const handleEditOpen = useCallback(() => {
     handleStateChange('editModalOpen', true);
     handleMenuClose();
-  }, [handleMenuClose]);
+  }, [handleStateChange]);
 
   const handleEditClose = useCallback(() => {
     handleStateChange('editModalOpen', false);
     handleStateChange('currentFollowUp', null);
   }, [handleStateChange]);
+
+  const handleCommentSubmit = useCallback(async (adminComment: string) => {
+    if (!state.currentFollowUp) return;
+
+    try {
+      handleStateChange('loading', true);
+      await Api.patch(`/followUp/edit-followup/${state.currentFollowUp.id}?branchId=${authData?.branchId}`, { adminComment });
+
+      setState((prev) => ({
+        ...prev,
+        followUps: prev.followUps.map((followUp) =>
+          followUp.id === prev.currentFollowUp!.id ? { ...followUp, adminComment } : followUp
+        ),
+        filteredFollowUps: prev.filteredFollowUps.map((followUp) =>
+          followUp.id === prev.currentFollowUp!.id ? { ...followUp, adminComment } : followUp
+        ),
+        commentDialogOpen: false,
+        currentFollowUp: null,
+        loading: false,
+      }));
+
+      showPageToast('Comment updated successfully!', 'success');
+    } catch (error: any) {
+      console.error('Failed to update comment:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update comment. Please try again.';
+      showPageToast(errorMessage, 'error');
+      handleStateChange('loading', false);
+    }
+  }, [state.currentFollowUp, handleStateChange]);
+
+  const showConfirmation = (action: string) => {
+    setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
+    handleMenuClose();
+  };
 
   const handleConfirmedAction = async () => {
     if (!state.currentFollowUp || !state.actionType) return;
@@ -1426,7 +1630,7 @@ const ViewFollowUp: React.FC = () => {
               <Table sx={{ minWidth: { xs: 'auto', sm: 650 }, '& td, & th': { border: 'none' } }}>
                 <TableHead>
                   <TableRow>
-                    {(['snumber', 'name', 'contact', 'branch', 'event', 'actions'] as const).map((key) => (
+                    {(['snumber', 'name', 'contact', 'branch', 'event', 'visitor', 'followed', 'actions'] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{
@@ -1505,7 +1709,19 @@ const ViewFollowUp: React.FC = () => {
           currentFollowUp={state.currentFollowUp}
           onClose={handleMenuClose}
           onAction={showConfirmation}
-          onView={handleEditOpen}
+          onEdit={handleEditOpen}
+          onComment={handleCommentOpen}
+          isLargeScreen={isLargeScreen}
+          loading={state.loading}
+        />
+
+        {/* Follow Up Comment Dialog */}
+        <FollowUpCommentDialog
+          open={state.commentDialogOpen}
+          onClose={handleCommentClose}
+          onSubmit={handleCommentSubmit}
+          initialComment={state.currentFollowUp?.adminComment || null}
+          fullname={state.currentFollowUp?.name || ''}
           isLargeScreen={isLargeScreen}
           loading={state.loading}
         />
@@ -1520,16 +1736,18 @@ const ViewFollowUp: React.FC = () => {
           isLargeScreen={isLargeScreen}
           loading={state.loading}
         />
+
+        {/* Edit Modal */}
+        <EditRegistrationModal
+          open={state.editModalOpen}
+          onClose={handleEditClose}
+          onSuccess={() => {
+            refreshFollowUps();
+            setState((prev) => ({ ...prev, editModalOpen: false, currentFollowUp: null }));
+          }}
+          memberId={state.currentFollowUp?.id || ''}
+        />
       </Box>
-      <EditRegistrationModal
-        open={state.editModalOpen}
-        onClose={handleEditClose}
-        onSuccess={() => {
-          refreshFollowUps();
-          setState((prev) => ({ ...prev, editModalOpen: false, currentFollowUp: null }));
-        }}
-        memberId={state.currentFollowUp?.id || ''}
-      />
     </DashboardManager>
   );
 };

@@ -104,6 +104,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
     address: false,
     dateOfBirth: false,
     attendanceDuration: false,
+    isVisitor: false,
   });
   const [attendanceDuration, setAttendanceDuration] = useState("1");
   const [checkedQuestions, setCheckedQuestions] = useState<Record<string, boolean>>({});
@@ -1056,6 +1057,103 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     <Checkbox
                       checked={checkedFields.attendanceDuration}
                       onChange={() => handleFieldCheck("attendanceDuration")}
+                      icon={
+                        <Box
+                          sx={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            border: "2px solid #4B4B4B",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        />
+                      }
+                      checkedIcon={
+                        <Box
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            border: "2px solid #4CAF50",
+                            backgroundColor: "#4CAF50",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <CheckIcon sx={{ fontSize: 14, color: "#fff" }} />
+                        </Box>
+                      }
+                      color="success"
+                      sx={{
+                        "&.Mui-checked": {
+                          color: "#4CAF50",
+                        },
+                      }}
+                    />
+                  }
+                  label=""
+                  sx={{
+                    position: "absolute",
+                    top: "-12px",
+                    right: "10px",
+                    "& .MuiCheckbox-root": {
+                      padding: "4px",
+                    },
+                  }}
+                />
+              </Box>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box sx={{ position: "relative" }}>
+                <FormControl fullWidth disabled={!checkedFields.isVisitor}>
+                  <InputLabel
+                    sx={{
+                      color: checkedFields.isVisitor ? "#4CAF50" : "#4B4B4B",
+                      "&.Mui-focused": { color: "#4CAF50 !important" },
+                      "&.Mui-disabled": { color: "#4B4B4B !important" },
+                    }}
+                  >
+                    Is a Visitor?
+                  </InputLabel>
+                  <Select
+                    defaultValue=""
+                    sx={{
+                      fontSize: "1rem",
+                      color: checkedFields.isVisitor ? "#F6F4FE" : "#9E9E9E",
+                      "& .MuiSelect-select": {
+                        color: checkedFields.isVisitor ? "#F6F4FE" : "#9E9E9E",
+                      },
+                      "& .MuiSelect-select.Mui-disabled": {
+                        color: "#4B4B4B !important",
+                        WebkitTextFillColor: "#4B4B4B",
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: `${checkedFields.isVisitor ? "#4CAF50" : "#4B4B4B"} !important`,
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: `${checkedFields.isVisitor ? "#4CAF50" : "#777280"} !important`,
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#4CAF50 !important",
+                      },
+                      "& .MuiSelect-icon": {
+                        color: checkedFields.isVisitor ? "#4CAF50" : "#4B4B4B !important",
+                      },
+                    }}
+                  >
+                    <MenuItem value="yes">Yes</MenuItem>
+                    <MenuItem value="no">No</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={checkedFields.isVisitor}
+                      onChange={() => handleFieldCheck("isVisitor")}
                       icon={
                         <Box
                           sx={{

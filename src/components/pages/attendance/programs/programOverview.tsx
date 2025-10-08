@@ -24,6 +24,7 @@ import moment from 'moment-timezone';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../reduxstore/redux';
 import { CiMoneyBill } from 'react-icons/ci';
+import RegistrationModal from '../../members/new-comers/followUp';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -39,7 +40,6 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 import Api from '../../../shared/api/api';
 import { EditProgramModal } from './services';
 import WorkerAttendanceDialogue from './workersAttendance';
-import RegistrationModal from '../../members/new-comers/followUp';
 import MembersCountDialogue from './memberAttendance';
 import CollectionsDialogue from './recordCollections';
 
@@ -124,10 +124,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const authData = useSelector((state: RootState) => state?.auth?.authData);
-  const [openForms, setOpenForms] = useState(false);
-  const [formId, setFormId] = useState('');
-  const [loadingForms, setLoadingForms] = useState(false);
-  const [forms, setForms] = useState<any[]>([]);
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [editOpen, setEditOpen] = useState<boolean>(false);
@@ -138,19 +134,8 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   const [error, setError] = useState<string | null>(null);
   const [workersPercentage, setWorkersPercentage] = useState<number>(0);
   const [nonWorkersPercentage, setNonWorkersPercentage] = useState<number>(0);
-  // date/time used for status calculation and kept in state
-  const date = '';
-  const startTime ='';
-  const endTime = '';
   const [eventStatus, setEventStatus] = useState<string>('');
 
-  /**
-   * Rules implemented:
-   * - upcoming: date/time has not started yet
-   * - ongoing: started but not ended
-   * - pending: end time has passed AND hasAttendance === false
-   * - past: end time has passed AND hasAttendance === true
-   */
   const getEventStatus = (
     evDate: string,
     evStart: string,
@@ -158,97 +143,71 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
     hasAttendance: boolean = false
   ): string => {
     const now = moment().tz('Africa/Lagos');
-
-    // Validate incoming date and times
     const eventDate = moment.tz(evDate, 'YYYY-MM-DD', 'Africa/Lagos');
     const validStart = !!evStart && /^\d{2}:\d{2}$/.test(evStart);
     const validEnd = !!evEnd && /^\d{2}:\d{2}$/.test(evEnd);
 
-    // If date invalid - treat as upcoming fallback
-    if (!eventDate.isValid()) return 'upcoming';
-
-    // If times invalid treat as upcoming (not scheduled fully)
-    if (!validStart || !validEnd) return 'upcoming';
+    if (!eventDate.isValid() || !validStart || !validEnd) return 'upcoming';
 
     const eventStart = moment.tz(`${evDate} ${evStart}`, 'YYYY-MM-DD HH:mm', 'Africa/Lagos');
     const eventEnd = moment.tz(`${evDate} ${evEnd}`, 'YYYY-MM-DD HH:mm', 'Africa/Lagos');
 
-    // If event hasn't started yet
     if (now.isBefore(eventStart)) return 'upcoming';
-
-    // If currently between start and end -> ongoing
     if (now.isBetween(eventStart, eventEnd, undefined, '[)')) return 'ongoing';
-
-    // If after end time
     if (now.isAfter(eventEnd)) {
       return hasAttendance ? 'past' : 'pending';
     }
-
     return 'upcoming';
   };
 
-  // update eventStatus whenever date/time/attendance change
   useEffect(() => {
-    if (date) {
-      const status = getEventStatus(date, startTime, endTime, Boolean(eventData?.hasAttendance));
-      setEventStatus(status);
-    }
-  }, [date, startTime, endTime, eventData?.hasAttendance]);
-
-  // open forms (newcomers) list
-  const handleOpen = async () => {
-    setOpenForms(true);
-    setLoadingForms(true);
-    try {
-      const res = await Api.get(`/follow/all-forms?branchId=${authData?.branchId}`);
-      if (res.data?.data) setForms(res.data.data);
-    } catch (err) {
-      console.error('❌ Failed to fetch forms:', err);
-    } finally {
-      setLoadingForms(false);
-    }
-  };
-
-  const handleClose = () => setOpenForms(false);
-
-  const fetchData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-
-    const eventRes = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-    const eventOccurrence = eventRes.data.eventOccurrence;
-    // Normalize assignedDepartments to always be an array
-    setEventData({
-      ...eventOccurrence,
-      assignedDepartments: eventOccurrence.assignedDepartments || [],
-    });
-
-    if (eventOccurrence) {
+    if (eventData?.date) {
       const status = getEventStatus(
-        eventOccurrence.date,
-        eventOccurrence.startTime,
-        eventOccurrence.endTime
+        eventData.date,
+        eventData.startTime,
+        eventData.endTime,
+        eventData.hasAttendance
       );
       setEventStatus(status);
-
-      if (eventOccurrence.assignedDepartments?.length > 0) {
-        const attendanceRes = await Api.get<{ overall: { attendanceRate: number } }>(
-          `/church/worker-attendace-stats/${eventId}`
-        );
-        const rate = attendanceRes.data.overall.attendanceRate || 0;
-        setWorkersPercentage(rate);
-        setNonWorkersPercentage(100 - rate);
-      }
     }
-  } catch (err) {
-    console.error('Error fetching data:', err);
-    setError('Failed to fetch event or attendance data');
-  } finally {
-    setLoading(false);
-  }
-};
+  }, [eventData]);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const eventRes = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
+      const eventOccurrence = eventRes.data.eventOccurrence;
+      setEventData({
+        ...eventOccurrence,
+        assignedDepartments: eventOccurrence.assignedDepartments || [],
+      });
+
+      if (eventOccurrence) {
+        const status = getEventStatus(
+          eventOccurrence.date,
+          eventOccurrence.startTime,
+          eventOccurrence.endTime
+        );
+        setEventStatus(status);
+
+        if (eventOccurrence.assignedDepartments?.length > 0) {
+          const attendanceRes = await Api.get<{ overall: { attendanceRate: number } }>(
+            `/church/worker-attendace-stats/${eventId}`
+          );
+          const rate = attendanceRes.data.overall.attendanceRate || 0;
+          setWorkersPercentage(rate);
+          setNonWorkersPercentage(100 - rate);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to fetch event or attendance data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (open && eventId) {
@@ -389,7 +348,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   };
 
   const collections = eventData?.collection || [];
-  // const showWorkersChart = eventData?.assignedDepartments?.length > 0;
 
   if (loading) {
     return (
@@ -406,9 +364,10 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             p: 2,
           },
         }}
+        component="div"
       >
         <DialogTitle
-          component="div" // ✅ prevents nested <h2> issue
+          component="div"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -418,13 +377,12 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
           }}
         >
           <Typography
-            variant="h6" // slightly larger, fits dialog header better
-            component="span" // ✅ renders as <span> to avoid nested heading error
+            variant="h6"
+            component="span"
             sx={{ fontWeight: 'bold', fontSize: '1rem', color: '#F6F4FE' }}
           >
             Loading...
           </Typography>
-
           <IconButton
             onClick={onClose}
             sx={{
@@ -435,7 +393,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             <Close />
           </IconButton>
         </DialogTitle>
-
         <DialogContent
           sx={{
             minHeight: 300,
@@ -449,7 +406,6 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
       </Dialog>
     );
   }
-
 
   if (error || !eventData) {
     return (
@@ -496,7 +452,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
               </Typography>
             )}
           </Typography>
-          <IconButton onClick={()=>{onClose(), onSuccess()}} sx={{ color: 'white' }}>
+          <IconButton component="button" onClick={() => { onClose(); onSuccess(); }} sx={{ color: 'white' }}>
             <Close />
           </IconButton>
         </DialogTitle>
@@ -519,9 +475,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
                   {['ongoing', 'pending'].includes(eventStatus) && authData?.role === 'branch' && !eventData.hasAttendance && (
                     <Tooltip title="Record Members Attendance" arrow>
                       <IconButton
-                        onClick={() => {
-                          setRecordMemberOpen(true);                         
-                        }}
+                        onClick={() => setRecordMemberOpen(true)}
                         sx={{
                           color: 'white',
                           backgroundColor: '#2C2C2C',
@@ -556,16 +510,14 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
                   position: 'relative',
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent:'space-between', mb: 3 }}>
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
                     Workers Attendance
                   </Typography>
                   {['ongoing', 'pending'].includes(eventStatus) && !eventData.hasAttendance && (
                     <Tooltip title="Record Workers Attendance" arrow>
                       <IconButton
-                        onClick={() => {
-                          setWorkerOpen(true);                         
-                        }}
+                        onClick={() => setWorkerOpen(true)}
                         sx={{
                           color: 'white',
                           backgroundColor: '#2C2C2C',
@@ -695,8 +647,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             width: '100%',
           }}
         >
-          {/* Show Edit Program button only if hasAttendance is false and eventStatus is not 'past' */}
-          {eventStatus !== 'past' && eventStatus !== 'pending'  && (
+          {eventStatus !== 'past' && eventStatus !== 'pending' && (
             <Button
               variant="contained"
               sx={{
@@ -713,7 +664,7 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
               }}
               onClick={() => {
                 if (eventData.eventId) {
-                  setEditOpen(true);               
+                  setEditOpen(true);
                 }
               }}
             >
@@ -721,13 +672,12 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             </Button>
           )}
 
-          {/* Show Record Collections button only if hasAttendance is false, eventStatus is 'ongoing' or 'past', and collections exist */}
           {['ongoing', 'pending'].includes(eventStatus) && authData?.role === 'branch' && collections.length > 0 && (
             <Button
               variant="outlined"
               onClick={() => {
                 if (eventData.id) {
-                  setRecordOpen(true);          
+                  setRecordOpen(true);
                 }
               }}
               sx={{
@@ -747,32 +697,9 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             </Button>
           )}
 
-          {/* Show Record Newcomers button only if hasAttendance is false, eventStatus is 'ongoing' or 'past', and appropriate role */}
           {['ongoing', 'pending'].includes(eventStatus) && (authData?.role === 'department' || authData?.role === 'branch') && (
-            // <Button
-            //   onClick={() => {
-            //     setOpenNewcomers(true);
-            //     onClose();
-            //   }}
-            //   variant="contained"
-            //   startIcon={<Save />}
-            //   sx={{
-            //     py: 1,
-            //     backgroundColor: '#F6F4FE',
-            //     px: { xs: 2, sm: 2 },
-            //     color: '#2C2C2C',
-            //     fontWeight: 'semibold',
-            //     borderRadius: 50,
-            //     textTransform: 'none',
-            //     fontSize: { xs: '1rem', sm: '1rem' },
-            //     '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
-            //     width: { xs: '100%', sm: '100%', md: 'auto' },
-            //   }}
-            // >
-            //   Record Newcomers
-            // </Button>
             <Button
-              onClick={handleOpen}
+              onClick={() => {setOpenNewcomers(true); onClose()}}
               variant="contained"
               startIcon={<Save />}
               sx={{
@@ -794,99 +721,20 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={openForms}
-        onClose={(_, reason) => {
-          if (reason !== "backdropClick") {
-          handleClose();
-          }
-        }}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            p: 2,
-            backgroundColor: "#2C2C2C",
-            color: "#F6F4FE",
-          },
-        }}
-      >
-      <DialogTitle
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          color: '#F6F4FE',
-        }}
-      >
-        <Typography fontWeight="bold">
-          Select a form
-        </Typography>
-        <IconButton onClick={handleClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
-          <Close />
-        </IconButton>
-      </DialogTitle>
-
-        <DialogContent>
-          {loadingForms ? (
-            <Box display="flex" justifyContent="center" py={3}>
-              <CircularProgress size={28} sx={{ color: "#4CAF50" }} />
-            </Box>
-          ) : forms.length === 0 ? (
-            <Typography sx={{ color: "#BFBFBF", textAlign: "center", mt: 2 }}>
-              No forms available.
-            </Typography>
-          ) : (
-            forms.map((form) => (
-              <Box
-                key={form.id}
-                onClick={() => {
-                  setFormId(form.id)
-                  setOpenNewcomers(true);                  
-                }}
-                sx={{
-                  border: "1px solid #4B4B4B",
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 2,
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    borderColor: "#4CAF50",
-                    backgroundColor: "rgba(76, 175, 80, 0.08)",
-                  },
-                }}
-              >
-                <Typography sx={{ fontWeight: 600, fontSize: "1rem", color: "#F6F4FE" }}>
-                  {form.name}
-                </Typography>
-                <Typography sx={{ color: "#BFBFBF", fontSize: "0.9rem" }}>
-                  {form.description.length > 30
-                    ? `${form.description.slice(0, 30)}...`
-                    : form.description}
-                </Typography>
-              </Box>
-            ))
-          )}
-        </DialogContent>
-      </Dialog>
-
       <EditProgramModal open={editOpen} eventId={eventData?.id || ''} onSuccess={fetchData} onClose={() => setEditOpen(false)} />
       <CollectionsDialogue eventId={eventData?.id || ''} onSuccess={fetchData} open={recordOpen} onClose={() => setRecordOpen(false)} />
       <MembersCountDialogue eventId={eventData?.id || ''} onSuccess={fetchData} open={recordMemberOpen} onClose={() => setRecordMemberOpen(false)} />
       <RegistrationModal
         open={openNewcomers}
         onClose={() => setOpenNewcomers(false)}
-        onSuccess={() => {setOpenNewcomers(false), setOpenForms(false)}}
+        onSuccess={() => setOpenNewcomers(false)}
         eventId={eventData?.id || ''}
-        formId={formId}
       />
       <WorkerAttendanceDialogue
         eventId={eventData?.id || ''}
         open={workerOpen}
         onClose={() => setWorkerOpen(false)}
-        onSuccess={fetchData} 
+        onSuccess={fetchData}
         assignedDepartments={eventData?.assignedDepartments || []}
       />
     </>
