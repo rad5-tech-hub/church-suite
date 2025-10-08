@@ -42,13 +42,14 @@ import dayjs from "dayjs";
 interface FormData {
   type: string;
   programs: string[];
-  newcomersType: string[];
+  newcomers: string[];
+  workers: string[];
   departments: string[];
   categories: string[];
   messageMode: "sms" | "mail";
   subject: string;
   message: string;
-  scheduledDateTime?: string; // Added for scheduling
+  scheduledDateTime?: string;
 }
 
 interface Event {
@@ -69,15 +70,30 @@ interface Department {
   name: string;
 }
 
+interface Newcomer {
+  id: string;
+  name: string;
+  phoneNo: string;
+}
+
+interface Worker {
+  id: string;
+  name: string;
+  phoneNo: string;
+}
+
 interface State {
   events: Event[];
   selectedEventIds: string[];
   eventsLoading: boolean;
   dateDialogOpen: boolean;
   selectedDate: Dayjs | null;
-  types: { id: string; name: string }[];
+  newcomers: Newcomer[];
+  newcomersLoading: boolean;
   departments: Department[];
   departmentsLoading: boolean;
+  workers: Worker[];
+  workersLoading: boolean;
 }
 
 interface DatePickerDialogProps {
@@ -251,7 +267,8 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   const [formData, setFormData] = useState<FormData>({
     type: "newcomers",
     programs: [],
-    newcomersType: [],
+    newcomers: [],
+    workers: [],
     departments: [],
     categories: [],
     messageMode: "sms",
@@ -265,9 +282,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     eventsLoading: false,
     dateDialogOpen: false,
     selectedDate: null,
-    types: [],
+    newcomers: [],
+    newcomersLoading: false,
     departments: [],
     departmentsLoading: false,
+    workers: [],
+    workersLoading: false,
   });
   const [isLoading, setLoading] = useState(false);
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -281,7 +301,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     _child?: React.ReactNode
   ) => {
     const { name, value } = e.target;
-    if (name === "newcomersType" || name === "departments" || name === "categories") {
+    if (name === "newcomers" || name === "workers" || name === "departments" || name === "categories" || name === "programs") {
       setFormData((prev) => ({ ...prev, [name]: value as string[] }));
     } else if (name) {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -299,7 +319,8 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     setFormData({
       type: "newcomers",
       programs: [],
-      newcomersType: [],
+      newcomers: [],
+      workers: [],
       departments: [],
       categories: [],
       messageMode: "sms",
@@ -313,9 +334,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       eventsLoading: false,
       dateDialogOpen: false,
       selectedDate: null,
-      types: [],
+      newcomers: [],
+      newcomersLoading: false,
       departments: [],
       departmentsLoading: false,
+      workers: [],
+      workersLoading: false,
     });
   };
 
@@ -347,10 +371,53 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     [handleStateChange, authData]
   );
 
-  const handleModalClose = () => {
-    resetForm();
-    onClose();
-  };
+  const fetchNewcomers = useCallback(
+    async (eventOccurrenceIds: string[] = []) => {
+      if (!authData?.branchId) {
+        showPageToast("Missing branch information. Please try again.", "error");
+        return;
+      }
+      handleStateChange("newcomersLoading", true);
+      try {
+        const params = new URLSearchParams({ branchId: authData.branchId });
+        if (eventOccurrenceIds.length > 0) {
+          eventOccurrenceIds.forEach((id) => params.append("eventOccurrenceId", id));
+        }
+        const response = await Api.get<{ results: Newcomer[] }>(`/member/get-follow-up?${params.toString()}`);
+        handleStateChange("newcomers", response.data?.results || []);
+      } catch (error) {
+        showPageToast("Failed to load newcomers. Please try again.", "error");
+        handleStateChange("newcomers", []);
+      } finally {
+        handleStateChange("newcomersLoading", false);
+      }
+    },
+    [handleStateChange, authData]
+  );
+
+  const fetchWorkers = useCallback(
+    async (departmentIds: string[] = []) => {
+      if (!authData?.branchId) {
+        showPageToast("Missing branch information. Please try again.", "error");
+        return;
+      }
+      handleStateChange("workersLoading", true);
+      try {
+        const params = new URLSearchParams({ branchId: authData.branchId });
+        if (departmentIds.length > 0) {
+          departmentIds.forEach((id) => params.append("departmentId", id));
+        }
+        const response = await Api.get<{ workers: Worker[] }>(`/member/get-workers?${params.toString()}`);
+        handleStateChange("workers", response.data?.workers || []);
+      } catch (error) {
+        showPageToast("Failed to load workers. Please try again.", "error");
+        handleStateChange("workers", []);
+      } finally {
+        handleStateChange("workersLoading", false);
+      }
+    },
+    [handleStateChange, authData]
+  );
 
   const fetchDepartments = useCallback(async () => {
     if (!authData?.branchId) {
@@ -375,8 +442,18 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   useEffect(() => {
     if (open) {
       fetchDepartments();
+      if (formData.type === "newcomers") {
+        fetchNewcomers(formData.programs);
+      } else if (formData.type === "workers") {
+        fetchWorkers(formData.departments);
+      }
     }
-  }, [open, fetchDepartments]);
+  }, [open, fetchDepartments, fetchNewcomers, fetchWorkers, formData.type, formData.programs, formData.departments]);
+
+  const handleModalClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,43 +461,52 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
     try {
       let payload: Record<string, any> = {
-        type: formData.type,
-        messageMode: formData.messageMode,
         message: formData.message,
       };
 
-      // Include subject only if message mode is mail
-      if (formData.messageMode === "mail") {
-        payload.subject = formData.subject;
+      if (formData.messageMode === "sms") {
+        const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
+        const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers;
+        const toNumbers = recipients
+          .filter((recipient) => selectedIds.includes(recipient.id))
+          .map((recipient) => recipient.phoneNo)
+          .filter((phoneNo) => phoneNo && phoneNo.startsWith("+"));
+        payload = {
+          ...payload,
+          toNumbers,
+          channel: "generic",
+          followUpIds: formData.type === "newcomers" ? formData.newcomers : undefined,
+          sendAt: formData.scheduledDateTime,
+        };
+        await Api.post("/wallet/send-sms", payload);
+      } else {
+        payload = {
+          ...payload,
+          messageMode: formData.messageMode,
+          subject: formData.messageMode === "mail" ? formData.subject : undefined,
+          scheduledDateTime: formData.scheduledDateTime,
+        };
+        switch (formData.type) {
+          case "newcomers":
+            payload.programs = formData.programs;
+            payload.newcomers = formData.newcomers;
+            break;
+          case "workers":
+            payload.departments = formData.departments;
+            payload.workers = formData.workers;
+            break;
+          case "members":
+            payload.categories = formData.categories;
+            break;
+        }
+        await Api.post("/church/create-message", payload);
       }
 
-      // Include scheduledDateTime if set
-      if (formData.scheduledDateTime) {
-        payload.scheduledDateTime = formData.scheduledDateTime;
-      }
-
-      // Include fields based on type
-      switch (formData.type) {
-        case "newcomers":
-          payload.programs = state.selectedEventIds;
-          payload.newcomersType = formData.newcomersType;
-          break;
-        case "workers":
-          payload.departments = formData.departments;
-          break;
-        case "members":
-          payload.categories = formData.categories;
-          break;
-        default:
-          break;
-      }
-
-      await Api.post("/church/create-message", payload);
-      showPageToast("Message created successfully!", "success");
+      showPageToast("Message sent successfully!", "success");
       onSuccess?.();
-      setTimeout(onClose, 4000);
+      setTimeout(handleModalClose, 4000);
     } catch (error) {
-      showPageToast("Failed to create message. Please try again.", "error");
+      showPageToast("Failed to send message. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -434,8 +520,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       <Select
         fullWidth
         multiple
-        value={state.selectedEventIds}
-        onChange={(e) => handleStateChange("selectedEventIds", e.target.value as string[])}
+        value={formData.programs}
+        onChange={(e) => {
+          handleChange({ target: { name: "programs", value: e.target.value } });
+          fetchNewcomers(e.target.value as string[]);
+        }}
+        name="programs"
         onOpen={() => fetchEvents(state.selectedDate)}
         displayEmpty
         disabled={!authData?.branchId || isLoading}
@@ -477,7 +567,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
               return (
                 <MenuItem key={occurrence.id} value={occurrence.id}>
                   <Checkbox
-                    checked={state.selectedEventIds.includes(occurrence.id)}
+                    checked={formData.programs.includes(occurrence.id)}
                     sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
                   />
                   <ListItemText primary={`${event.title} (${formattedStart} - ${formattedEnd})`} />
@@ -494,22 +584,22 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     </Grid>
   );
 
-  const renderNewcomersType = () => (
+  const renderCheckNewcomers = () => (
     <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="newcomers-type-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
-        Attendance Type
+      <InputLabel id="newcomers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Check Newcomers
       </InputLabel>
       <Select
         fullWidth
-        labelId="newcomers-type-label"
+        labelId="newcomers-label"
         multiple
-        value={formData.newcomersType}
+        value={formData.newcomers}
         onChange={handleChange}
-        name="newcomersType"
-        disabled={isLoading}
+        name="newcomers"
+        disabled={isLoading || state.newcomersLoading}
         startAdornment={
           <InputAdornment position="start">
-            <FiClock style={{ color: "#F6F4FE" }} />
+            <FaPeopleGroup style={{ color: "#F6F4FE" }} />
           </InputAdornment>
         }
         sx={{
@@ -523,22 +613,83 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
         }}
         renderValue={(selected) =>
           selected.length === 0
-            ? "Select how many times you have been here"
-            : selected.map((value) => `${value} ${parseInt(value) === 1 ? "Time" : "Times"}`).join(", ")
+            ? "Select Newcomers"
+            : state.newcomers
+                .filter((newcomer) => selected.includes(newcomer.id))
+                .map((newcomer) => newcomer.name)
+                .join(", ")
         }
       >
-        {Array.from({ length: 10 }, (_, i) => {
-          const value = (i + 1).toString();
-          return (
-            <MenuItem key={value} value={value}>
+        {state.newcomersLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.newcomers.length === 0 ? (
+          <MenuItem disabled>No newcomers available</MenuItem>
+        ) : (
+          state.newcomers.map((newcomer) => (
+            <MenuItem key={newcomer.id} value={newcomer.id}>
               <Checkbox
-                checked={formData.newcomersType.includes(value)}
+                checked={formData.newcomers.includes(newcomer.id)}
                 sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
               />
-              <ListItemText primary={`${value} ${parseInt(value) === 1 ? "Time" : "Times"}`} />
+              <ListItemText primary={`${newcomer.name} (${newcomer.phoneNo})`} />
             </MenuItem>
-          );
-        })}
+          ))
+        )}
+      </Select>
+    </Grid>
+  );
+
+  const renderCheckWorkers = () => (
+    <Grid size={{ xs: 12, md: 12 }}>
+      <InputLabel id="workers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Check Workers
+      </InputLabel>
+      <Select
+        fullWidth
+        labelId="workers-label"
+        multiple
+        value={formData.workers}
+        onChange={handleChange}
+        name="workers"
+        disabled={isLoading || state.workersLoading}
+        startAdornment={
+          <InputAdornment position="start">
+            <FaPeopleCarry style={{ color: "#F6F4FE" }} />
+          </InputAdornment>
+        }
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) =>
+          selected.length === 0
+            ? "Select Workers"
+            : state.workers
+                .filter((worker) => selected.includes(worker.id))
+                .map((worker) => worker.name)
+                .join(", ")
+        }
+      >
+        {state.workersLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.workers.length === 0 ? (
+          <MenuItem disabled>No workers available</MenuItem>
+        ) : (
+          state.workers.map((worker) => (
+            <MenuItem key={worker.id} value={worker.id}>
+              <Checkbox
+                checked={formData.workers.includes(worker.id)}
+                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+              />
+              <ListItemText primary={`${worker.name} (${worker.phoneNo})`} />
+            </MenuItem>
+          ))
+        )}
       </Select>
     </Grid>
   );
@@ -553,7 +704,10 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
         labelId="departments-label"
         multiple
         value={formData.departments}
-        onChange={handleChange}
+        onChange={(e) => {
+          handleChange(e);
+          fetchWorkers(e.target.value as string[]);
+        }}
         name="departments"
         disabled={isLoading}
         startAdornment={
@@ -655,9 +809,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   const renderSubjectAndMessage = () => (
     <>
       <Grid size={{ xs: 12, md: 12 }}>
-        <LocalizationProvider dateAdapter={AdapterDayjs} >
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DateTimePicker
-            sx={{borderColor: '#777280'}}
+            sx={{ borderColor: "#777280" }}
             label="Schedule Message (optional)"
             value={formData.scheduledDateTime ? dayjs(formData.scheduledDateTime) : null}
             onChange={(newValue) =>
@@ -685,10 +839,10 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                   },
                 },
                 InputLabelProps: {
-                  sx: { 
-                    color: "#F6F4FE", 
-                    "&.Mui-focused": { color: "#F6F4FE" }, 
-                    fontSize: "0.9rem" 
+                  sx: {
+                    color: "#F6F4FE",
+                    "&.Mui-focused": { color: "#F6F4FE" },
+                    fontSize: "0.9rem",
                   },
                 },
                 sx: {
@@ -696,15 +850,15 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                     color: "#F6F4FE",
                   },
                   color: "#F6F4FE",
-                  "& fieldset": { 
-                    borderColor: "#777280 !important" 
+                  "& fieldset": {
+                    borderColor: "#777280 !important",
                   },
-                  "&:hover fieldset": { 
-                    borderColor: "#777280 !important" 
+                  "&:hover fieldset": {
+                    borderColor: "#777280 !important",
                   },
-                  "&.Mui-focused fieldset": { 
-                    borderColor: "#777280 !important" 
-                  },              
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#777280 !important",
+                  },
                   fontSize: "0.9rem",
                 },
               },
@@ -803,10 +957,15 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
             {formData.type === "newcomers" && (
               <>
                 {renderProgramType()}
-                {renderNewcomersType()}
+                {renderCheckNewcomers()}
               </>
             )}
-            {formData.type === "workers" && renderDepartments()}
+            {formData.type === "workers" && (
+              <>
+                {renderDepartments()}
+                {renderCheckWorkers()}
+              </>
+            )}
             {formData.type === "members" && renderCategories()}
             <RenderMessageMode formData={formData} handleChange={handleChange} isLoading={isLoading} />
             {renderSubjectAndMessage()}

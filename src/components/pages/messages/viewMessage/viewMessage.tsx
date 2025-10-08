@@ -511,9 +511,9 @@ const fetchBranches = useCallback(
     </Box>
   );
 
-  if (authData?.isHeadQuarter === false) {
-    return <Navigate to="/manage/view-admins" replace />;
-  }
+  // if (authData?. === false) {
+  //   return <Navigate to="/manage/view-admins" replace />;
+  // }
 
   return (
     <DashboardManager> 
