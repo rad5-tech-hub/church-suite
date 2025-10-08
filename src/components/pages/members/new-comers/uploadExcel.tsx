@@ -129,9 +129,10 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
       }
       const branchId = uploadBranchId || authData?.branchId;
       const branchIdParam = branchId ? `&branchId=${branchId}` : '';
+      const occuranceParam = eventId ? `&occurrenceId=${eventId}` : '';
 
       await Api.post(
-        `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
+        `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}${occuranceParam}`,
         uploadFormData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },

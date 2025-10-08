@@ -326,9 +326,10 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
 
       // Include branchId in query params
       const branchIdParam = formData.branchId ? `&branchId=${formData.branchId}` : "";
+      const occurrenceId = formData.eventOccurrenceId ? `&occurrenceId=${eventId}` : "";
 
       await Api.post(
-        `/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}`,
+        `/member/add-follow-up?churchId=${authData?.churchId}${branchIdParam}${occurrenceId}`,
         payload
       );
 

@@ -356,9 +356,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
             return acc;
           }, {})
         );
-        onSuccess();
         onClose();
       }, 1000);
+      onSuccess();
     } catch (err) {
       console.error("❌ Failed to save form", err);
       showPageToast("Failed to save form", "error");
