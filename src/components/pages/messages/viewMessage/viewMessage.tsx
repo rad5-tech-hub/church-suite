@@ -533,7 +533,7 @@ const fetchBranches = useCallback(
                 gap: 1,
               }}
             >
-              <span className="text-[#F6F4FE]"> Message</span>
+              <span className="text-[#F6F4FE]"> Message Histories</span>
             </Typography>
           </Grid>
           <Grid
