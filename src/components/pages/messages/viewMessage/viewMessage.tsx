@@ -1,210 +1,326 @@
-import React, { useState, useEffect, useCallback } from "react";
-import DashboardManager from "../../../shared/dashboardManager";
-// import { Navigate } from "react-router-dom";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   Box,
   Button,
-  CardContent,
-  Card,
   Typography,
-  IconButton,
+  CircularProgress,
+  Grid,
+  useTheme,
+  useMediaQuery,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Menu,
+  IconButton,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Select,
   MenuItem,
-  useTheme,
-  useMediaQuery,
-  Grid,
+  Checkbox,
+  ListItemText,
+  Divider,
+  InputLabel,
+  InputAdornment,
+  TextField,
 } from "@mui/material";
-import {
-  Block as BlockIcon,
-  MoreVert as MoreVertIcon,
-  ChevronLeft,
-  ChevronRight,
-} from "@mui/icons-material";
-import { MdRefresh, MdOutlineEdit } from "react-icons/md";
-import { AiOutlineDelete } from "react-icons/ai";
-import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
+import { Chat, Close, Mail } from "@mui/icons-material";
+import { FaPeopleGroup } from "react-icons/fa6";
+import { FaPeopleCarry } from "react-icons/fa";
+import { FiClock } from "react-icons/fi";
+import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { Dayjs } from "dayjs";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../reduxstore/redux";
-import { TbArrowFork } from "react-icons/tb";
-import MessageModal from "../createMessage/message";
+import dayjs from "dayjs";
 
-interface Branch {
+interface FormData {
+  type: string;
+  programs: string;
+  newcomers: string[];
+  workers: string[];
+  departments: string;
+  categories: string[];
+  messageMode: "sms" | "mail";
+  subject: string;
+  message: string;
+  scheduledDateTime?: string;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  occurrenceDate?: string;
+  occurrences: {
+    id: string;
+    date: string;
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+  }[];
+}
+
+interface Department {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  address: string;
-  isHeadQuarter: boolean;
-  isActive: boolean;
-  isDeleted?: boolean;
 }
 
-interface Pagination {
-  hasNextPage: boolean;
-  nextCursor: string | null;
-  nextPage: string | null;
+interface Newcomer {
+  id: string;
+  name: string;
+  phoneNo: string;
 }
 
-interface FetchBranchesResponse {
-  message: string;
-  pagination: Pagination;
-  branches: Branch[];
-}
-
-interface CustomPaginationProps {
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-  onPageChange: (direction: "next" | "prev") => void;
-  currentPage: number;
-  isLargeScreen: boolean;
-  isLoading?: boolean;
+interface Worker {
+  id: string;
+  name: string;
+  phoneNo: string;
 }
 
 interface State {
-  branches: Branch[];
-  filteredBranches: Branch[];
-  pagination: Pagination;
-  currentPage: number;
-  pageHistory: string[];
-  loading: boolean;
-  error: string | null;
-  isSearching: boolean;
-  editModalOpen: boolean;
-  confirmModalOpen: boolean;
-  isModalOpen: boolean;
-  currentBranch: Branch | null;
-  actionType: string | null;
-  anchorEl: HTMLElement | null;
-  editFormData: Partial<Pick<Branch, "name" | "email" | "phone" | "address">>;
-  searchTerm: string;
-  locationFilter: string;
+  events: Event[];
+  selectedEventIds: string[];
+  eventsLoading: boolean;
+  dateDialogOpen: boolean;
+  selectedDate: Dayjs | null;
+  newcomers: Newcomer[];
+  newcomersLoading: boolean;
+  departments: Department[];
+  departmentsLoading: boolean;
+  workers: Worker[];
+  workersLoading: boolean;
 }
 
-const initialState: State = {
-  branches: [],
-  filteredBranches: [],
-  pagination: {
-    hasNextPage: false,
-    nextCursor: null,
-    nextPage: null,
-  },
-  currentPage: 1,
-  pageHistory: [],
-  loading: false,
-  error: null,
-  isSearching: false,
-  editModalOpen: false,
-  confirmModalOpen: false,
-  isModalOpen: false,
-  currentBranch: null,
-  actionType: null,
-  anchorEl: null,
-  editFormData: {
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-  },
-  searchTerm: "",
-  locationFilter: "",
-};
+interface DatePickerDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onDateSelect: (date: Dayjs | null) => void;
+  onDateApply: () => void;
+}
 
-const CustomPagination: React.FC<CustomPaginationProps> = ({
-  hasNextPage,
-  hasPrevPage,
-  onPageChange,
-  currentPage,
-  isLargeScreen,
-  isLoading = false,
-}) => {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        py: 2,
-        px: { xs: 2, sm: 3 },
-        color: "#777280",
-        gap: 2,
-        flexWrap: "wrap",
+interface MessageModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+interface RenderAudienceTypeProps {
+  formData: FormData;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
+    _child?: React.ReactNode
+  ) => void;
+  isLoading: boolean;
+}
+
+const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
+  open,
+  onClose,
+  onDateSelect,
+  onDateApply,
+}) => (
+  <Dialog open={open} onClose={onClose} maxWidth="xs">
+    <DialogTitle>Select Date</DialogTitle>
+    <DialogContent>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DateTimePicker
+          onChange={onDateSelect}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: "outlined",
+            },
+          }}
+        />
+      </LocalizationProvider>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose}>Cancel</Button>
+      <Button onClick={onDateApply} variant="contained">
+        Apply
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
+const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
+  formData,
+  setFormData,
+  handleChange,
+  isLoading,
+}) => (
+  <Grid size={{ xs: 12 }}>
+    <FormLabel id="program-type-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
+      Audience Type
+    </FormLabel>
+    <RadioGroup
+      row
+      sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "#F6F4FE" }}
+      aria-labelledby="program-type-label"
+      name="type"
+      value={formData.type}
+      onChange={(e) => {
+        handleChange(e);
+        setFormData((prev) => ({
+          ...prev,
+          programs: "",
+          newcomers: [],
+          workers: [],
+          departments: "",
+          categories: [],
+        }));
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
+      {[
+        {
+          value: "newcomers",
+          label: "Newcomers",
+          icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
+        },
+        {
+          value: "workers",
+          label: "Workers",
+          icon: <FaPeopleCarry fontSize="25" color="#F6F4FE" />,
+        },
+        {
+          value: "members",
+          label: "Members",
+          icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
+        },
+      ].map(({ value, label, icon }) => (
+        <FormControlLabel
+          key={value}
+          value={value}
+          disabled={isLoading}
+          control={
+            <Radio sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }} />
+          }
+          label={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              {icon}
+              <Typography sx={{ ml: 1, color: "#F6F4FE" }}>{label}</Typography>
+            </Box>
+          }
+          labelPlacement="start"
           sx={{
-            fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
+            border: "0.5px solid gray",
+            flexDirection: "row-reverse",
+            gap: 1,
+            padding: "4px 8px",
+            mb: 2,
+            backgroundColor: formData.type === value ? "rgba(255, 255, 255, 0.15)" : "transparent",
+            borderRadius: 1,
           }}
-        >
-          Page {currentPage}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          onClick={() => onPageChange("prev")}
-          disabled={!hasPrevPage || isLoading}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-          aria-label="Previous page"
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          onClick={() => onPageChange("next")}
-          disabled={!hasNextPage || isLoading}
-          sx={{
-            minWidth: "40px",
-            height: "40px",
-            borderRadius: "8px",
-            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
-          }}
-          aria-label="Next page"
-        >
-          <ChevronRight />
-        </Button>
-      </Box>
-    </Box>
-  );
-};
+        />
+      ))}
+    </RadioGroup>
+  </Grid>
+);
 
-const ViewBranches: React.FC = () => {
-  const authData = useSelector((state: RootState) => state.auth?.authData);
-  usePageToast('view-branch');
+const RenderMessageMode: React.FC<{
+  formData: FormData;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
+    _child?: React.ReactNode
+  ) => void;
+  isLoading: boolean;
+}> = ({ formData, handleChange, isLoading }) => (
+  <>
+    <Grid size={{ xs: 12 }}>
+      <FormLabel id="message-mode-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
+        Message Mode
+      </FormLabel>
+    </Grid>
+    {[
+      { value: "sms", label: "SMS", icon: <Chat sx={{ color: "#F6F4FE", fontSize: "40" }} /> },
+      { value: "mail", label: "Email", icon: <Mail sx={{ color: "#F6F4FE", fontSize: "40" }} /> },
+    ].map(({ value, label, icon }) => (
+      <Grid key={value} size={{ xs: 12, md: 6 }}>
+        <FormControlLabel
+          value={value}
+          disabled={isLoading}
+          control={
+            <Radio
+              sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }}
+              checked={formData.messageMode === value}
+              onChange={handleChange}
+              name="messageMode"
+            />
+          }
+          label={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              {icon}
+              <Typography sx={{ ml: 1, color: "#F6F4FE" }}>{label}</Typography>
+            </Box>
+          }
+          labelPlacement="start"
+          sx={{
+            border: "0.5px solid gray",
+            padding: "8px 12px",
+            mb: 1,
+            borderRadius: 1,
+            width: "100%",
+            justifyContent: "space-between",
+            backgroundColor:
+              formData.messageMode === value ? "rgba(255, 255, 255, 0.15)" : "transparent",
+            transition: "background-color 0.3s ease",
+            "&:hover": {
+              backgroundColor:
+                formData.messageMode === value ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.1)",
+            },
+          }}
+        />
+      </Grid>
+    ))}
+  </>
+);
+
+const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState<FormData>({
+    type: "newcomers",
+    programs: "",
+    newcomers: [],
+    workers: [],
+    departments: "",
+    categories: [],
+    messageMode: "sms",
+    subject: "",
+    message: "",
+    scheduledDateTime: undefined,
+  });
+  const [state, setState] = useState<State>({
+    events: [],
+    selectedEventIds: [],
+    eventsLoading: false,
+    dateDialogOpen: false,
+    selectedDate: null,
+    newcomers: [],
+    newcomersLoading: false,
+    departments: [],
+    departmentsLoading: false,
+    workers: [],
+    workersLoading: false,
+  });
+  const [isLoading, setLoading] = useState(false);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+  const categoryOptions = ["men", "women", "children"];
+  usePageToast("createMessages");
 
-  const [state, setState] = useState<State>(initialState);
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
+    _child?: React.ReactNode
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleStateChange = useCallback(
     <K extends keyof State>(key: K, value: State[K]) => {
@@ -213,577 +329,790 @@ const ViewBranches: React.FC = () => {
     []
   );
 
-const fetchBranches = useCallback(
-  async (url: string | null = "/church/get-branches") => {
-    handleStateChange("loading", true);
-    handleStateChange("error", null);
-    try {
-      let response;
-      
-      if (url) {
-        response = await Api.get<FetchBranchesResponse>(url);
-      } else {
-        response = await Api.get<FetchBranchesResponse>("/church/get-branches");
-      }
-      
-      const data = response.data;
-      
-      if (!data?.branches) {
-        throw new Error("Invalid response structure");
-      }
-      return data;
-    } catch (error) {
-      console.error("Failed to fetch messages:", error);
-      handleStateChange("error", "Failed to load messages. Please try again later.");
-      handleStateChange("loading", false);
-      showPageToast("Failed to load messages", 'error');
-      throw error;
-    }
-  },
-  [handleStateChange]
-);
+  const resetForm = () => {
+    setFormData({
+      type: "newcomers",
+      programs: "",
+      newcomers: [],
+      workers: [],
+      departments: "",
+      categories: [],
+      messageMode: "sms",
+      subject: "",
+      message: "",
+      scheduledDateTime: undefined,
+    });
+    setState({
+      events: [],
+      selectedEventIds: [],
+      eventsLoading: false,
+      dateDialogOpen: false,
+      selectedDate: null,
+      newcomers: [],
+      newcomersLoading: false,
+      departments: [],
+      departmentsLoading: false,
+      workers: [],
+      workersLoading: false,
+    });
+  };
 
-  const searchBranches = useCallback(
-    async (url: string | null = "/church/get-branches") => {
-      handleStateChange("isSearching", true);
+  const fetchEvents = useCallback(
+    async (date: Dayjs | null = null) => {
+      if (!authData?.branchId) {
+        showPageToast("Missing branch information. Please try again.", "error");
+        return;
+      }
+      handleStateChange("eventsLoading", true);
       try {
-        const params = new URLSearchParams();
-
-        if (state.searchTerm) {
-          params.append("search[name]", state.searchTerm);        
+        const params = new URLSearchParams({ branchId: authData.branchId });
+        if (authData?.role === "department" && authData.department) {
+          params.append("departmentId", authData.department);
         }
-
-        if (state.locationFilter) {
-          params.append("search[address]", state.locationFilter);
+        if (date) {
+          params.append("date", date.format("YYYY-MM-DD"));
         }
-        const fullUrl =
-          url && url.includes("?")
-            ? `${url}&${params.toString()}`
-            : `${url}?${params.toString()}`;
-
-        const response = await Api.get<FetchBranchesResponse>(fullUrl);
-        const data = response.data;
-
-        if (!data || !data.branches) {
-          throw new Error("Invalid response structure");
-        }
-
-        handleStateChange("isSearching", false);
-        return data;
+        const response = await Api.get<{ events: Event[] }>(`/church/get-events?${params.toString()}`);
+        handleStateChange("events", response.data?.events || []);
+        handleStateChange("selectedEventIds", []);
       } catch (error) {
-        console.error("Error searching messages:", error);
-
-        let filtered = [...state.branches];
-
-        if (state.searchTerm) {
-          filtered = filtered.filter((branch) =>
-            branch.name.toLowerCase().includes(state.searchTerm.toLowerCase())
-          );
-        }
-
-        if (state.locationFilter) {
-          filtered = filtered.filter(
-            (branch) =>
-              state.locationFilter === "" ||
-              (state.locationFilter === "branch" && !branch.isHeadQuarter) ||
-              (state.locationFilter === "hq" && branch.isHeadQuarter)
-          );
-        }
-
-        setState((prev) => ({
-          ...prev,
-          filteredBranches: filtered,
-          pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
-          currentPage: 1,
-          pageHistory: [],
-          isSearching: false,
-        }));
-
-        throw error;
+        showPageToast("Failed to load events. Please try again.", "error");
+        handleStateChange("events", []);
+      } finally {
+        handleStateChange("eventsLoading", false);
       }
     },
-    [state.branches, state.searchTerm, state.locationFilter, isMobile, handleStateChange]
+    [handleStateChange, authData]
   );
+
+  const fetchNewcomers = useCallback(
+    async (eventOccurrenceId: string = "") => {
+      if (!authData?.branchId) {
+        showPageToast("Missing branch information. Please try again.", "error");
+        return;
+      }
+      handleStateChange("newcomersLoading", true);
+      try {
+        const params = new URLSearchParams({ branchId: authData.branchId });
+        if (eventOccurrenceId) {
+          params.append("eventOccurrenceId", eventOccurrenceId);
+        }
+        const response = await Api.get<{ results: Newcomer[] }>(`/member/get-follow-up?${params.toString()}`);
+        const newcomers = response.data?.results || [];
+        console.log("Fetched newcomers:", newcomers);
+        handleStateChange("newcomers", newcomers);
+        setFormData((prev) => ({
+          ...prev,
+          newcomers: prev.newcomers.filter((id) => newcomers.some((n) => n.id === id)),
+        }));
+      } catch (error) {
+        showPageToast("Failed to load newcomers. Please try again.", "error");
+        handleStateChange("newcomers", []);
+        setFormData((prev) => ({ ...prev, newcomers: [] }));
+      } finally {
+        handleStateChange("newcomersLoading", false);
+      }
+    },
+    [handleStateChange, authData]
+  );
+
+  const fetchWorkers = useCallback(
+    async (departmentId: string = "") => {
+      if (!authData?.branchId) {
+        showPageToast("Missing branch information. Please try again.", "error");
+        return;
+      }
+      handleStateChange("workersLoading", true);
+      try {
+        const params = new URLSearchParams({ branchId: authData.branchId });
+        if (departmentId) {
+          params.append("departmentId", departmentId);
+        }
+        const response = await Api.get<{ message: string; pagination: any; data: Worker[] }>(
+          `/member/all-members?${params.toString()}`
+        );
+        const workers = (response.data?.data || []).map((worker) => ({
+          id: worker.id,
+          name: worker.name,
+          phoneNo: worker.phoneNo,
+        }));
+        console.log("Fetched workers:", workers);
+        handleStateChange("workers", workers);
+        setFormData((prev) => ({
+          ...prev,
+          workers: prev.workers.filter((id) => workers.some((w) => w.id === id)),
+        }));
+      } catch (error) {
+        showPageToast("Failed to load workers. Please try again.", "error");
+        handleStateChange("workers", []);
+        setFormData((prev) => ({ ...prev, workers: [] }));
+      } finally {
+        handleStateChange("workersLoading", false);
+      }
+    },
+    [handleStateChange, authData]
+  );
+
+  const fetchDepartments = useCallback(async () => {
+    if (!authData?.branchId) {
+      showPageToast("Missing branch information. Please try again.", "error");
+      return;
+    }
+    handleStateChange("departmentsLoading", true);
+    try {
+      const params = new URLSearchParams({ branchId: authData.branchId });
+      const response = await Api.get<{ departments: Department[] }>(
+        `/church/get-departments?${params.toString()}`
+      );
+      handleStateChange("departments", response.data?.departments || []);
+    } catch (error) {
+      showPageToast("Failed to load departments. Please try again.", "error");
+      handleStateChange("departments", []);
+    } finally {
+      handleStateChange("departmentsLoading", false);
+    }
+  }, [handleStateChange, authData]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadInitialData = async () => {
-      handleStateChange("loading", true);
-      handleStateChange("error", null);
-      try {
-        const response = await fetchBranches();
-        const data = response as unknown as FetchBranchesResponse;
-        if (isMounted) {
-          setState((prev) => ({
-            ...prev,
-            branches: data.branches || [],
-            filteredBranches: data.branches || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            currentPage: 1,
-            pageHistory: [],
-            loading: false,
-          }));
-        }
-      } catch (error) {
-        if (isMounted) {
-          handleStateChange("loading", false);
-        }
+    if (open) {
+      fetchDepartments();
+      if (formData.type === "newcomers" && formData.programs) {
+        fetchNewcomers(formData.programs);
+      } else if (formData.type === "workers" && formData.departments) {
+        fetchWorkers(formData.departments);
       }
-    };
-
-    loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchBranches, handleStateChange]);
-
-  const handlePageChange = useCallback(
-    async (direction: "next" | "prev") => {
-      handleStateChange("loading", true);
-      handleStateChange("error", null);
-      try {
-        if (direction === "next") {
-          const url = state.pagination.nextPage;
-          if (!url) throw new Error("No next page available");
-          const response = state.searchTerm || state.locationFilter 
-            ? await searchBranches(url) 
-            : await fetchBranches(url);
-
-          const data = response as FetchBranchesResponse;
-          setState((prev) => ({
-            ...prev,
-            filteredBranches: data.branches || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            pageHistory: [...prev.pageHistory, url],
-            currentPage: prev.currentPage + 1,
-            loading: false,
-          }));
-        } else if (direction === "prev") {
-          if (state.pageHistory.length === 0) throw new Error("No previous page available");
-          const prevIndex = state.pageHistory.length - 2;
-          const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : "/church/get-branches";
-          const response = state.searchTerm || state.locationFilter 
-            ? await searchBranches(url) 
-            : await fetchBranches(url);
-
-          const data = response as FetchBranchesResponse;
-          setState((prev) => ({
-            ...prev,
-            filteredBranches: data.branches || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            pageHistory: prev.pageHistory.slice(0, -1),
-            currentPage: prev.currentPage - 1,
-            loading: false,
-          }));
-        }
-      } catch (error) {
-        console.error(`Error fetching ${direction} page:`, error);
-        const errorMessage = "Failed to load page";
-        handleStateChange("error", errorMessage);
-        handleStateChange("loading", false);
-        showPageToast(errorMessage, 'error');
-      }
-    },
-    [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.locationFilter, fetchBranches, searchBranches, handleStateChange]
-  );
-
-  const handleMenuClose = () => handleStateChange("anchorEl", null);
-
-  const handleEditOpen = () => {
-    if (state.currentBranch) {
-      handleStateChange("editFormData", {
-        name: state.currentBranch.name,
-        email: state.currentBranch.email,
-        phone: state.currentBranch.phone,
-        address: state.currentBranch.address,
-      });
-      handleStateChange("editModalOpen", true);
     }
-    handleMenuClose();
+  }, [open, fetchDepartments, fetchNewcomers, fetchWorkers, formData.type, formData.programs, formData.departments]);
+
+  const handleModalClose = () => {
+    resetForm();
+    onClose();
   };
 
-  const showConfirmation = (action: string) => {
-    handleStateChange("actionType", action);
-    handleStateChange("confirmModalOpen", true);
-    handleMenuClose();
-  };
-
-  const handleConfirmedAction = async () => {
-    if (!state.currentBranch || !state.actionType) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
     try {
-      handleStateChange("loading", true);
-      if (state.actionType === "delete") {
-        await Api.delete(`/church/delete-branch/${state.currentBranch.id}`);
-        setState((prev) => ({
-          ...prev,
-          branches: prev.branches.filter((branch) => branch.id !== prev.currentBranch!.id),
-          filteredBranches: prev.filteredBranches.filter((branch) => branch.id !== prev.currentBranch!.id),
-          pagination: { ...prev.pagination, hasNextPage: prev.filteredBranches.length > 1 },
-          pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
-          currentPage: prev.currentPage > 1 && prev.filteredBranches.length === 1 ? prev.currentPage - 1 : prev.currentPage,
-        }));
-        showPageToast("Branch deleted successfully!",'success');
-      } else if (state.actionType === "suspend") {
-        const newStatus = !state.currentBranch.isActive;
-        await Api.patch(`/church/${newStatus ? "activate" : "suspend"}-branch/${state.currentBranch.id}`);
-        setState((prev) => ({
-          ...prev,
-          branches: prev.branches.map((branch) =>
-            branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
-          ),
-          filteredBranches: prev.filteredBranches.map((branch) =>
-            branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
-          ),
-        }));
-        showPageToast(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, 'success');
+      if (!formData.message) {
+        showPageToast("Message is required.", "error");
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error("Action error:", error);
-      showPageToast(`Failed to ${state.actionType} branch`, 'error');
+
+      if (formData.messageMode === "sms") {
+        if (formData.type === "newcomers" && formData.newcomers.length === 0) {
+          showPageToast("Please select at least one newcomer.", "error");
+          setLoading(false);
+          return;
+        }
+        if (formData.type === "workers" && formData.workers.length === 0) {
+          showPageToast("Please select at least one worker.", "error");
+          setLoading(false);
+          return;
+        }
+
+        const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
+        const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers;
+
+        console.log(`handleSubmit: type=${formData.type}`);
+        console.log(`Recipients:`, recipients);
+        console.log(`Selected IDs:`, selectedIds);
+
+        if (!recipients.length) {
+          showPageToast(`No ${formData.type} available. Please try refreshing the list.`, "error");
+          setLoading(false);
+          return;
+        }
+
+        if (!selectedIds.length) {
+          showPageToast(`No ${formData.type} selected. Please select at least one recipient.`, "error");
+          setLoading(false);
+          return;
+        }
+
+        const toNumbers = recipients
+          .filter((recipient) => {
+            const isSelected = selectedIds.includes(recipient.id);
+            if (!isSelected) {
+              console.log(`Recipient ${recipient.name} (ID: ${recipient.id}) not selected`);
+            }
+            return isSelected;
+          })
+          .map((recipient) => {
+            console.log(`Processing recipient: ${recipient.name}, phoneNo: ${recipient.phoneNo || 'missing'}`);
+            let phoneNo = recipient.phoneNo;
+            // Normalize phone number to include '+' if missing
+            if (phoneNo && !phoneNo.startsWith("+")) {
+              phoneNo = `+${phoneNo}`;
+            }
+            return phoneNo;
+          })
+          .filter((phoneNo): phoneNo is string => {
+            const isValid = typeof phoneNo === "string" && phoneNo.length > 0 && phoneNo.startsWith("+");
+            if (!isValid) {
+              console.log(`Invalid phoneNo: ${phoneNo || 'missing'}`);
+            }
+            return isValid;
+          });
+
+        console.log("toNumbers:", toNumbers);
+
+        if (toNumbers.length === 0) {
+          showPageToast(
+            "No valid phone numbers found. Ensure selected recipients have valid phone numbers starting with '+'.",
+            "error"
+          );
+          setLoading(false);
+          return;
+        }
+
+        const payload = {
+          message: formData.message,
+          toNumbers,
+          channel: "generic",
+          ...(formData.type === "newcomers" && { followUpIds: formData.newcomers }),
+          ...(formData.scheduledDateTime && { sendAt: formData.scheduledDateTime }),
+        };
+
+        console.log("SMS Payload:", payload);
+        await Api.post("/wallet/send-sms", payload);
+      } else {
+        if (!formData.subject) {
+          showPageToast("Subject is required for email.", "error");
+          setLoading(false);
+          return;
+        }
+
+        let payload: Record<string, any> = {
+          type: formData.type,
+          messageMode: formData.messageMode,
+          subject: formData.subject,
+          message: formData.message,
+          ...(formData.scheduledDateTime && { scheduledDateTime: formData.scheduledDateTime }),
+        };
+
+        switch (formData.type) {
+          case "newcomers":
+            payload.programs = formData.programs;
+            payload.newcomers = formData.newcomers;
+            break;
+          case "workers":
+            payload.departments = formData.departments;
+            payload.workers = formData.workers;
+            break;
+          case "members":
+            payload.categories = formData.categories;
+            break;
+        }
+
+        await Api.post("/church/create-message", payload);
+      }
+
+      showPageToast("Message sent successfully!", "success");
+      onSuccess?.();
+      setTimeout(handleModalClose, 4000);
+    } catch (error: any) {
+      showPageToast(
+        error.response?.data?.message || "Failed to send message. Please try again.",
+        "error"
+      );
     } finally {
-      handleStateChange("loading", false);
-      handleStateChange("confirmModalOpen", false);
-      handleStateChange("actionType", null);
-      handleStateChange("currentBranch", null);
+      setLoading(false);
     }
   };
 
-  const EmptyState = () => (
-    <Box
-      sx={{
-        textAlign: "center",
-        py: 8,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
-        gutterBottom
+  const renderProgramType = () => (
+    <Grid size={{ xs: 12, md: 6 }}>
+      <InputLabel id="program-type-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Program Type
+      </InputLabel>
+      <Select
+        fullWidth
+        value={formData.programs}
+        onChange={(e) => {
+          handleChange({ target: { name: "programs", value: e.target.value as string } });
+          fetchNewcomers(e.target.value as string);
+        }}
+        name="programs"
+        onOpen={() => fetchEvents(state.selectedDate)}
+        displayEmpty
+        disabled={!authData?.branchId || isLoading}
         sx={{
-          fontSize: isLargeScreen ? "1.25rem" : undefined,
+          fontSize: isLargeScreen ? "1rem" : undefined,
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+        }}
+        renderValue={(selected) => {
+          if (!selected) return "Select Program";
+          const allOccurrences = state.events.flatMap((event) =>
+            event.occurrences.map((occ) => ({ ...occ, eventTitle: event.title }))
+          );
+          const selectedOccurrence = allOccurrences.find((occ) => occ.id === selected);
+          return selectedOccurrence
+            ? `${selectedOccurrence.eventTitle} (${selectedOccurrence.startTime} - ${selectedOccurrence.endTime})`
+            : "Select Program";
         }}
       >
-        No branches found
-      </Typography>
-      {state.error ? (
-        <Typography color="error" sx={{ mb: 2 }}>
-          {state.error}
-        </Typography>
-      ) : null}
-      <Button
-        variant="contained"
-        onClick={() => handleStateChange("isModalOpen", true)}
-        sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
-          mt: 2,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
-        }}
-        aria-label="send new messages"
-      >
-        Send Messages
-      </Button>
-    </Box>
+        {state.eventsLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : (
+          state.events.flatMap((event) =>
+            event.occurrences.map((occurrence) => {
+              const start = new Date(`1970-01-01T${occurrence.startTime}`);
+              const end = new Date(`1970-01-01T${occurrence.endTime}`);
+              const formattedStart = start.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+              const formattedEnd = end.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+              return (
+                <MenuItem key={occurrence.id} value={occurrence.id}>
+                  <ListItemText primary={`${event.title} (${formattedStart} - ${formattedEnd})`} />
+                </MenuItem>
+              );
+            })
+          )
+        )}
+        <Divider />
+        <MenuItem onClick={() => handleStateChange("dateDialogOpen", true)}>
+          {state.selectedDate ? `Selected Date: ${state.selectedDate.format("MMMM D, YYYY")}` : "Select Date"}
+        </MenuItem>
+      </Select>
+    </Grid>
   );
 
-  // if (authData?. === false) {
-  //   return <Navigate to="/manage/view-admins" replace />;
-  // }
+  const renderCheckNewcomers = () => (
+    <Grid size={{ xs: 12, md: 6 }}>
+      <InputLabel id="newcomers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Check Newcomers
+      </InputLabel>
+      <Select
+        fullWidth
+        labelId="newcomers-label"
+        multiple
+        value={formData.newcomers}
+        onChange={handleChange}
+        name="newcomers"
+        disabled={isLoading || state.newcomersLoading}
+        startAdornment={
+          <InputAdornment position="start">
+            <FaPeopleGroup style={{ color: "#F6F4FE" }} />
+          </InputAdornment>
+        }
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) =>
+          selected.length === 0
+            ? "Select Newcomers"
+            : state.newcomers
+                .filter((newcomer) => selected.includes(newcomer.id))
+                .map((newcomer) => newcomer.name)
+                .join(", ")
+        }
+      >
+        {state.newcomersLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.newcomers.length === 0 ? (
+          <MenuItem disabled>No newcomers available</MenuItem>
+        ) : (
+          state.newcomers.map((newcomer) => (
+            <MenuItem key={newcomer.id} value={newcomer.id}>
+              <Checkbox
+                checked={formData.newcomers.includes(newcomer.id)}
+                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+              />
+              <ListItemText primary={`${newcomer.name} (${newcomer.phoneNo || "No phone number"})`} />
+            </MenuItem>
+          ))
+        )}
+      </Select>
+    </Grid>
+  );
+
+  const renderCheckWorkers = () => (
+    <Grid size={{ xs: 12, md: 12 }}>
+      <InputLabel id="workers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Check Workers
+      </InputLabel>
+      <Select
+        fullWidth
+        labelId="workers-label"
+        multiple
+        value={formData.workers}
+        onChange={handleChange}
+        name="workers"
+        disabled={isLoading || state.workersLoading}
+        startAdornment={
+          <InputAdornment position="start">
+            <FaPeopleCarry style={{ color: "#F6F4FE" }} />
+          </InputAdornment>
+        }
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) =>
+          selected.length === 0
+            ? "Select Workers"
+            : state.workers
+                .filter((worker) => selected.includes(worker.id))
+                .map((worker) => worker.name)
+                .join(", ")
+        }
+      >
+        {state.workersLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.workers.length === 0 ? (
+          <MenuItem disabled>No workers available</MenuItem>
+        ) : (
+          state.workers.map((worker) => (
+            <MenuItem key={worker.id} value={worker.id}>
+              <Checkbox
+                checked={formData.workers.includes(worker.id)}
+                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+              />
+              <ListItemText primary={`${worker.name} (${worker.phoneNo || "No phone number"})`} />
+            </MenuItem>
+          ))
+        )}
+      </Select>
+    </Grid>
+  );
+
+  const renderDepartments = () => (
+    <Grid size={{ xs: 12, md: 12 }}>
+      <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Department
+      </InputLabel>
+      <Select
+        fullWidth
+        labelId="departments-label"
+        value={formData.departments}
+        onChange={(e) => {
+          handleChange({ target: { name: "departments", value: e.target.value as string } });
+          fetchWorkers(e.target.value as string);
+        }}
+        name="departments"
+        disabled={isLoading}
+        startAdornment={
+          <InputAdornment position="start">
+            <FiClock style={{ color: "#F6F4FE" }} />
+          </InputAdornment>
+        }
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) =>
+          selected
+            ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department"
+            : "Select Department"
+        }
+      >
+        {state.departmentsLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.departments.length === 0 ? (
+          <MenuItem disabled>No departments available</MenuItem>
+        ) : (
+          state.departments.map((dept) => (
+            <MenuItem key={dept.id} value={dept.id}>
+              <ListItemText primary={dept.name} />
+            </MenuItem>
+          ))
+        )}
+      </Select>
+    </Grid>
+  );
+
+  const renderCategories = () => (
+    <Grid size={{ xs: 12, md: 12 }}>
+      <InputLabel id="categories-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        Category
+      </InputLabel>
+      <Select
+        fullWidth
+        multiple
+        value={formData.categories}
+        onChange={(e) => {
+          const value = e.target.value as string[];
+          if (value.includes("All")) {
+            setFormData((prev) => ({
+              ...prev,
+              categories: formData.categories.length === categoryOptions.length ? [] : categoryOptions,
+            }));
+          } else {
+            setFormData((prev) => ({ ...prev, categories: value }));
+          }
+        }}
+        name="categories"
+        disabled={isLoading}
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) => (selected.length === 0 ? "Select Category" : selected.join(", "))}
+      >
+        <MenuItem value="All">
+          <Checkbox
+            checked={formData.categories.length === categoryOptions.length}
+            indeterminate={formData.categories.length > 0 && formData.categories.length < categoryOptions.length}
+            sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+          />
+          <ListItemText primary="All" />
+        </MenuItem>
+        {categoryOptions.map((category) => (
+          <MenuItem key={category} value={category}>
+            <Checkbox
+              checked={formData.categories.includes(category)}
+              sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+            />
+            <ListItemText primary={category.charAt(0).toUpperCase() + category.slice(1)} />
+          </MenuItem>
+        ))}
+      </Select>
+    </Grid>
+  );
+
+  const renderSubjectAndMessage = () => (
+    <>
+      <Grid size={{ xs: 12, md: 12 }}>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DateTimePicker
+            sx={{ borderColor: "#777280" }}
+            label="Schedule Message (optional)"
+            value={formData.scheduledDateTime ? dayjs(formData.scheduledDateTime) : null}
+            onChange={(newValue) =>
+              handleChange({
+                target: {
+                  name: "scheduledDateTime",
+                  value: newValue ? newValue.toISOString() : "",
+                },
+              })
+            }
+            minDateTime={dayjs()}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+                variant: "outlined",
+                placeholder: "Select date and time to send message",
+                InputProps: {
+                  sx: {
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                    fontSize: "0.9rem",
+                    borderColor: "#777280 !important",
+                  },
+                },
+                InputLabelProps: {
+                  sx: {
+                    color: "#F6F4FE",
+                    "&.Mui-focused": { color: "#F6F4FE" },
+                    fontSize: "0.9rem",
+                  },
+                },
+                sx: {
+                  "& .MuiSvgIcon-root": {
+                    color: "#F6F4FE",
+                  },
+                  color: "#F6F4FE",
+                  "& fieldset": {
+                    borderColor: "#777280 !important",
+                  },
+                  "&:hover fieldset": {
+                    borderColor: "#777280 !important",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#777280 !important",
+                  },
+                  fontSize: "0.9rem",
+                },
+              },
+            }}
+          />
+        </LocalizationProvider>
+      </Grid>
+      {formData.messageMode === "mail" && (
+        <Grid size={{ xs: 12, md: 12 }}>
+          <TextField
+            fullWidth
+            label="Subject"
+            name="subject"
+            value={formData.subject}
+            onChange={handleChange}
+            variant="outlined"
+            placeholder="Enter Subject"
+            InputProps={{
+              sx: {
+                color: "#F6F4FE",
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                fontSize: "0.9rem",
+              },
+            }}
+            InputLabelProps={{
+              sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "1rem" },
+            }}
+            required
+          />
+        </Grid>
+      )}
+      <Grid size={{ xs: 12, md: 12 }}>
+        <TextField
+          fullWidth
+          multiline
+          minRows={6}
+          label="Message"
+          name="message"
+          value={formData.message}
+          onChange={handleChange}
+          variant="outlined"
+          placeholder="Enter your message here..."
+          InputProps={{
+            sx: {
+              color: "#F6F4FE",
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+              fontSize: "0.9rem",
+              paddingY: 1,
+            },
+          }}
+          InputLabelProps={{
+            sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" },
+          }}
+          required
+        />
+      </Grid>
+    </>
+  );
 
   return (
-    <DashboardManager> 
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 7 }}>
-            <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
-              component="h4"
-              fontWeight={600}
-              gutterBottom
-              sx={{
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.1rem" : undefined,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <span className="text-[#F6F4FE]"> Message</span>
-            </Typography>
-          </Grid>
-          <Grid
-            size={{ xs: 12, md: 5 }}
-            sx={{
-              display: "flex",
-              justifyContent: { xs: "flex-end", md: "flex-end" },
-              alignItems: "center",
-            }}
-          >
-            <Button
-              variant="contained"
-              onClick={() => handleStateChange("isModalOpen", true)}
-              size="medium"
-              sx={{
-                backgroundColor: "#363740",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 50,
-                fontWeight: 500,
-                textTransform: "none",
-                color: "var(--color-text-on-primary)",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "#363740",
-                  opacity: 0.9,
-                },
-              }}
-              aria-label="Create new branch"
-            >
-              Send Messages
-            </Button>
-          </Grid>
-        </Grid>
-
-        {state.loading && state.filteredBranches.length === 0 && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
-          </Box>
-        )}
-
-        {state.error && !state.loading && state.filteredBranches.length === 0 && <EmptyState />}
-
-        {!state.loading && !state.error && state.filteredBranches.length === 0 && <EmptyState />}
-
-        {state.filteredBranches.length > 0 && (
-          <>
-            <Grid container spacing={2}>
-              {state.filteredBranches.map((branch) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={branch.id}>
-                  <Card
-                    sx={{
-                      borderRadius: "10.267px",
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      opacity: branch.isDeleted ? 0.7 : 1,
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
-                        <Box>
-                          <IconButton
-                            sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#777280",
-                              display: "flex",
-                              flexDirection: "column",
-                              padding: "15px",
-                              borderRadius: 1,
-                              textAlign: "center",
-                            }}
-                            aria-label={`Branch icon for ${branch.name}`}
-                          >
-                            <span className="border-2 rounded-md border-[#777280] p-1">
-                              <TbArrowFork size={30} />
-                            </span>
-                          </IconButton>
-                        </Box>
-                        <Box>
-                          <IconButton
-                            onClick={(e) => {
-                              handleStateChange("currentBranch", branch);
-                              handleStateChange("anchorEl", e.currentTarget);
-                            }}
-                            sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#777280",
-                              padding: "8px",
-                              borderRadius: 1,
-                              textAlign: "center",
-                            }}
-                            aria-label={`More options for ${branch.name}`}
-                          >
-                            <MoreVertIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                      <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
-                        <Typography
-                          variant="h6"
-                          fontWeight={600}
-                          sx={{
-                            textDecoration: branch.isDeleted ? "line-through" : "none",
-                            color: branch.isDeleted ? "gray" : "#E1E1E1",
-                          }}                          
-                        >
-                          {branch.name}
-                        </Typography>
-                        {branch.address && (
-                          <Typography
-                           variant="body2"
-                            sx={{
-                              textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#777280",
-                            }}
-                          >
-                            {branch.address}
-                          </Typography>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-
-            <CustomPagination
-              hasNextPage={state.pagination.hasNextPage}
-              hasPrevPage={state.currentPage > 1}
-              onPageChange={handlePageChange}
-              currentPage={state.currentPage}
-              isLargeScreen={isLargeScreen}
-              isLoading={state.loading}
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          handleModalClose();
+        }
+      }}
+      fullWidth
+      maxWidth="md"
+      sx={{
+        "& .MuiDialog-paper": {
+          borderRadius: 2,
+          bgcolor: "#2C2C2C",
+          color: "#F6F4FE",
+        },
+      }}
+    >
+      <DialogTitle>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+            Send Message
+          </Typography>
+          <IconButton onClick={onClose}>
+            <Close sx={{ color: "#B0B0B0" }} />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, py: 2 }}>
+          <Grid container spacing={3}>
+            <RenderAudienceType
+              formData={formData}
+              setFormData={setFormData}
+              handleChange={handleChange}
+              isLoading={isLoading}
             />
-          </>
-        )}
-
-        <Menu
-          id="branch-menu"
-          anchorEl={state.anchorEl}
-          keepMounted
-          open={Boolean(state.anchorEl)}
-          onClose={handleMenuClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            sx: {
-              "& .MuiMenuItem-root": {
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              },
-            },
-          }}
-        >
-          <MenuItem
-            onClick={handleEditOpen}
-            disabled={state.currentBranch?.isDeleted || state.currentBranch?.isHeadQuarter}
-          >
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
-            Edit
-          </MenuItem>
-          <MenuItem
-            onClick={() => showConfirmation("suspend")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
-          >
-            {state.currentBranch?.isActive ? (
+            {formData.type === "newcomers" && (
               <>
-                <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
-              </>
-            ) : (
-              <>
-                <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
+                {renderProgramType()}
+                {renderCheckNewcomers()}
               </>
             )}
-          </MenuItem>
-          <MenuItem
-            onClick={() => showConfirmation("delete")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
-          >
-            <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
-            Delete
-          </MenuItem>
-        </Menu>
-
-        <Dialog
-          open={state.confirmModalOpen}
-          onClose={() => handleStateChange("confirmModalOpen", false)}
-          maxWidth="xs"
+            {formData.type === "workers" && (
+              <>
+                {renderDepartments()}
+                {renderCheckWorkers()}
+              </>
+            )}
+            {formData.type === "members" && renderCategories()}
+            <RenderMessageMode formData={formData} handleChange={handleChange} isLoading={isLoading} />
+            {renderSubjectAndMessage()}
+          </Grid>
+        </Box>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 2 }}>
+        <Button
+          type="submit"
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={isLoading}
           sx={{
-            "& .MuiDialog-paper": {
-              borderRadius: 2,
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
-            },
+            py: 1,
+            backgroundColor: "#F6F4FE",
+            px: { xs: 6, sm: 2 },
+            borderRadius: 50,
+            color: "#2C2C2C",
+            fontWeight: "semibold",
+            textTransform: "none",
+            fontSize: { xs: "0.9rem", sm: "0.9rem" },
+            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
           }}
         >
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-            {state.actionType === "delete"
-              ? "Delete Branch"
-              : state.actionType === "suspend"
-              ? state.currentBranch?.isActive
-                ? "Suspend Branch"
-                : "Activate Branch"
-              : ""}
-          </DialogTitle>
-          <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-              {state.actionType === "delete"
-                ? `Are you sure you want to delete "${state.currentBranch?.name}"?`
-                : `Are you sure you want to ${state.currentBranch?.isActive ? "suspend" : "activate"} "${state.currentBranch?.name}"?`}
-              {state.currentBranch?.isHeadQuarter && state.actionType === "delete" && " Headquarters branch cannot be deleted."}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => handleStateChange("confirmModalOpen", false)}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
-              aria-label="Cancel action"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400",
-                "&:hover": { backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400", opacity: 0.9 } }}
-              color={state.actionType === "delete" ? "error" : "primary"}
-              variant="contained"
-              disabled={state.loading || (state.actionType === "delete" && state.currentBranch?.isHeadQuarter)}
-              aria-label={state.actionType === "delete" ? "Delete branch" : "Confirm action"}
-            >
-              {state.loading ? "Processing..." : state.actionType === "delete" ? "Delete" : "Confirm"}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-
-      <MessageModal 
-        open={state.isModalOpen}
-        onClose={() => handleStateChange("isModalOpen", false)}
-      onSuccess={fetchBranches}
-    />
-    </DashboardManager>
+          {isLoading ? (
+            <Box display="flex" alignItems="center" color="gray">
+              <CircularProgress size={18} sx={{ color: "gray", mr: 1 }} />
+              Sending...
+            </Box>
+          ) : (
+            "Send Message"
+          )}
+        </Button>
+      </DialogActions>
+      <DatePickerDialog
+        open={state.dateDialogOpen}
+        onClose={() => handleStateChange("dateDialogOpen", false)}
+        onDateSelect={(date) => handleStateChange("selectedDate", date)}
+        onDateApply={() => {
+          handleStateChange("dateDialogOpen", false);
+          fetchEvents(state.selectedDate);
+        }}
+      />
+    </Dialog>
   );
 };
 
-export default ViewBranches;
+export default MessageModal;

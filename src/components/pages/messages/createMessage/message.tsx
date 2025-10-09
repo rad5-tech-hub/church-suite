@@ -29,7 +29,7 @@ import { Chat, Close, Mail } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { FaPeopleCarry } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
-import { LocalizationProvider, DatePicker, DateTimePicker } from "@mui/x-date-pickers";
+import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
@@ -41,10 +41,10 @@ import dayjs from "dayjs";
 
 interface FormData {
   type: string;
-  programs: string[];
+  programs: string;
   newcomers: string[];
   workers: string[];
-  departments: string[];
+  departments: string;
   categories: string[];
   messageMode: "sms" | "mail";
   subject: string;
@@ -109,6 +109,16 @@ interface MessageModalProps {
   onSuccess?: () => void;
 }
 
+interface RenderAudienceTypeProps {
+  formData: FormData;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
+    _child?: React.ReactNode
+  ) => void;
+  isLoading: boolean;
+}
+
 const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
   open,
   onClose,
@@ -119,7 +129,7 @@ const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
     <DialogTitle>Select Date</DialogTitle>
     <DialogContent>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <DatePicker
+        <DateTimePicker
           onChange={onDateSelect}
           slotProps={{
             textField: {
@@ -139,14 +149,12 @@ const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
   </Dialog>
 );
 
-const RenderAudienceType: React.FC<{
-  formData: FormData;
-  handleChange: (
-    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
-    _child?: React.ReactNode
-  ) => void;
-  isLoading: boolean;
-}> = ({ formData, handleChange, isLoading }) => (
+const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
+  formData,
+  setFormData,
+  handleChange,
+  isLoading,
+}) => (
   <Grid size={{ xs: 12 }}>
     <FormLabel id="program-type-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
       Audience Type
@@ -157,7 +165,17 @@ const RenderAudienceType: React.FC<{
       aria-labelledby="program-type-label"
       name="type"
       value={formData.type}
-      onChange={handleChange}
+      onChange={(e) => {
+        handleChange(e);
+        setFormData((prev) => ({
+          ...prev,
+          programs: "",
+          newcomers: [],
+          workers: [],
+          departments: "",
+          categories: [],
+        }));
+      }}
     >
       {[
         {
@@ -266,10 +284,10 @@ const RenderMessageMode: React.FC<{
 const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<FormData>({
     type: "newcomers",
-    programs: [],
+    programs: "",
     newcomers: [],
     workers: [],
-    departments: [],
+    departments: "",
     categories: [],
     messageMode: "sms",
     subject: "",
@@ -301,11 +319,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     _child?: React.ReactNode
   ) => {
     const { name, value } = e.target;
-    if (name === "newcomers" || name === "workers" || name === "departments" || name === "categories" || name === "programs") {
-      setFormData((prev) => ({ ...prev, [name]: value as string[] }));
-    } else if (name) {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleStateChange = useCallback(
@@ -318,10 +332,10 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   const resetForm = () => {
     setFormData({
       type: "newcomers",
-      programs: [],
+      programs: "",
       newcomers: [],
       workers: [],
-      departments: [],
+      departments: "",
       categories: [],
       messageMode: "sms",
       subject: "",
@@ -372,7 +386,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   );
 
   const fetchNewcomers = useCallback(
-    async (eventOccurrenceIds: string[] = []) => {
+    async (eventOccurrenceId: string = "") => {
       if (!authData?.branchId) {
         showPageToast("Missing branch information. Please try again.", "error");
         return;
@@ -380,14 +394,21 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       handleStateChange("newcomersLoading", true);
       try {
         const params = new URLSearchParams({ branchId: authData.branchId });
-        if (eventOccurrenceIds.length > 0) {
-          eventOccurrenceIds.forEach((id) => params.append("eventOccurrenceId", id));
+        if (eventOccurrenceId) {
+          params.append("eventOccurrenceId", eventOccurrenceId);
         }
         const response = await Api.get<{ results: Newcomer[] }>(`/member/get-follow-up?${params.toString()}`);
-        handleStateChange("newcomers", response.data?.results || []);
+        const newcomers = response.data?.results || [];
+        console.log("Fetched newcomers:", newcomers);
+        handleStateChange("newcomers", newcomers);
+        setFormData((prev) => ({
+          ...prev,
+          newcomers: prev.newcomers.filter((id) => newcomers.some((n) => n.id === id)),
+        }));
       } catch (error) {
         showPageToast("Failed to load newcomers. Please try again.", "error");
         handleStateChange("newcomers", []);
+        setFormData((prev) => ({ ...prev, newcomers: [] }));
       } finally {
         handleStateChange("newcomersLoading", false);
       }
@@ -396,7 +417,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   );
 
   const fetchWorkers = useCallback(
-    async (departmentIds: string[] = []) => {
+    async (departmentId: string = "") => {
       if (!authData?.branchId) {
         showPageToast("Missing branch information. Please try again.", "error");
         return;
@@ -404,14 +425,27 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       handleStateChange("workersLoading", true);
       try {
         const params = new URLSearchParams({ branchId: authData.branchId });
-        if (departmentIds.length > 0) {
-          departmentIds.forEach((id) => params.append("departmentId", id));
+        if (departmentId) {
+          params.append("departmentId", departmentId);
         }
-        const response = await Api.get<{ workers: Worker[] }>(`/member/get-workers?${params.toString()}`);
-        handleStateChange("workers", response.data?.workers || []);
+        const response = await Api.get<{ message: string; pagination: any; data: Worker[] }>(
+          `/member/all-members?${params.toString()}`
+        );
+        const workers = (response.data?.data || []).map((worker) => ({
+          id: worker.id,
+          name: worker.name,
+          phoneNo: worker.phoneNo,
+        }));
+        console.log("Fetched workers:", workers);
+        handleStateChange("workers", workers);
+        setFormData((prev) => ({
+          ...prev,
+          workers: prev.workers.filter((id) => workers.some((w) => w.id === id)),
+        }));
       } catch (error) {
         showPageToast("Failed to load workers. Please try again.", "error");
         handleStateChange("workers", []);
+        setFormData((prev) => ({ ...prev, workers: [] }));
       } finally {
         handleStateChange("workersLoading", false);
       }
@@ -442,9 +476,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   useEffect(() => {
     if (open) {
       fetchDepartments();
-      if (formData.type === "newcomers") {
+      if (formData.type === "newcomers" && formData.programs) {
         fetchNewcomers(formData.programs);
-      } else if (formData.type === "workers") {
+      } else if (formData.type === "workers" && formData.departments) {
         fetchWorkers(formData.departments);
       }
     }
@@ -460,32 +494,104 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     setLoading(true);
 
     try {
-      let payload: Record<string, any> = {
-        message: formData.message,
-      };
+      if (!formData.message) {
+        showPageToast("Message is required.", "error");
+        setLoading(false);
+        return;
+      }
 
       if (formData.messageMode === "sms") {
+        if (formData.type === "newcomers" && formData.newcomers.length === 0) {
+          showPageToast("Please select at least one newcomer.", "error");
+          setLoading(false);
+          return;
+        }
+        if (formData.type === "workers" && formData.workers.length === 0) {
+          showPageToast("Please select at least one worker.", "error");
+          setLoading(false);
+          return;
+        }
+
         const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
         const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers;
+
+        console.log(`handleSubmit: type=${formData.type}`);
+        console.log(`Recipients:`, recipients);
+        console.log(`Selected IDs:`, selectedIds);
+
+        if (!recipients.length) {
+          showPageToast(`No ${formData.type} available. Please try refreshing the list.`, "error");
+          setLoading(false);
+          return;
+        }
+
+        if (!selectedIds.length) {
+          showPageToast(`No ${formData.type} selected. Please select at least one recipient.`, "error");
+          setLoading(false);
+          return;
+        }
+
         const toNumbers = recipients
-          .filter((recipient) => selectedIds.includes(recipient.id))
-          .map((recipient) => recipient.phoneNo)
-          .filter((phoneNo) => phoneNo && phoneNo.startsWith("+"));
-        payload = {
-          ...payload,
+          .filter((recipient) => {
+            const isSelected = selectedIds.includes(recipient.id);
+            if (!isSelected) {
+              console.log(`Recipient ${recipient.name} (ID: ${recipient.id}) not selected`);
+            }
+            return isSelected;
+          })
+          .map((recipient) => {
+            console.log(`Processing recipient: ${recipient.name}, phoneNo: ${recipient.phoneNo || 'missing'}`);
+            let phoneNo = recipient.phoneNo;
+            // Normalize phone number to include '+' if missing
+            if (phoneNo && !phoneNo.startsWith("+")) {
+              phoneNo = `+${phoneNo}`;
+            }
+            return phoneNo;
+          })
+          .filter((phoneNo): phoneNo is string => {
+            const isValid = typeof phoneNo === "string" && phoneNo.length > 0 && phoneNo.startsWith("+");
+            if (!isValid) {
+              console.log(`Invalid phoneNo: ${phoneNo || 'missing'}`);
+            }
+            return isValid;
+          });
+
+        console.log("toNumbers:", toNumbers);
+
+        if (toNumbers.length === 0) {
+          showPageToast(
+            "No valid phone numbers found. Ensure selected recipients have valid phone numbers starting with '+'.",
+            "error"
+          );
+          setLoading(false);
+          return;
+        }
+
+        const payload = {
+          message: formData.message,
           toNumbers,
           channel: "generic",
-          followUpIds: formData.type === "newcomers" ? formData.newcomers : undefined,
-          sendAt: formData.scheduledDateTime,
+          ...(formData.type === "newcomers" && { followUpIds: formData.newcomers }),
+          ...(formData.scheduledDateTime && { sendAt: formData.scheduledDateTime }),
         };
+
+        console.log("SMS Payload:", payload);
         await Api.post("/wallet/send-sms", payload);
       } else {
-        payload = {
-          ...payload,
+        if (!formData.subject) {
+          showPageToast("Subject is required for email.", "error");
+          setLoading(false);
+          return;
+        }
+
+        let payload: Record<string, any> = {
+          type: formData.type,
           messageMode: formData.messageMode,
-          subject: formData.messageMode === "mail" ? formData.subject : undefined,
-          scheduledDateTime: formData.scheduledDateTime,
+          subject: formData.subject,
+          message: formData.message,
+          ...(formData.scheduledDateTime && { scheduledDateTime: formData.scheduledDateTime }),
         };
+
         switch (formData.type) {
           case "newcomers":
             payload.programs = formData.programs;
@@ -499,14 +605,18 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
             payload.categories = formData.categories;
             break;
         }
+
         await Api.post("/church/create-message", payload);
       }
 
       showPageToast("Message sent successfully!", "success");
       onSuccess?.();
       setTimeout(handleModalClose, 4000);
-    } catch (error) {
-      showPageToast("Failed to send message. Please try again.", "error");
+    } catch (error: any) {
+      showPageToast(
+        error.response?.data?.message || "Failed to send message. Please try again.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -519,11 +629,10 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       </InputLabel>
       <Select
         fullWidth
-        multiple
         value={formData.programs}
         onChange={(e) => {
-          handleChange({ target: { name: "programs", value: e.target.value } });
-          fetchNewcomers(e.target.value as string[]);
+          handleChange({ target: { name: "programs", value: e.target.value as string } });
+          fetchNewcomers(e.target.value as string);
         }}
         name="programs"
         onOpen={() => fetchEvents(state.selectedDate)}
@@ -537,14 +646,14 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
           "& .MuiSelect-icon": { color: "#F6F4FE" },
         }}
         renderValue={(selected) => {
-          if (!selected || selected.length === 0) return "Select Programs";
+          if (!selected) return "Select Program";
           const allOccurrences = state.events.flatMap((event) =>
             event.occurrences.map((occ) => ({ ...occ, eventTitle: event.title }))
           );
-          const selectedOccurrences = allOccurrences.filter((occ) => selected.includes(occ.id));
-          return selectedOccurrences
-            .map((occ) => `${occ.eventTitle} (${occ.startTime} - ${occ.endTime})`)
-            .join(", ");
+          const selectedOccurrence = allOccurrences.find((occ) => occ.id === selected);
+          return selectedOccurrence
+            ? `${selectedOccurrence.eventTitle} (${selectedOccurrence.startTime} - ${selectedOccurrence.endTime})`
+            : "Select Program";
         }}
       >
         {state.eventsLoading ? (
@@ -566,10 +675,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
               });
               return (
                 <MenuItem key={occurrence.id} value={occurrence.id}>
-                  <Checkbox
-                    checked={formData.programs.includes(occurrence.id)}
-                    sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
-                  />
                   <ListItemText primary={`${event.title} (${formattedStart} - ${formattedEnd})`} />
                 </MenuItem>
               );
@@ -631,7 +736,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                 checked={formData.newcomers.includes(newcomer.id)}
                 sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
               />
-              <ListItemText primary={`${newcomer.name} (${newcomer.phoneNo})`} />
+              <ListItemText primary={`${newcomer.name} (${newcomer.phoneNo || "No phone number"})`} />
             </MenuItem>
           ))
         )}
@@ -686,7 +791,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
                 checked={formData.workers.includes(worker.id)}
                 sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
               />
-              <ListItemText primary={`${worker.name} (${worker.phoneNo})`} />
+              <ListItemText primary={`${worker.name} (${worker.phoneNo || "No phone number"})`} />
             </MenuItem>
           ))
         )}
@@ -697,16 +802,15 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   const renderDepartments = () => (
     <Grid size={{ xs: 12, md: 12 }}>
       <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
-        Departments
+        Department
       </InputLabel>
       <Select
         fullWidth
         labelId="departments-label"
-        multiple
         value={formData.departments}
         onChange={(e) => {
-          handleChange(e);
-          fetchWorkers(e.target.value as string[]);
+          handleChange({ target: { name: "departments", value: e.target.value as string } });
+          fetchWorkers(e.target.value as string);
         }}
         name="departments"
         disabled={isLoading}
@@ -725,12 +829,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
           fontSize: "0.875rem",
         }}
         renderValue={(selected) =>
-          selected.length === 0
-            ? "Select Departments"
-            : state.departments
-                .filter((dept) => selected.includes(dept.id))
-                .map((dept) => dept.name)
-                .join(", ")
+          selected
+            ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department"
+            : "Select Department"
         }
       >
         {state.departmentsLoading ? (
@@ -740,10 +841,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
         ) : (
           state.departments.map((dept) => (
             <MenuItem key={dept.id} value={dept.id}>
-              <Checkbox
-                checked={formData.departments.includes(dept.id)}
-                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
-              />
               <ListItemText primary={dept.name} />
             </MenuItem>
           ))
@@ -764,12 +861,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
         onChange={(e) => {
           const value = e.target.value as string[];
           if (value.includes("All")) {
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               categories: formData.categories.length === categoryOptions.length ? [] : categoryOptions,
-            });
+            }));
           } else {
-            setFormData({ ...formData, categories: value });
+            setFormData((prev) => ({ ...prev, categories: value }));
           }
         }}
         name="categories"
@@ -953,7 +1050,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       <DialogContent dividers>
         <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, py: 2 }}>
           <Grid container spacing={3}>
-            <RenderAudienceType formData={formData} handleChange={handleChange} isLoading={isLoading} />
+            <RenderAudienceType
+              formData={formData}
+              setFormData={setFormData}
+              handleChange={handleChange}
+              isLoading={isLoading}
+            />
             {formData.type === "newcomers" && (
               <>
                 {renderProgramType()}
