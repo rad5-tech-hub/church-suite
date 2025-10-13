@@ -24,6 +24,7 @@ import {
   InputLabel,
   InputAdornment,
   TextField,
+  FormControlLabel as CheckboxFormControlLabel,
 } from "@mui/material";
 import { Chat, Close, Mail } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";
@@ -94,6 +95,7 @@ interface State {
   departmentsLoading: boolean;
   workers: Worker[];
   workersLoading: boolean;
+  isScheduleChecked: boolean; // New state for checkbox
 }
 
 interface DatePickerDialogProps {
@@ -107,6 +109,7 @@ interface MessageModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  initialData?: FormData; // Added for resend functionality
 }
 
 interface RenderAudienceTypeProps {
@@ -281,19 +284,21 @@ const RenderMessageMode: React.FC<{
   </>
 );
 
-const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState<FormData>({
-    type: "newcomers",
-    programs: "",
-    newcomers: [],
-    workers: [],
-    departments: "",
-    categories: [],
-    messageMode: "sms",
-    subject: "",
-    message: "",
-    scheduledDateTime: undefined,
-  });
+const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, initialData }) => {
+  const [formData, setFormData] = useState<FormData>(
+    initialData || {
+      type: "newcomers",
+      programs: "",
+      newcomers: [],
+      workers: [],
+      departments: "",
+      categories: [],
+      messageMode: "sms",
+      subject: "",
+      message: "",
+      scheduledDateTime: undefined,
+    }
+  );
   const [state, setState] = useState<State>({
     events: [],
     selectedEventIds: [],
@@ -306,6 +311,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
     departmentsLoading: false,
     workers: [],
     workersLoading: false,
+    isScheduleChecked: false, // Initialize checkbox state
   });
   const [isLoading, setLoading] = useState(false);
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -313,6 +319,17 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const categoryOptions = ["men", "women", "children"];
   usePageToast("createMessages");
+
+  // Pre-fill formData if initialData is provided (for resend)
+  useEffect(() => {
+    if (initialData && open) {
+      setFormData(initialData);
+      setState((prev) => ({
+        ...prev,
+        isScheduleChecked: !!initialData.scheduledDateTime, // Check if scheduledDateTime exists
+      }));
+    }
+  }, [initialData, open]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
@@ -354,6 +371,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
       departmentsLoading: false,
       workers: [],
       workersLoading: false,
+      isScheduleChecked: false,
     });
   };
 
@@ -542,7 +560,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
           .map((recipient) => {
             console.log(`Processing recipient: ${recipient.name}, phoneNo: ${recipient.phoneNo || 'missing'}`);
             let phoneNo = recipient.phoneNo;
-            // Normalize phone number to include '+' if missing
             if (phoneNo && !phoneNo.startsWith("+")) {
               phoneNo = `+${phoneNo}`;
             }
@@ -905,64 +922,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
 
   const renderSubjectAndMessage = () => (
     <>
-      <Grid size={{ xs: 12, md: 12 }}>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DateTimePicker
-            sx={{ borderColor: "#777280" }}
-            label="Schedule Message (optional)"
-            value={formData.scheduledDateTime ? dayjs(formData.scheduledDateTime) : null}
-            onChange={(newValue) =>
-              handleChange({
-                target: {
-                  name: "scheduledDateTime",
-                  value: newValue ? newValue.toISOString() : "",
-                },
-              })
-            }
-            minDateTime={dayjs()}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-                variant: "outlined",
-                placeholder: "Select date and time to send message",
-                InputProps: {
-                  sx: {
-                    color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                    fontSize: "0.9rem",
-                    borderColor: "#777280 !important",
-                  },
-                },
-                InputLabelProps: {
-                  sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
-                    fontSize: "0.9rem",
-                  },
-                },
-                sx: {
-                  "& .MuiSvgIcon-root": {
-                    color: "#F6F4FE",
-                  },
-                  color: "#F6F4FE",
-                  "& fieldset": {
-                    borderColor: "#777280 !important",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "#777280 !important",
-                  },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#777280 !important",
-                  },
-                  fontSize: "0.9rem",
-                },
-              },
-            }}
-          />
-        </LocalizationProvider>
-      </Grid>
       {formData.messageMode === "mail" && (
         <Grid size={{ xs: 12, md: 12 }}>
           <TextField
@@ -1015,6 +974,82 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess })
           }}
           required
         />
+      </Grid>
+      <Grid size={{ xs: 12, md: 12 }}>
+        <CheckboxFormControlLabel
+          control={
+            <Checkbox
+              checked={state.isScheduleChecked}
+              onChange={(e) => {
+                handleStateChange("isScheduleChecked", e.target.checked);
+                if (!e.target.checked) {
+                  setFormData((prev) => ({ ...prev, scheduledDateTime: undefined }));
+                }
+              }}
+              sx={{ color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }}
+            />
+          }
+          label="Schedule Message"
+          sx={{ color: "#F6F4FE", mb: 1 }}
+        />
+        {state.isScheduleChecked && (
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DateTimePicker
+              sx={{ borderColor: "#777280" }}
+              label="Select Date and Time"
+              value={formData.scheduledDateTime ? dayjs(formData.scheduledDateTime) : null}
+              onChange={(newValue) =>
+                handleChange({
+                  target: {
+                    name: "scheduledDateTime",
+                    value: newValue ? newValue.toISOString() : "",
+                  },
+                })
+              }
+              minDateTime={dayjs()}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  variant: "outlined",
+                  placeholder: "Select date and time to send message",
+                  InputProps: {
+                    sx: {
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
+                      fontSize: "0.9rem",
+                      borderColor: "#777280 !important",
+                    },
+                  },
+                  InputLabelProps: {
+                    sx: {
+                      color: "#F6F4FE",
+                      "&.Mui-focused": { color: "#F6F4FE" },
+                      fontSize: "0.9rem",
+                    },
+                  },
+                  sx: {
+                    "& .MuiSvgIcon-root": {
+                      color: "#F6F4FE",
+                    },
+                    color: "#F6F4FE",
+                    "& fieldset": {
+                      borderColor: "#777280 !important",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "#777280 !important",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "#777280 !important",
+                    },
+                    fontSize: "0.9rem",
+                  },
+                },
+              }}
+            />
+          </LocalizationProvider>
+        )}
       </Grid>
     </>
   );

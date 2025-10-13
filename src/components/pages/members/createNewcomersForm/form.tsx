@@ -410,7 +410,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 <TextField
                   variant="outlined"
                   placeholder="Enter Form Name"
-                  value={formName}
+                  value={formName}                  
                   onChange={(e) => setFormName(e.target.value)}
                   InputProps={{
                     sx: {
@@ -501,6 +501,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     },
                   }}
                   InputProps={{
+                    readOnly: true,
                     sx: {
                       fontSize: "1rem",
                       "& .MuiInputBase-input.Mui-disabled": {
@@ -603,6 +604,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     },
                   }}
                   InputProps={{
+                    readOnly: true,
                     sx: {
                       fontSize: "1rem",
                       "& .MuiInputBase-input.Mui-disabled": {
@@ -702,6 +704,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                   </InputLabel>
                   <Select
                     defaultValue=""
+                    readOnly
                     sx={{
                       fontSize: "1rem",
                       color: checkedFields.gender ? "#F6F4FE" : "#9E9E9E",
@@ -801,6 +804,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     },
                   }}
                   InputProps={{
+                    readOnly: true,
                     sx: {
                       fontSize: "1rem",
                       "& .MuiInputBase-input.Mui-disabled": {
@@ -903,6 +907,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     }
                     return options;
                   })()}
+                  readOnly
                   getOptionLabel={(option) => option.label}
                   renderInput={(params) => (
                     <TextField
@@ -1018,7 +1023,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                   >
                     Attendance Duration
                   </InputLabel>
-                  <Select
+                  <Select                  
                     value={attendanceDuration}
                     onChange={(e) => setAttendanceDuration(e.target.value)}
                     sx={{
@@ -1120,6 +1125,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     Is a Visitor?
                   </InputLabel>
                   <Select
+                    readOnly
                     defaultValue=""
                     sx={{
                       fontSize: "1rem",
@@ -1203,9 +1209,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 />
               </Box>
             </Grid>
-          </Grid>
 
-          <Grid container spacing={3} sx={{ mt: 2 }}>
+
+
             {loading ? (
               <Box sx={{ display: "flex", justifyContent: "center", alignContent: "center", gap: 2, width: "100%", color: "gray", mt: 2 }}>
                 <CircularProgress size={20} sx={{ color: "gray" }} />Loading more questions...
@@ -1213,7 +1219,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
             ) : (
               questions.map((q) => (
                 <Grid size={{ xs: 12, md: 6 }} key={q.id}>
-                  <Box sx={{ mb: 2, position: "relative" }}>
+                  <Box sx={{position: "relative" }}>
                     <Box sx={{ fontWeight: 600, mb: 1, color: "#F6F4FE" }}>{q.question}</Box>
                     {q.type === "text" && (
                       <TextField
@@ -1231,6 +1237,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           },
                         }}
                         InputProps={{
+                          readOnly: true,
                           sx: {
                             fontSize: "1rem",
                             "& .MuiInputBase-input.Mui-disabled": {
@@ -1273,6 +1280,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           Select
                         </InputLabel>
                         <Select
+                          readOnly
                           value={answers[q.id] || ""}
                           onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                           sx={{
@@ -1316,6 +1324,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           Select
                         </InputLabel>
                         <Select
+                          readOnly
                           multiple
                           value={answers[q.id] || []}
                           onChange={(e) => handleAnswerChange(q.id, e.target.value)}
