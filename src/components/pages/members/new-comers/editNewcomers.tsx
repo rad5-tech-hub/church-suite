@@ -44,6 +44,7 @@ interface FormData {
   birthDay: string;
   timer: number | null;
   branchId?: string;
+  isVisitor?: boolean; // 👈 add this line
 }
 
 interface Branch {
@@ -100,6 +101,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
     birthDay: "",
     timer: null,
     branchId: authData?.branchId || "",
+    isVisitor: false,
   });
   const [initialFormData, setInitialFormData] = useState<FormData>(formData);
   const [isLoading, setIsLoading] = useState(false);
@@ -148,6 +150,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
         birthDay: member.birthDay || "",
         timer: member.timer || null,
         branchId: member.branchId || authData?.branchId || "",
+        isVisitor: member.isVisitor ?? false,
       };
       setFormData(memberData);
       setInitialFormData(memberData);
@@ -689,6 +692,41 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                 </Select>
               </FormControl>
             </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel
+                  id="isVisitor-label"
+                  sx={{ color: "#F6F4FE", fontSize: isMobile ? "0.875rem" : "1rem" }}
+                >
+                  Is Visitor
+                </InputLabel>
+                <Select
+                  labelId="isVisitor-label"
+                  id="isVisitor"
+                  name="isVisitor"
+                  value={formData.isVisitor ? "true" : "false"} // store as string for UI
+                  label="Is Visitor"
+                  onChange={(e) => {
+                    const value = e.target.value === "true"; // convert back to boolean
+                    handleChange({ target: { name: "isVisitor", value } });
+                  }}
+                  disabled={isLoading}
+                  sx={{
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "& .MuiSelect-select": { paddingRight: "24px !important" },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    fontSize: isMobile ? "0.875rem" : "1rem",
+                  }}
+                >
+                  <MenuItem value="true">Yes</MenuItem>
+                  <MenuItem value="false">No</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
           </Grid>
           <Box
             sx={{

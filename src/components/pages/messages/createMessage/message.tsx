@@ -417,7 +417,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         }
         const response = await Api.get<{ results: Newcomer[] }>(`/member/get-follow-up?${params.toString()}`);
         const newcomers = response.data?.results || [];
-        console.log("Fetched newcomers:", newcomers);
         handleStateChange("newcomers", newcomers);
         setFormData((prev) => ({
           ...prev,
@@ -434,42 +433,40 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     [handleStateChange, authData]
   );
 
-  const fetchWorkers = useCallback(
-    async (departmentId: string = "") => {
-      if (!authData?.branchId) {
-        showPageToast("Missing branch information. Please try again.", "error");
-        return;
-      }
-      handleStateChange("workersLoading", true);
-      try {
-        const params = new URLSearchParams({ branchId: authData.branchId });
-        if (departmentId) {
-          params.append("departmentId", departmentId);
-        }
-        const response = await Api.get<{ message: string; pagination: any; data: Worker[] }>(
-          `/member/all-members?${params.toString()}`
-        );
-        const workers = (response.data?.data || []).map((worker) => ({
-          id: worker.id,
-          name: worker.name,
-          phoneNo: worker.phoneNo,
-        }));
-        console.log("Fetched workers:", workers);
-        handleStateChange("workers", workers);
-        setFormData((prev) => ({
-          ...prev,
-          workers: prev.workers.filter((id) => workers.some((w) => w.id === id)),
-        }));
-      } catch (error) {
-        showPageToast("Failed to load workers. Please try again.", "error");
-        handleStateChange("workers", []);
-        setFormData((prev) => ({ ...prev, workers: [] }));
-      } finally {
-        handleStateChange("workersLoading", false);
-      }
-    },
-    [handleStateChange, authData]
-  );
+  // Fetch workers (no department required)
+  const fetchWorkers = useCallback(async (departmentId: string = "") => {
+    if (!authData?.branchId) {
+      showPageToast("Missing branch information. Please try again.", "error");
+      return;
+    }
+    handleStateChange("workersLoading", true);
+    try {
+      const params = new URLSearchParams({ branchId: authData.branchId });
+      if (departmentId) params.append("departmentId", departmentId);
+
+      const response = await Api.get<{ data: Worker[] }>(
+        `/member/all-members?${params.toString()}`
+      );
+
+      const workers = (response.data?.data || []).map((w) => ({
+        id: w.id,
+        name: w.name,
+        phoneNo: w.phoneNo,
+      }));
+
+      handleStateChange("workers", workers);
+      setFormData((prev) => ({
+        ...prev,
+        workers: prev.workers.filter((id) => workers.some((w) => w.id === id)),
+      }));
+    } catch {
+      showPageToast("Failed to load workers. Please try again.", "error");
+      handleStateChange("workers", []);
+      setFormData((prev) => ({ ...prev, workers: [] }));
+    } finally {
+      handleStateChange("workersLoading", false);
+    }
+  }, [handleStateChange, authData]);
 
   const fetchDepartments = useCallback(async () => {
     if (!authData?.branchId) {
@@ -491,16 +488,14 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     }
   }, [handleStateChange, authData]);
 
+  // 🔹 Fetch workers immediately when modal opens
   useEffect(() => {
     if (open) {
       fetchDepartments();
-      if (formData.type === "newcomers" && formData.programs) {
-        fetchNewcomers(formData.programs);
-      } else if (formData.type === "workers" && formData.departments) {
-        fetchWorkers(formData.departments);
-      }
+      fetchWorkers(); // ✅ Fetch all workers immediately
+      if (formData.type === "newcomers" && formData.programs) fetchNewcomers(formData.programs);
     }
-  }, [open, fetchDepartments, fetchNewcomers, fetchWorkers, formData.type, formData.programs, formData.departments]);
+  }, [open, fetchDepartments, fetchNewcomers, fetchWorkers, formData.type, formData.programs]);
 
   const handleModalClose = () => {
     resetForm();
@@ -531,11 +526,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         }
 
         const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
-        const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers;
-
-        console.log(`handleSubmit: type=${formData.type}`);
-        console.log(`Recipients:`, recipients);
-        console.log(`Selected IDs:`, selectedIds);
+        const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers; 
 
         if (!recipients.length) {
           showPageToast(`No ${formData.type} available. Please try refreshing the list.`, "error");
@@ -551,29 +542,16 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
         const toNumbers = recipients
           .filter((recipient) => {
-            const isSelected = selectedIds.includes(recipient.id);
-            if (!isSelected) {
-              console.log(`Recipient ${recipient.name} (ID: ${recipient.id}) not selected`);
-            }
+            const isSelected = selectedIds.includes(recipient.id);       
             return isSelected;
           })
-          .map((recipient) => {
-            console.log(`Processing recipient: ${recipient.name}, phoneNo: ${recipient.phoneNo || 'missing'}`);
+          .map((recipient) => {           
             let phoneNo = recipient.phoneNo;
-            if (phoneNo && !phoneNo.startsWith("+")) {
-              phoneNo = `+${phoneNo}`;
+            if (phoneNo) {
+              phoneNo = `${phoneNo}`;
             }
             return phoneNo;
           })
-          .filter((phoneNo): phoneNo is string => {
-            const isValid = typeof phoneNo === "string" && phoneNo.length > 0 && phoneNo.startsWith("+");
-            if (!isValid) {
-              console.log(`Invalid phoneNo: ${phoneNo || 'missing'}`);
-            }
-            return isValid;
-          });
-
-        console.log("toNumbers:", toNumbers);
 
         if (toNumbers.length === 0) {
           showPageToast(
@@ -592,7 +570,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           ...(formData.scheduledDateTime && { sendAt: formData.scheduledDateTime }),
         };
 
-        console.log("SMS Payload:", payload);
+  
         await Api.post("/wallet/send-sms", payload);
       } else {
         if (!formData.subject) {
@@ -622,16 +600,15 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
             payload.categories = formData.categories;
             break;
         }
-
-        await Api.post("/church/create-message", payload);
       }
 
       showPageToast("Message sent successfully!", "success");
       onSuccess?.();
       setTimeout(handleModalClose, 4000);
     } catch (error: any) {
+      let errorMessages = error.response?.data?.error?.message;      
       showPageToast(
-        error.response?.data?.message || "Failed to send message. Please try again.",
+        errorMessages || "Failed to send message. Please try again.",
         "error"
       );
     } finally {
@@ -706,118 +683,150 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     </Grid>
   );
 
-  const renderCheckNewcomers = () => (
-    <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="newcomers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
-        Check Newcomers
-      </InputLabel>
-      <Select
-        fullWidth
-        labelId="newcomers-label"
-        multiple
-        value={formData.newcomers}
-        onChange={handleChange}
-        name="newcomers"
-        disabled={isLoading || state.newcomersLoading}
-        startAdornment={
-          <InputAdornment position="start">
-            <FaPeopleGroup style={{ color: "#F6F4FE" }} />
-          </InputAdornment>
-        }
-        sx={{
-          color: "#F6F4FE",
-          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "& .MuiSelect-select": { paddingRight: "24px !important" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
-          fontSize: "0.875rem",
-        }}
-        renderValue={(selected) =>
-          selected.length === 0
-            ? "Select Newcomers"
-            : state.newcomers
-                .filter((newcomer) => selected.includes(newcomer.id))
-                .map((newcomer) => newcomer.name)
-                .join(", ")
-        }
-      >
-        {state.newcomersLoading ? (
-          <MenuItem disabled>Loading...</MenuItem>
-        ) : state.newcomers.length === 0 ? (
-          <MenuItem disabled>No newcomers available</MenuItem>
-        ) : (
-          state.newcomers.map((newcomer) => (
-            <MenuItem key={newcomer.id} value={newcomer.id}>
-              <Checkbox
-                checked={formData.newcomers.includes(newcomer.id)}
-                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
-              />
-              <ListItemText primary={`${newcomer.name} (${newcomer.phoneNo || "No phone number"})`} />
-            </MenuItem>
-          ))
-        )}
-      </Select>
-    </Grid>
-  );
+  const renderCheckNewcomers = () => {
+    const allSelected =
+      state.newcomers.length > 0 &&
+      formData.newcomers.length === state.newcomers.length;
 
-  const renderCheckWorkers = () => (
-    <Grid size={{ xs: 12, md: 12 }}>
-      <InputLabel id="workers-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
-        Check Workers
-      </InputLabel>
-      <Select
-        fullWidth
-        labelId="workers-label"
-        multiple
-        value={formData.workers}
-        onChange={handleChange}
-        name="workers"
-        disabled={isLoading || state.workersLoading}
-        startAdornment={
-          <InputAdornment position="start">
-            <FaPeopleCarry style={{ color: "#F6F4FE" }} />
-          </InputAdornment>
-        }
-        sx={{
-          color: "#F6F4FE",
-          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "& .MuiSelect-select": { paddingRight: "24px !important" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
-          fontSize: "0.875rem",
-        }}
-        renderValue={(selected) =>
-          selected.length === 0
-            ? "Select Workers"
-            : state.workers
-                .filter((worker) => selected.includes(worker.id))
-                .map((worker) => worker.name)
-                .join(", ")
-        }
-      >
-        {state.workersLoading ? (
-          <MenuItem disabled>Loading...</MenuItem>
-        ) : state.workers.length === 0 ? (
-          <MenuItem disabled>No workers available</MenuItem>
-        ) : (
-          state.workers.map((worker) => (
-            <MenuItem key={worker.id} value={worker.id}>
-              <Checkbox
-                checked={formData.workers.includes(worker.id)}
-                sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
-              />
-              <ListItemText primary={`${worker.name} (${worker.phoneNo || "No phone number"})`} />
-            </MenuItem>
-          ))
-        )}
-      </Select>
-    </Grid>
-  );
+    const handleSelectAll = () => {
+      if (allSelected) {
+        setFormData((prev) => ({ ...prev, newcomers: [] }));
+      } else {
+        const allIds = state.newcomers.map((n) => n.id);
+        setFormData((prev) => ({ ...prev, newcomers: allIds }));
+      }
+    };
+
+    return (
+      <Grid size={{ xs: 12, md: 6 }}>
+        <InputLabel sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+          Check Newcomers
+        </InputLabel>
+        <Select
+          fullWidth
+          multiple
+          value={formData.newcomers}
+          name="newcomers"
+          onChange={(e) =>
+            handleChange({ target: { name: "newcomers", value: e.target.value } })
+          }
+          renderValue={(selected) =>
+            selected.length === 0
+              ? "Select Newcomers"
+              : state.newcomers
+                  .filter((n) => selected.includes(n.id))
+                  .map((n) => n.name)
+                  .join(", ")
+          }
+          sx={{
+            color: "#F6F4FE",
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+            "& .MuiSelect-icon": { color: "#F6F4FE" },
+          }}
+        >
+          {state.newcomersLoading ? (
+            <MenuItem disabled>Loading...</MenuItem>
+          ) : (
+            <div>
+              <MenuItem onClick={handleSelectAll}>
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={
+                    formData.newcomers.length > 0 &&
+                    formData.newcomers.length < state.newcomers.length
+                  }
+                  color="default"
+                />
+                <ListItemText primary="Select All" />
+              </MenuItem>
+              {state.newcomers.map((n) => (
+                <MenuItem key={n.id} value={n.id}>
+                  <Checkbox checked={formData.newcomers.includes(n.id)} color="default"/>
+                  <ListItemText
+                    primary={`${n.name} (${n.phoneNo || "No phone"})`}
+                  />
+                </MenuItem>
+              ))}
+            </div>
+          )}
+        </Select>
+      </Grid>
+    );
+  };
+
+  const renderCheckWorkers = () => {
+    const allSelected =
+      state.workers.length > 0 &&
+      formData.workers.length === state.workers.length;
+
+    const handleSelectAll = () => {
+      if (allSelected) {
+        setFormData((prev) => ({ ...prev, workers: [] }));
+      } else {
+        const allIds = state.workers.map((w) => w.id);
+        setFormData((prev) => ({ ...prev, workers: allIds }));
+      }
+    };
+
+    return (
+      <Grid size={{ xs: 12, md: 6 }}>
+        <InputLabel sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+          Check Workers
+        </InputLabel>
+        <Select
+          fullWidth
+          multiple
+          value={formData.workers}
+          name="workers"
+          onChange={(e) =>
+            handleChange({ target: { name: "workers", value: e.target.value } })
+          }
+          renderValue={(selected) =>
+            selected.length === 0
+              ? "Select Workers"
+              : state.workers
+                  .filter((w) => selected.includes(w.id))
+                  .map((w) => w.name)
+                  .join(", ")
+          }
+          sx={{
+            color: "#F6F4FE",
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+            "& .MuiSelect-icon": { color: "#F6F4FE" },
+          }}
+        >
+          {state.workersLoading ? (
+            <MenuItem disabled>Loading...</MenuItem>
+          ) : (
+            <div>
+              <MenuItem onClick={handleSelectAll}>
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={
+                    formData.workers.length > 0 &&
+                    formData.workers.length < state.workers.length
+                  }
+                  color="default"
+                />
+                <ListItemText primary="Select All" />
+              </MenuItem>
+              {state.workers.map((w) => (
+                <MenuItem key={w.id} value={w.id}>
+                  <Checkbox checked={formData.workers.includes(w.id)} color="default"/>
+                  <ListItemText
+                    primary={`${w.name} (${w.phoneNo || "No phone"})`}
+                  />
+                </MenuItem>
+              ))}
+            </div>
+          )}
+        </Select>
+      </Grid>
+    );
+  };
 
   const renderDepartments = () => (
-    <Grid size={{ xs: 12, md: 12 }}>
+    <Grid size={{ xs: 12, md: 6 }}>
       <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
         Department
       </InputLabel>

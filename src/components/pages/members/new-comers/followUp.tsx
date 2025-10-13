@@ -392,9 +392,9 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
         if (config.visibleFields.includes("address") && formData.address) {
           payload.address = formData.address;
         }
-        // if (config.visibleFields.includes("isVisitor") && formData.isVisitor !== "") {
-        //   payload.isVisitor = formData.isVisitor === true; // Ensure boolean value
-        // }
+        if (config.visibleFields.includes("isVisitor") && formData.isVisitor !== "") {
+          payload.isVisitor = formData.isVisitor === true; // Ensure boolean value
+        }
         if (
           config.visibleFields.includes("dateOfBirth") &&
           formData.birthMonth &&

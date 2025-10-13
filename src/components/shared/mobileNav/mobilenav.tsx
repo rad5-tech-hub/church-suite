@@ -5,12 +5,11 @@ import {
   IoGridOutline,
   IoListOutline,
   IoPeopleOutline,
-  IoPersonAddOutline,
   IoWalletOutline,
   IoCalendarOutline,
   IoSettingsOutline,
 } from 'react-icons/io5';
-import { ArrowLeft, ArrowRight, People } from '@mui/icons-material';
+import { ArrowLeft, ArrowRight, Chat, People } from '@mui/icons-material';
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { MdOutlineHub } from "react-icons/md";
 import { FaPeopleCarry } from "react-icons/fa";
@@ -30,6 +29,7 @@ const buttons = [
   'Dashboard',
   'Manage',
   'Membership',
+  'Messages',
   'Finance',
   'Programs',
   'Settings',
@@ -39,7 +39,7 @@ const buttonIcons: { [key: string]: React.ReactNode } = {
   Dashboard: <IoGridOutline className="text-2xl" />,
   Manage: <IoListOutline className="text-2xl" />,
   Membership: <IoPeopleOutline className="text-2xl" />,
-  Newcomers: <IoPersonAddOutline className="text-2xl" />,
+  Messages: <Chat className="text-2xl" />,
   Finance: <IoWalletOutline className="text-2xl" />,
   Programs: <IoCalendarOutline className="text-2xl" />,
   Settings: <IoSettingsOutline className="text-2xl" />,
