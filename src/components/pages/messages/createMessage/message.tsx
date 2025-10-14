@@ -26,7 +26,7 @@ import {
   TextField,
   FormControlLabel as CheckboxFormControlLabel,
 } from "@mui/material";
-import { Chat, Close, Mail } from "@mui/icons-material";
+import { Close } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { FaPeopleCarry } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
@@ -47,7 +47,6 @@ interface FormData {
   workers: string[];
   departments: string;
   categories: string[];
-  messageMode: "sms" | "mail";
   subject: string;
   message: string;
   scheduledDateTime?: string;
@@ -191,11 +190,11 @@ const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
           label: "Workers",
           icon: <FaPeopleCarry fontSize="25" color="#F6F4FE" />,
         },
-        {
-          value: "members",
-          label: "Members",
-          icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
-        },
+        // {
+        //   value: "members",
+        //   label: "Members",
+        //   icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
+        // },
       ].map(({ value, label, icon }) => (
         <FormControlLabel
           key={value}
@@ -226,64 +225,6 @@ const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
   </Grid>
 );
 
-const RenderMessageMode: React.FC<{
-  formData: FormData;
-  handleChange: (
-    e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: string | string[] } },
-    _child?: React.ReactNode
-  ) => void;
-  isLoading: boolean;
-}> = ({ formData, handleChange, isLoading }) => (
-  <>
-    <Grid size={{ xs: 12 }}>
-      <FormLabel id="message-mode-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
-        Message Mode
-      </FormLabel>
-    </Grid>
-    {[
-      { value: "sms", label: "SMS", icon: <Chat sx={{ color: "#F6F4FE", fontSize: "40" }} /> },
-      { value: "mail", label: "Email", icon: <Mail sx={{ color: "#F6F4FE", fontSize: "40" }} /> },
-    ].map(({ value, label, icon }) => (
-      <Grid key={value} size={{ xs: 12, md: 6 }}>
-        <FormControlLabel
-          value={value}
-          disabled={isLoading}
-          control={
-            <Radio
-              sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }}
-              checked={formData.messageMode === value}
-              onChange={handleChange}
-              name="messageMode"
-            />
-          }
-          label={
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              {icon}
-              <Typography sx={{ ml: 1, color: "#F6F4FE" }}>{label}</Typography>
-            </Box>
-          }
-          labelPlacement="start"
-          sx={{
-            border: "0.5px solid gray",
-            padding: "8px 12px",
-            mb: 1,
-            borderRadius: 1,
-            width: "100%",
-            justifyContent: "space-between",
-            backgroundColor:
-              formData.messageMode === value ? "rgba(255, 255, 255, 0.15)" : "transparent",
-            transition: "background-color 0.3s ease",
-            "&:hover": {
-              backgroundColor:
-                formData.messageMode === value ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.1)",
-            },
-          }}
-        />
-      </Grid>
-    ))}
-  </>
-);
-
 const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, initialData }) => {
   const [formData, setFormData] = useState<FormData>(
     initialData || {
@@ -292,8 +233,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       newcomers: [],
       workers: [],
       departments: "",
-      categories: [],
-      messageMode: "sms",
+      categories: [], 
       subject: "",
       message: "",
       scheduledDateTime: undefined,
@@ -354,7 +294,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       workers: [],
       departments: "",
       categories: [],
-      messageMode: "sms",
       subject: "",
       message: "",
       scheduledDateTime: undefined,
@@ -512,96 +451,64 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         setLoading(false);
         return;
       }
-
-      if (formData.messageMode === "sms") {
-        if (formData.type === "newcomers" && formData.newcomers.length === 0) {
-          showPageToast("Please select at least one newcomer.", "error");
-          setLoading(false);
-          return;
-        }
-        if (formData.type === "workers" && formData.workers.length === 0) {
-          showPageToast("Please select at least one worker.", "error");
-          setLoading(false);
-          return;
-        }
-
-        const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
-        const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers; 
-
-        if (!recipients.length) {
-          showPageToast(`No ${formData.type} available. Please try refreshing the list.`, "error");
-          setLoading(false);
-          return;
-        }
-
-        if (!selectedIds.length) {
-          showPageToast(`No ${formData.type} selected. Please select at least one recipient.`, "error");
-          setLoading(false);
-          return;
-        }
-
-        const toNumbers = recipients
-          .filter((recipient) => {
-            const isSelected = selectedIds.includes(recipient.id);       
-            return isSelected;
-          })
-          .map((recipient) => {           
-            let phoneNo = recipient.phoneNo;
-            if (phoneNo) {
-              phoneNo = `${phoneNo}`;
-            }
-            return phoneNo;
-          })
-
-        if (toNumbers.length === 0) {
-          showPageToast(
-            "No valid phone numbers found. Ensure selected recipients have valid phone numbers starting with '+'.",
-            "error"
-          );
-          setLoading(false);
-          return;
-        }
-
-        const payload = {
-          message: formData.message,
-          toNumbers,
-          channel: "generic",
-          ...(formData.type === "newcomers" && { followUpIds: formData.newcomers }),
-          ...(formData.scheduledDateTime && { sendAt: formData.scheduledDateTime }),
-        };
-
   
-        await Api.post("/wallet/send-sms", payload);
-      } else {
-        if (!formData.subject) {
-          showPageToast("Subject is required for email.", "error");
-          setLoading(false);
-          return;
-        }
-
-        let payload: Record<string, any> = {
-          type: formData.type,
-          messageMode: formData.messageMode,
-          subject: formData.subject,
-          message: formData.message,
-          ...(formData.scheduledDateTime && { scheduledDateTime: formData.scheduledDateTime }),
-        };
-
-        switch (formData.type) {
-          case "newcomers":
-            payload.programs = formData.programs;
-            payload.newcomers = formData.newcomers;
-            break;
-          case "workers":
-            payload.departments = formData.departments;
-            payload.workers = formData.workers;
-            break;
-          case "members":
-            payload.categories = formData.categories;
-            break;
-        }
+      if (formData.type === "newcomers" && formData.newcomers.length === 0) {
+        showPageToast("Please select at least one newcomer.", "error");
+        setLoading(false);
+        return;
+      }
+      if (formData.type === "workers" && formData.workers.length === 0) {
+        showPageToast("Please select at least one worker.", "error");
+        setLoading(false);
+        return;
       }
 
+      const recipients = formData.type === "newcomers" ? state.newcomers : state.workers;
+      const selectedIds = formData.type === "newcomers" ? formData.newcomers : formData.workers; 
+
+      if (!recipients.length) {
+        showPageToast(`No ${formData.type} available. Please try refreshing the list.`, "error");
+        setLoading(false);
+        return;
+      }
+
+      if (!selectedIds.length) {
+        showPageToast(`No ${formData.type} selected. Please select at least one recipient.`, "error");
+        setLoading(false);
+        return;
+      }
+
+      const toNumbers = recipients
+        .filter((recipient) => {
+          const isSelected = selectedIds.includes(recipient.id);       
+          return isSelected;
+        })
+        .map((recipient) => {           
+          let phoneNo = recipient.phoneNo;
+          if (phoneNo) {
+            phoneNo = `${phoneNo}`;
+          }
+          return phoneNo;
+        })
+
+      if (toNumbers.length === 0) {
+        showPageToast(
+          "No valid phone numbers found. Ensure selected recipients have valid phone numbers starting with '+'.",
+          "error"
+        );
+        setLoading(false);
+        return;
+      }
+
+      const payload = {
+        message: formData.message,
+        toNumbers,
+        channel: "generic",
+        ...(formData.type === "newcomers" && { followUpIds: formData.newcomers }),
+        ...(formData.scheduledDateTime && { sendAt: formData.scheduledDateTime }),
+      };
+
+      await Api.post("/wallet/send-sms", payload);      
       showPageToast("Message sent successfully!", "success");
       onSuccess?.();
       setTimeout(handleModalClose, 4000);
@@ -688,13 +595,20 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       state.newcomers.length > 0 &&
       formData.newcomers.length === state.newcomers.length;
 
+    const handleToggle = (id: string) => {
+      setFormData((prev) => {
+        const selected = prev.newcomers.includes(id)
+          ? prev.newcomers.filter((x) => x !== id)
+          : [...prev.newcomers, id];
+        return { ...prev, newcomers: selected };
+      });
+    };
+
     const handleSelectAll = () => {
-      if (allSelected) {
-        setFormData((prev) => ({ ...prev, newcomers: [] }));
-      } else {
-        const allIds = state.newcomers.map((n) => n.id);
-        setFormData((prev) => ({ ...prev, newcomers: allIds }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        newcomers: allSelected ? [] : state.newcomers.map((n) => n.id),
+      }));
     };
 
     return (
@@ -707,9 +621,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           multiple
           value={formData.newcomers}
           name="newcomers"
-          onChange={(e) =>
-            handleChange({ target: { name: "newcomers", value: e.target.value } })
-          }
           renderValue={(selected) =>
             selected.length === 0
               ? "Select Newcomers"
@@ -727,7 +638,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           {state.newcomersLoading ? (
             <MenuItem disabled>Loading...</MenuItem>
           ) : (
-            <div>
+            <>
               <MenuItem onClick={handleSelectAll}>
                 <Checkbox
                   checked={allSelected}
@@ -740,14 +651,21 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                 <ListItemText primary="Select All" />
               </MenuItem>
               {state.newcomers.map((n) => (
-                <MenuItem key={n.id} value={n.id}>
-                  <Checkbox checked={formData.newcomers.includes(n.id)} color="default"/>
+                <MenuItem
+                  key={n.id}
+                  value={n.id}
+                  onClick={() => handleToggle(n.id)}
+                >
+                  <Checkbox
+                    checked={formData.newcomers.includes(n.id)}
+                    color="default"
+                  />
                   <ListItemText
                     primary={`${n.name} (${n.phoneNo || "No phone"})`}
                   />
                 </MenuItem>
               ))}
-            </div>
+            </>
           )}
         </Select>
       </Grid>
@@ -759,13 +677,20 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       state.workers.length > 0 &&
       formData.workers.length === state.workers.length;
 
+    const handleToggle = (id: string) => {
+      setFormData((prev) => {
+        const selected = prev.workers.includes(id)
+          ? prev.workers.filter((x) => x !== id)
+          : [...prev.workers, id];
+        return { ...prev, workers: selected };
+      });
+    };
+
     const handleSelectAll = () => {
-      if (allSelected) {
-        setFormData((prev) => ({ ...prev, workers: [] }));
-      } else {
-        const allIds = state.workers.map((w) => w.id);
-        setFormData((prev) => ({ ...prev, workers: allIds }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        workers: allSelected ? [] : state.workers.map((w) => w.id),
+      }));
     };
 
     return (
@@ -778,9 +703,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           multiple
           value={formData.workers}
           name="workers"
-          onChange={(e) =>
-            handleChange({ target: { name: "workers", value: e.target.value } })
-          }
           renderValue={(selected) =>
             selected.length === 0
               ? "Select Workers"
@@ -798,7 +720,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           {state.workersLoading ? (
             <MenuItem disabled>Loading...</MenuItem>
           ) : (
-            <div>
+            <>
               <MenuItem onClick={handleSelectAll}>
                 <Checkbox
                   checked={allSelected}
@@ -811,14 +733,21 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                 <ListItemText primary="Select All" />
               </MenuItem>
               {state.workers.map((w) => (
-                <MenuItem key={w.id} value={w.id}>
-                  <Checkbox checked={formData.workers.includes(w.id)} color="default"/>
+                <MenuItem
+                  key={w.id}
+                  value={w.id}
+                  onClick={() => handleToggle(w.id)}
+                >
+                  <Checkbox
+                    checked={formData.workers.includes(w.id)}
+                    color="default"
+                  />
                   <ListItemText
                     primary={`${w.name} (${w.phoneNo || "No phone"})`}
                   />
                 </MenuItem>
               ))}
-            </div>
+            </>
           )}
         </Select>
       </Grid>
@@ -931,32 +860,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
   const renderSubjectAndMessage = () => (
     <>
-      {formData.messageMode === "mail" && (
-        <Grid size={{ xs: 12, md: 12 }}>
-          <TextField
-            fullWidth
-            label="Subject"
-            name="subject"
-            value={formData.subject}
-            onChange={handleChange}
-            variant="outlined"
-            placeholder="Enter Subject"
-            InputProps={{
-              sx: {
-                color: "#F6F4FE",
-                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                fontSize: "0.9rem",
-              },
-            }}
-            InputLabelProps={{
-              sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "1rem" },
-            }}
-            required
-          />
-        </Grid>
-      )}
       <Grid size={{ xs: 12, md: 12 }}>
         <TextField
           fullWidth
@@ -1084,7 +987,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
-            Send Message
+            Send SMS Messages
           </Typography>
           <IconButton onClick={onClose}>
             <Close sx={{ color: "#B0B0B0" }} />
@@ -1112,8 +1015,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                 {renderCheckWorkers()}
               </>
             )}
-            {formData.type === "members" && renderCategories()}
-            <RenderMessageMode formData={formData} handleChange={handleChange} isLoading={isLoading} />
+            {formData.type === "members" && renderCategories()}           
             {renderSubjectAndMessage()}
           </Grid>
         </Box>

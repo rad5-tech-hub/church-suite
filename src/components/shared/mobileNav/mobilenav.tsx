@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import React, { useState, useRef, useEffect } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import {
   IoGridOutline,
   IoListOutline,
@@ -8,17 +8,21 @@ import {
   IoWalletOutline,
   IoCalendarOutline,
   IoSettingsOutline,
-} from 'react-icons/io5';
-import { ArrowLeft, ArrowRight, Chat, People } from '@mui/icons-material';
+} from "react-icons/io5";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Chat,
+  People,
+} from "@mui/icons-material";
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { MdOutlineHub } from "react-icons/md";
 import { FaPeopleCarry } from "react-icons/fa";
-// import { IoIosPeople } from "react-icons/io";
 import { FaPeopleGroup } from "react-icons/fa6";
-import { useNavigate } from 'react-router-dom';
+import { LuNotebookPen } from "react-icons/lu";
+import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
-import { LuNotebookPen } from 'react-icons/lu';
 
 interface MobileNavProps {
   activeButton: string | null;
@@ -26,13 +30,13 @@ interface MobileNavProps {
 }
 
 const buttons = [
-  'Dashboard',
-  'Manage',
-  'Membership',
-  'Messages',
-  'Finance',
-  'Programs',
-  'Settings',
+  "Dashboard",
+  "Manage",
+  "Membership",
+  "Messages",
+  "Finance",
+  "Programs",
+  "Settings",
 ];
 
 const buttonIcons: { [key: string]: React.ReactNode } = {
@@ -66,7 +70,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
   const [showRightArrow, setShowRightArrow] = useState(true);
   const navigate = useNavigate();
 
-  // Check scroll position to show/hide arrows
+  // Check scroll position to toggle arrows
   const checkScrollPosition = () => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
@@ -78,16 +82,15 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
   useEffect(() => {
     const currentRef = scrollRef.current;
     if (currentRef) {
-      currentRef.addEventListener('scroll', checkScrollPosition);
-      window.addEventListener('resize', checkScrollPosition);
-      // Initial check
+      currentRef.addEventListener("scroll", checkScrollPosition);
+      window.addEventListener("resize", checkScrollPosition);
       checkScrollPosition();
     }
     return () => {
       if (currentRef) {
-        currentRef.removeEventListener('scroll', checkScrollPosition);
+        currentRef.removeEventListener("scroll", checkScrollPosition);
       }
-      window.removeEventListener('resize', checkScrollPosition);
+      window.removeEventListener("resize", checkScrollPosition);
     };
   }, []);
 
@@ -97,93 +100,79 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
 
   const handleScrollLeft = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({
-        left: -200,
-        behavior: 'smooth',
-      });
+      scrollRef.current.scrollBy({ left: -200, behavior: "smooth" });
     }
   };
 
   const handleScrollRight = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollBy({
-        left: 200,
-        behavior: 'smooth',
-      });
+      scrollRef.current.scrollBy({ left: 200, behavior: "smooth" });
     }
   };
 
-  // Filter manage items
+  // Filtered menu items based on role
   let filteredManage = manage;
   let filteredMembers = member;
 
-  // 🔹 If not HQ → remove branches
   if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
     const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
     filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
   }
 
   if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/members/view-forms", "/members/view-forms"];
-    filteredMembers = filteredMembers.filter((item: any) => !restrictedRoutes.includes(item.to));
+    const restrictedRoutes = ["/members/view-forms"];
+    filteredMembers = filteredMembers.filter((item) => !restrictedRoutes.includes(item.to));
   }
 
-
-  // 🔹 If role is unit → remove departments
   if (authData?.role === "unit") {
     filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-departments");
   }
 
   const renderSubmenu = (label: string) => {
     if (clickedSubmenu !== label) return null;
-
-    const items = label === 'Manage' ? filteredManage : filteredMembers; // <-- use filtered version here
+    const items = label === "Manage" ? filteredManage : filteredMembers;
 
     return (
       <Box
         sx={{
-          position: 'fixed',
-          bottom: '70px',
-          left: '0',
-          right: '0',
-          backgroundColor: '#2C2C2C',
-          borderRadius: '8px',
-          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-          padding: '8px',
+          position: "fixed",
+          bottom: "70px",
+          left: 0,
+          right: 0,
+          backgroundColor: "#2C2C2C",
+          borderRadius: "8px",
+          boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+          padding: "8px",
           zIndex: 1200,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '8px',
-          margin: '0 16px',
+          display: "grid",
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: "8px",
+          margin: "0 16px",
         }}
-        role="menu"
-        aria-label={`${label} submenu`}
       >
         {items.map((item) => (
           <Button
             key={item.label}
             onClick={() => navigate(item.to)}
             sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '8px',
-              color: '#F6F4FE',
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              fontWeight: '600',
-              borderRadius: '8px',
-              '&:hover': {
-                backgroundColor: '#F6F4FE',
-                color: '#160F38',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "8px",
+              color: "#F6F4FE",
+              textTransform: "none",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              borderRadius: "8px",
+              "&:hover": {
+                backgroundColor: "#F6F4FE",
+                color: "#160F38",
               },
             }}
-            role="menuitem"
-            aria-label={item.label}
           >
             {item.icon}
-            <span style={{ marginTop: '4px' }}>{item.label}</span>
+            <span style={{ marginTop: "4px" }}>{item.label}</span>
           </Button>
         ))}
       </Box>
@@ -192,145 +181,120 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
 
   return (
     <>
-      {/* Submenu overlay if open */}
+      {/* Overlay when submenu is open */}
       {clickedSubmenu && (
         <Box
-          sx={{
-          position: 'fixed',
-          bottom: '70px',
-          left: '0',
-          right: '0',
-          backgroundColor: '#2C2C2C',
-          borderRadius: '8px',
-          boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-          padding: '8px',
-          zIndex: 1200,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '8px',
-          margin: '0 16px'
-          }}
           onClick={() => setClickedSubmenu(null)}
+          sx={{
+            position: "fixed",
+            bottom: "70px",
+            left: 0,
+            right: 0,
+            top: 0,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            zIndex: 1000,
+          }}
         />
       )}
-      
-      {/* Submenu content */}
-      {renderSubmenu('Manage')}
-      {renderSubmenu('Membership')}
-      
-      {/* Main navigation */}
+
+      {renderSubmenu("Manage")}
+      {renderSubmenu("Membership")}
+
+      {/* Main scrollable bottom navigation */}
       <Box
+        ref={scrollRef}
         sx={{
-          display: { xs: 'flex', md: 'none', },
-          position: 'fixed',
+          display: { xs: "flex", md: "none" },
+          position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: '#2C2C2C',
-          borderTop: '1px solid #363740',
-          overflowX: 'auto',
-          overflowY: 'hidden',
-          whiteSpace: 'nowrap',
-          padding: '8px 0',
-          boxShadow: '0 -2px 4px rgba(0,0,0,0.1)',
+          backgroundColor: "#2C2C2C",
+          borderTop: "1px solid #363740",
+          overflowX: "auto",
+          overflowY: "hidden",
+          whiteSpace: "nowrap",
+          padding: "8px 0",
+          boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
           zIndex: 1200,
-          '&::-webkit-scrollbar': {
-            display: 'none',
-          },
-          scrollbarWidth: 'none',
-          justifyContent: { xs: 'flex-start !important', sm: 'center !important' },
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
         }}
-        ref={scrollRef}
       >
         {/* Left scroll arrow */}
         {showLeftArrow && (
           <Box
             sx={{
-              position: 'sticky',
+              position: "sticky",
               left: 0,
-              background: 'linear-gradient(to right, #2C2C2C 60%, transparent)',
-              padding: '0 8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
+              background: "linear-gradient(to right, #2C2C2C 60%, transparent)",
+              px: 1,
+              display: "flex",
+              alignItems: "center",
               zIndex: 1100,
             }}
           >
             <ArrowLeft
-              className="text-2xl"
-              style={{ color: '#777280', cursor: 'pointer' }}
+              sx={{ color: "#777280", cursor: "pointer", fontSize: "1.8rem" }}
               onClick={handleScrollLeft}
-              role="button"
-              aria-label="Scroll left"
             />
           </Box>
         )}
 
+        {/* Nav buttons */}
         {buttons.map((label) => (
-          <Box
+          <Button
             key={label}
-            sx={{ position: 'relative', display: 'inline-flex'             
+            onClick={() => {
+              if (label === "Manage" || label === "Membership") {
+                handleSubmenuClick(label);
+              } else {
+                handleButtonClick(label);
+                setClickedSubmenu(null);
+              }
+            }}
+            sx={{
+              display: "inline-flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: "85px",
+              px: 1,
+              py: 1.5,
+              mx: 0.5,
+              borderRadius: "50px",
+              color: activeButton === label ? "#F6F4FE" : "#777280",
+              textTransform: "none",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              transition: "all 0.3s ease",
+              "&:hover": {
+                backgroundColor: "rgba(255,255,255,0.06)",
+                color: "#F6F4FE",
+              },
             }}
           >
-            <Button
-              onClick={() => {
-                if (label === 'Manage' || label === 'Membership') {
-                  handleSubmenuClick(label);
-                } else {
-                  handleButtonClick(label);
-                  setClickedSubmenu(null);
-                }
-              }}
-              sx={{
-                display: 'inline-flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: '80px',
-                width: '83px',
-                padding: '7px',
-                margin: '0 4px',
-                borderRadius: 50,
-                color: activeButton === label ? '#F6F4FE' : '#777280',
-                textTransform: 'none',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                  color: '#F6F4FE',
-                },
-              }}
-              aria-label={label}
-            >
-              {buttonIcons[label]}
-              <span>{label}</span>
-            </Button>
-          </Box>
+            {buttonIcons[label]}
+            <span>{label}</span>
+          </Button>
         ))}
 
         {/* Right scroll arrow */}
         {showRightArrow && (
           <Box
             sx={{
-              position: 'sticky',
+              position: "sticky",
               right: 0,
-              background: 'linear-gradient(to left, #2C2C2C 60%, transparent)',
-              padding: '0 8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
+              background: "linear-gradient(to left, #2C2C2C 60%, transparent)",
+              px: 1,
+              display: "flex",
+              alignItems: "center",
               zIndex: 1100,
             }}
           >
             <ArrowRight
-              className="text-2xl"
-              style={{ color: '#777280', cursor: 'pointer' }}
+              sx={{ color: "#777280", cursor: "pointer", fontSize: "1.8rem" }}
               onClick={handleScrollRight}
-              role="button"
-              aria-label="Scroll right"
             />
           </Box>
         )}

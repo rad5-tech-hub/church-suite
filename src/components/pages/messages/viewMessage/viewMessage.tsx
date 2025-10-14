@@ -521,13 +521,13 @@ const fetchBranches = useCallback(
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
-              component="h4"
+              variant={isMobile ? "h5" : isLargeScreen ? "h3" : "h5"}
+              component="h3"
               fontWeight={600}
               gutterBottom
               sx={{
                 color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.1rem" : undefined,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
@@ -541,16 +541,41 @@ const fetchBranches = useCallback(
             sx={{
               display: "flex",
               justifyContent: { xs: "flex-end", md: "flex-end" },
-              alignItems: "center",
+              gap: 2,
             }}
           >
+            <a
+              href={`mailto:${authData?.email}`}
+              style={{ textDecoration: "none" }}
+            >
+              <Button
+                variant="contained"
+                size="medium"
+                sx={{
+                  backgroundColor: "#363740",
+                  px: { xs: 2, sm: 3 },
+                  py: 1,
+                  borderRadius: 50,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  "&:hover": {
+                    backgroundColor: "#363740",
+                    opacity: 0.9,
+                  },
+                }}
+              >
+                Send Mail
+              </Button>
+            </a>
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
               size="medium"
               sx={{
                 backgroundColor: "#363740",
-                px: { xs: 2, sm: 2 },
+                px: { xs: 2, sm: 3 },
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
@@ -562,9 +587,8 @@ const fetchBranches = useCallback(
                   opacity: 0.9,
                 },
               }}
-              aria-label="Create new branch"
             >
-              Send Messages
+              Send SMS Message
             </Button>
           </Grid>
         </Grid>
@@ -624,6 +648,7 @@ const fetchBranches = useCallback(
                               handleStateChange("currentBranch", branch);
                               handleStateChange("anchorEl", e.currentTarget);
                             }}
+                            disabled
                             sx={{
                               backgroundColor: "rgba(255, 255, 255, 0.06)",
                               color: "#777280",
