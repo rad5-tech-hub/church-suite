@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import {
@@ -10,6 +10,8 @@ import {
   IoSettingsOutline,
 } from "react-icons/io5";
 import {
+  ArrowLeft,
+  ArrowRight,
   Chat,
   People,
 } from "@mui/icons-material";
@@ -70,11 +72,50 @@ const finance = [
 const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }) => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [clickedSubmenu, setClickedSubmenu] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Check scroll position to toggle arrows
+  const checkScrollPosition = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    const currentRef = scrollRef.current;
+    if (currentRef) {
+      currentRef.addEventListener("scroll", checkScrollPosition);
+      window.addEventListener("resize", checkScrollPosition);
+      checkScrollPosition();
+    }
+    return () => {
+      if (currentRef) {
+        currentRef.removeEventListener("scroll", checkScrollPosition);
+      }
+      window.removeEventListener("resize", checkScrollPosition);
+    };
+  }, []);
+
   const handleSubmenuClick = (label: string) => {
     setClickedSubmenu(clickedSubmenu === label ? null : label);
+  };
+
+  const handleScrollLeft = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -200, behavior: "smooth" });
+    }
+  };
+
+  const handleScrollRight = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: 200, behavior: "smooth" });
+    }
   };
 
   // Check if a route is active
@@ -181,8 +222,9 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
       {renderSubmenu("Membership")}
       {renderSubmenu("Finance")}
 
-      {/* Main bottom navigation */}
+      {/* Main scrollable bottom navigation */}
       <Box
+        ref={scrollRef}
         sx={{
           display: { xs: "flex", md: "none" },
           position: "fixed",
@@ -192,11 +234,36 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
           width: "100%",
           backgroundColor: "#2C2C2C",
           borderTop: "1px solid #363740",
-          padding: "8px 16px",
+          overflowX: "auto",
+          overflowY: "hidden",
+          whiteSpace: "nowrap",
+          padding: "8px 0",
           boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
           zIndex: 1200,
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
         }}
       >
+        {/* Left scroll arrow */}
+        {showLeftArrow && (
+          <Box
+            sx={{
+              position: "sticky",
+              left: 0,
+              background: "linear-gradient(to right, #2C2C2C 60%, transparent)",
+              px: 1,
+              display: "flex",
+              alignItems: "center",
+              zIndex: 1100,
+            }}
+          >
+            <ArrowLeft
+              sx={{ color: "#777280", cursor: "pointer", fontSize: "1.8rem" }}
+              onClick={handleScrollLeft}
+            />
+          </Box>
+        )}
+
         {/* Nav buttons */}
         <Box 
           sx={{ 
@@ -204,6 +271,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
             justifyContent: "space-evenly",
             alignItems: "center",
             width: "100%",
+            minWidth: "max-content",
           }}
         >
           {buttons.map((label) => (
@@ -223,15 +291,16 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
                 alignItems: "center",
                 justifyContent: "center",
                 flex: "1",
-                px: 0.5,
+                minWidth: "80px",
+                px: 1,
                 py: 1.5,
+                mx: 0.5,
                 borderRadius: "8px",
                 color: activeButton === label ? "#F6F4FE" : "#777280",
                 textTransform: "none",
-                fontSize: "0.65rem",
+                fontSize: "0.7rem",
                 fontWeight: 600,
                 transition: "all 0.3s ease",
-                minWidth: 0,
                 "&:hover": {
                   backgroundColor: "rgba(255,255,255,0.06)",
                   color: "#F6F4FE",
@@ -243,6 +312,26 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
             </Button>
           ))}
         </Box>
+
+        {/* Right scroll arrow */}
+        {showRightArrow && (
+          <Box
+            sx={{
+              position: "sticky",
+              right: 0,
+              background: "linear-gradient(to left, #2C2C2C 60%, transparent)",
+              px: 1,
+              display: "flex",
+              alignItems: "center",
+              zIndex: 1100,
+            }}
+          >
+            <ArrowRight
+              sx={{ color: "#777280", cursor: "pointer", fontSize: "1.8rem" }}
+              onClick={handleScrollRight}
+            />
+          </Box>
+        )}
       </Box>
     </>
   );
