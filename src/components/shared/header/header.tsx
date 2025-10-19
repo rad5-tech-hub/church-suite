@@ -59,7 +59,7 @@ const Header: React.FC<HeaderProps> = () => {
     Manage: "/manage/view-admins",
     Membership: "/members/view-workers",
     Messages: "/messages",
-    Finance: "/finance",
+    Finance: "/finance/collections",
     Programs: "/programs",
     Settings: "/settings",
   };

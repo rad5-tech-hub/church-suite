@@ -23,6 +23,9 @@ const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
+const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
+const FinanceWallets = React.lazy(() => import("./finance/wallet/viewWallet"));
+const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
 const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
@@ -115,6 +118,21 @@ const AppRoutes: React.FC = () => {
               <ViewNewcomersForm/>
             </PrivateRoute>
           } /> 
+          <Route path="/finance/collections" element={
+            <PrivateRoute>
+              <FinanceCollections/>
+            </PrivateRoute>
+          } />
+          <Route path="/finance/wallets" element={
+            <PrivateRoute>
+              <FinanceWallets/>
+            </PrivateRoute>
+          } />
+          <Route path="/finance/accounts" element={
+            <PrivateRoute>
+              <FinanceAccounts/>
+            </PrivateRoute>
+          } />
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>

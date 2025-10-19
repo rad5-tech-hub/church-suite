@@ -39,6 +39,7 @@ import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import dayjs from "dayjs";
+import { CiWallet } from "react-icons/ci";
 
 interface FormData {
   type: string;
@@ -49,6 +50,7 @@ interface FormData {
   categories: string[];
   subject: string;
   message: string;
+  walletId: string;
   scheduledDateTime?: string;
 }
 
@@ -93,6 +95,9 @@ interface State {
   departments: Department[];
   departmentsLoading: boolean;
   workers: Worker[];
+  wallets: any[];
+  walletLoading: boolean;
+  walletError: string | null;
   workersLoading: boolean;
   isScheduleChecked: boolean; // New state for checkbox
 }
@@ -236,6 +241,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       categories: [], 
       subject: "",
       message: "",
+      walletId: "",
       scheduledDateTime: undefined,
     }
   );
@@ -249,6 +255,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     newcomersLoading: false,
     departments: [],
     departmentsLoading: false,
+    walletLoading: false,
+    wallets: [],
+    walletError: null,
     workers: [],
     workersLoading: false,
     isScheduleChecked: false, // Initialize checkbox state
@@ -260,7 +269,6 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
   const categoryOptions = ["men", "women", "children"];
   usePageToast("createMessages");
 
-  // Pre-fill formData if initialData is provided (for resend)
   useEffect(() => {
     if (initialData && open) {
       setFormData(initialData);
@@ -296,6 +304,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       categories: [],
       subject: "",
       message: "",
+      walletId: "",
       scheduledDateTime: undefined,
     });
     setState({
@@ -308,6 +317,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       newcomersLoading: false,
       departments: [],
       departmentsLoading: false,
+      walletError: null,
+      walletLoading: false,
+      wallets: [],
       workers: [],
       workersLoading: false,
       isScheduleChecked: false,
@@ -427,10 +439,24 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     }
   }, [handleStateChange, authData]);
 
+  const fetchWallet = useCallback(async () => {
+    handleStateChange("walletLoading", true);
+    try {
+      const response = await Api.get(`/wallet/my-wallet`);
+      handleStateChange("wallets", response.data?.wallets || []);
+    } catch (error) {
+      handleStateChange("walletError", "Failed to load wallets. Please try again.");
+      handleStateChange("wallets", []);
+    } finally {
+      handleStateChange("walletLoading", false);
+    }
+  }, [handleStateChange]);
+
   // 🔹 Fetch workers immediately when modal opens
   useEffect(() => {
     if (open) {
       fetchDepartments();
+      fetchWallet();
       fetchWorkers(); // ✅ Fetch all workers immediately
       if (formData.type === "newcomers" && formData.programs) fetchNewcomers(formData.programs);
     }
@@ -502,6 +528,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
       const payload = {
         message: formData.message,
+        walletId: formData.walletId,
         toNumbers,
         channel: "generic",
         ...(formData.type === "newcomers" && { followUpIds: formData.newcomers }),
@@ -560,27 +587,32 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         {state.eventsLoading ? (
           <MenuItem disabled>Loading...</MenuItem>
         ) : (
-          state.events.flatMap((event) =>
-            event.occurrences.map((occurrence) => {
-              const start = new Date(`1970-01-01T${occurrence.startTime}`);
-              const end = new Date(`1970-01-01T${occurrence.endTime}`);
-              const formattedStart = start.toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-              const formattedEnd = end.toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-              return (
-                <MenuItem key={occurrence.id} value={occurrence.id}>
-                  <ListItemText primary={`${event.title} (${formattedStart} - ${formattedEnd})`} />
-                </MenuItem>
-              );
-            })
-          )
+          <>          
+            <MenuItem value=''>
+              None
+            </MenuItem>
+            {state.events.flatMap((event) =>
+              event.occurrences.map((occurrence) => {
+                const start = new Date(`1970-01-01T${occurrence.startTime}`);
+                const end = new Date(`1970-01-01T${occurrence.endTime}`);
+                const formattedStart = start.toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                });
+                const formattedEnd = end.toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                });
+                return (
+                  <MenuItem key={occurrence.id} value={occurrence.id}>
+                    <ListItemText primary={`${event.title} (${formattedStart} - ${formattedEnd})`} />
+                  </MenuItem>
+                );
+              })
+            )}
+          </>
         )}
         <Divider />
         <MenuItem onClick={() => handleStateChange("dateDialogOpen", true)}>
@@ -639,6 +671,17 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
             <MenuItem disabled>Loading...</MenuItem>
           ) : (
             <>
+              <MenuItem
+                value="__none"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    newcomers: [], // Reset all selections
+                  }))
+                }
+              >
+                <ListItemText primary="None" />
+              </MenuItem>
               <MenuItem onClick={handleSelectAll}>
                 <Checkbox
                   checked={allSelected}
@@ -721,6 +764,17 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
             <MenuItem disabled>Loading...</MenuItem>
           ) : (
             <>
+              <MenuItem
+                value="__none"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    workers: [], // Reset all selections
+                  }))
+                }
+              >
+                <ListItemText primary="None" />
+              </MenuItem>
               <MenuItem onClick={handleSelectAll}>
                 <Checkbox
                   checked={allSelected}
@@ -797,6 +851,74 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           state.departments.map((dept) => (
             <MenuItem key={dept.id} value={dept.id}>
               <ListItemText primary={dept.name} />
+            </MenuItem>
+          ))
+        )}
+      </Select>
+    </Grid>
+  );
+
+  const renderWallet = () => (
+    <Grid size={{ xs: 12}}>
+      <InputLabel id="wallet-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+       Select Wallet
+      </InputLabel>
+
+      <Select
+        fullWidth
+        labelId="wallet-label"
+        name="walletId"
+        value={formData.walletId}
+        onChange={(e) =>
+          handleChange({
+            target: { name: "walletId", value: e.target.value as string },
+          })
+        }
+        disabled={state.walletLoading}
+        startAdornment={
+          <InputAdornment position="start">
+            <CiWallet style={{ color: "#F6F4FE" }} />
+          </InputAdornment>
+        }
+        sx={{
+          color: "#F6F4FE",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+          "& .MuiSelect-select": { paddingRight: "24px !important" },
+          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          fontSize: "0.875rem",
+        }}
+        renderValue={(selected) => {
+          if (!selected) return "Select Wallet";
+
+          const wallet = state.wallets.find((w) => w.id === selected);
+          if (!wallet) return "Select Wallet";
+
+          return (
+            wallet.deptWallet?.name || 
+            wallet.branchWallet?.name || 
+            "Unnamed Wallet"
+          );
+        }}
+      >
+        {state.walletLoading ? (
+          <MenuItem disabled>Loading...</MenuItem>
+        ) : state.wallets.length === 0 ? (
+          <MenuItem disabled>No Wallet Found</MenuItem>
+        ) : (
+          state.wallets.map((wallet) => (
+            <MenuItem key={wallet.id} value={wallet.id}>
+              <ListItemText
+                primary={
+                  wallet.deptWallet?.name ||
+                  wallet.branchWallet?.name ||
+                  "Unnamed Wallet"
+                }
+                secondary={`Balance: ₦${Number(wallet.balance).toLocaleString('en-NG', {
+                  minimumFractionDigits: 2,
+                })}`}
+              />
             </MenuItem>
           ))
         )}
@@ -887,6 +1009,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           required
         />
       </Grid>
+      {renderWallet()}
       <Grid size={{ xs: 12, md: 12 }}>
         <CheckboxFormControlLabel
           control={

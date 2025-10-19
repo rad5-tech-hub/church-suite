@@ -23,7 +23,6 @@ import {
   FormControlLabel,
   ListItemText,
   Checkbox,
-  Divider,
   IconButton,
   Chip,
 } from "@mui/material";
@@ -137,43 +136,54 @@ const fetchCollections = async (
   setFetchingCollections: React.Dispatch<React.SetStateAction<boolean>>,
   setFetchCollectionsError: React.Dispatch<React.SetStateAction<string | null>>,
   setFormData: React.Dispatch<React.SetStateAction<ServiceFormData>>,
-  branchId?: string
+  branchId?: string,
+  churchId?: string
 ) => {
   if (!branchId) {
     setCollections([]);
     setFetchCollectionsError("No branch selected.");
-    setFormData((prev) => ({ ...prev, collectionIds: [] }));
+    setFormData(prev => ({ ...prev, collectionIds: [] }));
     return;
   }
+
   try {
     setFetchingCollections(true);
     setFetchCollectionsError(null);
-    const response = await Api.get(`/church/get-collections/${branchId}`);
-    const rawCollections = response.data.branchCollections || [];
+
+    // ✅ Fetch collections
+    const response = await Api.get(`/church/get-all-collections/${branchId}?churchId=${churchId}`);
+
+    // ✅ Response now returns: response.data.collections = [ { id, name, ... } ]
+    const rawCollections = response.data.collections || [];
+
     const mappedCollections = rawCollections
-      .filter((item: any) => item.collection?.id && item.collection?.name)
+      .filter((item: any) => item.id && item.name) // Directly from item, not item.collection
       .map((item: any) => ({
-        id: item.collection.id,
-        name: item.collection.name,
-        collection: {
-          id: item.collection.id,
-          name: item.collection.name,
-        },
+        id: item.id,
+        name: item.name,
       }));
+
+    // ✅ Set the cleaned collection data
     setCollections(mappedCollections);
-    setFormData((prev) => ({
+
+    // ✅ Keep only valid selected IDs that still exist in the new response
+    setFormData(prev => ({
       ...prev,
-      collectionIds: prev.collectionIds.filter((id) => mappedCollections.some((col: any) => col.id === id)),
+      collectionIds: prev.collectionIds.filter(id =>
+        mappedCollections.some((col: { id: string; }) => col.id === id)
+      ),
     }));
+
   } catch (error) {
     console.error("Failed to fetch collections:", error);
     setFetchCollectionsError("Failed to load collections. Please try again.");
     setCollections([]);
-    setFormData((prev) => ({ ...prev, collectionIds: [] }));
+    setFormData(prev => ({ ...prev, collectionIds: [] }));
   } finally {
     setFetchingCollections(false);
   }
 };
+
 
 const fetchDepartments = async (
   setDepartments: React.Dispatch<React.SetStateAction<Department[]>>,
@@ -259,7 +269,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   });
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [addingCollection, setAddingCollection] = useState<boolean>(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -272,7 +281,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   const [monthlyOption, setMonthlyOption] = useState<"byDate" | "byWeek">("byDate");
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
   const [nthWeekdays, setNthWeekdays] = useState<{ weekday: number; nth: number }[]>([]);
-  const [tempNewCollection, setTempNewCollection] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loadingEdit, setLoadingEdit] = useState<boolean>(false);
@@ -297,7 +305,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       const fetchInitialData = async () => {
         await Promise.all([
           fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError),
-          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, authData?.branchId || ""),
+          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, authData?.branchId || "", authData?.churchId || ""),
           fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, authData?.branchId || ""),
           isEdit && eventId ? fetchEventData() : Promise.resolve(),
         ]);
@@ -309,7 +317,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   useEffect(() => {
     if (open && formData.branchId) {
       fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, formData.branchId);
-      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, formData.branchId);
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, formData.branchId, authData?.churchId || "");
     }
   }, [open, formData.branchId]);
 
@@ -531,43 +539,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
         return "rd";
       default:
         return "th";
-    }
-  };
-
-  const handleAddCollection = async () => {
-    if (tempNewCollection.trim() === "") {
-      setFetchCollectionsError("Collection name cannot be empty.");
-      return;
-    }
-    if (
-      collections.some(
-        (col) => col.name.toLowerCase() === tempNewCollection.trim().toLowerCase()
-      )
-    ) {
-      setFetchCollectionsError("Collection already exists.");
-      return;
-    }
-    try {
-      setAddingCollection(true);
-      setFetchCollectionsError(null);
-      const response = await Api.post(`/church/create-collection`, {
-        name: tempNewCollection.trim(),
-        branchIds: [formData.branchId || authData?.branchId],
-      });
-      const newCollection = response.data.collection;
-      setCollections((prev) => [...prev, newCollection]);
-      setFormData((prev) => ({
-        ...prev,
-        collectionIds: [...prev.collectionIds, newCollection.id],
-      }));
-      setTempNewCollection("");
-      setFetchCollectionsError("Collection added successfully!");
-      onSuccess?.();
-    } catch (error) {
-      console.error("Failed to create collection:", error);
-      setFetchCollectionsError("Failed to create collection. Please try again.");
-    } finally {
-      setAddingCollection(false);
     }
   };
 
@@ -840,7 +811,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
     setMonthlyOption("byDate");
     setSelectedWeekdays([]);
     setNthWeekdays([]);
-    setTempNewCollection("");
     setSelectOpen(false);
     setDepartmentSelectOpen(false);
     setBranchSelectOpen(false);
@@ -1592,9 +1562,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
 
   const renderCollectionInput = () => (
     <Grid size={{ xs: 12 }}>
-      <FormControl fullWidth variant="outlined" disabled={loading || addingCollection}>
+      <FormControl fullWidth variant="outlined" disabled={loading}>
         <InputLabel id="collection-label" sx={inputLabelProps.sx}>
-          Collections of this Branch
+          Collections
         </InputLabel>
         <Select
           labelId="collection-label"
@@ -1606,8 +1576,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           open={selectOpen}
           onOpen={() => setSelectOpen(true)}
           onClose={() => {
-            setSelectOpen(false);
-            setTempNewCollection("");
+            setSelectOpen(false);         
           }}
           renderValue={(selected) => {
             const selectedNames = selected
@@ -1678,7 +1647,8 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     setFetchingCollections,
                     setFetchCollectionsError,
                     setFormData,
-                    formData.branchId || authData?.branchId
+                    formData.branchId || authData?.branchId,
+                    authData?.churchId || "",
                   );
                 }}
               >
@@ -1703,60 +1673,6 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               <Typography>No collections available</Typography>
             </MenuItem>
           )}
-          <Divider sx={{ width: "100%", boxSizing: "border-box" }} />
-          <Box
-            sx={{ p: 1, width: "100%", boxSizing: "border-box" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Add New Collection
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
-              <TextField
-                fullWidth
-                size="small"
-                value={tempNewCollection}
-                onChange={(e) => setTempNewCollection(e.target.value)}
-                placeholder="Enter new collection name"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    handleAddCollection();
-                  }
-                  e.stopPropagation();
-                }}
-                onKeyUp={(e) => e.stopPropagation()}
-                onKeyPress={(e) => e.stopPropagation()}
-                disabled={addingCollection}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck="false"
-                sx={{ "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" } }}
-                inputProps={{ autoComplete: "new-password", form: { autoComplete: "off" } }}
-              />
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddCollection();
-                }}
-                disabled={!tempNewCollection.trim() || addingCollection}
-                size="small"
-                sx={{
-                  color: "#F6F4FE",
-                  backgroundColor: "#2C2C2C",
-                  borderRadius: 1,
-                  "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
-                  "&:disabled": { opacity: 0.5 },
-                }}
-              >
-                {addingCollection ? (
-                  <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-                ) : (
-                  <Add fontSize="small" />
-                )}
-              </IconButton>
-            </Box>
-          </Box>
         </Select>
       </FormControl>
     </Grid>
