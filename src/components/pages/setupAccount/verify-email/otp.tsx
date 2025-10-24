@@ -100,7 +100,7 @@ const EmailVerification: React.FC = () => {
   // API Functions
   const verifyCode = async (email: string, verificationCode: string): Promise<void> => {
     const requestBody: VerificationRequest = { email, otp: verificationCode };
-    const url = `${import.meta.env.VITE_API_BASE_URL}church/verify-admin`;
+    const url = `${import.meta.env.VITE_API_BASE_URL}/church/verify-admin`;
 
     try {
       const response = await fetch(url, {
@@ -109,10 +109,13 @@ const EmailVerification: React.FC = () => {
         body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || `Verification failed with status ${response.status}`);
-      }
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      const message =
+        errorData?.error?.message || // ✅ Correct place based on your backend structure
+        `Verification failed with status ${response.status}`;
+      throw new Error(message);
+    }
 
       const responseData = await response.json();
       const decodedToken = jwtDecode(responseData.accessToken) as any;
@@ -147,14 +150,14 @@ const EmailVerification: React.FC = () => {
       showPageToast("Email verified successfully!", "success"); // ✅ success toast
       persistor.flush().then(() => navigate("/dashboard"));
     } catch (error) {
-      console.error('Verification error:', error);
+      console.log(error)
       throw error instanceof Error ? error : new Error('Verification failed');
     }
   };
 
   const resendCode = async (): Promise<void> => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}church/resend-verification-email`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/church/resend-verification-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -170,17 +173,23 @@ const EmailVerification: React.FC = () => {
   };
 
   const handleVerify = async () => {
-    if (!code.every(digit => digit !== '')) return;
+    if (!code.every((digit) => digit !== "")) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      await verifyCode(email, code.join(''));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'An error occurred during verification. Please try again.';
+      await verifyCode(email, code.join(""));
+    } catch (err: any) {
+      // ✅ Extract message from backend if available
+      const message =
+        err?.response?.data?.error?.message || // From backend
+        err?.message ||                       // From JS Error object
+        "An error occurred during verification. Please try again.";
+
+      console.error(err);
       setError(message);
-      showPageToast(message, "error"); // ✅ error toast
+      showPageToast(message, "error");
     } finally {
       setLoading(false);
     }

@@ -393,7 +393,8 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
     handleStateChange("workersLoading", true);
     try {
       const params = new URLSearchParams({ branchId: authData.branchId });
-      if (departmentId) params.append("departmentId", departmentId);
+      const dept = departmentId || authData?.department;
+      if (dept) params.append("departmentId", dept);
 
       const response = await Api.get<{ data: Worker[] }>(
         `/member/all-members?${params.toString()}`

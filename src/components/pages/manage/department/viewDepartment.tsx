@@ -87,10 +87,12 @@ interface Branch {
 interface Errors {
   name: string;
   description: string;
+  branchId: string;
 }
 
 interface State {
   departments: Department[];
+  charCount: number;
   filteredDepartments: Department[];
   pagination: Pagination;
   currentPage: number;
@@ -209,11 +211,11 @@ const EmptyState: React.FC<{ error: string | null; role: string | null; openModa
     <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
     <Typography
       variant="h6"
-      color="rgba(255, 255, 255, 0.1)"
+      color="rgba(255, 255, 255, 0.5)"
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      {error || "No departments yet"}
+      {error || "No departments Found"}
     </Typography>
     {role === 'branch' && <Button
       variant="contained"
@@ -252,6 +254,7 @@ const ViewDepartment: React.FC = () => {
     currentPage: 1,
     pageHistory: [],
     loading: false,
+    charCount: 0,
     error: null,
     isSearching: false,
     editModalOpen: false,
@@ -266,7 +269,7 @@ const ViewDepartment: React.FC = () => {
     branches: [],
     selectedBranchId: authData?.branchId || "",
     searchDrawerOpen: false,
-    errors: { name: "", description: "" },
+    errors: { name: "", description: "" , branchId: '',},
   };
 
   const [state, setState] = useState<State>(initialState);
@@ -299,7 +302,7 @@ const ViewDepartment: React.FC = () => {
         handleStateChange("loading", false);
         return data;
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again.";
+        const errorMessage = error.response?.data?.message;
         console.error("Failed to fetch departments:", error);
         handleStateChange("loading", false);
         handleStateChange("error", errorMessage);
@@ -449,7 +452,7 @@ const ViewDepartment: React.FC = () => {
         isActive: state.currentDepartment.isActive,
         branchId: state.currentDepartment.branch?.id || "",
       });
-      handleStateChange("errors", { name: "", description: "" });
+      handleStateChange("errors", { name: "", description: "" , branchId: ''});
       handleStateChange("editModalOpen", true);
     }
     handleStateChange("anchorEl", null);
@@ -475,6 +478,25 @@ const ViewDepartment: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
       handleStateChange("editFormData", { ...state.editFormData, [name]: value });
+      // ✅ 256 CHAR LIMIT HANDLER
+      if (name === "description") {
+        const currentCharCount = value.length;
+        if (currentCharCount <= 256) { // ✅ Server limit
+          handleStateChange("editFormData", { 
+            ...state.editFormData, 
+            [name]: value 
+          });
+          // Update char count for visual feedback
+          handleStateChange("charCount", currentCharCount);
+        }
+        // Browser maxLength handles rest naturally
+      } else {
+        handleStateChange("editFormData", { 
+          ...state.editFormData, 
+          [name]: value 
+        });
+      }
+      
       handleStateChange("errors", { ...state.errors, [name]: "" });
     },
     [state.editFormData, state.errors, handleStateChange]
@@ -500,7 +522,7 @@ const ViewDepartment: React.FC = () => {
       return;
     }
 
-    const newErrors: Errors = { name: "", description: "" };
+    const newErrors: Errors = { name: "", description: "", branchId: ''};
 
     // Name validation
     if (!state.editFormData.name.trim()) {
@@ -515,8 +537,8 @@ const ViewDepartment: React.FC = () => {
     const description = state.editFormData.description?.trim() ?? "";
     if (description && description.length < 5) {
       newErrors.description = "Description must be at least 5 characters long";
-    } else if (description.length > 500) {
-      newErrors.description = "Description must be less than 500 characters";
+    } else if (description.length > 256) { // ✅ Server limit
+      newErrors.description = "Description must be 256 characters or less";
     }
 
     handleStateChange("errors", newErrors);
@@ -580,10 +602,10 @@ const ViewDepartment: React.FC = () => {
       showPageToast("Department updated successfully!", "success");
       handleStateChange("editModalOpen", false);
       handleStateChange("currentDepartment", null);
-      handleStateChange("errors", { name: "", description: "" });
+      handleStateChange("errors", { name: "", description: "", branchId: ''});
     } catch (error: any) {
       const errorMessage =
-        error.response?.data?.message || "Failed to update department";
+        error.response?.data?.error?.message || "Failed to update department";
       if (
         error.response?.status === 400 &&
         errorMessage.toLowerCase().includes("name")
@@ -607,8 +629,9 @@ const ViewDepartment: React.FC = () => {
   const handleCancelEdit = useCallback(() => {
     handleStateChange("editModalOpen", false);
     handleStateChange("currentDepartment", null);
-    handleStateChange("errors", { name: "", description: "" });
+    handleStateChange("errors", { name: "", description: "", branchId: ''});
     handleStateChange("editFormData", { name: "", description: "", type: "Department", isActive: true,  branchId: ""  });
+    handleStateChange("charCount", 0)
   }, [handleStateChange]);
 
   const handleConfirmedAction = useCallback(async () => {
@@ -661,7 +684,7 @@ const ViewDepartment: React.FC = () => {
               gutterBottom
               sx={{
                 color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.1rem" : undefined,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
                 display: "flex",
                 alignItems: "center",
                 marginBottom: 2,
@@ -685,7 +708,7 @@ const ViewDepartment: React.FC = () => {
               }}
             >
               <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Name
                 </Typography>
                 <Autocomplete
@@ -728,7 +751,7 @@ const ViewDepartment: React.FC = () => {
               {!isMobile && (
                 <>
                   <Box sx={{ display: "flex", flexDirection: "column", flex:  1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                       Branch
                     </Typography>
                     <FormControl fullWidth>
@@ -763,7 +786,7 @@ const ViewDepartment: React.FC = () => {
                   </Box>
                   <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
                   <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                       Type
                     </Typography>
                     <Select
@@ -789,7 +812,7 @@ const ViewDepartment: React.FC = () => {
                   </Box>
                 </>
               )}
-              <Box sx={{ display: "flex", gap: "8px", pr: "8px" }}>
+              <Box sx={{ display: "flex", gap: "2px", pr: "8px" }}>
                 <Button
                   onClick={handleSearchClick}
                   sx={{
@@ -977,7 +1000,7 @@ const ViewDepartment: React.FC = () => {
         )}
 
         {(!state.loading || state.error) && state.filteredDepartments.length === 0 && (
-          <EmptyState error={state.error}openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} role={authData?.role ?? null}/>
+          <EmptyState error={state.error} openModal={() => handleStateChange("isModalOpen", true)} isLargeScreen={isLargeScreen} role={authData?.role ?? null}/>
         )}
 
         {state.filteredDepartments.length > 0 && (
@@ -1057,15 +1080,25 @@ const ViewDepartment: React.FC = () => {
                       </Box>
                       <Box mt={2}>
                         {dept.description && (
-                          <Box display="flex" alignItems="flex-start" mb={1}>
+                          <Box mb={1}>
                             <Typography
                               variant="body2"
                               sx={{
                                 textDecoration: dept.isDeleted ? "line-through" : "none",
                                 color: dept.isDeleted ? "gray" : "#777280",
+                                width: "100%",
+                                display: "-webkit-box !important",
+                                WebkitBoxOrient: "vertical !important",
+                                WebkitLineClamp: 2,
+                                overflow: "hidden",
+                                lineHeight: 1.4,
                               }}
+                              title={dept.description}
                             >
-                              {dept.description}
+                              {dept.description
+                                .split(' ')
+                                .slice(0, 25)
+                                .join(' ') + (dept.description.split(' ').length > 25 ? '...' : '')}
                             </Typography>
                           </Box>
                         )}
@@ -1138,17 +1171,21 @@ const ViewDepartment: React.FC = () => {
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
-              <FormControl fullWidth>
+              {/* ✅ BRANCH - AUTO-SELECTED ON LOAD */}
+              <FormControl fullWidth error={!!state.errors.branchId}>
                 <InputLabel
-                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } }}
+                  sx={{ 
+                    fontSize: isLargeScreen ? "0.875rem" : undefined, 
+                    color: "#F6F4FE", 
+                    "&.Mui-focused": { color: "#F6F4FE" } 
+                  }}
                 >
-                  Branch
+                  Branch *
                 </InputLabel>
                 <Select
                   value={state.editFormData.branchId || ""}
-                  onChange={handleEditBranchChange}
-                  onOpen={fetchBranches}
-                  label="Branch"
+                  onChange={handleEditBranchChange}                
+                  label="Branch *"
                   sx={{
                     color: state.editFormData.branchId ? "#F6F4FE" : "#777280",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -1158,7 +1195,9 @@ const ViewDepartment: React.FC = () => {
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                   renderValue={(selected) =>
-                    selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
+                    selected 
+                      ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" 
+                      : "Select Branch"
                   }
                   aria-label="Department branch"
                 >               
@@ -1172,6 +1211,11 @@ const ViewDepartment: React.FC = () => {
                     ))
                   )}
                 </Select>
+                {state.errors.branchId && (
+                  <Typography variant="caption" sx={{ color: "#ff6b6b", fontSize: "0.75rem", mt: 0.5 }}>
+                    {state.errors.branchId}
+                  </Typography>
+                )}
               </FormControl>
               <TextField
                 fullWidth
@@ -1224,9 +1268,10 @@ const ViewDepartment: React.FC = () => {
                   </MenuItem>
                 </Select>
               </FormControl>
+              {/* ✅ DESCRIPTION WITH 256 CHAR LIMIT + PERFECT UX */}
               <TextField
                 fullWidth
-                label="Description"
+                label="Description (Optional)"
                 name="description"
                 value={state.editFormData.description}
                 onChange={handleEditChange}
@@ -1234,17 +1279,56 @@ const ViewDepartment: React.FC = () => {
                 multiline
                 rows={4}
                 error={!!state.errors.description}
-                helperText={state.errors.description}
+                helperText={
+                  state.errors.description ? (
+                    state.errors.description
+                  ) : (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography 
+                        variant="caption"
+                        sx={{ 
+                          color: "#aaa",
+                          fontSize: "12px"
+                        }}
+                      >
+                        Max 256 characters
+                      </Typography>
+                      <Typography 
+                        variant="caption"
+                        sx={{ 
+                          color: state.charCount >= 256 ? "#ff9800" : "#90EE90", 
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          minWidth: 60,
+                          textAlign: "right"
+                        }}
+                      >
+                        {state.charCount}/256
+                      </Typography>
+                    </Box>
+                  )
+                }
+                inputProps={{
+                  maxLength: 256, // ✅ Browser handles limit naturally
+                }}
                 InputProps={{
                   sx: {
                     color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "& .MuiOutlinedInput-notchedOutline": { 
+                      borderColor: state.charCount >= 256 ? "#ff9800" : "#777280" // 🟠 Warning orange
+                    },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { 
+                      borderColor: state.charCount >= 256 ? "#ff9800" : "#F6F4FE" 
+                    },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                  sx: { 
+                    fontSize: isLargeScreen ? "1rem" : undefined, 
+                    color: "#F6F4FE", 
+                    "&.Mui-focused": { color: "#F6F4FE" } 
+                  },
                 }}
                 aria-label="Department description"
               />

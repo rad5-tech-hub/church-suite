@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import { setChurchData } from "../../../reduxstore/datamanager";
 import { RootState } from "../../../reduxstore/redux";
+import { ArrowBack } from "@mui/icons-material";
 
 // File Upload Component
 interface FileUploadProps {
@@ -184,12 +185,19 @@ const SetupStep2: React.FC = () => {
         </div>
       </div>
 
-      {/* Login Form Container */}
       <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+        <div className="text-center mb-5">
+          <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+        </div>
         {/* Right Section - Form */}
         <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
           <div className="text-center mb-5">
-            <p className="mb-2 text-gray-600 text-end">Step 2 of 3</p>
+            <div className="flex justify-between">
+              <Link to={'/setup-church'}>
+                <ArrowBack className="cursor-pointer mb-2 text-gray-600" />
+              </Link>
+              <p className="mb-2 text-gray-600 text-end">Step 2 of 3</p>
+            </div>
             <h1 className="text-2xl font-bold mb-2">Image Uploads</h1>
             <p className="text-gray-600 lg:w-11/12 ">
               Upload Church logo and banner to optimize setup.

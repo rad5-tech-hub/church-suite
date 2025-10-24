@@ -2,7 +2,7 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import "react-toastify/dist/ReactToastify.css";
 import { store } from "../../reduxstore/redux";
-import { setAuthData, clearAuth } from "../../reduxstore/authstore";
+import { clearAuth } from "../../reduxstore/authstore";
 import { showPageToast } from "../../util/pageToast";
 
 // Track if we've shown a session expired toast
@@ -19,26 +19,6 @@ const isTokenExpired = (token: string): boolean => {
   }
 };
 
-// Function to refresh the token using HTTP-only cookie
-const refreshToken = async (): Promise<string> => {
-  try {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,
-      {},
-      {
-        withCredentials: true,  
-        maxContentLength: 10 * 1024 * 1024, // ✅ 10 MB response limit
-        maxBodyLength: 10 * 1024 * 1024,    // ✅ 10 MB request upload limit     
-      }
-    );
-    return response.data.accessToken;
-  } catch (error) {
-    // Clear auth if refresh fails
-    store.dispatch(clearAuth());
-    throw error;
-  }
-};
-
 // Create an Axios instance
 const Api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -49,20 +29,7 @@ const Api = axios.create({
   withCredentials: true,
 });
 
-// Token refresh management
-let isRefreshing = false;
 let failedRequestsQueue: ((token: string) => void)[] = [];
-
-const processQueue = (error: Error | null, token: string | null = null) => {
-  failedRequestsQueue.forEach((prom) => {
-    if (error) {
-      prom(error as any);
-    } else {
-      prom(token as string);
-    }
-  });
-  failedRequestsQueue = [];
-};
 
 // Request interceptor
 Api.interceptors.request.use(
@@ -74,38 +41,6 @@ Api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
 
       if (isTokenExpired(token)) {
-        if (!isRefreshing) {
-          isRefreshing = true;
-          try {
-            const newToken = await refreshToken();
-            const currentAuthData = state.auth?.authData;
-
-            if (currentAuthData) {
-              const updatedAuthData = {
-                ...currentAuthData,
-                token: newToken,
-              };
-              store.dispatch(setAuthData(updatedAuthData));
-            }
-
-            config.headers.Authorization = `Bearer ${newToken}`;
-            processQueue(null, newToken);
-            return config;
-          } catch (refreshError) {
-            processQueue(refreshError as Error);
-            
-            // Only show one session expired toast using showPageToast
-            if (!hasShownSessionExpiredToast) {
-              hasShownSessionExpiredToast = true;
-              showPageToast("Your session has expired. Please log in again.", "error");
-            }
-            
-            return Promise.reject(refreshError);
-          } finally {
-            isRefreshing = false;
-          }
-        }
-
         return new Promise((resolve, reject) => {
           failedRequestsQueue.push((newToken: string) => {
             if (newToken) {
@@ -126,11 +61,13 @@ Api.interceptors.request.use(
 );
 
 // Response interceptor
+let hasShownNetworkErrorToast = false;
+
 Api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Don't show duplicate toasts for 401 errors
+      // ✅ Prevent duplicate 401 session expired toasts
       if (error.response.status === 401 && !hasShownSessionExpiredToast) {
         hasShownSessionExpiredToast = true;
         showPageToast("Unauthorized access. Please log in again.", "error", {
@@ -140,12 +77,18 @@ Api.interceptors.response.use(
           },
         });
       }
-    } else if (error.request) {
-      // Handle network errors
-      showPageToast("Network error. Please check your connection.", "error");
+    } 
+    else if (error.request) {
+      // ✅ Show network error toast only once (no reset)
+      if (!hasShownNetworkErrorToast) {
+        hasShownNetworkErrorToast = true;
+        showPageToast("Network error. Please check your connection.", "error");
+      }
     }
+
     return Promise.reject(error);
   }
 );
+
 
 export default Api;

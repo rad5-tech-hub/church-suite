@@ -232,9 +232,12 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
 
   const handleScopeLevelChange = useCallback((e: SelectChangeEvent<string>) => {
     const value = e.target.value;
-    setFormData((_prev) => ({
-      ...initialFormData,
+    setFormData((prev) => ({
+      ...prev, // Keep existing name, description, endTime
       scopeLevel: value,
+      branchIds: [], // Reset scope-specific fields
+      departmentIds: [],
+      members: [],
     }));
     setErrors(initialErrors);
     setBranchDepartments({});
@@ -351,10 +354,6 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
       }
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = "Collection description is required";
-    }
-
     if (formData.scopeLevel === "branch") {
       if (formData.branchIds.length === 0) {
         newErrors.branchIds = "Please select a branch";
@@ -403,10 +402,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
       let endpoint = "/church/create-collection";
       let payload: Record<string, any> = {
         name: formData.name.trim(),
-        description: formData.description.trim(),
-        endTime: formData.endTime || undefined,
+        // Only add description if it has content
+        ...(formData.description.trim() && { description: formData.description.trim() }),
+        ...(formData.endTime && { endTime: formData.endTime }),
       };
-
+      
       // --- Scope Level Logic ---
       if (formData.scopeLevel === "branch") {
         const branchId = formData.branchIds[0];
@@ -536,7 +536,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Collection Name *"
+                label="Collection Name "
                 id="name"
                 name="name"
                 value={formData.name}
@@ -567,7 +567,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Description*"
+                label="Description"
                 id="description"
                 name="description"
                 value={formData.description}
@@ -593,8 +593,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                 }}
                 InputLabelProps={{
                   sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" },
-                }}
-                required
+                }}              
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>

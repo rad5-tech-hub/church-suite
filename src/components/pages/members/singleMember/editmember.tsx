@@ -218,7 +218,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
     setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
     setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
     try {
-      const response = await Api.get(`/church/a-department/${deptId}`);
+      const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
       const units = (response.data.department.units || []).map((unit: Unit) => ({
         ...unit,
         departmentId: deptId,

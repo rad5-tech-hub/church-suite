@@ -21,10 +21,10 @@ const Sidebar: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
 
   const manage = [
-    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
     { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches" },
     { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments" },
     { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units" },
+    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
   ];
 
   const member = [
@@ -44,15 +44,19 @@ const Sidebar: React.FC = () => {
   let filteredManage = manage;
   let filteredMembers = member;
 
-  // 🔹 If not HQ → remove branches
-  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
-    filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
+  // Restrict "View Branches" if the user is NOT HeadQuarter or NOT Branch
+  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
   }
+
+  // Restrict "View Admins" if the user is NOT HeadQuarter
+  // if (authData?.isSuperAdmin === false) {
+  //   filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-admins");
+  // }
 
     // 🔹 If not superadmin → remove branches
   if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/members/view-forms", "/members/view-forms"];
+    const restrictedRoutes = ["/members/view-forms"];
     filteredMembers = filteredMembers.filter((item: any) => !restrictedRoutes.includes(item.to));
   }
 

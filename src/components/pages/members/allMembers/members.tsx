@@ -213,24 +213,26 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   }, [isFetchingDepartments]);
 
   // Fetch Units
-  const fetchUnits = useCallback(async (deptId: string) => {
-    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
-    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
-    setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
-    try {
-      const response = await Api.get(`/church/a-department/${deptId}`);
-      const units = (response.data.department.units || []).map((unit: Unit) => ({
-        ...unit,
-        departmentId: deptId,
-      }));
-      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
-      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
-    } catch (error: any) {
-      setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-    } finally {
-      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
-    }
-  }, [hasFetchedUnits, isFetchingUnits]);
+    const fetchUnits = useCallback(async (deptId: string) => {
+      // require a selected branch before fetching units
+      if (!formData.branchId) return;
+      if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+      setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
+      try {
+        const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
+        const units = (response.data.department?.units || []).map((unit: Unit) => ({
+          ...unit,
+          departmentId: deptId,
+        }));
+        setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+        setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+      } catch (error: any) {
+        setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+      } finally {
+        setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+      }
+    }, [hasFetchedUnits, isFetchingUnits, formData.branchId]);
 
   // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
@@ -372,6 +374,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       const params = new URLSearchParams();
       params.append("churchId", authData?.churchId || "");
       params.append("branchId", formData.branchId);
+      if (authData?.role === 'department') {
+        params.append("departmentId", authData.department || "");
+      };
       await Api.post(`/member/add-member?${params.toString()}`, payload);
       showPageToast("Worker created successfully!", "success");
       setFormData({

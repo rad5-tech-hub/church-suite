@@ -43,6 +43,9 @@ interface Member {
   email?: string;
   profilePicture?: string;
   memberSince?: string;
+  branch: {name: string};
+  departments?: [{name: string}];
+  units?: [{name: string}];
 }
 
 const ViewSingleMember: React.FC = () => {
@@ -418,7 +421,77 @@ const ViewSingleMember: React.FC = () => {
                   </Box>
                 </Grid>
               </Grid> 
-            </Box>           
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Box
+              sx={{
+                mb: 4,
+                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                borderRadius: 2,
+                p: 2,
+              }}
+            >
+              <Typography
+                variant="h6"
+                fontWeight="bold"
+                sx={{ mb: 2, color: "#E1E1E1" }}
+              >
+                Branch / Department - Units Information
+              </Typography>
+
+              <Grid container spacing={4}>
+                {/* Left Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                    <Typography variant="subtitle2">Branch</Typography>
+                    <Typography variant="body1">
+                      {member.branch?.name || "N/A"}
+                    </Typography>
+                  </Box>
+
+                  {member.departments && (
+                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                      <Typography variant="subtitle2">Departments</Typography>
+                      <Typography variant="body1">
+                        {member.departments.length > 0
+                          ? member.departments.map((dept, index) => (
+                              <span key={index}>
+                                {dept.name}
+                                {member.departments && index < member.departments.length - 1 ? ", " : ""}
+                              </span>
+                            ))
+                          : "N/A"}
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+
+                {/* Right Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  {member.units && (
+                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                      <Typography variant="subtitle2">Units</Typography>
+                      <Typography variant="body1">
+                        {(() => {
+                          const units = member.units ?? [];
+                          return units.length > 0
+                            ? units.map((unit, index) => (
+                                <span key={index}>
+                                  {unit.name}
+                                  {index < units.length - 1 ? ", " : ""}
+                                </span>
+                              ))
+                            : "N/A";
+                        })()}
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+              </Grid>
+            </Box>
           </Box>
         </Box>
       </Container>

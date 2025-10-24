@@ -143,7 +143,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         ];
       case "department":
         return [
-          { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
       case "unit ":
@@ -203,7 +202,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     setUnitsError((prev) => ({ ...prev, [deptId]: "" }));
 
     try {
-      const response = await Api.get(`/church/a-department/${deptId}`);
+      const response = await Api.get(`/church/a-department/${deptId}/branch/${authData?.branchId}`);
       const units = (response.data.department.units || []).map((unit: Unit) => ({
         ...unit,
         departmentId: deptId,
@@ -394,8 +393,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
         name: formData.name.trim(),
         title: formData.title.trim(),
         email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
-        isSuperAdmin: formData.isSuperAdmin || undefined,
+        phone: formData.phone.trim(),        
+        // ✅ Only pass isSuperAdmin when scopeLevel is "branch" AND checkbox is checked
+        ...(formData.scopeLevel === "branch" && formData.isSuperAdmin && {
+          isSuperAdmin: true,
+        }),
         scopeLevel: formData.scopeLevel,
         branchIds: formData.branchIds.length > 0 ? formData.branchIds : undefined,
         departmentIds: formData.departmentIds.length > 0 ? formData.departmentIds : undefined,
@@ -436,7 +438,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
           errorMessage = responseData.message;
         }
       }
-
       if (error.response?.status === 400) {
         if (errorMessage.toLowerCase().includes("email")) {
           setErrors((prev) => ({ ...prev, email: "Email address is invalid or already in use" }));
@@ -517,7 +518,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Admin Name *"
+                label="Admin Name"
                 id="name"
                 name="name"
                 value={formData.name}
@@ -548,7 +549,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Position *"
+                label="Position"
                 id="title"
                 name="title"
                 value={formData.title}
@@ -572,14 +573,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
-                }}
-                required
+                }}                
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Admin Email *"
+                label="Admin Email"
                 id="email"
                 name="email"
                 type="email"
@@ -656,7 +656,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   id="scope-level-label"
                   sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
                 >
-                  Scope Level *
+                  Admin Level *
                 </InputLabel>
                 <Select
                   labelId="scope-level-label"
@@ -1009,7 +1009,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                       <Checkbox
                         checked={formData.isSuperAdmin}
                         onChange={handleChange}
-                        name="isSuperAdmin"          
+                        name="isSuperAdmin"
+                        sx={{
+                          color: "#f6f4fe", // Unchecked color
+                          "&.Mui-checked": {
+                            color: "#f6f4fe", // Checked color
+                          },
+                        }}
                       />
                     }
                     label="Is Super Admin?"

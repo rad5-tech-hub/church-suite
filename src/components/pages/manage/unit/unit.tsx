@@ -434,6 +434,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         fullWidth
                         label="Description *"
                         name={`description-${index}`}
+                        multiline
+                        rows={2}
                         value={unit.description}
                         onChange={(e) => handleUnitChange(index, 'description', e.target.value)}
                         variant="outlined"
@@ -511,8 +513,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
           aria-label="Create units"
         >
           {loading ? (
-            <Box display="flex" alignItems="center">
-              <CircularProgress size={18} sx={{ color: '#2C2C2C', mr: 1 }} />
+            <Box display="flex" alignItems="center" color='#777280'>
+              <CircularProgress size={18} sx={{ color: '#777280', mr: 1 }} />
               Creating...
             </Box>
           ) : (

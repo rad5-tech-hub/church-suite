@@ -125,7 +125,6 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
       case "branch":
         return [
           { value: "branch", label: "Branch" },
-          { value: "department", label: "Department" },
           { value: "church", label: "Church" },
         ];
       case "department":
@@ -179,9 +178,11 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
   // ═══════════════════════════════════════════════════════════════════════════════
   const handleScopeLevelChange = useCallback((e: SelectChangeEvent<string>) => {
     const value = e.target.value;
-    setFormData((_prev) => ({
-      ...initialFormData,
+    setFormData((prev) => ({
+      ...prev, // Keep amount, description, type
       scopeLevel: value,
+      branchIds: [],
+      departmentIds: [],
     }));
     setErrors(initialErrors);
     setBranchDepartments({});
@@ -194,8 +195,8 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
   ) => {
     const { name, value } = e.target as any;
     setFormData((prev) => ({
-      ...prev,
-      [name]: name === "amount" ? parseFloat(value.replace(/[^\d]/g, '')) || '' : value,
+      ...prev, // Keep other fields intact
+      [name]: name === "amount" ? parseFloat(value.replace(/[^\d]/g, '')) || 0 : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   }, []);
@@ -331,7 +332,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             fontWeight={300}
             sx={{ color: "#F6F4FE" }}
           >
-            Add Transaction
+            Record Transaction
           </Typography>
           <IconButton onClick={handleCancel}>
             <Close className="text-gray-300" />
@@ -439,7 +440,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
                 <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
-                Level
+                  Transaction For
                 </InputLabel>
                 <Select
                 label="Level"

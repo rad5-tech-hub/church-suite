@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
+import {  IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { FiLogOut } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
@@ -244,7 +244,7 @@ const Header: React.FC<HeaderProps> = () => {
   const handleButtonClick = (label: string) => {
     if (label === "Manage") {
       if (authData?.role === "branch") {
-        navigate("/manage/view-admins");
+        navigate("/manage/view-branches");
       } else if (authData?.role === "department") {
         navigate("/manage/view-departments");
       } else if (authData?.role === "unit") {
@@ -320,12 +320,12 @@ const Header: React.FC<HeaderProps> = () => {
       </div>
 
       <div className="flex items-center gap-6">
-        <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
+        {/* <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
           <IoNotificationsOutline className="text-2xl" />
-          {/* <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
             3
-          </span> */}
-        </button>
+          </span>
+        </button> */}
 
         <div className="relative">
           <div

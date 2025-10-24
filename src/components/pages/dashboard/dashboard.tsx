@@ -35,22 +35,63 @@ import {
 } from "@mui/material";
 import {
   TrendingUp,
-  TrendingDown,  
+  TrendingDown,
   CalendarToday as CalendarIcon,
   EventNote as ProgramIcon,
   People,
 } from "@mui/icons-material";
 import moment from "moment";
 import Api from "../../shared/api/api";
-import { TbArrowBearRight2, TbArrowFork } from "react-icons/tb";
+import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { MdOutlineHub } from "react-icons/md";
 import { FaPeopleCarry } from "react-icons/fa";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { CiMoneyBill } from "react-icons/ci";
 import { IoCalendarOutline, IoPersonAddOutline } from "react-icons/io5";
 
+// Define API response type to match the department response
+interface ApiResponse {
+  followUps?: {
+    weekly: {
+      thisWeek: number;
+      lastWeek: number;
+      change: number;
+    };
+    monthly: {
+      thisMonth: number;
+      lastMonth: number;
+      change: number;
+    };
+  };
+  collections?: {
+    weekly: number;
+    lastWeek: number;
+    weeklyChange: number;
+    monthly: number;
+    lastMonth: number;
+    monthlyChange: number;
+  };
+  structure: {
+    totalBranches?: number;
+    totalDepartments: number;
+    totalUnits: number;
+    totalWorkers: number;
+  };
+  upcomingPrograms: Array<{
+    date: string;
+    startTime: string;
+    endTime: string;
+    event: {
+      id: string;
+      title: string;
+      branchId: string;
+    };
+  }>;
+  scope: string;
+}
+
 interface DashboardData {
-  followUps: {
+  followUps?: {
     weekly: {
       thisWeek: number;
       lastWeek: number;
@@ -75,7 +116,7 @@ interface DashboardData {
     };
   };
   structure: {
-    totalBranches: number;
+    totalBranches?: number;
     totalDepartments: number;
     totalUnits: number;
     totalWorkers: number;
@@ -104,7 +145,7 @@ interface StatCardProps {
 const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon, color = "#F6F4FE" }) => {
   const theme = useTheme();
   const isPositive = change === undefined || change >= 0;
-  
+
   return (
     <Card
       sx={{
@@ -174,7 +215,7 @@ const QuickActionButton: React.FC<{ title: string; icon: React.ReactNode; onClic
       border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: "12px",
       py: 2,
-      color: "#F6F4FE",      
+      color: "#F6F4FE",
       textTransform: "none",
       fontWeight: "medium",
       justifyContent: "flex-center",
@@ -228,27 +269,67 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"weekly" | "monthly">("monthly");
   const navigate = useNavigate();
+
   const fetchDashboardData = useCallback(async () => {
-    if (!authData?.branchId) return;
-    
+    if (!authData?.branchId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       let params = new URLSearchParams();
-      
-      // Branch always comes first
       params.append("branchId", authData.branchId);
-      
-      // Add departmentId if role = department
+
       if (authData?.role === "department") {
         if (!authData.department) throw new Error("No department found");
         params.append("departmentId", authData.department);
       }
 
+      // if (authData?.role === "unit") {
+      //   if (!authData.unit) throw new Error("No unit found");
+      //   params.append("unitId", authData.unit);
+      // }
+
       const url = `/member/get-dashboard?${params.toString()}`;
-      const response = await Api.get<DashboardData>(url);
-      setData(response.data);
+      const response = await Api.get<ApiResponse>(url);
+
+      // Defensive mapping with fallback values
+      const collections = response.data.collections || {
+        weekly: 0,
+        lastWeek: 0,
+        weeklyChange: 0,
+        monthly: 0,
+        lastMonth: 0,
+        monthlyChange: 0,
+      };
+
+      setData({
+        followUps: response.data.followUps,
+        collections: {
+          weekly: {
+            thisWeek: collections.weekly ?? 0,
+            lastWeek: collections.lastWeek ?? 0,
+            change: collections.weeklyChange ?? 0,
+          },
+          monthly: {
+            thisMonth: collections.monthly ?? 0,
+            lastMonth: collections.lastMonth ?? 0,
+            change: collections.monthlyChange ?? 0,
+          },
+        },
+        structure: response.data.structure || {
+          totalBranches: 0,
+          totalDepartments: 0,
+          totalUnits: 0,
+          totalWorkers: 0,
+        },
+        upcomingPrograms: response.data.upcomingPrograms || [],
+        scope: response.data.scope || authData.role || "branch",
+      });
     } catch (error) {
       console.error("Dashboard fetch error:", error);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -257,6 +338,8 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (authData?.branchId) {
       fetchDashboardData();
+    } else {
+      setLoading(false);
     }
   }, [fetchDashboardData]);
 
@@ -266,41 +349,69 @@ const Dashboard: React.FC = () => {
 
   const handleQuickAction = (action: string) => {
     navigate(action);
-    // Implement navigation logic here
   };
 
-  if (loading) {
+  const defaultDashboardData: DashboardData = {
+    collections: {
+      weekly: { thisWeek: 0, lastWeek: 0, change: 0 },
+      monthly: { thisMonth: 0, lastMonth: 0, change: 0 },
+    },
+    structure: {
+      totalBranches: 0,
+      totalDepartments: 0,
+      totalUnits: 0,
+      totalWorkers: 0,
+    },
+    upcomingPrograms: [],
+    scope: authData?.role || "branch",
+  };
+
+  const dashboardData: DashboardData = data || defaultDashboardData;
+
+  const isBranch = authData?.role === "branch";
+  const isHOD = authData?.role === "department";
+  const isUnit = authData?.role === "unit";
+
+  const collectionsTitle = isHOD ? "Department Collections" : isUnit ? "Unit Collections" : "Church Collections";
+
+  const followUpsTitle = view === "monthly" ? "This Month Newcomers" : "This Week Newcomers";
+  const followUpsValue = dashboardData.followUps
+    ? view === "monthly"
+      ? dashboardData.followUps.monthly.thisMonth
+      : dashboardData.followUps.weekly.thisWeek
+    : 0;
+  const followUpsChange = dashboardData.followUps
+    ? view === "monthly"
+      ? dashboardData.followUps.monthly.change
+      : dashboardData.followUps.weekly.change
+    : 0;
+  const collectionsData = view === "monthly"
+    ? [
+        { period: "This Month", amount: dashboardData.collections.monthly.thisMonth },
+        { period: "Last Month", amount: dashboardData.collections.monthly.lastMonth },
+      ]
+    : [
+        { period: "This Week", amount: dashboardData.collections.weekly.thisWeek },
+        { period: "Last Week", amount: dashboardData.collections.weekly.lastWeek },
+      ];
+  const collectionsValue = view === "monthly"
+    ? dashboardData.collections.monthly.thisMonth
+    : dashboardData.collections.weekly.thisWeek;
+  const collectionsChange = view === "monthly"
+    ? dashboardData.collections.monthly.change
+    : dashboardData.collections.weekly.change;
+
+  if (loading || !authData) {
     return (
       <DashboardManager>
         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         </Box>
       </DashboardManager>
     );
   }
-
-  const dashboardData = data || {
-    followUps: { weekly: { thisWeek: 0, lastWeek: 0, change: 0 }, monthly: { thisMonth: 0, lastMonth: 0, change: 0 } },
-    collections: { weekly: { thisWeek: 0, lastWeek: 0, change: 0 }, monthly: { thisMonth: 0, lastMonth: 0, change: 0 } },
-    structure: { totalBranches: 0, totalDepartments: 0, totalUnits: 0, totalWorkers: 0 },
-    upcomingPrograms: [],
-    scope: "branch",
-  };
-
-  const isHOD = authData?.role === "department";
-  const collectionsTitle = isHOD ? "Department Collections" : "Church Collections";
-
-  // Determine data based on view
-  const followUpsTitle = view === "monthly" ? "This Month Newcomers" : "This Week Newcomers";
-  const followUpsValue = view === "monthly" ? dashboardData.followUps.monthly.thisMonth : dashboardData.followUps.weekly.thisWeek;
-  const followUpsChange = view === "monthly" ? dashboardData.followUps.monthly.change : dashboardData.followUps.weekly.change;
-  const collectionsData = view === "monthly" ? 
-    [{ period: "This Month", amount: dashboardData.collections.monthly.thisMonth }, { period: "Last Month", amount: dashboardData.collections.monthly.lastMonth }] :
-    [{ period: "This Week", amount: dashboardData.collections.weekly.thisWeek }, { period: "Last Week", amount: dashboardData.collections.weekly.lastWeek }];
-  const collectionsValue = view === "monthly" ? dashboardData.collections.monthly.thisMonth : dashboardData.collections.weekly.thisWeek;
-  const collectionsChange = view === "monthly" ? dashboardData.collections.monthly.change : dashboardData.collections.weekly.change;
 
   return (
     <DashboardManager>
@@ -318,50 +429,108 @@ const Dashboard: React.FC = () => {
         </Box>
 
         {/* KPI Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Total Branches"
-              value={dashboardData.structure.totalBranches}
-              icon={<TbArrowFork className="text-[24px] font-black text-[#F6F4FE]"/>}
-              color="#2196F3"
-            />
+        {isBranch && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            {dashboardData.structure.totalBranches !== undefined && (
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <StatCard
+                  title="Total Branches"
+                  value={dashboardData.structure.totalBranches}
+                  icon={<TbArrowFork className="text-[24px] font-black text-[#F6F4FE]" />}
+                  color="#2196F3"
+                />
+              </Grid>
+            )}
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <StatCard
+                title="Total Departments"
+                value={dashboardData.structure.totalDepartments}
+                icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#FF9800"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <StatCard
+                title="Total Units"
+                value={dashboardData.structure.totalUnits}
+                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#607D8B"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <StatCard
+                title="Total Workers"
+                value={dashboardData.structure.totalWorkers}
+                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#9C27B0"
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Total Departments"
-              value={dashboardData.structure.totalDepartments}
-              icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]"/>}
-              color="#FF9800"
-            />
+        )}
+
+        {isHOD && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Total Departments"
+                value={dashboardData.structure.totalDepartments}
+                icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#FF9800"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Total Units"
+                value={dashboardData.structure.totalUnits}
+                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#607D8B"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <StatCard
+                title="Total Workers"
+                value={dashboardData.structure.totalWorkers}
+                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#9C27B0"
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Total Units"
-              value={dashboardData.structure.totalUnits}
-              icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
-              color="#607D8B"
-            />
+        )}
+
+        {isUnit && (
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+              <StatCard
+                title="Total Units"
+                value={dashboardData.structure.totalUnits}
+                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#607D8B"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+              <StatCard
+                title="Total Workers"
+                value={dashboardData.structure.totalWorkers}
+                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#9C27B0"
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Total Workers"
-              value={dashboardData.structure.totalWorkers}
-              icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
-              color="#9C27B0"
-            />
-          </Grid>
-        </Grid>
+        )}
 
         {/* Secondary Metrics */}
-        <Grid container spacing={3} sx={{ mb: 4,
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "16px",
-          p: 3,
-        }}>
-          {/* View Selector - Full Row */}
-          <Grid size={{xs: 12}} >
+        <Grid
+          container
+          spacing={3}
+          sx={{
+            mb: 4,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "16px",
+            p: 3,
+          }}
+        >
+          <Grid size={{ xs: 12 }}>
             <Box
               sx={{
                 display: "flex",
@@ -395,18 +564,19 @@ const Dashboard: React.FC = () => {
             </Box>
           </Grid>
 
-          {/* Stat Cards */}
-          <Grid size={{ xs:12, sm:6, md:6}}>
-            <StatCard
-              title={followUpsTitle}
-              value={followUpsValue}
-              change={followUpsChange}
-              icon={<FaPeopleGroup className="text-[24px] font-black text-[#F6F4FE]" />}
-              color="#00BCD4"
-            />
-          </Grid>
+          {isBranch && dashboardData.followUps && (
+            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+              <StatCard
+                title={followUpsTitle}
+                value={followUpsValue}
+                change={followUpsChange}
+                icon={<FaPeopleGroup className="text-[24px] font-black text-[#F6F4FE]" />}
+                color="#00BCD4"
+              />
+            </Grid>
+          )}
 
-          <Grid size={{ xs:12, sm:6, md:6}}>
+          <Grid size={{ xs: 12, sm: 6, md: 6 }}>
             <StatCard
               title={collectionsTitle}
               value={`₦${collectionsValue.toLocaleString()}`}
@@ -417,7 +587,6 @@ const Dashboard: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Collections Progression */}
         <Grid size={{ xs: 12 }}>
           <Paper
             sx={{
@@ -435,12 +604,12 @@ const Dashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                 <XAxis dataKey="period" stroke="#F6F4FE" />
                 <YAxis stroke="#F6F4FE" />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [`₦${value.toLocaleString()}`, "Amount"]}
-                  contentStyle={{ 
-                    background: "rgba(0,0,0,0.8)", 
+                  contentStyle={{
+                    background: "rgba(0,0,0,0.8)",
                     border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#F6F4FE"
+                    color: "#F6F4FE",
                   }}
                 />
                 <Bar dataKey="amount" fill="#795548" radius={[4, 4, 0, 0]} />
@@ -449,57 +618,57 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Quick Actions & Upcoming Events */}
         <Grid container spacing={3} sx={{ mt: 3 }}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Paper
-              sx={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "16px",
-                p: 3,
-                height: 400,
-                overflow: "auto",
-              }}
-            >
-              <Typography variant="h6" sx={{ color: "#F6F4FE", mb: 3, fontWeight: "bold" }}>
-                Quick Actions
-              </Typography>
-              
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }} sx={{textAlign: 'center'}}>
-                  <QuickActionButton
-                    title="Admins"
-                    icon={<People/>}
-                    onClick={() => handleQuickAction("/manage/view-admins")}
-                  />
+          {isBranch && (
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Paper
+                sx={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "16px",
+                  p: 3,
+                  height: 400,
+                  overflow: "auto",
+                }}
+              >
+                <Typography variant="h6" sx={{ color: "#F6F4FE", mb: 3, fontWeight: "bold" }}>
+                  Quick Actions
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }} sx={{ textAlign: "center" }}>
+                    <QuickActionButton
+                      title="Admins"
+                      icon={<People />}
+                      onClick={() => handleQuickAction("/manage/view-admins")}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <QuickActionButton
+                      title="Manage Programs"
+                      icon={<IoCalendarOutline />}
+                      onClick={() => handleQuickAction("/programs")}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <QuickActionButton
+                      title="Workers"
+                      icon={<FaPeopleCarry />}
+                      onClick={() => handleQuickAction("/members/view-workers")}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <QuickActionButton
+                      title="Newcomers"
+                      icon={<IoPersonAddOutline />}
+                      onClick={() => handleQuickAction("/members/view-followup")}
+                    />
+                  </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <QuickActionButton
-                    title="Manage Programs"
-                    icon={<IoCalendarOutline />}
-                    onClick={() => handleQuickAction('/programs')}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <QuickActionButton
-                    title="Workers"
-                    icon={<FaPeopleCarry/>}
-                    onClick={() => handleQuickAction('/members/view-workers')}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <QuickActionButton
-                    title="Newcomers"
-                    icon={<IoPersonAddOutline />}
-                    onClick={() => handleQuickAction('/members/view-followup')}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
+              </Paper>
+            </Grid>
+          )}
 
-          <Grid size={{ xs: 12, md: 4 }}>
+          <Grid size={{ xs: 12, md: isBranch ? 4 : 12 }}>
             <Paper
               sx={{
                 background: "rgba(255,255,255,0.06)",
@@ -515,7 +684,6 @@ const Dashboard: React.FC = () => {
                   Upcoming Events
                 </Typography>
               </Box>
-              
               <List sx={{ maxHeight: 300, overflow: "auto" }}>
                 {dashboardData.upcomingPrograms.length > 0 ? (
                   dashboardData.upcomingPrograms.slice(0, 5).map((program) => (

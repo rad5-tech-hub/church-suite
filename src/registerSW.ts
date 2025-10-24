@@ -12,7 +12,6 @@ const updateSW = registerSW({
 
   // Called when the app is ready to work offline
   onOfflineReady() {
-    console.log('ChurchSuite is now ready to work offline.');
   },
 
   // Called when the service worker is successfully registered

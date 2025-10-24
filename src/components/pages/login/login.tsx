@@ -5,6 +5,10 @@ import { store } from "../../reduxstore/redux";
 import { clearChurchData } from "../../reduxstore/datamanager";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useDispatch } from "react-redux";
+import { persistor } from '../../reduxstore/redux';
+import { setAuthData } from '../../reduxstore/authstore';
+import { jwtDecode } from "jwt-decode";
 
 // Interfaces
 interface LoginFormProps {}
@@ -22,9 +26,34 @@ interface ApiError {
   stack?: string;
 }
 
+interface AuthPayload {
+  backgroundImg: string;
+  branchId: string;
+  branches: string[];
+  churchId: string;
+  church_name: string;
+  email: string;
+  role: string;
+  exp: number;
+  iat: number;
+  id: string;
+  isHeadQuarter: boolean;
+  isSuperAdmin: boolean;
+  logo: string;
+  name: string;
+  tenantId: string;
+  token: string;
+  department: string;
+}
+
+
+// const CODE_LENGTH = 6;
+const PERSIST_DELAY = 100;
+
 // Main Component
 const Login: React.FC<LoginFormProps> = () => {
   const navigate = useNavigate();
+    const dispatch = useDispatch();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginData>({
     email: "",
@@ -80,12 +109,37 @@ const Login: React.FC<LoginFormProps> = () => {
         const apiError = data as ApiError;
         throw new Error(apiError.error?.message || "Login failed");
       }
+      const decodedToken = jwtDecode(data.accessToken) as any;
 
-      // Store email in session storage for verification
-      sessionStorage.setItem('email', formData.email);
+      const authPayload: AuthPayload = {
+        backgroundImg: decodedToken.backgroundImg || "",
+        role: decodedToken.role || "",
+        branchId: Array.isArray(decodedToken.branchIds)
+          ? decodedToken.branchIds[0] || "" 
+          : decodedToken.branchIds || "", 
+        branches: Array.isArray(decodedToken.branchIds) 
+          ? decodedToken.branchIds
+          : [decodedToken.branchIds || ""], // ✅ ensure array
+        churchId: decodedToken.churchId || "",
+        church_name: decodedToken.church_name || "",
+        email: decodedToken.email || "",
+        exp: decodedToken.exp || 0,
+        iat: decodedToken.iat || 0,
+        id: decodedToken.id || "",
+        isHeadQuarter: decodedToken.isHeadQuarter || false,
+        isSuperAdmin: decodedToken.isSuperAdmin || false,
+        logo: decodedToken.logo || "",
+        name: decodedToken.name || "",
+        tenantId: decodedToken.tenantId || "",
+        token: data.accessToken || "",
+        department: decodedToken?.department || ''
+      };
+
+      dispatch(setAuthData(authPayload));
+      await new Promise(resolve => setTimeout(resolve, PERSIST_DELAY));
       
       // Show success toast
-      toast.success('Login successful! Redirecting to verification...', {
+      toast.success('Login successful! Redirecting to Dashboard...', {
         position: "top-center",
         autoClose: 3000,
         hideProgressBar: false,
@@ -97,7 +151,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
       // Navigate to verify-email after a short delay
       setTimeout(() => {
-        navigate('/verify-email');
+        navigate('/dashboard');
       }, 2000);
 
       // Clear form
@@ -106,9 +160,11 @@ const Login: React.FC<LoginFormProps> = () => {
         password: "",
       });
           
+      persistor.flush().then(() => navigate("/dashboard"));
+            
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Login failed. Please try again.";
+        err instanceof Error ? err.message : "Login failed. Please try again.";    
       toast.error(errorMessage, {
         position: "top-center",
         autoClose: 5000,
@@ -118,6 +174,16 @@ const Login: React.FC<LoginFormProps> = () => {
         draggable: true,
         progress: undefined,
       });
+      setTimeout(() => {
+        if (
+          errorMessage.toLowerCase().includes("verify your email") ||
+          errorMessage.toLowerCase().includes("please verify your email")
+        ) {          
+          // Store email in session storage for verification
+          sessionStorage.setItem('email', formData.email);
+          navigate("/verify-email");
+        }
+      }, 1200);
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +195,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}church/forgot-password`,
+        `${import.meta.env.VITE_API_BASE_URL}/church/forgot-password`,
         {
           method: "POST",
           headers: {
@@ -181,7 +247,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
   return (
     <div className="bg-[#F6F4FE] min-h-screen ">
-      {/* SVG Pattern at the top */}
+      {/* SVG Pattern at the top */} 
       <div className="w-full h-[300px]"      
           style={{
             background: `
@@ -192,7 +258,7 @@ const Login: React.FC<LoginFormProps> = () => {
               #120B1B
             `,
           }}
-        >
+        >   
         <div className="w-full relative overflow-hidden" style={{ height: '450px', flexShrink: 0 }}> 
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -208,16 +274,22 @@ const Login: React.FC<LoginFormProps> = () => {
               d="M0 0H1440V306L0 450V0Z" 
               fill="#120B1B"
             />
-          </svg>    
+          </svg>   
         </div>
       </div>
 
-      {/* Login Form Container */}
-      <div className="max-w-md mx-auto px-4 -mt-45 relative z-10">
+      {/* Login Form Container */}      
+      <div className="max-w-md mx-auto px-4 -mt-55 relative z-10">
+        <div className="text-center mb-5">
+          <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+        </div>
         <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
           {/* Forgot Password Modal */}
           {showForgotPasswordModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center z-50">
+              <div className="text-center mb-5">
+                <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+              </div>
               <div className="bg-gray p-6 rounded-lg bg-gray-200 w-full max-w-md mx-4 shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-bold text-gray-800">Reset Password</h3>

@@ -383,10 +383,20 @@ const ViewAdmins: React.FC = () => {
 
   // Initial Data Load
   const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
-    const baseUrl = authData?.branchId
-      ? `/church/view-admins?branchId=${authData.branchId}`
-      : "/church/view-admins";
-    const response = await Api.get(url || baseUrl);
+    const baseUrl = "/church/view-admins";
+
+    // Initialize search params
+    const params = new URLSearchParams();
+
+    if (authData?.branchId) {
+      params.append("branchId", authData.branchId);
+    }
+
+    if (authData?.department) {
+      params.append("departmentId", authData.department);
+    }
+    const fullUrl = url ? url : `${baseUrl}?${params.toString()}`;
+    const response = await Api.get(url || fullUrl);
     return response.data;
   }, [authData?.branchId]);
 
@@ -596,8 +606,7 @@ const ViewAdmins: React.FC = () => {
       });
       handleStateChange("currentPage", 1);
       handleStateChange("pageHistory", []);
-    } catch (error) {
-      console.error("Error refreshing admins:", error);
+    } catch (error) {  
       handleStateChange("error", "Failed to refresh admins");
       showPageToast("Failed to refresh admins", 'error');
     } finally {
@@ -1009,7 +1018,7 @@ const ViewAdmins: React.FC = () => {
         }}
       >
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1025,7 +1034,7 @@ const ViewAdmins: React.FC = () => {
                 variant="standard"
                 sx={{
                   "& .MuiInputBase-input": {
-                    color: state.searchTerm ? "#F6F4FE" : "#777280",
+                    color: state.searchTerm ? "#F6F4FE" : "#A4A1AA",
                     fontWeight: 500,
                     fontSize: "14px",
                     padding: "4px 8px",
@@ -1045,7 +1054,7 @@ const ViewAdmins: React.FC = () => {
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
               Access Level
             </Typography>
             {state.isSearching && (
@@ -1086,7 +1095,7 @@ const ViewAdmins: React.FC = () => {
           <>
             <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
                   Branch
                 </Typography>
                 {loadingStates.branches && (
@@ -1143,7 +1152,7 @@ const ViewAdmins: React.FC = () => {
           <>
             <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
                   Department
                 </Typography>
                 {loadingStates.departments && (
@@ -1199,7 +1208,7 @@ const ViewAdmins: React.FC = () => {
           <>
             <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
                   Unit
                 </Typography>
                 {loadingStates.units && (
@@ -1248,7 +1257,7 @@ const ViewAdmins: React.FC = () => {
         )}
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "140px", padding: "4px 8px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px" }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
               Super Admin?
             </Typography>
             {state.isSearching && (
@@ -1270,11 +1279,14 @@ const ViewAdmins: React.FC = () => {
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
             }}
-            renderValue={(selected) => selected ? selected === "true" ? "True" : "False" : "Select Option"}
+            renderValue={(selected) => {
+              if (selected === "") return "Select Option";
+              return selected === "true" ? "Yes" : "No"; // ✅ Fix here
+            }}
           >
             <MenuItem value="">None</MenuItem>
-            <MenuItem value="true">True</MenuItem>
-            <MenuItem value="false">False</MenuItem>
+            <MenuItem value="true">Yes</MenuItem>
+            <MenuItem value="false">No</MenuItem>
           </MuiSelect>
         </Box>
         <Box sx={{ ml: "auto", pr: "8px" }}>
@@ -1347,7 +1359,7 @@ const ViewAdmins: React.FC = () => {
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 12, lg: 12 }}>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
               variant={isMobile ? "h5" : "h5"}
               component="h4"
@@ -1364,6 +1376,28 @@ const ViewAdmins: React.FC = () => {
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
               <span className="text-[#F6F4FE]">Admins</span>
             </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+            <Button
+              variant="contained"
+              onClick={() => handleStateChange("openModal", true)}
+              size="medium"
+              sx={{
+                backgroundColor: "#363740",
+                px: { xs: 2, sm: 2, md: 4 },
+                py: {xs: 1, sm: 1, md: 1.5},
+                borderRadius: 50,
+                color: "#F6F4FE",
+                fontWeight: 600,
+                textTransform: "none",
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
+                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+              }}
+            >
+              Create Admin +
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: 2 }}>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <>
@@ -1476,26 +1510,6 @@ const ViewAdmins: React.FC = () => {
               )}
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-            <Button
-              variant="contained"
-              onClick={() => handleStateChange("openModal", true)}
-              size="medium"
-              sx={{
-                backgroundColor: "#363740",
-                px: { xs: 2, sm: 2 },
-                py: 1,
-                borderRadius: 50,
-                color: "#F6F4FE",
-                fontWeight: 500,
-                textTransform: "none",
-                fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
-              }}
-            >
-              Create Admin +
-            </Button>
-          </Grid>
         </Grid>
 
         {state.searchError && (
@@ -1544,12 +1558,10 @@ const ViewAdmins: React.FC = () => {
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
                     Super Admin
-                  </TableCell>
-                  {authData?.isSuperAdmin && (
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
-                      Actions
-                    </TableCell>
-                  )}
+                  </TableCell>                  
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                    Actions
+                  </TableCell>                  
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1596,24 +1608,22 @@ const ViewAdmins: React.FC = () => {
                     </TableCell>
                     <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.isSuperAdmin ? "Yes" : "No"}
-                    </TableCell>
-                    {authData?.isSuperAdmin && (
-                      <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, borderTopRightRadius: "8px", borderBottomRightRadius: "8px" }}>
-                        { admin.scopeLevel !== 'branch' && <IconButton
-                          aria-label="more"
-                          onClick={(e) => handleMenuOpen(e, admin)}
-                          disabled={state.loading}
-                          size="small"
-                          sx={{
-                            borderRadius: 1,
-                            bgcolor: "#E1E1E1",
-                            "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
-                          }}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>}
-                      </TableCell>
-                    )}
+                    </TableCell>               
+                    <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, borderTopRightRadius: "8px", borderBottomRightRadius: "8px" }}>
+                      {!admin.isSuperAdmin && <IconButton
+                        aria-label="more"
+                        onClick={(e) => handleMenuOpen(e, admin)}
+                        disabled={state.loading}
+                        size="small"
+                        sx={{
+                          borderRadius: 1,
+                          bgcolor: "#E1E1E1",
+                          "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
+                        }}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>}
+                    </TableCell>    
                   </TableRow>
                 ))}
               </TableBody>

@@ -585,10 +585,10 @@ const fetchBranches = useCallback(
         justifyContent: "center",
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
+        color="rgba(255, 255, 255, 0.5)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
@@ -674,7 +674,7 @@ const fetchBranches = useCallback(
                 <Box sx={{ display: "flex", flex: 1, flexDirection: "column", padding: "4px 16px", minWidth: 180 }}>
                   <Typography
                     variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}
                   >
                     Name?
                   </Typography>

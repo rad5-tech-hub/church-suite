@@ -323,6 +323,9 @@ const submitChurchData = async (formData: FormData) => {
       {/* Main Content */}
       {!showCongratsDialog && (       
         <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+        <div className="text-center mb-5">
+          <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+        </div>
           <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
             <div className="text-center mb-5">
               <p className="mb-2 text-gray-600 text-end">Step 3 of 3</p>

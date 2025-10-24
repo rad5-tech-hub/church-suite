@@ -182,14 +182,14 @@ const EmptyState: React.FC<{
       justifyContent: "center",
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
     <Typography
       variant="h6"
-      color="rgba(255, 255, 255, 0.1)"
+      color="rgba(255, 255, 255, 0.5)"
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      {searchTerm ? "No units found matching your search" : "No units available"}
+      {searchTerm ? "No units found matching your search" : "No units Found"}
     </Typography>
     {error && (
       <Typography color="error" sx={{ mb: 2 }}>
@@ -821,7 +821,7 @@ const ViewUnit: React.FC = () => {
               }}
             >
               <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Name
                 </Typography>
                 <Autocomplete
@@ -864,7 +864,7 @@ const ViewUnit: React.FC = () => {
               {!isMobile && (
                 <>
                   <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                       Branch
                     </Typography>
                     <FormControl fullWidth>
@@ -899,7 +899,7 @@ const ViewUnit: React.FC = () => {
                   </Box>
                   <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
                   <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+                    <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                       Department
                     </Typography>
                     <Select

@@ -26,12 +26,11 @@ import {
   Close,
 } from "@mui/icons-material";
 import { MdOutlineEdit } from "react-icons/md";
-import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
-// import { useSelector } from "react-redux";
-// import { RootState } from "../../../reduxstore/redux";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import CreateCollection from "./createCollections";
 import { FaBoxTissue } from "react-icons/fa";
 
@@ -185,7 +184,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 };
 
 const ViewCollections: React.FC = () => {
-  // const authData = useSelector((state: RootState) => state?.auth?.authData);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
   usePageToast('view-branch');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -200,35 +199,45 @@ const ViewCollections: React.FC = () => {
     []
   );
 
-const fetchCollections = useCallback(
-  async (url: string | null = "/church/get-collection-attributes") => {
-    handleStateChange("loading", true);
-    handleStateChange("error", null);
-    try {
-      let response;
-      
-      if (url) {
-        response = await Api.get<FetchCollectionsResponse>(url);
-      } else {
-        response = await Api.get<FetchCollectionsResponse>("/church/get-collection-attributes");
+  const fetchCollections = useCallback(
+    async (url?: string) => {
+      handleStateChange("loading", true);
+      handleStateChange("error", null);
+
+      try {
+        let finalUrl = url || "/church/get-collection-attributes";
+
+        // ✅ If role is "department", use new route with params
+        if (authData?.role === "department") {
+          const params = new URLSearchParams();
+          
+          if (authData?.department) params.append("departmentId", authData.department);
+
+          finalUrl = `/church/get-all-collections/${authData.branchId}?${params.toString()}`;
+        }
+
+        const response = await Api.get<FetchCollectionsResponse>(finalUrl);
+        const data = response.data;
+
+        if (!data?.collections) {
+          throw new Error("Invalid response structure");
+        }
+
+        return data;
+      } catch (error: any) {
+        console.error("Failed to fetch Collections:", error?.response?.data?.error?.message);
+        const errorMessage = error?.response?.data?.error?.message || "Failed to load collections";
+
+        handleStateChange("error", `${errorMessage}, Please try again later.`);
+        showPageToast(errorMessage, "error");
+        throw error;
+      } finally {
+        handleStateChange("loading", false);
       }
-      
-      const data = response.data;
-      
-      if (!data?.collections) {
-        throw new Error("Invalid response structure");
-      }
-      return data;
-    } catch (error) {
-      console.error("Failed to fetch branches:", error);
-      handleStateChange("error", "Failed to load branches. Please try again later.");
-      handleStateChange("loading", false);
-      showPageToast("Failed to load branches", 'error');
-      throw error;
-    }
-  },
-  [handleStateChange]
-);
+    },
+    [authData?.role, authData?.branchId, authData?.department, handleStateChange]
+  );
+
 
   const refreshCollections = useCallback(async () => {
     try {
@@ -425,16 +434,16 @@ const fetchCollections = useCallback(
         justifyContent: "center",
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <FaBoxTissue size={60} color="rgba(255, 255, 255, 0.5)" style={{ marginBottom: 16 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
+        color="rgba(255, 255, 255, 0.5)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
         }}
       >
-        No branches found
+        No Collection found
       </Typography>
       {state.error ? (
         <Typography color="error" sx={{ mb: 2 }}>
@@ -455,9 +464,9 @@ const fetchCollections = useCallback(
             opacity: 0.9,
           },
         }}
-        aria-label="Create new branch"
+        aria-label="Create new Collection"
       >
-        Create New Branch
+        Create New Collection
       </Button>
     </Box>
   );
@@ -599,15 +608,30 @@ const fetchCollections = useCallback(
                         >
                           {collection.name}
                         </Typography>
+                      </Box>
+                      <Box mt={2}>
                         {collection.description && (
-                          <Typography
-                           variant="body2"
-                            sx={{                             
-                              color:  "#777280",
-                            }}
-                          >
-                            {collection.description}
-                          </Typography>
+                          <Box mb={1}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: "#777280",
+                                width: "100%",
+                                display: "-webkit-box",
+                                WebkitBoxOrient: "vertical",
+                                WebkitLineClamp: 2,
+                                overflow: "hidden",
+                                lineHeight: 1.4,
+                                wordBreak: "break-word",        // ✅ Forces word breaking
+                                overflowWrap: "break-word",     // ✅ Modern word breaking
+                                hyphens: "auto",                // ✅ Adds hyphens for long words
+                                textOverflow: "ellipsis",       // ✅ Fallback for ellipsis
+                              }}
+                              title={collection.description}
+                            >
+                              {collection.description}
+                            </Typography>
+                          </Box>
                         )}
                       </Box>
                     </CardContent>

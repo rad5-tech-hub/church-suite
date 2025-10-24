@@ -137,7 +137,6 @@ const fetchCollections = async (
   setFetchCollectionsError: React.Dispatch<React.SetStateAction<string | null>>,
   setFormData: React.Dispatch<React.SetStateAction<ServiceFormData>>,
   branchId?: string,
-  churchId?: string
 ) => {
   if (!branchId) {
     setCollections([]);
@@ -151,7 +150,7 @@ const fetchCollections = async (
     setFetchCollectionsError(null);
 
     // ✅ Fetch collections
-    const response = await Api.get(`/church/get-all-collections/${branchId}?churchId=${churchId}`);
+    const response = await Api.get(`/church/get-all-collections/${branchId}`);
 
     // ✅ Response now returns: response.data.collections = [ { id, name, ... } ]
     const rawCollections = response.data.collections || [];
@@ -305,7 +304,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       const fetchInitialData = async () => {
         await Promise.all([
           fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError),
-          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, authData?.branchId || "", authData?.churchId || ""),
+          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, authData?.branchId || ""),
           fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, authData?.branchId || ""),
           isEdit && eventId ? fetchEventData() : Promise.resolve(),
         ]);
@@ -317,7 +316,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   useEffect(() => {
     if (open && formData.branchId) {
       fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, formData.branchId);
-      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, formData.branchId, authData?.churchId || "");
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, formData.branchId);
     }
   }, [open, formData.branchId]);
 
@@ -1508,8 +1507,12 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
     } ${daysOfWeek[weekday]?.label ?? weekday} of each month`;
     return (
       <Dialog
-        open={monthlyModalOpen}
-        onClose={() => setMonthlyModalOpen(false)}
+        open={monthlyModalOpen}       
+        onClose={(_, reason) => {
+          if (reason !== "backdropClick") {
+            setMonthlyModalOpen(false)
+          }
+        }}
         sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
       >
         <DialogTitle color="#F6F4FE">Choose Monthly Recurrence</DialogTitle>
@@ -1527,13 +1530,13 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             <FormControlLabel
               value="byDate"
               sx={{ color: "#F6F4FE" }}
-              control={<Radio color="default" />}
+              control={<Radio sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
               label={byDateLabel}
             />
             <FormControlLabel
               value="byWeek"
               sx={{ color: "#F6F4FE" }}
-              control={<Radio color="default" />}
+              control={<Radio  sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
               label={byWeekLabel}
             />
           </RadioGroup>
@@ -1647,8 +1650,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     setFetchingCollections,
                     setFetchCollectionsError,
                     setFormData,
-                    formData.branchId || authData?.branchId,
-                    authData?.churchId || "",
+                    formData.branchId || authData?.branchId,                    
                   );
                 }}
               >
@@ -1910,9 +1912,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   return (
     <Dialog
       open={open}
-      onClose={() => {
-        resetForm();
-        onClose();
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          resetForm();
+          onClose();
+        }
       }}
       fullWidth
       maxWidth="md"

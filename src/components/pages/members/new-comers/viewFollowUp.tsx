@@ -116,7 +116,7 @@ interface TableColumnWidths {
   name: string;
   branch: string;
   contact: string;
-  followed: string;
+  followed_Up: string;
   visitor: string;
   address: string;
   actions: string;
@@ -125,7 +125,7 @@ interface TableColumnWidths {
 // Constants
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
   snumber: '3%',
-  followed: '5%',
+  followed_Up: '5%',
   visitor: '5%',
   name: '25%',
   branch: '7%',
@@ -317,7 +317,7 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
         }}
       />
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed_Up, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       <Chip
         label={followUp?.adminComment ? "Yes" : "No"}
         color={followUp?.isDeleted ? "default" : followUp?.adminComment ? "success" : "error"}
@@ -1278,7 +1278,7 @@ const ViewFollowUp: React.FC = () => {
             padding: '4px 8px',
           }}
         >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', ml: '8px' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1298,7 +1298,7 @@ const ViewFollowUp: React.FC = () => {
                 variant="standard"
                 sx={{
                   '& .MuiInputBase-input': {
-                    color: state.searchName ? '#F6F4FE' : '#777280',
+                    color: state.searchName ? '#F6F4FE' : 'rgba(255, 255, 255, 0.5)',
                     fontWeight: 500,
                     fontSize: '14px',
                     padding: '4px 8px',
@@ -1315,7 +1315,7 @@ const ViewFollowUp: React.FC = () => {
         <Box
           sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
         >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', ml: '8px' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Branch
           </Typography>
           <FormControl fullWidth>
@@ -1354,7 +1354,7 @@ const ViewFollowUp: React.FC = () => {
         <Box
           sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
         >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', ml: '8px' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Program
           </Typography>
           <MuiSelect
@@ -1508,7 +1508,7 @@ const ViewFollowUp: React.FC = () => {
                       variant="standard"
                       sx={{
                         '& .MuiInputBase-input': {
-                          color: state.searchName ? '#F6F4FE' : '#777280',
+                          color: state.searchName ? '#F6F4FE' : '#A4A1AA',
                           fontSize: '14px',
                           padding: '4px 8px',
                         },
@@ -1630,7 +1630,7 @@ const ViewFollowUp: React.FC = () => {
               <Table sx={{ minWidth: { xs: 'auto', sm: 650 }, '& td, & th': { border: 'none' } }}>
                 <TableHead>
                   <TableRow>
-                    {(['snumber', 'name', 'contact', 'branch', 'event', 'visitor', 'followed', 'actions'] as const).map((key) => (
+                    {(['snumber', 'name', 'contact', 'branch', 'event', 'visitor', 'followed_Up', 'actions'] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{
@@ -1641,7 +1641,11 @@ const ViewFollowUp: React.FC = () => {
                           textAlign: key === 'actions' ? 'center' : 'left',
                         }}
                       >
-                        {key === 'snumber' ? '#' : key.charAt(0).toUpperCase() + key.slice(1)}
+                        {key === 'snumber'
+                          ? '#'
+                          : key === 'followed_Up'
+                          ? 'Followed Up'
+                          : key.charAt(0).toUpperCase() + key.slice(1)}
                       </TableCell>
                     ))}
                   </TableRow>

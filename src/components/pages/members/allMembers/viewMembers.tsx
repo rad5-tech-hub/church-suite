@@ -216,8 +216,8 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
 
 const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAddMember: () => void }> = ({ error, isLargeScreen, onAddMember }) => (
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-    <Typography variant="h6" color="rgba(255, 255, 255, 0.1)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
+    <Typography variant="h6" color="rgba(255, 255, 255, 0.5)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {error || "No Workers found"}
     </Typography>
     <Button
@@ -469,8 +469,7 @@ const ViewMembers: React.FC = () => {
       handleStateChange("departmentsError", errorMessage);
       handleStateChange("departments", []);
       handleStateChange("loadingDepartments", false);
-      handleStateChange("departmentsLoaded", false);
-      showPageToast(errorMessage, "error");
+      handleStateChange("departmentsLoaded", false);    
     } finally {
       handleStateChange("loadingDepartments", false);
     }
@@ -495,7 +494,6 @@ const ViewMembers: React.FC = () => {
       handleStateChange("branches", []);
       handleStateChange("isBranchLoading", false);
       handleStateChange("branchesLoaded", false);
-      showPageToast(errorMessage, "error");
     } finally {
       handleStateChange("isBranchLoading", false);
     }
@@ -847,7 +845,7 @@ const ViewMembers: React.FC = () => {
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2, gap: 2 }}>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -885,7 +883,7 @@ const ViewMembers: React.FC = () => {
           />
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Branch
           </Typography>
           <MuiSelect
@@ -934,7 +932,7 @@ const ViewMembers: React.FC = () => {
           </MuiSelect>
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
           </Typography>
           <MuiSelect
@@ -1009,7 +1007,7 @@ const ViewMembers: React.FC = () => {
     <Box sx={{ display: "flex", width: "100%", mb: 3 }}>
       <Box sx={{ border: "1px solid #4d4d4e8e", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "#4d4d4e8e", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1023,7 +1021,7 @@ const ViewMembers: React.FC = () => {
                 variant="standard"
                 placeholder="Search by name"
                 sx={{
-                  "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#777280", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
+                  "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#A4A1AA", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
                   "& .MuiInput-underline:before": { borderBottom: "none" },
                   "& .MuiInput-underline:after": { borderBottom: "none" },
                   "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -1046,7 +1044,7 @@ const ViewMembers: React.FC = () => {
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Branch
           </Typography>
           <MuiSelect
@@ -1094,7 +1092,7 @@ const ViewMembers: React.FC = () => {
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
           </Typography>
           <MuiSelect
@@ -1162,13 +1160,18 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
-  // Effects
+  // Add this ref at the top with other refs
+  const mountedRef = useRef(false);
+
   useEffect(() => {
-    fetchMembers();
-    if (!state.branchesLoaded && !state.branchesError) {
-      fetchBranches();
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      fetchMembers();
+      if (!state.branchesLoaded && !state.branchesError) {
+        fetchBranches();
+      }
     }
-  }, [fetchMembers, fetchBranches, state.branchesLoaded, state.branchesError]);
+  }, []); // Empty dependency array - runs only once on mount
 
   useEffect(() => {
     if (

@@ -51,10 +51,10 @@ const buttonIcons: { [key: string]: React.ReactNode } = {
 };
 
 const manage = [
-  { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
   { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches" },
   { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments" },
   { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units" },
+  { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
 ];
 
 const member = [
@@ -127,9 +127,14 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
   let filteredManage = manage;
   let filteredMembers = member;
 
-  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/manage/view-branches", "/manage/view-admins"];
-    filteredManage = filteredManage.filter((item) => !restrictedRoutes.includes(item.to));
+  // Restrict "View Branches" if the user is NOT HeadQuarter or NOT Branch
+  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
+  }
+
+  // Restrict "View Admins" if the user is NOT HeadQuarter
+  if (authData?.isSuperAdmin === false) {
+    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-admins");
   }
 
   if (authData?.isSuperAdmin === false || authData?.role !== "branch") {

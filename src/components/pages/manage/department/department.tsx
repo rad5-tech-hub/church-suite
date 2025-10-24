@@ -30,7 +30,7 @@ import { Close } from "@mui/icons-material";
 interface DepartmentFormData {
   name: string;
   type: "Department" | "Outreach";
-  description: string;
+  description?: string;
   branchId?: string;
 }
 
@@ -42,7 +42,6 @@ interface Branch {
 
 interface Errors {
   name: string;
-  description: string;
   branchId: string;
 }
 
@@ -56,13 +55,11 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const initialFormData: DepartmentFormData = {
     name: "",
     type: "Department",
-    description: "",
     branchId: "",
   };
 
   const initialErrors: Errors = {
     name: "",
-    description: "",
     branchId: "",
   };
 
@@ -71,18 +68,45 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const [loading, setLoading] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
+  const [charCount, setCharCount] = useState(0); // ✅ Changed to character count
+  
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
   const theme = useTheme();
-  // const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   usePageToast("create-department");
   const isSuperAdmin = authData?.isSuperAdmin === true;
 
+  // ✅ Character limit check
+  const MAX_CHARS = 256;
+
+// ✅ UPDATED: Smooth 256 char limit handler
+  const handleDescriptionChange = (value: string) => {
+    const currentCharCount = value.length;
+    
+    // ✅ Allow typing UP TO 256 chars (smooth experience)
+    if (currentCharCount <= MAX_CHARS) {
+      setFormData((prev) => ({
+        ...prev,
+        description: value,
+      }));
+      setCharCount(currentCharCount);
+    }
+    // Browser maxLength handles the rest naturally
+  };
+
+  // Auto-select branch when dialog opens
   useEffect(() => {
     if (open) {
+      const defaultBranchId = isSuperAdmin ? authData?.branchId || "" : "";
+      setFormData({
+        name: "",
+        type: "Department",
+        branchId: defaultBranchId,
+      });
+      setCharCount(0);
       fetchBranches();
     }
-  }, [open]);
+  }, [open, isSuperAdmin, authData?.branchId]);
 
   const fetchBranches = async () => {
     try {
@@ -99,7 +123,6 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const validateForm = (): boolean => {
     const newErrors: Errors = {
       name: "",
-      description: "",
       branchId: "",
     };
 
@@ -121,11 +144,17 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+    
+    if (name === "description") {
+      handleDescriptionChange(value); // ✅ Use special handler
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+    
+    setErrors((prev) => ({ ...prev, [name as keyof Errors]: "" }));
   };
 
   const handleSelectChange = (e: SelectChangeEvent<string>) => {
@@ -134,7 +163,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       ...prev,
       [name]: value,
     }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+    setErrors((prev) => ({ ...prev, [name as keyof Errors]: "" }));
   };
 
   const handleAddDepartment = async () => {
@@ -145,12 +174,18 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
     setLoading(true);
 
     try {
-      const payload: DepartmentFormData = {
+      const payload: any = {
         name: formData.name.trim(),
         type: formData.type,
-        description: formData.description.trim(),
-        ...(formData.branchId ? { branchId: formData.branchId } : {}),
       };
+
+      if (formData.branchId) {
+        payload.branchId = formData.branchId;
+      }
+
+      if (formData.description?.trim()) {
+        payload.description = formData.description.trim();
+      }
 
       const response = await Api.post("/church/create-dept", payload);
 
@@ -161,29 +196,36 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
 
       setFormData(initialFormData);
       setErrors(initialErrors);
+      setCharCount(0);
       onSuccess?.();
       setTimeout(() => {
         onClose();
       }, 3000);
     } catch (error: any) {
       console.error("Department creation error:", error);
-      let errorMessage = error.response?.data?.message || "Failed to create Department. Please try again.";
-
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        errorMessage = error.response.data.errors.join(", ");
-      }
-
-      if (error.response?.status === 400) {
-        if (errorMessage.toLowerCase().includes("name")) {
-          setErrors((prev) => ({ ...prev, name: errorMessage }));
-        } else if (errorMessage.toLowerCase().includes("branch")) {
-          setErrors((prev) => ({ ...prev, branchId: errorMessage }));
-        } else {
-          showPageToast(errorMessage, "error");
+      
+      if (error.response?.status === 422 || error.response?.status === 400) {
+        const serverErrors = error.response?.data?.errors;
+        
+        if (serverErrors) {
+          if (serverErrors.name) {
+            setErrors((prev) => ({ ...prev, name: serverErrors.name[0] || "Invalid name" }));
+          }
+          if (serverErrors.branchId || serverErrors.branch) {
+            setErrors((prev) => ({ 
+              ...prev, 
+              branchId: serverErrors.branchId?.[0] || serverErrors.branch?.[0] || "Invalid branch" 
+            }));
+          }
+          if (serverErrors.description) {
+            showPageToast(serverErrors.description[0], "error");
+          }
+          return;
         }
-      } else {
-        showPageToast(errorMessage, "error");
       }
+
+      const errorMessage = error.response?.data?.error?.message || "Failed to create Department. Please try again.";
+      showPageToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -192,6 +234,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   const handleCancel = () => {
     setFormData(initialFormData);
     setErrors(initialErrors);
+    setCharCount(0);
     setBranches([]);
     setBranchesLoading(false);
     onClose();
@@ -224,6 +267,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
 
       <DialogContent dividers>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, py: 2 }}>
+          {/* Branch Autocomplete */}
           <FormControl fullWidth size="medium" error={!!errors.branchId}>
             <Autocomplete
               disablePortal
@@ -233,17 +277,11 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                 address: branch.address,
               }))}
               value={
-                formData.branchId || authData?.branchId
+                formData.branchId
                   ? {
-                      label:
-                        branches.find(
-                          (b) => b.id === (formData.branchId || authData?.branchId)
-                        )?.name || "",
-                      value: formData.branchId || authData?.branchId,
-                      address:
-                        branches.find(
-                          (b) => b.id === (formData.branchId || authData?.branchId)
-                        )?.address || "",
+                      label: branches.find((b) => b.id === formData.branchId)?.name || "",
+                      value: formData.branchId,
+                      address: branches.find((b) => b.id === formData.branchId)?.address || "",
                     }
                   : null
               }
@@ -253,7 +291,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                     name: "branchId",
                     value: newValue?.value || "",
                   },
-                } as unknown as React.ChangeEvent<HTMLInputElement>);
+                } as any);
               }}
               getOptionLabel={(option) =>
                 option && typeof option === "object"
@@ -276,7 +314,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Branch *"
+                  label={isSuperAdmin ? "Branch *" : "Branch"}
                   variant="outlined"
                   placeholder="Select a branch"
                   InputLabelProps={{
@@ -294,20 +332,13 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#F6F4FE",
                       },
-                      "& .MuiAutocomplete-clearIndicator": {
-                        color: "#F6F4FE", // ✅ clear icon color
-                      },
-                      "& .MuiAutocomplete-popupIndicator": {
-                        color: "#F6F4FE", // ✅ dropdown arrow icon color
-                      },
+                      "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" },
+                      "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" },
                     },
                     endAdornment: (
                       <>
                         {branchesLoading ? (
-                          <CircularProgress
-                            size={16}
-                            sx={{ mr: 1, color: "#F6F4FE" }} // ✅ loader color
-                          />
+                          <CircularProgress size={16} sx={{ mr: 1, color: "#F6F4FE" }} />
                         ) : null}
                         {params.InputProps.endAdornment}
                       </>
@@ -316,13 +347,13 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                 />
               )}
             />
-            {errors.branchId && <FormHelperText>{errors.branchId}</FormHelperText>}
+            {errors.branchId && <FormHelperText error>{errors.branchId}</FormHelperText>}
           </FormControl>
-          
+
+          {/* Department Name */}
           <TextField
             fullWidth
             label="Department Name *"
-            id="name"
             name="name"
             value={formData.name}
             onChange={handleChange}
@@ -347,9 +378,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
-            required
           />
 
+          {/* Type Select */}
           <FormControl fullWidth size="medium">
             <InputLabel
               id="type-label"
@@ -363,7 +394,6 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             </InputLabel>
             <Select
               labelId="type-label"
-              id="type"
               name="type"
               value={formData.type}
               onChange={handleSelectChange}
@@ -387,12 +417,12 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             </Select>
           </FormControl>
 
+          {/* Description - ✅ 256 CHAR LIMIT + READONLY EFFECT */}
           <TextField
             fullWidth
-            label="Description *"
-            id="description"
+            label="Description (Optional)"
             name="description"
-            value={formData.description}
+            value={formData.description || ""}
             onChange={handleChange}
             variant="outlined"
             placeholder="Enter Department description"
@@ -400,8 +430,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             rows={4}
             disabled={loading}
             size="medium"
-            error={!!errors.description}
-            helperText={errors.description}
+            inputProps={{
+              maxLength: MAX_CHARS, // ✅ Browser handles limit naturally
+            }}
             InputLabelProps={{
               sx: {
                 color: "#F6F4FE",
@@ -412,12 +443,40 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             InputProps={{
               sx: {
                 color: "#F6F4FE",
-                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "& .MuiOutlinedInput-notchedOutline": { 
+                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#777280" // 🟠 Warning orange
+                },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { 
+                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#F6F4FE" 
+                },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
-            required
+            helperText={
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography 
+                  variant="caption"
+                  sx={{ 
+                    color: "#aaa",
+                    fontSize: "12px"
+                  }}
+                >
+                  Max {MAX_CHARS} characters
+                </Typography>
+                <Typography 
+                  variant="caption"
+                  sx={{ 
+                    color: charCount >= MAX_CHARS ? "#ff9800" : "#90EE90", 
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    minWidth: 60,
+                    textAlign: "right"
+                  }}
+                >
+                  {charCount}/{MAX_CHARS}
+                </Typography>
+              </Box>
+            }
           />
         </Box>
       </DialogContent>
@@ -443,8 +502,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
           }}
         >
           {loading ? (
-            <Box display="flex" alignItems="center" color="#2C2C2C">
-              <CircularProgress size={18} sx={{ color: "#2C2C2C", mr: 1 }} />
+            <Box display="flex" alignItems="center" color="#777280">
+              <CircularProgress size={18} sx={{ color: "#777280", mr: 1 }} />
               Creating...
             </Box>
           ) : (

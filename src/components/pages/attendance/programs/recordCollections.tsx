@@ -220,7 +220,12 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
     return (
       <Dialog
         open={open}
-        onClose={onClose}
+        onClose={(_, reason) => {
+          if (reason !== "backdropClick") {
+            onClose();
+            onSuccess();
+          }
+        }}
         fullWidth
         maxWidth="md"
         sx={{
