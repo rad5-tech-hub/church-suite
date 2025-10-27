@@ -30,7 +30,7 @@ import { Close } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { FaPeopleCarry } from "react-icons/fa";
 import { FiClock } from "react-icons/fi";
-import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers";
+import { LocalizationProvider, DateTimePicker, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { Dayjs } from "dayjs";
 import { useSelector } from "react-redux";
@@ -136,12 +136,13 @@ const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
     <DialogTitle>Select Date</DialogTitle>
     <DialogContent>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <DateTimePicker
+        <DatePicker
           onChange={onDateSelect}
           slotProps={{
             textField: {
               fullWidth: true,
               variant: "outlined",
+              placeholder: "Select a date",
             },
           }}
         />

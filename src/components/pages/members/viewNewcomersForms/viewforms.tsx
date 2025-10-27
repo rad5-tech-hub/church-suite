@@ -168,13 +168,14 @@ const ViewForms: React.FC = () => {
       <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
+        color="rgba(255, 255, 255, 0.5)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
         }}
       >
-        No forms found
+        No forms found <br />
+        <span className="text-gray-600">Customize your newcomers form!</span>
       </Typography>
       {state.error ? (
         <Typography color="error" sx={{ mb: 2 }}>

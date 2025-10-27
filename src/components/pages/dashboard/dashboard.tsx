@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { setAuthData } from "../../reduxstore/authstore"; // Adjust path as needed
 import DashboardManager from "../../shared/dashboardManager";
-import { useSelector } from 'react-redux';
-import { RootState } from '../../reduxstore/redux';
+import { RootState } from "../../reduxstore/redux";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart,
@@ -49,7 +50,7 @@ import { FaPeopleGroup } from "react-icons/fa6";
 import { CiMoneyBill } from "react-icons/ci";
 import { IoCalendarOutline, IoPersonAddOutline } from "react-icons/io5";
 
-// Define API response type to match the department response
+// Define API response type for dashboard data
 interface ApiResponse {
   followUps?: {
     weekly: {
@@ -132,6 +133,26 @@ interface DashboardData {
     };
   }>;
   scope: string;
+}
+
+interface FetchDepartmentsResponse {
+  message?: string;
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+  };
+  departments: Department[];
+}
+
+interface Department {
+  id: string;
+  name: string;
+  description: string | null;
+  type: "Department" | "Outreach";
+  isActive: boolean;
+  isDeleted?: boolean;
+  branch?: { name: string; id: string };
 }
 
 interface StatCardProps {
@@ -265,10 +286,26 @@ const EventItem: React.FC<{ activity: string; time: string; icon: React.ReactNod
 
 const Dashboard: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
+  const dispatch = useDispatch();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"weekly" | "monthly">("monthly");
   const navigate = useNavigate();
+
+  const fetchDepartments = useCallback(
+    async (): Promise<FetchDepartmentsResponse> => {
+      try {
+        const response = await Api.get<FetchDepartmentsResponse>(
+          `/church/get-departments${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`
+        );
+        return response.data;
+      } catch (error) {
+        console.error("Fetch departments error:", error);
+        throw error;
+      }
+    },
+    [authData?.branchId]
+  );
 
   const fetchDashboardData = useCallback(async () => {
     if (!authData?.branchId) {
@@ -280,16 +317,33 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       let params = new URLSearchParams();
       params.append("branchId", authData.branchId);
+      let departmentId = authData.department;
 
-      if (authData?.role === "department") {
-        if (!authData.department) throw new Error("No department found");
-        params.append("departmentId", authData.department);
+      // If role is department and departmentId is empty, fetch departments and update authData
+      if (authData.role === "department" && !departmentId) {
+        const departmentsResponse = await fetchDepartments();
+        const departmentsData: Department[] = departmentsResponse.departments || [];
+        const activeDepartment = departmentsData.find(
+          (dept) => dept.isActive && !dept.isDeleted
+        );
+        if (!activeDepartment) {
+          throw new Error("No active department found");
+        }
+        departmentId = activeDepartment.id;
+
+        // Update authData with the new departmentId
+        if (authData && departmentId !== authData.department) {
+          dispatch(
+            setAuthData({
+              ...authData,
+              department: departmentId,
+            })
+          );
+        }
+        params.append("departmentId", departmentId);
+      } else if (authData.role === "department" && departmentId) {
+        params.append("departmentId", departmentId);
       }
-
-      // if (authData?.role === "unit") {
-      //   if (!authData.unit) throw new Error("No unit found");
-      //   params.append("unitId", authData.unit);
-      // }
 
       const url = `/member/get-dashboard?${params.toString()}`;
       const response = await Api.get<ApiResponse>(url);
@@ -308,14 +362,14 @@ const Dashboard: React.FC = () => {
         followUps: response.data.followUps,
         collections: {
           weekly: {
-            thisWeek: collections.weekly ?? 0,
-            lastWeek: collections.lastWeek ?? 0,
-            change: collections.weeklyChange ?? 0,
+            thisWeek: Number(collections.weekly) || 0,
+            lastWeek: Number(collections.lastWeek) || 0,
+            change: Number(collections.weeklyChange) || 0,
           },
           monthly: {
-            thisMonth: collections.monthly ?? 0,
-            lastMonth: collections.lastMonth ?? 0,
-            change: collections.monthlyChange ?? 0,
+            thisMonth: Number(collections.monthly) || 0,
+            lastMonth: Number(collections.lastMonth) || 0,
+            change: Number(collections.monthlyChange) || 0,
           },
         },
         structure: response.data.structure || {
@@ -333,7 +387,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authData?.branchId, authData?.department, authData?.role]);
+  }, [authData, dispatch, fetchDepartments]);
 
   useEffect(() => {
     if (authData?.branchId) {
@@ -387,19 +441,19 @@ const Dashboard: React.FC = () => {
     : 0;
   const collectionsData = view === "monthly"
     ? [
-        { period: "This Month", amount: dashboardData.collections.monthly.thisMonth },
-        { period: "Last Month", amount: dashboardData.collections.monthly.lastMonth },
+        { period: "This Month", amount: Number(dashboardData.collections.monthly.thisMonth) || 0 },
+        { period: "Last Month", amount: Number(dashboardData.collections.monthly.lastMonth) || 0 },
       ]
     : [
-        { period: "This Week", amount: dashboardData.collections.weekly.thisWeek },
-        { period: "Last Week", amount: dashboardData.collections.weekly.lastWeek },
+        { period: "This Week", amount: Number(dashboardData.collections.weekly.thisWeek) || 0 },
+        { period: "Last Week", amount: Number(dashboardData.collections.weekly.lastWeek) || 0 },
       ];
   const collectionsValue = view === "monthly"
-    ? dashboardData.collections.monthly.thisMonth
-    : dashboardData.collections.weekly.thisWeek;
+    ? Number(dashboardData.collections.monthly.thisMonth) || 0
+    : Number(dashboardData.collections.weekly.thisWeek) || 0;
   const collectionsChange = view === "monthly"
-    ? dashboardData.collections.monthly.change
-    : dashboardData.collections.weekly.change;
+    ? Number(dashboardData.collections.monthly.change) || 0
+    : Number(dashboardData.collections.weekly.change) || 0;
 
   if (loading || !authData) {
     return (
