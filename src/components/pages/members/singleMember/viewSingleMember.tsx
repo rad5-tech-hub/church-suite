@@ -15,7 +15,7 @@ import {
   Phone as PhoneIcon, 
   Email as EmailIcon, 
   WhatsApp as WhatsAppIcon,
-  Edit as EditIcon
+  ArrowBack,
 } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { useNavigate, useParams } from "react-router-dom";
@@ -43,6 +43,9 @@ interface Member {
   email?: string;
   profilePicture?: string;
   memberSince?: string;
+  branch: {name: string};
+  departments?: [{name: string}];
+  units?: [{name: string}];
 }
 
 const ViewSingleMember: React.FC = () => {
@@ -52,7 +55,6 @@ const ViewSingleMember: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
   useEffect(() => {
@@ -165,14 +167,13 @@ const ViewSingleMember: React.FC = () => {
           <Grid container spacing={2} sx={{ mb: 5 }}>
             <Grid size={{ xs: 12, md: 8 }}>
               <Typography 
-                variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h4"}
+                variant="h5"
                 component="h1" 
                 fontWeight={600}
                 gutterBottom
                 
                 sx={{ 
                   color: "#E1E1E1", // Ensure text color is set correctly
-                  fontSize: isLargeScreen ? '1.7rem' : undefined
                 }}
               >
                 Member's Profile
@@ -189,32 +190,32 @@ const ViewSingleMember: React.FC = () => {
               </Typography>
             </Grid>
             <Grid 
-              size={{ xs: 12, md: 4 }} 
-              sx={{ 
-                display: 'flex', 
-                justifyContent: { xs: 'flex-start', md: 'flex-end' },
-                alignItems: 'center'
-              }}
-            >
+                size={{xs:12, md:4}}
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                  alignItems: 'center'
+                }}
+              >
               <Button
                 variant="contained"
-                startIcon={<EditIcon />}
-                onClick={() =>{navigate('/members/edit/' + member.id)}}
+                startIcon={<ArrowBack />}
+                onClick={() => navigate(-1)} // go back one page
                 size="medium"
                 sx={{
-                  backgroundColor: "var(--color-primary)", // Correctly reference the CSS variable                 
+                  backgroundColor: "var(--color-primary)",
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)", // Ensure text color is set correctly
-                  fontSize: isLargeScreen ? '1rem' : undefined,
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "var(--color-text-on-primary)",
                   "&:hover": {
-                    backgroundColor: "var(--color-primary)", // Ensure hover uses the same variable
-                    opacity: 0.9, // Add hover effect
+                    backgroundColor: "var(--color-primary)",
+                    opacity: 0.9,
                   },
                 }}
               >
-                Edit Profile
+                Back
               </Button>
             </Grid>
           </Grid>
@@ -245,7 +246,7 @@ const ViewSingleMember: React.FC = () => {
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
                       color: '#E1E1E1',
-                      fontSize: isLargeScreen ? '1.5rem' : undefined
+                      fontSize: isLargeScreen ? '1.4rem' : undefined
                     }}
                   >
                     {member.name}
@@ -420,7 +421,77 @@ const ViewSingleMember: React.FC = () => {
                   </Box>
                 </Grid>
               </Grid> 
-            </Box>           
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Box
+              sx={{
+                mb: 4,
+                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                borderRadius: 2,
+                p: 2,
+              }}
+            >
+              <Typography
+                variant="h6"
+                fontWeight="bold"
+                sx={{ mb: 2, color: "#E1E1E1" }}
+              >
+                Branch / Department - Units Information
+              </Typography>
+
+              <Grid container spacing={4}>
+                {/* Left Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                    <Typography variant="subtitle2">Branch</Typography>
+                    <Typography variant="body1">
+                      {member.branch?.name || "N/A"}
+                    </Typography>
+                  </Box>
+
+                  {member.departments && (
+                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                      <Typography variant="subtitle2">Departments</Typography>
+                      <Typography variant="body1">
+                        {member.departments.length > 0
+                          ? member.departments.map((dept, index) => (
+                              <span key={index}>
+                                {dept.name}
+                                {member.departments && index < member.departments.length - 1 ? ", " : ""}
+                              </span>
+                            ))
+                          : "N/A"}
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+
+                {/* Right Column */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  {member.units && (
+                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                      <Typography variant="subtitle2">Units</Typography>
+                      <Typography variant="body1">
+                        {(() => {
+                          const units = member.units ?? [];
+                          return units.length > 0
+                            ? units.map((unit, index) => (
+                                <span key={index}>
+                                  {unit.name}
+                                  {index < units.length - 1 ? ", " : ""}
+                                </span>
+                              ))
+                            : "N/A";
+                        })()}
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+              </Grid>
+            </Box>
           </Box>
         </Box>
       </Container>

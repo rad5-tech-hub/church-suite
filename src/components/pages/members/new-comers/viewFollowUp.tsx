@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useSelector } from "react-redux";
+import { useState, useEffect, useCallback, memo } from 'react';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -26,27 +27,37 @@ import {
   TextField,
   Select as MuiSelect,
   Divider,
-} from "@mui/material";
+  FormControl,
+  Autocomplete,
+  InputAdornment,
+  Chip,
+} from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
   SentimentVeryDissatisfied as EmptyIcon,
-  PersonOutline,
   ChevronRight,
   ChevronLeft,
   Search,
   AttachFile,
-} from "@mui/icons-material";
-import { LiaLongArrowAltRightSolid } from "react-icons/lia";
-import { AiOutlineDelete } from "react-icons/ai";
-import { PiDownloadThin } from "react-icons/pi";
-import { toast, ToastContainer } from "react-toastify";
-import { IoMdClose } from "react-icons/io";
-import Select from "@mui/material/Select";
-import DashboardManager from "../../../shared/dashboardManager";
-import Api from "../../../shared/api/api";
-import { RootState } from "../../../reduxstore/redux";
-import RegistrationModal from "./followUp";
-import { MdOutlineFileUpload } from "react-icons/md";
+  Close,
+  HelpOutline,
+} from '@mui/icons-material';
+import { LiaLongArrowAltRightSolid } from 'react-icons/lia';
+import { AiOutlineDelete } from 'react-icons/ai';
+import { PiDownloadThin } from 'react-icons/pi';
+import { usePageToast } from '../../../hooks/usePageToast';
+import { showPageToast } from '../../../util/pageToast';
+import { IoMdClose } from 'react-icons/io';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import DashboardManager from '../../../shared/dashboardManager';
+import Api from '../../../shared/api/api';
+import { RootState } from '../../../reduxstore/redux';
+import { MdOutlineEdit } from 'react-icons/md';
+import EditRegistrationModal from './editNewcomers';
+import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { Dayjs } from 'dayjs';
+import { FiPhoneCall } from 'react-icons/fi';
 
 // Types
 interface FollowUp {
@@ -55,12 +66,38 @@ interface FollowUp {
   sex: string;
   phoneNo: string;
   address: string;
+  branch: { name: string };
+  branchId: string;
   timer: number;
   birthMonth: string;
   birthDay: string;
   maritalStatus: string;
   isActive: boolean;
+  adminComment: null | string;
+  isVisitor: boolean;
   isDeleted: boolean;
+  eventAttended: { event: EventAttended };
+}
+
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface EventAttended {
+  title: string;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  occurrences: {
+    id: string;
+    date: string;
+    dayOfWeek: string;
+    startTime: string;
+    endTime: string;
+  }[];
 }
 
 interface Pagination {
@@ -77,24 +114,31 @@ interface FetchFollowUpsResponse {
 interface TableColumnWidths {
   snumber: string;
   name: string;
+  branch: string;
   contact: string;
+  followed_Up: string;
+  visitor: string;
   address: string;
   actions: string;
 }
 
 // Constants
 const TABLE_COLUMN_WIDTHS: TableColumnWidths = {
-  snumber: "3%",
-  name: "25%",
-  contact: "15%",
-  address: "25%",
-  actions: "17%",
+  snumber: '3%',
+  followed_Up: '5%',
+  visitor: '5%',
+  name: '25%',
+  branch: '7%',
+  contact: '15%',
+  address: '15%', // Used for event column width
+  actions: '7%',
 };
 
+// Components
 interface CustomPaginationProps {
   hasNextPage: boolean;
   hasPrevPage: boolean;
-  onPageChange: (direction: "next" | "prev") => void;
+  onPageChange: (direction: 'next' | 'prev') => void;
   currentPage: number;
   isLargeScreen: boolean;
   isLoading: boolean;
@@ -110,47 +154,47 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 }) => (
   <Box
     sx={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "flex-end",
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
       py: 2,
       px: { xs: 2, sm: 3 },
-      color: "#777280",
+      color: '#777280',
       gap: 2,
-      flexWrap: "wrap",
+      flexWrap: 'wrap',
     }}
   >
-    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "#777280" }}>
+    <Typography sx={{ fontSize: isLargeScreen ? '0.75rem' : '0.875rem', color: '#777280' }}>
       Page {currentPage}
     </Typography>
-    <Box sx={{ display: "flex", gap: 1 }}>
+    <Box sx={{ display: 'flex', gap: 1 }}>
       <Button
-        onClick={() => onPageChange("prev")}
+        onClick={() => onPageChange('prev')}
         disabled={!hasPrevPage || isLoading}
         sx={{
-          minWidth: "40px",
-          height: "40px",
-          borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          minWidth: '40px',
+          height: '40px',
+          borderRadius: '8px',
+          backgroundColor: !hasPrevPage || isLoading ? '#4d4d4e8e' : '#F6F4FE',
+          color: !hasPrevPage || isLoading ? '#777280' : '#160F38',
+          '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+          '&:disabled': { backgroundColor: '#4d4d4e8e', color: '#777280' },
         }}
         aria-label="Previous page"
       >
         <ChevronLeft />
       </Button>
       <Button
-        onClick={() => onPageChange("next")}
+        onClick={() => onPageChange('next')}
         disabled={!hasNextPage || isLoading}
         sx={{
-          minWidth: "40px",
-          height: "40px",
-          borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          minWidth: '40px',
+          height: '40px',
+          borderRadius: '8px',
+          backgroundColor: !hasNextPage || isLoading ? '#4d4d4e8e' : '#F6F4FE',
+          color: !hasPrevPage || isLoading ? '#777280' : '#160F38',
+          '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+          '&:disabled': { backgroundColor: '#4d4d4e8e', color: '#777280' },
         }}
         aria-label="Next page"
       >
@@ -160,7 +204,6 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   </Box>
 );
 
-// Components
 interface EmptyStateProps {
   error: string | null;
   onAddFollowUp: () => void;
@@ -168,24 +211,32 @@ interface EmptyStateProps {
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeScreen }) => (
-  <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-    <Typography variant="h6" color="#F6F4FE" sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      No Newcomers found
+  <Box
+    sx={{
+      textAlign: 'center',
+      py: 8,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <EmptyIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
+    <Typography variant="h6" color="gray" sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
+      {error || 'Newcomers Not Available'}
     </Typography>
-    {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
     <Button
       variant="contained"
       onClick={onAddFollowUp}
       sx={{
-        backgroundColor: "#363740",
+        backgroundColor: '#363740',
         px: { xs: 2, sm: 2 },
         mt: 2,
         borderRadius: 50,
         py: 1,
-        fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: "var(--color-text-on-primary)",
-        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+        fontSize: isLargeScreen ? '0.875rem' : undefined,
+        color: 'var(--color-text-on-primary)',
+        '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
       }}
     >
       Add Newcomer
@@ -201,44 +252,93 @@ interface FollowUpRowProps {
   loading: boolean;
 }
 
-const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, onMenuOpen, isLargeScreen, loading }) => (
+const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuOpen, isLargeScreen, loading }) => (
   <TableRow
     sx={{
-      backgroundColor: followUp.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
-      "&:hover": {
-        backgroundColor: "#4d4d4e8e",
-        transform: "translateY(-2px)",
-        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+      backgroundColor: followUp.isDeleted ? 'rgba(0, 0, 0, 0.04)' : '#4d4d4e8e',
+      '&:hover': {
+        backgroundColor: '#4d4d4e8e',
+        transform: 'translateY(-2px)',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
       },
-      transition: "all 0.2s ease",
+      transition: 'all 0.2s ease',
       mb: 1,
     }}
   >
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
-      {(index + 1).toString().padStart(2, "0")}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {(index + 1).toString().padStart(2, '0')}
     </TableCell>
-    <TableCell sx={{ color: followUp.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+    <TableCell sx={{ color: followUp.isDeleted ? 'gray' : '#F6F4FE', display: 'flex', alignItems: 'center', gap: 1, fontSize: isLargeScreen ? '0.875rem' : undefined, py: 2 }}>
       <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-        {followUp.name.split(" ").map((name) => name.charAt(0)).join("")}
+        {followUp.name.split(' ').map((name) => name.charAt(0)).join('')}
       </Box>
       <Box>
         {followUp.name}
-        <Typography component="span" sx={{ display: "block", fontSize: "13px", color: "#777280" }}>
-          {followUp.sex || "-"}
+        <Typography component="span" sx={{ display: 'block', fontSize: '13px', color: '#777280' }}>
+          {followUp.sex || '-'}
         </Typography>
       </Box>
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
-      {followUp.phoneNo || "N/A"}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      <div className='flex align-center gap-0.5'>
+        <span>{followUp.phoneNo || "N/A"}</span>
+        {!followUp.isDeleted && followUp.phoneNo && (
+          <Tooltip title={`Call ${followUp.phoneNo}`} arrow>
+            <IconButton
+              size="small"
+              onClick={() => window.open(`tel:${followUp.phoneNo}`)}
+              sx={{
+                color: "#F6F4FE",
+                "&:hover": {
+                  color: "#C49C6B",
+                },
+              }}
+            >
+              <FiPhoneCall size={16} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </div>
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? "0.875rem" : undefined, color: followUp.isDeleted ? "gray" : "#F6F4FE", textDecoration: followUp.isDeleted ? "line-through" : "none" }}>
-      {followUp.address || "N/A"}
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.branch, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {followUp.branch.name || 'N/A'}
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      {followUp.eventAttended?.event?.title || 'N/A'}
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.visitor, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      <Chip
+        label={followUp?.isVisitor ? "Yes" : "No"}
+        variant={followUp?.isDeleted ? "outlined" : "filled"}
+        sx={{
+          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          textDecoration: followUp.isDeleted ? "line-through" : "none",
+          "& .MuiChip-label": { fontWeight: 500, fontSize: "0.8rem" },
+        }}
+      />
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed_Up, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+      <Chip
+        label={followUp?.adminComment ? "Yes" : "No"}
+        color={followUp?.isDeleted ? "default" : followUp?.adminComment ? "success" : "error"}
+        variant={followUp?.isDeleted ? "outlined" : "filled"}
+        sx={{
+          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          textDecoration: followUp.isDeleted ? "line-through" : "none",
+          backgroundColor: followUp.isDeleted
+            ? "transparent"
+            : followUp.adminComment
+            ? "#2E7D32" // dark green for true
+            : "#C62828", // dark red for false
+          "& .MuiChip-label": { fontWeight: 500, fontSize: "0.8rem" },
+        }}
+      />
+    </TableCell>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.actions, textAlign: 'center', fontSize: isLargeScreen ? '0.875rem' : undefined }}>
       <IconButton
         onClick={(e) => onMenuOpen(e, followUp)}
         disabled={loading || followUp.isDeleted}
-        sx={{ borderRadius: 1, backgroundColor: "#e1e1e1", "&:hover": { backgroundColor: "var(--color-primary)", opacity: 0.9, color: "#ffffff" } }}
+        sx={{ borderRadius: 1, backgroundColor: '#e1e1e1', '&:hover': { backgroundColor: 'var(--color-primary)', opacity: 0.9, color: '#ffffff' } }}
         size="small"
       >
         <MoreVertIcon fontSize="small" />
@@ -247,31 +347,140 @@ const FollowUpRow: React.FC<FollowUpRowProps> = React.memo(({ followUp, index, o
   </TableRow>
 ));
 
+interface FollowUpCommentDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (comment: string) => Promise<void>;
+  initialComment: string | null;
+  isLargeScreen: boolean;
+  loading: boolean;
+  fullname: string;
+}
+
+const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
+  open,
+  onClose,
+  onSubmit,
+  initialComment,
+  isLargeScreen,
+  loading,
+  fullname,
+}) => {
+  const [adminComment, setAdminComment] = useState(initialComment || '');
+
+  useEffect(() => {
+    setAdminComment(initialComment || '');
+  }, [initialComment]);
+
+  const handleSubmit = () => {
+    onSubmit(adminComment);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          onClose();
+        }
+      }}
+      maxWidth="sm"
+      fullWidth
+      sx={{
+        '& .MuiDialog-paper': {
+          borderRadius: 2,
+          bgcolor: '#2C2C2C',
+          color: 'white',
+          p: 2,
+        },
+      }}
+    >
+      <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined, color: '#F6F4FE' }}>
+        Comment On {fullname}
+      </DialogTitle>
+      <DialogContent>
+        <TextField
+          label={`Explain the response of ${fullname}`}
+          value={adminComment}
+          onChange={(e) => setAdminComment(e.target.value)}
+          multiline
+          rows={4}
+          fullWidth
+          disabled={loading}
+          InputProps={{
+            sx: {
+              color: '#F6F4FE',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+              fontSize: isLargeScreen ? '0.875rem' : undefined,
+            },
+          }}
+          InputLabelProps={{
+            sx: {
+              color: '#777280',
+              '&.Mui-focused': { color: '#777280' },
+              fontSize: isLargeScreen ? '0.875rem' : undefined,
+            },
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button
+          onClick={()=>{onClose(); setAdminComment('')}}
+          disabled={loading}
+          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, color: '#F6F4FE' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+          sx={{
+            backgroundColor: '#F6F4FE',
+            color: '#2C2C2C',
+            '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+            fontSize: isLargeScreen ? '0.875rem' : undefined,
+          }}
+        >
+          {loading ? <CircularProgress size={20} sx={{ color: '#2C2C2C', mr: 1 }} /> : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 interface ActionMenuProps {
   anchorEl: HTMLElement | null;
   currentFollowUp: FollowUp | null;
   onClose: () => void;
   onAction: (action: string) => void;
-  onView: () => void;
+  onEdit: () => void;
+  onComment: () => void;
   isLargeScreen: boolean;
   loading: boolean;
 }
 
-const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, onView, isLargeScreen, loading }) => (
+const ActionMenu: React.FC<ActionMenuProps> = ({ anchorEl, onClose, onAction, onEdit, onComment, isLargeScreen, loading }) => (
   <Menu
     anchorEl={anchorEl}
     open={Boolean(anchorEl)}
     onClose={onClose}
-    anchorOrigin={{ vertical: "top", horizontal: "right" }}
-    transformOrigin={{ vertical: "top", horizontal: "right" }}
-    PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
+    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+    PaperProps={{ sx: { '& .MuiMenuItem-root': { fontSize: isLargeScreen ? '0.875rem' : undefined } } }}
   >
-    <MenuItem onClick={onView} disabled={loading}>
-      <PersonOutline sx={{ mr: 1, fontSize: "1rem" }} />
-      Profile
+    <MenuItem onClick={onComment} disabled={loading}>
+      <HelpOutline className="mr-2 text-lg" />
+      Follow Up
     </MenuItem>
-    <MenuItem onClick={() => onAction("delete")} disabled={loading}>
-      <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
+    <MenuItem onClick={onEdit} disabled={loading}>
+      <MdOutlineEdit className="mr-2 text-lg" />
+      Edit
+    </MenuItem>
+    <MenuItem onClick={() => onAction('delete')} disabled={loading}>
+      <AiOutlineDelete style={{ marginRight: '8px', fontSize: '1rem' }} />
       Delete
     </MenuItem>
   </Menu>
@@ -289,16 +498,16 @@ interface ConfirmationDialogProps {
 
 const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, onConfirm, followUpName, isLargeScreen, loading }) => (
   <Dialog open={open} onClose={onClose} maxWidth="xs">
-    <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+    <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
       Delete Newcomer
     </DialogTitle>
     <DialogContent>
-      <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
+      <Typography sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}>
         Are you sure you want to delete {followUpName}?
       </Typography>
     </DialogContent>
     <DialogActions>
-      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }} disabled={loading}>
         Cancel
       </Button>
       <Button
@@ -306,9 +515,41 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
         color="error"
         variant="contained"
         disabled={loading}
-        sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+        sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined }}
       >
-        {loading ? "Processing..." : "Delete"}
+        {loading ? 'Processing...' : 'Delete'}
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
+
+interface DatePickerDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onDateSelect: (date: Dayjs | null) => void;
+  onDateApply: () => void;
+}
+
+const DatePickerDialog: React.FC<DatePickerDialogProps> = ({ open, onClose, onDateSelect, onDateApply }) => (
+  <Dialog open={open} onClose={onClose} maxWidth="xs">
+    <DialogTitle>Select Date</DialogTitle>
+    <DialogContent>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DatePicker
+          onChange={(newValue) => onDateSelect(newValue)}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: 'outlined',
+            },
+          }}
+        />
+      </LocalizationProvider>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose}>Cancel</Button>
+      <Button onClick={onDateApply} variant="contained">
+        Apply
       </Button>
     </DialogActions>
   </Dialog>
@@ -316,16 +557,22 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ open, onClose, 
 
 // Main Component
 const ViewFollowUp: React.FC = () => {
+  usePageToast('view-newcomers');
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-  const authData = useSelector((state: RootState) => state.auth?.authData);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
+  const navigate = useNavigate();
+  const [branchesLoaded, setBranchesLoaded] = useState(false);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchesError, setBranchesError] = useState<string | null>(null);
 
   // State
   const [state, setState] = useState({
     followUps: [] as FollowUp[],
     filteredFollowUps: [] as FollowUp[],
+    branches: [] as Branch[],
+    events: [] as Event[],
     filteredNames: [] as FollowUp[],
     pagination: { hasNextPage: false, nextPage: null } as Pagination,
     pageHistory: [] as string[],
@@ -337,17 +584,25 @@ const ViewFollowUp: React.FC = () => {
     error: null as string | null,
     confirmModalOpen: false,
     isModalOpen: false,
+    editModalOpen: false,
+    commentDialogOpen: false,
+    currentFollowUp: null as FollowUp | null,
+    isBranchSelectOpen: false,
     isDrawerOpen: false,
     isNameDropdownOpen: false,
     openExcelDialog: false,
     selectedFile: null as File | null,
     isDragging: false,
-    currentFollowUp: null as FollowUp | null,
     actionType: null as string | null,
     anchorEl: null as HTMLElement | null,
-    searchName: "",
-    searchType: "",
-    searchAddress: "",
+    searchName: '',
+    searchType: '',
+    selectedBranchId: authData?.branchId || '',
+    uploadBranchId: '' as string | null,
+    selectedEventId: '',
+    eventsLoading: false,
+    dateDialogOpen: false,
+    selectedDate: null as Dayjs | null,
     types: [] as { id: string; name: string }[],
   });
 
@@ -356,7 +611,7 @@ const ViewFollowUp: React.FC = () => {
     <K extends keyof typeof state>(key: K, value: (typeof state)[K]) => {
       setState((prev) => {
         const newState = { ...prev, [key]: value };
-        if (key === "searchName") {
+        if (key === 'searchName') {
           const searchTerm = (value as string).toLowerCase();
           newState.filteredNames = prev.followUps.filter((followUp) =>
             followUp.name.toLowerCase().includes(searchTerm)
@@ -369,44 +624,124 @@ const ViewFollowUp: React.FC = () => {
     []
   );
 
-  // Data fetching
-  const fetchFollowUps = useCallback(async (url: string | null = "/member/get-follow-up") => {
-    handleStateChange("loading", true);
-    handleStateChange("error", null);
+  const fetchBranches = useCallback(async () => {
+    if (branchesLoaded || branchesLoading || branchesError) return;
+    setBranchesLoading(true);
     try {
-      const apiUrl = url || "/member/get-follow-up";
-      const response = await Api.get<FetchFollowUpsResponse>(apiUrl);
-      
-      const data = {
-        followUps: response.data.results || [],
-        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
-      };
-
-      setState((prev) => ({
-        ...prev,
-        followUps: data.followUps,
-        filteredFollowUps: data.followUps,
-        filteredNames: data.followUps,
-        pagination: data.pagination,
-        loading: false,
-        types: [...new Set((data.followUps || []).map((m: FollowUp) => m.phoneNo))].map((type, index) => ({
-          id: index.toString(),
-          name: type,
-        })),
-      }));
-
-      return data;
-    } catch (error) {
-      console.error("Failed to fetch Newcomers:", error);
-      handleStateChange("error", "Failed to load Newcomers. Please try again later.");
-      handleStateChange("loading", false);
-      toast.error("Failed to load Newcomers", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-      return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
+      const response = await Api.get<{ branches: Branch[] }>('/church/get-branches');
+      handleStateChange('branches', response.data?.branches || []);
+      setBranchesLoaded(true);
+      setBranchesError(null);
+    } catch (error: any) {
+      console.error('Failed to fetch branches:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to load branches. Please try again.';
+      setBranchesError(errorMessage);
+      showPageToast(errorMessage, 'error');
+    } finally {
+      setBranchesLoading(false);
     }
-  }, [handleStateChange, isMobile]);
+  }, [handleStateChange, branchesLoaded, branchesLoading, branchesError]);
+
+  const fetchEvents = useCallback(
+    async (date: Dayjs | null = null) => {
+      if (!state.selectedBranchId) {
+        handleStateChange('events', []);
+        handleStateChange('selectedEventId', '');
+        handleStateChange('eventsLoading', false);
+        return;
+      }
+      handleStateChange('eventsLoading', true);
+      try {
+        const params = new URLSearchParams();
+        const branchId = state.selectedBranchId;
+        if (branchId) {
+          params.append('branchId', branchId);
+        }
+        if (authData?.role === 'department') {
+          if (!authData.department) throw new Error('No department found');
+          params.append('departmentId', authData.department);
+        }
+        if (date) {
+          params.append('date', date.format('YYYY-MM-DD'));
+        }
+        const response = await Api.get<{ events: Event[] }>(`/church/get-events?${params.toString()}`);
+        handleStateChange('events', response.data?.events || []);
+        handleStateChange('selectedEventId', '');
+      } catch (error) {
+        console.error('Failed to fetch events:', error);
+        showPageToast('Failed to load events. Please try again.', 'error');
+        handleStateChange('events', []);
+        handleStateChange('selectedEventId', '');
+      } finally {
+        handleStateChange('eventsLoading', false);
+      }
+    },
+    [handleStateChange, state.selectedBranchId, authData]
+  );
+
+  const handleBranchOpen = useCallback(() => {
+    fetchBranches();
+  }, [fetchBranches]);
+
+  const handleBranchChange = useCallback(
+    (e: SelectChangeEvent<string>) => {
+      const value = e.target.value;
+      handleStateChange('selectedBranchId', value);
+      handleStateChange('events', []);
+      handleStateChange('selectedEventId', '');
+      if (value) {
+        fetchEvents(state.selectedDate);
+      }
+    },
+    [handleStateChange, fetchEvents, state.selectedDate]
+  );
+
+  // Data fetching
+  const fetchFollowUps = useCallback(
+    async (url: string | null = '/member/get-follow-up') => {
+      handleStateChange('loading', true);
+      handleStateChange('error', null);
+      try {
+        const apiUrl = (() => {
+          const base = url || '/member/get-follow-up';
+          const separator = base.includes('?') ? '&' : '?';
+          return `${base}${separator}branchId=${authData?.branchId || ''}`;
+        })();
+
+        const response = await Api.get<FetchFollowUpsResponse>(apiUrl);
+
+        const data = {
+          followUps: response.data.results || [],
+          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        };
+
+        setState((prev) => ({
+          ...prev,
+          followUps: data.followUps,
+          filteredFollowUps: data.followUps,
+          filteredNames: data.followUps,
+          pagination: data.pagination,
+          loading: false,
+          types: [...new Set((data.followUps || []).map((m: FollowUp) => m.phoneNo))].map((type, index) => ({
+            id: index.toString(),
+            name: type,
+          })),
+        }));
+
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch Newcomers:', error);
+        handleStateChange('followUps', []);
+        handleStateChange('filteredFollowUps', []);
+        handleStateChange('pagination', { hasNextPage: false, nextPage: null });
+        handleStateChange('error', 'Failed to load Newcomers. Please try again later.');
+        handleStateChange('loading', false);
+        showPageToast('Failed to load Newcomers', 'error');
+        return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
+      }
+    },
+    [handleStateChange, authData]
+  );
 
   const refreshFollowUps = useCallback(async () => {
     try {
@@ -421,24 +756,31 @@ const ViewFollowUp: React.FC = () => {
         loading: false,
       }));
     } catch (error) {
-      handleStateChange("loading", false);
+      handleStateChange('loading', false);
     }
   }, [fetchFollowUps, handleStateChange]);
 
-  // Search handlers
+  // 🔍 Search handlers
   const searchFollowUps = useCallback(async () => {
-    handleStateChange("isSearching", true);
-    handleStateChange("currentPage", 1);
-    handleStateChange("pageHistory", []);
-    
+    handleStateChange('isSearching', true);
+    handleStateChange('currentPage', 1);
+    handleStateChange('pageHistory', []);
+
     try {
       const params = new URLSearchParams();
-      if (state.searchName) params.append("name", state.searchName);
-      if (state.searchType) params.append("type", state.searchType);
-      if (state.searchAddress) params.append("address", state.searchAddress);
+      if (state.searchName) {
+        params.append('search', state.searchName);
+        params.append('searchField', 'name');
+      }
+      if (state.selectedBranchId) {
+        params.append('branchId', state.selectedBranchId);
+      }
+      if (state.selectedEventId) {
+        params.append('eventOccurrenceId', state.selectedEventId);
+      }
 
-      const response = await Api.get<FetchFollowUpsResponse>(`/member/search-follow-up?${params.toString()}`);
-      
+      const response = await Api.get<FetchFollowUpsResponse>(`/member/get-follow-up?${params.toString()}`);
+
       setState((prev) => ({
         ...prev,
         filteredFollowUps: response.data.results || [],
@@ -446,62 +788,51 @@ const ViewFollowUp: React.FC = () => {
         isDrawerOpen: false,
         isSearching: false,
       }));
-      
-      toast.success("Search completed successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
-    } catch (error) {
-      console.error("Error searching Newcomers:", error);
-      toast.warn("Server search failed, applying local filter", {
-        position: isMobile ? "top-center" : "top-right",
-      });
 
-      let filtered = [...state.followUps];
-      if (state.searchName) {
-        filtered = filtered.filter((followUp) =>
-          followUp.name.toLowerCase().includes(state.searchName.toLowerCase())
-        );
-      }
-      if (state.searchType) {
-        filtered = filtered.filter((followUp) =>
-          followUp.phoneNo === state.searchType
-        );
-      }
-      if (state.searchAddress) {
-        filtered = filtered.filter((followUp) =>
-          followUp.address.toLowerCase().includes(state.searchAddress.toLowerCase())
-        );
-      }
-      
+      showPageToast('Search completed successfully!', 'success');
+    } catch (error: any) {
+      console.error('❌ Error searching follow-ups:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to search follow-ups. Please try again.';
+
       setState((prev) => ({
         ...prev,
-        filteredFollowUps: filtered,
+        filteredFollowUps: [],
         pagination: { hasNextPage: false, nextPage: null },
         currentPage: 1,
         pageHistory: [],
         isDrawerOpen: false,
         isSearching: false,
       }));
+
+      showPageToast(errorMessage, 'error');
     }
-  }, [state.followUps, state.searchName, state.searchType, state.searchAddress, isMobile, handleStateChange]);
+  }, [state.searchName, state.selectedBranchId, state.selectedEventId, handleStateChange]);
 
   const searchFollowUpsWithPagination = useCallback(
-    async (url: string, searchName: string, searchType: string, searchAddress: string) => {
+    async (url: string, searchName: string, selectedBranchId: string, selectedEventId: string) => {
       try {
         const params = new URLSearchParams();
-        if (searchName) params.append("name", searchName);
-        if (searchType) params.append("type", searchType);
-        if (searchAddress) params.append("address", searchAddress);
+        if (searchName) {
+          params.append('search', searchName);
+          params.append('searchField', 'name');
+        }
+        if (selectedBranchId) {
+          params.append('branchId', selectedBranchId);
+        }
+        if (selectedEventId) {
+          params.append('eventOccurrenceId', selectedEventId);
+        }
 
-        const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+        const fullUrl = url.includes('?') ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+
         const response = await Api.get<FetchFollowUpsResponse>(fullUrl);
-        
+
         return {
           followUps: response.data.results || [],
           pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
         };
       } catch (error) {
-        console.error("Error searching Newcomers with pagination:", error);
+        console.error('Error searching Newcomers with pagination:', error);
         throw error;
       }
     },
@@ -510,49 +841,47 @@ const ViewFollowUp: React.FC = () => {
 
   // Pagination handlers
   const handlePageChange = useCallback(
-    async (direction: "next" | "prev") => {
-      handleStateChange("loading", true);
-      handleStateChange("error", null);
+    async (direction: 'next' | 'prev') => {
+      handleStateChange('loading', true);
+      handleStateChange('error', null);
       try {
         const url =
-          direction === "next"
+          direction === 'next'
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || "/member/get-follow-up"
+            ? state.pageHistory[state.pageHistory.length - 2] || '/member/get-follow-up'
             : null;
-            
-        if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
-        
-        const data = state.searchName || state.searchType || state.searchAddress
-          ? await searchFollowUpsWithPagination(url, state.searchName, state.searchType, state.searchAddress)
+
+        if (!url) throw new Error(direction === 'next' ? 'No next page available' : 'No previous page available');
+
+        const data = state.searchName || state.selectedBranchId || state.selectedEventId
+          ? await searchFollowUpsWithPagination(url, state.searchName, state.selectedBranchId, state.selectedEventId)
           : await fetchFollowUps(url);
-          
+
         setState((prev) => ({
           ...prev,
           filteredFollowUps: data.followUps,
           pagination: data.pagination,
-          pageHistory: direction === "next" ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
-          currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
+          pageHistory: direction === 'next' ? [...prev.pageHistory, url] : prev.pageHistory.slice(0, -1),
+          currentPage: direction === 'next' ? prev.currentPage + 1 : prev.currentPage - 1,
           loading: false,
         }));
       } catch (error: any) {
-        const errorMessage = error.response?.data?.message || "Failed to load page";
+        const errorMessage = error.response?.data?.message || 'Failed to load page';
         console.error(`Error fetching ${direction} page:`, error);
-        handleStateChange("error", errorMessage);
-        handleStateChange("loading", false);
-        toast.error(errorMessage, { position: isMobile ? "top-center" : "top-right" });
+        setState((prev) => ({
+          ...prev,
+          filteredFollowUps: [],
+          pagination: { hasNextPage: false, nextPage: null },
+          currentPage: 1,
+          pageHistory: [],
+          error: errorMessage,
+          loading: false,
+        }));
+        showPageToast(errorMessage, 'error');
       }
     },
-    [
-      state.pagination.nextPage,
-      state.pageHistory,
-      state.searchName,
-      state.searchType,
-      state.searchAddress,
-      fetchFollowUps,
-      handleStateChange,
-      isMobile,
-    ]
+    [state.pagination.nextPage, state.pageHistory, state.searchName, state.selectedBranchId, state.selectedEventId, fetchFollowUps, searchFollowUpsWithPagination, handleStateChange]
   );
 
   // Action handlers
@@ -561,6 +890,55 @@ const ViewFollowUp: React.FC = () => {
   };
 
   const handleMenuClose = () => setState((prev) => ({ ...prev, anchorEl: null }));
+
+  const handleCommentOpen = useCallback(() => {
+    handleStateChange('commentDialogOpen', true);
+    handleMenuClose();
+  }, [handleStateChange]);
+
+  const handleCommentClose = useCallback(() => {
+    handleStateChange('commentDialogOpen', false);
+    handleStateChange('currentFollowUp', null);
+  }, [handleStateChange]);
+
+  const handleEditOpen = useCallback(() => {
+    handleStateChange('editModalOpen', true);
+    handleMenuClose();
+  }, [handleStateChange]);
+
+  const handleEditClose = useCallback(() => {
+    handleStateChange('editModalOpen', false);
+    handleStateChange('currentFollowUp', null);
+  }, [handleStateChange]);
+
+  const handleCommentSubmit = useCallback(async (adminComment: string) => {
+    if (!state.currentFollowUp) return;
+
+    try {
+      handleStateChange('loading', true);
+      await Api.patch(`/followUp/edit-followup/${state.currentFollowUp.id}?branchId=${authData?.branchId}`, { adminComment });
+
+      setState((prev) => ({
+        ...prev,
+        followUps: prev.followUps.map((followUp) =>
+          followUp.id === prev.currentFollowUp!.id ? { ...followUp, adminComment } : followUp
+        ),
+        filteredFollowUps: prev.filteredFollowUps.map((followUp) =>
+          followUp.id === prev.currentFollowUp!.id ? { ...followUp, adminComment } : followUp
+        ),
+        commentDialogOpen: false,
+        currentFollowUp: null,
+        loading: false,
+      }));
+
+      showPageToast('Comment updated successfully!', 'success');
+    } catch (error: any) {
+      console.error('Failed to update comment:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update comment. Please try again.';
+      showPageToast(errorMessage, 'error');
+      handleStateChange('loading', false);
+    }
+  }, [state.currentFollowUp, handleStateChange]);
 
   const showConfirmation = (action: string) => {
     setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
@@ -572,26 +950,18 @@ const ViewFollowUp: React.FC = () => {
 
     try {
       setState((prev) => ({ ...prev, loading: true }));
-      if (state.actionType === "delete") {
+      if (state.actionType === 'delete') {
         await Api.delete(`/followUp/delete-followup/${state.currentFollowUp.id}`);
         setState((prev) => ({
           ...prev,
           followUps: prev.followUps.filter((followUp) => followUp.id !== state.currentFollowUp!.id),
-          filteredFollowUps: prev.filteredFollowUps.filter(
-            (followUp) => followUp.id !== state.currentFollowUp!.id
-          ),
+          filteredFollowUps: prev.filteredFollowUps.filter((followUp) => followUp.id !== state.currentFollowUp!.id),
         }));
-        toast.success("Newcomer deleted successfully!", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast('Newcomer deleted successfully!', 'success');
       }
     } catch (error) {
-      console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} Newcomer`, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      console.error('Action error:', error);
+      showPageToast(`Failed to ${state.actionType} Newcomer`, 'error');
     } finally {
       setState((prev) => ({
         ...prev,
@@ -607,10 +977,12 @@ const ViewFollowUp: React.FC = () => {
   const handleExportExcel = useCallback(async () => {
     setState((prev) => ({ ...prev, exportLoading: true }));
     try {
-      const response = await Api.get("/member/export-followup", { responseType: "blob" });
-      const contentDisposition = response.headers["content-disposition"];
-      let filename = "newcomers_export.xlsx";
-      
+      const response = await Api.get(`/member/export-followup${authData?.branchId ? `?branchId=${authData?.branchId}` : ''}`, {
+        responseType: 'blob',
+      });
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'newcomers_export.xlsx';
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
         if (filenameMatch && filenameMatch[1]) {
@@ -619,10 +991,10 @@ const ViewFollowUp: React.FC = () => {
       }
 
       const blob = new Blob([response.data], {
-        type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type: response.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
@@ -630,519 +1002,535 @@ const ViewFollowUp: React.FC = () => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Excel file exported successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast('Excel file exported successfully!', 'success');
     } catch (error: any) {
-      console.error("Failed to export Newcomers:", error);
-      toast.error(error.response?.data?.message || "Failed to export Excel file. Please try again.", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      console.error('Failed to export Newcomers:', error);
+      showPageToast(error.response?.data?.message || 'Failed to export Excel file. Please try again.', 'error');
     } finally {
       setState((prev) => ({ ...prev, exportLoading: false }));
     }
-  }, [isMobile]);
+  }, [authData]);
 
-  // File Import Handlers
-  const handleImportExcel = () => {
-    setState((prev) => ({ ...prev, openExcelDialog: true }));
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (
-      file &&
-      (file.type === "application/vnd.ms-excel" ||
-        file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    ) {
-      setState((prev) => ({ ...prev, selectedFile: file }));
-    } else {
-      toast.error("Please select a valid Excel file (.xlsx or .xls)", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-      setState((prev) => ({ ...prev, selectedFile: null }));
+  // Fetch branches on mount, but only if authData is available
+  useEffect(() => {
+    if (authData?.branchId && !branchesLoaded && !branchesLoading && !branchesError) {
+      fetchBranches();
     }
-  };
+  }, [fetchBranches, authData?.branchId]);
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setState((prev) => ({ ...prev, isDragging: false }));
-    const file = event.dataTransfer.files?.[0];
-    if (
-      file &&
-      (file.type === "application/vnd.ms-excel" ||
-        file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    ) {
-      setState((prev) => ({ ...prev, selectedFile: file }));
-    } else {
-      toast.error("Please drop a valid Excel file (.xlsx or .xls)", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-      setState((prev) => ({ ...prev, selectedFile: null }));
-    }
-  };
+  // Fetch follow-ups on mount
+  useEffect(() => {
+    fetchFollowUps();
+  }, [fetchFollowUps]);
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setState((prev) => ({ ...prev, isDragging: true }));
-  };
-
-  const handleDragLeave = () => {
-    setState((prev) => ({ ...prev, isDragging: false }));
-  };
-
-  const handleUpload = async () => {
-    if (!state.selectedFile) {
-      toast.error("Please select an Excel file to upload", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-      return;
-    }
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", state.selectedFile);
-      const branchIdParam = authData?.branchId ? `&branchId=${authData.branchId}` : "";
-      await Api.post(
-        `/member/import-followup?churchId=${authData?.churchId}${branchIdParam}`,
-        uploadFormData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      toast.success("Excel file uploaded successfully!", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-
-      setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null }));
-      setTimeout(() => {
-        fetchFollowUps();
-      }, 1500);
-    } catch (error: any) {
-      console.error("Error uploading file:", error);
-      const errorMessage =
-        error.response?.data?.message || "Failed to upload Excel file. Please try again.";
-      toast.error(errorMessage, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
-    } finally {
-      setState((prev) => ({ ...prev, isLoading: false }));
-    }
-  };
-
-  const handleCloseExcelDialog = () => {
-    setState((prev) => ({ ...prev, openExcelDialog: false, selectedFile: null, isDragging: false }));
-  };
-
-  const handleViewFollowUp = useCallback(() => {
-    if (state.currentFollowUp) {
-      window.location.href = `/view/single-follower/${state.currentFollowUp.id}`;
-      handleMenuClose();
-    }
-  }, [state.currentFollowUp]);
-
-  const handleAddFollowUp = useCallback(() => {
-    setState((prev) => ({ ...prev, isModalOpen: true }));
-  }, []);
-
-  // Filter components
+  // Updated renderMobileFilters function
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
       open={state.isDrawerOpen}
       onClose={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
       sx={{
-        "& .MuiDrawer-paper": {
-          backgroundColor: "#2C2C2C",
-          color: "#F6F4FE",
+        '& .MuiDrawer-paper': {
+          backgroundColor: '#2C2C2C',
+          color: '#F6F4FE',
           padding: 2,
-          boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)",
+          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.25)',
         },
       }}
     >
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="caption" sx={{ color: '#777280', fontWeight: 500, fontSize: '11px' }}>
+          {state.selectedDate ? `Selected Date: ${state.selectedDate.format('MMMM D, YYYY')}` : 'No Date Selected'}
+        </Typography>
         <IconButton
           onClick={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
-          sx={{ color: "#F6F4FE" }}
+          sx={{ color: '#F6F4FE' }}
         >
           <IoMdClose />
         </IconButton>
       </Box>
-      <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2, gap: 2 }}>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', px: 2, pb: 2, gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', mb: 1 }}>
             Who?
           </Typography>
-          <TextField
-            value={state.searchName}
-            onChange={(e) => handleStateChange("searchName", e.target.value)}
-            placeholder="Search by name"
-            variant="outlined"
-            size="small"
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              "& .MuiInputLabel-root": { color: "#F6F4FE" },
-              "& .MuiOutlinedInput-root": {
-                color: "#F6F4FE",
-                "& fieldset": { borderColor: "transparent" },
-              },
-            }}
-            onFocus={() => state.searchName && handleStateChange("isNameDropdownOpen", true)}
-            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
+          <Autocomplete
+            freeSolo
+            options={state.filteredNames.map((n) => n.name)}
+            value={state.searchName || ''}
+            onInputChange={(_, newValue) => handleStateChange('searchName', newValue)}
+            onChange={(_, newValue) => handleStateChange('searchName', newValue || '')}
+            clearIcon={<Close sx={{ color: '#F6F4FE', cursor: 'pointer' }} onClick={(e) => {
+                e.stopPropagation();
+                handleStateChange('searchName', '');
+              }} />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search by name"
+                variant="outlined"
+                size="small"
+                sx={{
+                  backgroundColor: '#4d4d4e8e',
+                  borderRadius: '8px',
+                  '& .MuiInputLabel-root': { color: '#F6F4FE' },
+                  '& .MuiOutlinedInput-root': {
+                    color: '#F6F4FE',
+                    '& fieldset': { borderColor: 'transparent' },
+                  },
+                  '& .MuiAutocomplete-endAdornment': {
+                    display: state.searchName ? 'block' : 'none',
+                  },
+                }}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {state.searchName && (
+                        <IconButton
+                          onClick={() => handleStateChange('searchName', '')}
+                          edge="end"
+                          sx={{ color: '#F6F4FE' }}
+                        >
+                          <Close />
+                        </IconButton>
+                      )}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
           />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
-            <Box
-              sx={{
-                maxHeight: "200px",
-                overflowY: "auto",
-                backgroundColor: "#2C2C2C",
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                mt: 1,
-              }}
-            >
-              {state.filteredNames.map((followUp, index) => (
-                <Box
-                  key={followUp.id}
-                  sx={{
-                    padding: "8px 16px",
-                    color: "#F6F4FE",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#4d4d4e8e" },
-                    borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
-                  }}
-                  onClick={() => {
-                    handleStateChange("searchName", followUp.name);
-                    handleStateChange("isNameDropdownOpen", false);
-                  }}
-                >
-                  {followUp.name}
-                </Box>
-              ))}
-            </Box>
-          )}
         </Box>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
-            Type
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px' }}>
+            Branch
           </Typography>
           <Select
-            value={state.searchType}
-            onChange={(e) => handleStateChange("searchType", e.target.value as string)}
+            value={state.selectedBranchId}
+            onChange={(e) => handleBranchChange(e)}
+            onOpen={handleBranchOpen}
             displayEmpty
             sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              color: state.searchType ? "#F6F4FE" : "#777280",
+              backgroundColor: '#4d4d4e8e',
+              borderRadius: '8px',
+              color: '#F6F4FE',
               fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              fontSize: '14px',
+              '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
+              '.MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '& .MuiSelect-icon': { display: 'none' },
+            }}
+            renderValue={(selected) =>
+              selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
+            }
+          >
+            <MenuItem value="">None</MenuItem>
+            {branchesLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : branchesError ? (
+              <MenuItem disabled>Error loading branches</MenuItem>
+            ) : (
+              state.branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              ))
+            )}
+          </Select>
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', mb: 1 }}>
+            Program
+          </Typography>
+          <Select
+            value={state.selectedEventId}
+            onChange={(e) => handleStateChange('selectedEventId', e.target.value as string)}
+            onOpen={() => fetchEvents(state.selectedDate)}
+            displayEmpty
+            disabled={!state.selectedBranchId}
+            sx={{
+              backgroundColor: '#4d4d4e8e',
+              borderRadius: '8px',
+              color: state.selectedEventId ? '#F6F4FE' : '#777280',
+              fontWeight: 500,
+              fontSize: '14px',
+              '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
+              '.MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '& .MuiSelect-icon': { display: 'none' },
+              '&.Mui-disabled': { backgroundColor: '#4d4d4e4d', color: '#777280' },
             }}
             renderValue={(selected) => {
-              if (!selected) return "Select Type";
-              const type = state.types.find((d) => d.id === selected);
-              return type ? type.name : "Select Type";
+              if (!state.selectedBranchId) return 'Select Branch First';
+              if (!selected) return 'Select Program';
+
+              const allOccurrences = state.events.flatMap((event) =>
+                event.occurrences.map((occ) => ({ ...occ, eventTitle: event.title }))
+              );
+              const occurrence = allOccurrences.find((occ) => occ.id === selected);
+
+              if (occurrence) {
+                const formatTime = (time: string) => {
+                  const date = new Date(`1970-01-01T${time}`);
+                  return date.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+                };
+
+                const formattedStart = formatTime(occurrence.startTime);
+                const formattedEnd = formatTime(occurrence.endTime);
+
+                return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
+              }
+
+              return 'Select Program';
             }}
           >
-            <MenuItem value="">All</MenuItem>
-            {state.types.map((type) => (
-              <MenuItem key={type.id} value={type.id}>
-                {type.name}
-              </MenuItem>
-            ))}
+            <MenuItem value="">None</MenuItem>
+            {state.eventsLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : (
+              state.events.flatMap((event) =>
+                event.occurrences.map((occurrence) => {
+                  const start = new Date(`1970-01-01T${occurrence.startTime}`);
+                  const end = new Date(`1970-01-01T${occurrence.endTime}`);
+
+                  const formattedStart = start.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+
+                  const formattedEnd = end.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+
+                  return (
+                    <MenuItem key={occurrence.id} value={occurrence.id}>
+                      {`${event.title} (${formattedStart} - ${formattedEnd})`}
+                    </MenuItem>
+                  );
+                })
+              )
+            )}
+            <Divider />
+            <MenuItem onClick={() => handleStateChange('dateDialogOpen', true)}>
+              {state.selectedDate ? `Selected Date: ${state.selectedDate.format('MMMM D, YYYY')}` : 'Select Date'}
+            </MenuItem>
           </Select>
         </Box>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
-            Address
-          </Typography>
-          <Select
-            value={state.searchAddress}
-            onChange={(e) => handleStateChange("searchAddress", e.target.value as string)}
-            displayEmpty
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              color: state.searchAddress ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => (selected ? selected : "Select Address")}
-          >
-            <MenuItem value="">All</MenuItem>
-            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
-              <MenuItem key={address} value={address}>
-                {address}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
           <Button
             variant="contained"
             onClick={searchFollowUps}
             sx={{
-              backgroundColor: "#F6F4FE",
-              color: "#4d4d4e8e",
-              borderRadius: "24px",
+              backgroundColor: '#F6F4FE',
+              color: '#4d4d4e8e',
+              borderRadius: '24px',
               py: 1,
               px: 3,
-              minWidth: "auto",
-              "&:hover": { backgroundColor: "#F6F4FE", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
+              minWidth: 'auto',
+              '&:hover': { backgroundColor: '#F6F4FE', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' },
             }}
             startIcon={<Search />}
-            disabled={state.isSearching}
+            disabled={state.isSearching || state.loading}
           >
-            {state.isSearching ? <CircularProgress size={20} color="inherit" /> : "Search"}
+            {state.isSearching ? <CircularProgress size={20} color="inherit" /> : 'Search'}
           </Button>
         </Box>
       </Box>
+      <DatePickerDialog
+        open={state.dateDialogOpen}
+        onClose={() => handleStateChange('dateDialogOpen', false)}
+        onDateSelect={(date) => handleStateChange('selectedDate', date)}
+        onDateApply={() => {
+          fetchEvents(state.selectedDate);
+          handleStateChange('dateDialogOpen', false);
+        }}
+      />
     </Drawer>
   );
 
+  // Updated renderDesktopFilters function
   const renderDesktopFilters = () => (
-    <Box sx={{ display: "flex", width: "100%", mb: 3}}>
+    <Box sx={{ display: 'flex', width: '100%', mb: 3 }}>
       <Box
         sx={{
-          border: "1px solid #4d4d4e8e",
-          borderRadius: "32px",
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: "#4d4d4e8e",
-          padding: "4px",
-          width: "100%",
-          boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-          "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
+          border: '1px solid #4d4d4e8e',
+          borderRadius: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: '#4d4d4e8e',
+          padding: '4px',
+          width: '100%',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+          '&:hover': { boxShadow: '0 2px 4px rgba(0,0,0,0.12)' },
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "200px", padding: "4px 16px", position: "relative" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minWidth: { xs: '120px', sm: '160px' },
+            padding: '4px 8px',
+          }}
+        >
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Who?
           </Typography>
-          <TextField
-            value={state.searchName}
-            onChange={(e) => handleStateChange("searchName", e.target.value)}
-            placeholder="Search by name"
-            variant="standard"
-            sx={{
-              "& .MuiInputBase-input": {
-                color: state.searchName ? "#F6F4FE" : "#777280",
-                fontWeight: 500,
-                fontSize: "14px",
-                padding: "4px 8px",
-              },
-              "& .MuiInput-underline:before": { borderBottom: "none" },
-              "& .MuiInput-underline:after": { borderBottom: "none" },
-              "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
-            }}
-            onFocus={() => state.searchName && handleStateChange("isNameDropdownOpen", true)}
-            onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
+          <Autocomplete
+            freeSolo
+            options={state.filteredNames.map((n) => n.name)}
+            value={state.searchName || ''}
+            onInputChange={(_, newValue) => handleStateChange('searchName', newValue)}
+            onChange={(_, newValue) => handleStateChange('searchName', newValue || '')}
+            clearIcon={<Close sx={{ color: '#F6F4FE', cursor: 'pointer' }} onClick={(e) => {
+                e.stopPropagation();
+                handleStateChange('searchName', '');
+              }} />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder="Search by name"
+                variant="standard"
+                sx={{
+                  '& .MuiInputBase-input': {
+                    color: state.searchName ? '#F6F4FE' : 'rgba(255, 255, 255, 0.5)',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    padding: '4px 8px',
+                  },
+                  '& .MuiInput-underline:before': { borderBottom: 'none' },
+                  '& .MuiInput-underline:after': { borderBottom: 'none' },
+                  '& .MuiInput-underline:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
+                }}
+              />
+            )}
           />
-          {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                maxHeight: "200px",
-                overflowY: "auto",
-                backgroundColor: "#2C2C2C",
-                borderRadius: "8px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                zIndex: 1300,
-                mt: 1,
-              }}
-            >
-              {state.filteredNames.map((followUp, index) => (
-                <Box
-                  key={followUp.id}
-                  sx={{
-                    padding: "8px 16px",
-                    color: "#F6F4FE",
-                    cursor: "pointer",
-                    "&:hover": { backgroundColor: "#4d4d4e8e" },
-                    borderBottom:
-                      index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
-                  }}
-                  onClick={() => {
-                    handleStateChange("searchName", followUp.name);
-                    handleStateChange("isNameDropdownOpen", false);
-                  }}
-                >
-                  {followUp.name}
-                </Box>
-              ))}
-            </Box>
-          )}
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Type
+        <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
+        >
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+            Branch
           </Typography>
-          <Select
-            value={state.searchType}
-            onChange={(e) => handleStateChange("searchType", e.target.value as string)}
-            displayEmpty
-            sx={{
-              color: state.searchType ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Type";
-              const type = state.types.find((d) => d.id === selected);
-              return type ? type.name : "Select Type";
-            }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {state.types.map((type) => (
-              <MenuItem key={type.id} value={type.id}>
-                {type.name}
-              </MenuItem>
-            ))}
-          </Select>
+          <FormControl fullWidth>
+            <Select
+              value={state.selectedBranchId}
+              onChange={(e) => handleBranchChange(e)}
+              onOpen={handleBranchOpen}
+              displayEmpty
+              sx={{
+                color: state.selectedBranchId ? '#F6F4FE' : '#777280',
+                fontWeight: 500,
+                fontSize: '14px',
+                '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
+                '.MuiOutlinedInput-notchedOutline': { border: 'none' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+                '& .MuiSelect-icon': { display: 'none' },
+              }}
+              renderValue={(selected) =>
+                selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
+              }
+            >
+              <MenuItem value="">None</MenuItem>
+              {branchesLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : branchesError ? (
+                <MenuItem disabled>Error loading branches</MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}>
-            Address
+        <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
+        >
+          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+            Program
           </Typography>
           <MuiSelect
-            value={state.searchAddress}
-            onChange={(e: any) => handleStateChange("searchAddress", e.target.value as string)}
+            value={state.selectedEventId}
+            onChange={(e) => handleStateChange('selectedEventId', e.target.value as string)}
+            onOpen={() => fetchEvents(state.selectedDate)}
             displayEmpty
+            disabled={!state.selectedBranchId}
             sx={{
-              color: state.searchAddress ? "#F6F4FE" : "#777280",
+              color: state.selectedEventId ? '#F6F4FE' : '#777280',
               fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              fontSize: '14px',
+              '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
+              '.MuiOutlinedInput-notchedOutline': { border: 'none' },
+              '& .MuiSelect-icon': { display: 'none' },
+              '&.Mui-disabled': { backgroundColor: '#4d4d4e4d', color: '#777280' },
             }}
-            renderValue={(selected) => (selected ? selected : "Select Address")}
+            renderValue={(selected) => {
+              if (!state.selectedBranchId) return 'Select Branch First';
+              if (!selected) return 'Select Program';
+
+              const allOccurrences = state.events.flatMap((event) =>
+                event.occurrences.map((occ) => ({ ...occ, eventTitle: event.title }))
+              );
+              const occurrence = allOccurrences.find((occ) => occ.id === selected);
+
+              if (occurrence) {
+                const formatTime = (time: string) => {
+                  const date = new Date(`1970-01-01T${time}`);
+                  return date.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+                };
+
+                const formattedStart = formatTime(occurrence.startTime);
+                const formattedEnd = formatTime(occurrence.endTime);
+
+                return `${occurrence.eventTitle} - ${formattedStart} to ${formattedEnd}`;
+              }
+
+              return 'Select Program';
+            }}
           >
-            <MenuItem value="">All</MenuItem>
-            {[...new Set(state.followUps.map((m) => m.address))].map((address) => (
-              <MenuItem key={address} value={address}>
-                {address}
-              </MenuItem>
-            ))}
+            <MenuItem value="">None</MenuItem>
+            {state.eventsLoading ? (
+              <MenuItem disabled>Loading...</MenuItem>
+            ) : (
+              state.events.flatMap((event) =>
+                event.occurrences.map((occurrence) => {
+                  const start = new Date(`1970-01-01T${occurrence.startTime}`);
+                  const end = new Date(`1970-01-01T${occurrence.endTime}`);
+
+                  const formattedStart = start.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+
+                  const formattedEnd = end.toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  });
+
+                  return (
+                    <MenuItem key={occurrence.id} value={occurrence.id}>
+                      {`${event.title} (${formattedStart} - ${formattedEnd})`}
+                    </MenuItem>
+                  );
+                })
+              )
+            )}
+            <Divider />
+            <MenuItem onClick={() => handleStateChange('dateDialogOpen', true)}>
+              {state.selectedDate ? `${state.selectedDate.format('MMMM D, YYYY')}` : 'Select Date'}
+            </MenuItem>
           </MuiSelect>
         </Box>
         <Box>
           <Button
             onClick={searchFollowUps}
             sx={{
-              backgroundColor: "transparent",
-              border: "1px solid #777280",
-              color: "white",
-              borderRadius: "50%",
-              minWidth: "48px",
-              height: "48px",
+              backgroundColor: 'transparent',
+              border: '1px solid #777280',
+              color: 'white',
+              borderRadius: '50%',
+              minWidth: '48px',
+              height: '48px',
               padding: 0,
-              "&:hover": { backgroundColor: "#777280" },
+              '&:hover': { backgroundColor: '#777280' },
             }}
-            disabled={state.isSearching}
+            disabled={state.isSearching || state.loading}
           >
-            {state.isSearching ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              <Search sx={{ fontSize: "20px" }} />
-            )}
+            {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <Search sx={{ fontSize: '20px' }} />}
           </Button>
         </Box>
       </Box>
+      <DatePickerDialog
+        open={state.dateDialogOpen}
+        onClose={() => handleStateChange('dateDialogOpen', false)}
+        onDateSelect={(date) => handleStateChange('selectedDate', date)}
+        onDateApply={() => {
+          fetchEvents(state.selectedDate);
+          handleStateChange('dateDialogOpen', false);
+        }}
+      />
     </Box>
   );
 
-  useEffect(() => {
-    fetchFollowUps();
-  }, [fetchFollowUps]);
+  function handleAddFollowUp(): void {
+    navigate('/programs');
+  }
 
   return (
     <DashboardManager>
-      <ToastContainer />
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: '100%' }}>
         {/* Header */}
-        <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, lg: 7 }}>
             <Typography
-              variant={isMobile ? "h5" : "h5"}
+              variant={isMobile ? 'h5' : 'h5'}
               component="h4"
-              sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined }}
+              sx={{ fontWeight: 600, display: 'flex', mb: 3, alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.1rem' : undefined }}
             >
               <span className="text-[#777280]">Members</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
               <span className="text-[#F6F4FE]">Newcomers</span>
             </Typography>
             {isMobile ? (
-              <Box sx={{ display: "flex", width: "100%", mt: 2 }}>
+              <Box sx={{ display: 'flex', width: '100%', mt: 2 }}>
                 <Box
                   sx={{
-                    border: "1px solid #4d4d4e8e",
-                    borderRadius: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    backgroundColor: "#4d4d4e8e",
-                    padding: "4px",
-                    width: "100%",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                    "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
+                    border: '1px solid #4d4d4e8e',
+                    borderRadius: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: '#4d4d4e8e',
+                    padding: '4px',
+                    width: '100%',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                    '&:hover': { boxShadow: '0 2px 4px rgba(0,0,0,0.12)' },
                   }}
                 >
-                  <Box sx={{ flex: 1, padding: "4px 8px" }}>
+                  <Box sx={{ flex: 1, padding: '4px 8px' }}>
                     <TextField
                       value={state.searchName}
-                      onChange={(e) => handleStateChange("searchName", e.target.value)}
+                      onChange={(e) => handleStateChange('searchName', e.target.value)}
                       placeholder="Search by name"
                       variant="standard"
                       sx={{
-                        "& .MuiInputBase-input": {
-                          color: state.searchName ? "#F6F4FE" : "#777280",
-                          fontSize: "14px",
-                          padding: "4px 8px",
+                        '& .MuiInputBase-input': {
+                          color: state.searchName ? '#F6F4FE' : '#A4A1AA',
+                          fontSize: '14px',
+                          padding: '4px 8px',
                         },
-                        "& .MuiInput-underline:before": { borderBottom: "none" },
-                        "& .MuiInput-underline:after": { borderBottom: "none" },
-                        "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
-                          borderBottom: "none",
-                        },
+                        '& .MuiInput-underline:before': { borderBottom: 'none' },
+                        '& .MuiInput-underline:after': { borderBottom: 'none' },
+                        '& .MuiInput-underline:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
                       }}
-                      onFocus={() => state.searchName && handleStateChange("isNameDropdownOpen", true)}
-                      onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
+                      onFocus={() => state.searchName && handleStateChange('isNameDropdownOpen', true)}
+                      onBlur={() => setTimeout(() => handleStateChange('isNameDropdownOpen', false), 200)}
                     />
                     {state.isNameDropdownOpen && state.filteredNames.length > 0 && (
                       <Box
                         sx={{
-                          position: "absolute",
-                          top: "100%",
+                          position: 'absolute',
+                          top: '100%',
                           left: 0,
                           right: 0,
-                          maxHeight: "200px",
-                          overflowY: "auto",
-                          backgroundColor: "#2C2C2C",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                          maxHeight: '200px',
+                          overflowY: 'auto',
+                          backgroundColor: '#2C2C2C',
+                          borderRadius: '8px',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                           zIndex: 1300,
                           mt: 1,
                         }}
@@ -1151,16 +1539,15 @@ const ViewFollowUp: React.FC = () => {
                           <Box
                             key={followUp.id}
                             sx={{
-                              padding: "8px 16px",
-                              color: "#F6F4FE",
-                              cursor: "pointer",
-                              "&:hover": { backgroundColor: "#4d4d4e8e" },
-                              borderBottom:
-                                index < state.filteredNames.length - 1 ? "1px solid #777280" : "none",
+                              padding: '8px 16px',
+                              color: '#F6F4FE',
+                              cursor: 'pointer',
+                              '&:hover': { backgroundColor: '#4d4d4e8e' },
+                              borderBottom: index < state.filteredNames.length - 1 ? '1px solid #777280' : 'none',
                             }}
                             onClick={() => {
-                              handleStateChange("searchName", followUp.name);
-                              handleStateChange("isNameDropdownOpen", false);
+                              handleStateChange('searchName', followUp.name);
+                              handleStateChange('isNameDropdownOpen', false);
                             }}
                           >
                             {followUp.name}
@@ -1169,33 +1556,29 @@ const ViewFollowUp: React.FC = () => {
                       </Box>
                     )}
                   </Box>
-                  <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                  <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
                   <IconButton
                     onClick={() => setState((prev) => ({ ...prev, isDrawerOpen: true }))}
-                    sx={{ color: "#777280", "&:hover": { color: "#F6F4FE" } }}
+                    sx={{ color: '#777280', '&:hover': { color: '#F6F4FE' } }}
                   >
-                    <AttachFile sx={{ color: "#F6F4FE", fontSize: "20px" }} />
+                    <AttachFile sx={{ color: '#F6F4FE', fontSize: '20px' }} />
                   </IconButton>
-                  <Box sx={{ pr: "8px" }}>
+                  <Box sx={{ pr: '8px' }}>
                     <Button
                       onClick={searchFollowUps}
                       sx={{
-                        backgroundColor: "transparent",
-                        border: "1px solid #777280",
-                        color: "white",
-                        borderRadius: "50%",
-                        minWidth: "48px",
-                        height: "48px",
+                        backgroundColor: 'transparent',
+                        border: '1px solid #777280',
+                        color: 'white',
+                        borderRadius: '50%',
+                        minWidth: '48px',
+                        height: '48px',
                         padding: 0,
-                        "&:hover": { backgroundColor: "transparent" },
+                        '&:hover': { backgroundColor: '#777280' },
                       }}
                       disabled={state.isSearching}
-                      >
-                      {state.isSearching ? (
-                        <CircularProgress size={20} color="inherit" />
-                      ) : (
-                        <Search sx={{ fontSize: "20px" }} />
-                      )}
+                    >
+                      {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <Search sx={{ fontSize: '20px' }} />}
                     </Button>
                   </Box>
                 </Box>
@@ -1205,123 +1588,64 @@ const ViewFollowUp: React.FC = () => {
             )}
             {isMobile && renderMobileFilters()}
           </Grid>
-          <Grid
-            size={{ xs: 12, md: 6 }}
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              mt: { xs: 2, md: 0 },
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                flexDirection: { xs: "column", sm: "row" },
-                width: { xs: "100%", sm: "auto" },
-              }}
-            >
-              <Button
-                variant="contained"
-                onClick={handleImportExcel}
-                disabled={state.isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#363740",
-                  px: { xs: 3, sm: 3 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content"
-                }}
-              >
-                Upload Newcomers <MdOutlineFileUpload className="ml-1" />
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => setState((prev) => ({ ...prev, isModalOpen: true }))}
-                size="medium"
-                sx={{
-                  backgroundColor: "#363740",
-                  px: { xs: 2, sm: 2 },
-                  py: 1,
-                  borderRadius: 50,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": {
-                    backgroundColor: "#363740",
-                    opacity: 0.9,
-                  },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content"
-                }}
-              >
-                Add Newcomer +
-              </Button>
-            </Box>
-          </Grid>
         </Grid>
 
         {/* Loading State */}
         {state.loading && state.filteredFollowUps.length === 0 && (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress size={40} sx={{ color: "#777280" }} />
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={40} sx={{ color: '#777280' }} />
           </Box>
         )}
 
         {/* Empty/Error State */}
-        {!state.loading && (state.error || state.filteredFollowUps.length === 0) && (
+        {state.error && !state.loading && state.filteredFollowUps.length === 0 && (
           <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
         )}
-
+        {!state.loading && !state.error && state.filteredFollowUps.length === 0 && (
+          <EmptyState error={state.error} onAddFollowUp={handleAddFollowUp} isLargeScreen={isLargeScreen} />
+        )}
         {/* Table */}
         {state.filteredFollowUps.length > 0 && (
           <>
-            <TableContainer sx={{ boxShadow: 2, borderRadius: 1, overflowX: "auto" }}>
-              <Table sx={{ minWidth: { xs: "auto", sm: 650 }, "& td, & th": { border: "none" } }}>
+            <TableContainer
+              sx={{
+                boxShadow: 2,
+                borderRadius: 1,
+                overflowX: 'auto',
+                mb: 4,
+                maxHeight: '500px', // Set a fixed height for the table
+                overflowY: 'auto', // Enable vertical scrolling
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#777280',
+                  borderRadius: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: '#4d4d4e8e',
+                },
+              }}
+            >
+              <Table sx={{ minWidth: { xs: 'auto', sm: 650 }, '& td, & th': { border: 'none' } }}>
                 <TableHead>
                   <TableRow>
-                    {(["snumber", "name", "contact", "address", "actions"] as const).map((key) => (
+                    {(['snumber', 'name', 'contact', 'branch', 'event', 'visitor', 'followed_Up', 'actions'] as const).map((key) => (
                       <TableCell
                         key={key}
                         sx={{
                           fontWeight: 600,
-                          width: TABLE_COLUMN_WIDTHS[key],
-                          fontSize: isLargeScreen ? "0.875rem" : undefined,
-                          color: "#777280",
-                          textAlign: key === "actions" ? "center" : "left",
-                          ...(key === "address" && {
-                            maxWidth: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }),
+                          width: TABLE_COLUMN_WIDTHS[key === 'event' ? 'address' : key],
+                          fontSize: isLargeScreen ? '0.875rem' : undefined,
+                          color: '#777280',
+                          textAlign: key === 'actions' ? 'center' : 'left',
                         }}
                       >
-                        {key === "address" ? (
-                          <Tooltip
-                            title={(key.charAt(0).toUpperCase() + key.slice(1)).length > 30 ? key.charAt(0).toUpperCase() + key.slice(1) : ""}
-                            placement="top"
-                            arrow
-                          >
-                            <span>
-                              {(key.charAt(0).toUpperCase() + key.slice(1)).length > 30
-                                ? `${(key.charAt(0).toUpperCase() + key.slice(1)).slice(0, 30)}...`
-                                : key.charAt(0).toUpperCase() + key.slice(1)}
-                            </span>
-                          </Tooltip>
-                        ) : key === "snumber" ? (
-                          "#"
-                        ) : (
-                          key.charAt(0).toUpperCase() + key.slice(1)
-                        )}
+                        {key === 'snumber'
+                          ? '#'
+                          : key === 'followed_Up'
+                          ? 'Followed Up'
+                          : key.charAt(0).toUpperCase() + key.slice(1)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -1348,31 +1672,34 @@ const ViewFollowUp: React.FC = () => {
                 isLoading={state.loading}
               />
             </TableContainer>
-            <Box sx={{ p: 3, display: "flex", justifyContent: "flex-end" }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
               <Tooltip title="Download Newcomers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
                   disabled={state.exportLoading}
                   size="medium"
                   sx={{
-                    backgroundColor: "#363740",
+                    backgroundColor: '#363740',
                     px: { xs: 2, sm: 2 },
                     py: 1,
-                    borderRadius: 1,
+                    borderRadius: 50,
                     fontWeight: 500,
-                    textTransform: "none",
-                    color: "var(--color-text-on-primary)",
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                    "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                    textTransform: 'none',
+                    color: '#f6f4fe',
+                    fontSize: isLargeScreen ? '1rem' : undefined,
+                    '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
                   }}
                 >
                   {state.exportLoading ? (
                     <span className="text-gray-500">
-                      <CircularProgress size={18} sx={{ color: "var(--color-text-on-primary)", mr: 1 }} />
+                      <CircularProgress size={18} sx={{ color: 'var(--color-text-on-primary)', mr: 1 }} />
                       Downloading...
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1">Download Newcomers <PiDownloadThin /></span>
+                    <span className="flex items-center gap-1">
+                      <span className="hidden lg:inline">Download Newcomers</span>
+                      <PiDownloadThin className="text-lg" />
+                    </span>
                   )}
                 </Button>
               </Tooltip>
@@ -1386,7 +1713,19 @@ const ViewFollowUp: React.FC = () => {
           currentFollowUp={state.currentFollowUp}
           onClose={handleMenuClose}
           onAction={showConfirmation}
-          onView={handleViewFollowUp}
+          onEdit={handleEditOpen}
+          onComment={handleCommentOpen}
+          isLargeScreen={isLargeScreen}
+          loading={state.loading}
+        />
+
+        {/* Follow Up Comment Dialog */}
+        <FollowUpCommentDialog
+          open={state.commentDialogOpen}
+          onClose={handleCommentClose}
+          onSubmit={handleCommentSubmit}
+          initialComment={state.currentFollowUp?.adminComment || null}
+          fullname={state.currentFollowUp?.name || ''}
           isLargeScreen={isLargeScreen}
           loading={state.loading}
         />
@@ -1402,93 +1741,17 @@ const ViewFollowUp: React.FC = () => {
           loading={state.loading}
         />
 
-        {/* Registration Modal */}
-        <RegistrationModal
-          open={state.isModalOpen}
-          onClose={() => setState((prev) => ({ ...prev, isModalOpen: false }))}
+        {/* Edit Modal */}
+        <EditRegistrationModal
+          open={state.editModalOpen}
+          onClose={handleEditClose}
           onSuccess={() => {
             refreshFollowUps();
-            setState((prev) => ({ ...prev, isModalOpen: false }));
+            setState((prev) => ({ ...prev, editModalOpen: false, currentFollowUp: null }));
           }}
+          memberId={state.currentFollowUp?.id || ''}
         />
       </Box>
-      {/* Excel Import Dialog */}
-      <Dialog open={state.openExcelDialog} onClose={handleCloseExcelDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Import Excel File</DialogTitle>
-        <DialogContent>
-          <Box
-            sx={{
-              border: `2px dashed ${state.isDragging ? theme.palette.primary.main : theme.palette.grey[400]}`,
-              borderRadius: 2,
-              p: 4,
-              textAlign: "center",
-              bgcolor: state.isDragging ? theme.palette.grey[100] : "transparent",
-              transition: "all 0.2s",
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              Drag and drop your Excel file here or
-            </Typography>
-            <Button
-              variant="contained"
-              component="label"
-              sx={{
-                mt: 2,
-                backgroundColor: "#777280",
-                color: "var(--color-text-on-primary)",
-                "&:hover": {
-                  backgroundColor: "#777280",
-                  opacity: 0.9,
-                },
-              }}
-            >
-              Select File
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-              />
-            </Button>
-            {state.selectedFile && (
-              <Typography variant="body2" sx={{ mt: 2 }}>
-                Selected file: {state.selectedFile.name}
-              </Typography>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseExcelDialog} disabled={state.isLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleUpload}
-            variant="contained"
-            disabled={state.isLoading || !state.selectedFile}
-            sx={{
-              backgroundColor: "#777280",
-              color: "var(--color-text-on-primary)",
-              "&:hover": {
-                backgroundColor: "#777280",
-                opacity: 0.9,
-              },
-            }}
-          >
-            {state.isLoading ? (
-              <>
-                <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                Uploading...
-              </>
-            ) : (
-              "Upload"
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </DashboardManager>
   );
 };

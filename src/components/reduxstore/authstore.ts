@@ -2,20 +2,23 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export interface AuthData {
-  backgroundImg: string;
+  backgroundImg?: string;
   churchId: string;
   church_name: string;
   email: string;
   exp: number;
   iat: number;
   id: string;
-  isHeadQuarter: boolean;
-  isSuperAdmin: boolean;
+  isHeadQuarter?: boolean;
+  isSuperAdmin?: boolean;
   logo: string;
   name: string;
   tenantId: string;
+  department: string | null;
   token: string;
   branchId: string;
+  role: string;          // ✅ added
+  branches: string[];   // ✅ fixed spelling
 }
 
 // Export AuthState interface

@@ -187,6 +187,9 @@ const SetupChurch: React.FC = () => {
 
       {/* Login Form Container */}
       <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+        <div className="text-center mb-5">
+          <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+        </div>
         {/* Right Section - Form */}
         <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
           <div className="text-center mb-5">
@@ -235,10 +238,10 @@ const SetupChurch: React.FC = () => {
 
             {renderSelectField(
               'isHeadquarter',
-              'Does your church have branches?',
+              'Use Churchset as?',
               [
-                { value: 'true', label: 'Yes' },
-                { value: 'false', label: 'No' }
+                { value: 'true', label: 'A Multiple Branches/Church' },
+                { value: 'false', label: 'A Single Branch/Church' }
               ],
               true
             )}

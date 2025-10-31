@@ -3,6 +3,13 @@
   publish = "dist"
   environment = { NODE_VERSION = "18.19.0" }
 
+# Serve static assets directly (e.g., .js, .css files)
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
+# Serve index.html for all other routes (for SPA client-side routing)
 [[redirects]]
   from = "/*"
   to = "/index.html"

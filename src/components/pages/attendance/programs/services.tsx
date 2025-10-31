@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Button,
@@ -23,16 +23,20 @@ import {
   FormControlLabel,
   ListItemText,
   Checkbox,
-  Divider,
   IconButton,
+  Chip,
 } from "@mui/material";
 import { CachedOutlined, CalendarTodayOutlined, Add, Close, Refresh } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import moment from "moment";
-import { toast, ToastContainer } from "react-toastify";
-import MultiDatePicker from "../../../util/datepicker";
+import { showPageToast } from "../../../util/pageToast";
+import { usePageToast } from "../../../hooks/usePageToast";
+import dayjs from "dayjs";
+import CustomCalendarDialog from "../../../util/popCalender";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 
-interface ServiceFormData {
+export interface ServiceFormData {
   title: string;
   date: string;
   startTime: string;
@@ -41,18 +45,45 @@ interface ServiceFormData {
   collectionIds: string[];
   recurrenceType: string;
   endDate?: string;
-  byWeekday?: number[];
-  nthWeekdays?: { weekday: number; nth: number }[];
-  customRecurrenceDates?: string[];
+  byWeekday?: Weeks[];
+  nthWeekdays?: {
+    weekday: number;
+    nth: number;
+    startTime?: string;
+    endTime?: string;
+  }[];
+  customRecurrenceDates?: {
+    date: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  branchId?: string;
+}
+
+interface Weeks {
+  weekday: number;
+  startTime: string;
+  endTime: string;
 }
 
 interface Department {
   id: string;
   name: string;
-  type: string;
+  type?: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 interface Collection {
+  id: string;
+  name: string;
+  collection: collectionData;
+}
+
+interface collectionData {
   id: string;
   name: string;
 }
@@ -72,11 +103,13 @@ interface EventOccurrence {
   hasAttendance: boolean;
   dayOfWeek: string;
   createdAt: string;
-  collections: Collection[];
+  collection: Collection[];
+  assignedDeparments: Department[];
   event: Event;
+  branchId?: string;
 }
 
-interface CreateProgramModalProps {
+interface ProgramModalProps {
   eventId?: string;
   open: boolean;
   onClose: () => void;
@@ -88,34 +121,130 @@ interface EventResponse {
   eventOccurrence: EventOccurrence;
 }
 
-const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const daysOfWeek = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
 
 const fetchCollections = async (
   setCollections: React.Dispatch<React.SetStateAction<Collection[]>>,
   setFetchingCollections: React.Dispatch<React.SetStateAction<boolean>>,
-  setFetchCollectionsError: React.Dispatch<React.SetStateAction<string | null>>
+  setFetchCollectionsError: React.Dispatch<React.SetStateAction<string | null>>,
+  setFormData: React.Dispatch<React.SetStateAction<ServiceFormData>>,
+  branchId?: string,
 ) => {
+  if (!branchId) {
+    setCollections([]);
+    setFetchCollectionsError("No branch selected.");
+    setFormData(prev => ({ ...prev, collectionIds: [] }));
+    return;
+  }
+
   try {
     setFetchingCollections(true);
     setFetchCollectionsError(null);
-    const response = await Api.get("/church/get-collections");
-    const fetchedCollections = response.data.collections || [];
-    setCollections(fetchedCollections);
+
+    // ✅ Fetch collections
+    const response = await Api.get(`/church/get-all-collections/${branchId}`);
+
+    // ✅ Response now returns: response.data.collections = [ { id, name, ... } ]
+    const rawCollections = response.data.collections || [];
+
+    const mappedCollections = rawCollections
+      .filter((item: any) => item.id && item.name) // Directly from item, not item.collection
+      .map((item: any) => ({
+        id: item.id,
+        name: item.name,
+      }));
+
+    // ✅ Set the cleaned collection data
+    setCollections(mappedCollections);
+
+    // ✅ Keep only valid selected IDs that still exist in the new response
+    setFormData(prev => ({
+      ...prev,
+      collectionIds: prev.collectionIds.filter(id =>
+        mappedCollections.some((col: { id: string; }) => col.id === id)
+      ),
+    }));
+
   } catch (error) {
     console.error("Failed to fetch collections:", error);
     setFetchCollectionsError("Failed to load collections. Please try again.");
     setCollections([]);
+    setFormData(prev => ({ ...prev, collectionIds: [] }));
   } finally {
     setFetchingCollections(false);
   }
 };
 
-const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, onSuccess, eventId }) => {
+
+const fetchDepartments = async (
+  setDepartments: React.Dispatch<React.SetStateAction<Department[]>>,
+  setFetchingDepartments: React.Dispatch<React.SetStateAction<boolean>>,
+  setFetchDepartmentsError: React.Dispatch<React.SetStateAction<string | null>>,
+  setFormData: React.Dispatch<React.SetStateAction<ServiceFormData>>,
+  branchId?: string
+) => {
+  if (!branchId) {
+    setDepartments([]);
+    setFetchDepartmentsError("No branch selected.");
+    setFormData((prev) => ({ ...prev, departmentIds: [] }));
+    return;
+  }
+  try {
+    setFetchingDepartments(true);
+    setFetchDepartmentsError(null);
+    const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
+    setDepartments(response.data.departments || []);
+    setFormData((prev) => ({
+      ...prev,
+      departmentIds: prev.departmentIds.filter((id) => response.data.departments.some((dept: Department) => dept.id === id)),
+    }));
+  } catch (error) {
+    setFetchDepartmentsError("Failed to load departments. Please try again.");
+    setDepartments([]);
+    setFormData((prev) => ({ ...prev, departmentIds: [] }));
+  } finally {
+    setFetchingDepartments(false);
+  }
+};
+
+const fetchBranches = async (
+  setBranches: React.Dispatch<React.SetStateAction<Branch[]>>,
+  setFetchingBranch: React.Dispatch<React.SetStateAction<boolean>>,
+  setFetchBranchesError: React.Dispatch<React.SetStateAction<string | null>>
+) => {
+  try {
+    setFetchingBranch(true);
+    setFetchBranchesError(null);
+    const response = await Api.get("/church/get-branches");
+    setBranches(response.data.branches || []);
+  } catch (error) {
+    setFetchBranchesError("Failed to load branches. Please try again.");
+    setBranches([]);
+  } finally {
+    setFetchingBranch(false);
+  }
+};
+
+const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
+  open,
+  onClose,
+  onSuccess,
+  eventId,
+  isEdit = false,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
-
-  const isEdit = !!eventId;
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
+  usePageToast("program-modal");
 
   const [formData, setFormData] = useState<ServiceFormData>({
     title: "",
@@ -124,12 +253,24 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     endTime: "",
     departmentIds: [],
     collectionIds: [],
+    branchId: authData?.branchId || "",
     recurrenceType: "none",
   });
+  const [initialFormData, setInitialFormData] = useState<ServiceFormData>({
+    title: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    departmentIds: [],
+    collectionIds: [],
+    branchId: authData?.branchId || "",
+    recurrenceType: "none",
+  });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [addingCollection, setAddingCollection] = useState<boolean>(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [fetchingDepartments, setFetchingDepartments] = useState<boolean>(false);
   const [fetchingCollections, setFetchingCollections] = useState<boolean>(false);
   const [fetchCollectionsError, setFetchCollectionsError] = useState<string | null>(null);
@@ -137,91 +278,124 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
   const [createProgramError, setCreateProgramError] = useState<string | null>(null);
   const [monthlyModalOpen, setMonthlyModalOpen] = useState(false);
   const [monthlyOption, setMonthlyOption] = useState<"byDate" | "byWeek">("byDate");
-  const [selectedWeekdays, setSelectedWeekdays] = useState<string[]>([]);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
   const [nthWeekdays, setNthWeekdays] = useState<{ weekday: number; nth: number }[]>([]);
-  const [tempNewCollection, setTempNewCollection] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loadingEdit, setLoadingEdit] = useState<boolean>(false);
   const [departmentSelectOpen, setDepartmentSelectOpen] = useState(false);
+  const [weekdayMenuOpen, setWeekdayMenuOpen] = useState(false);
+  const [branchSelectOpen, setBranchSelectOpen] = useState(false);
+  const [fetchingBranch, setFetchingBranch] = useState(false);
+  const [fetchBranchesError, setFetchBranchesError] = useState<string | null>(null);
+  const selectRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (open && eventId) {
-      const fetchEventData = async () => {
-        try {
-          setLoadingEdit(true);
-          const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-          setEventData(response.data.eventOccurrence);
-        } catch (err) {
-          toast.error('Failed to fetch event data');
-          console.error('Error fetching event data:', err);
-        } finally {
-          setLoadingEdit(false);
-        }
+    if (open) {
+      // Reset state to avoid stale data
+      setDepartments([]);
+      setCollections([]);
+      setFormData((prev) => ({
+        ...prev,
+        branchId: authData?.branchId || "",
+        departmentIds: [],
+        collectionIds: [],
+      }));
+      const fetchInitialData = async () => {
+        await Promise.all([
+          fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError),
+          fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, authData?.branchId || ""),
+          fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, authData?.branchId || ""),
+          isEdit && eventId ? fetchEventData() : Promise.resolve(),
+        ]);
       };
-
-      fetchEventData();
+      fetchInitialData();
     }
-  }, [eventId, open]);
+  }, [open, authData?.branchId, isEdit, eventId]);
 
   useEffect(() => {
-    if (eventData) {
-      setFormData({
+    if (open && formData.branchId) {
+      fetchDepartments(setDepartments, setFetchingDepartments, setFetchDepartmentsError, setFormData, formData.branchId);
+      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError, setFormData, formData.branchId);
+    }
+  }, [open, formData.branchId]);
+
+  useEffect(() => {
+    if (eventData && isEdit) {
+      const newFormData = {
         title: eventData.event.title,
         date: moment(eventData.date).format("YYYY-MM-DD"),
         startTime: eventData.startTime,
         endTime: eventData.endTime,
-        departmentIds: [], // Assuming no departments in response; adjust if API includes them
-        collectionIds:  eventData.collections ? eventData.collections.map((col) => col.id) : [],
+        departmentIds: eventData?.assignedDeparments?.map((dept) => dept.id) || [],
+        collectionIds: eventData.collection?.map((col) => col.collection.id) || [],
         recurrenceType: "none",
-      });
+        branchId: eventData.branchId || authData?.branchId || "",
+      };
+      setFormData(newFormData);
+      setInitialFormData(newFormData);
     }
-  }, [eventData]);
-
-    // ✅ move fetchDepartments outside useEffect
-    const fetchDepartments = async () => {
-      try {
-        setFetchingDepartments(true);
-        setFetchDepartmentsError(null);
-        const response = await Api.get("/church/get-departments");
-
-        // ✅ Only departments where branch is null
-        const filtered = (response.data.departments || []).filter(
-          (dept: any) => dept.branch === null
-        );
-
-        setDepartments(filtered);
-      } catch (error) {
-        setFetchDepartmentsError("Failed to load departments. Please try again.");
-      } finally {
-        setFetchingDepartments(false);
-      }
-    };
-
-    useEffect(() => {
-      if (open) {
-        fetchDepartments();
-        fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
-      }
-    }, [open]);
+  }, [eventData, isEdit, authData?.branchId]);
 
   useEffect(() => {
-    if (formData.recurrenceType !== "monthly") {
-      setMonthlyOption("byDate");
-      setNthWeekdays([]);
-    }
-    if (formData.recurrenceType !== "weekly") {
-      setSelectedWeekdays([]);
+    switch (formData.recurrenceType) {
+      case "weekly":
+        setMonthlyOption("byDate");
+        setNthWeekdays([]);
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(true);
+        setFormData((prev) => ({ ...prev, byWeekday: [] }));
+        break;
+      case "monthly":
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        break;
+      case "custom":
+        setMonthlyOption("byDate");
+        setNthWeekdays([]);
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        setCalendarOpen(true);
+        setFormData((prev) => ({
+          ...prev,
+          byWeekday: [],
+          nthWeekdays: [],
+          customRecurrenceDates: prev.customRecurrenceDates || [],
+        }));
+        break;
+      default:
+        setMonthlyOption("byDate");
+        setNthWeekdays([]);
+        setSelectedWeekdays([]);
+        setWeekdayMenuOpen(false);
+        setFormData((prev) => ({
+          ...prev,
+          byWeekday: [],
+          nthWeekdays: [],
+          customRecurrenceDates: [],
+        }));
     }
   }, [formData.recurrenceType]);
+
+  const fetchEventData = async () => {
+    if (!isEdit || !eventId) return;
+    try {
+      setLoadingEdit(true);
+      const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
+      setEventData(response.data.eventOccurrence);
+    } catch (err) {
+      showPageToast("Failed to fetch event data", "error");
+      console.error("Error fetching event data:", err);
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   const inputProps = {
     sx: {
       fontSize: isLargeScreen ? "0.875rem" : undefined,
       color: "#F6F4FE",
-      "& .MuiOutlinedInput-notchedOutline": {
-        borderColor: "#777280",
-      },
+      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
     },
   };
 
@@ -229,9 +403,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     sx: {
       fontSize: isLargeScreen ? "0.875rem" : undefined,
       color: "#F6F4FE",
-      "&.Mui-focused": {
-        color: "#F6F4FE",
-      },
+      "&.Mui-focused": { color: "#F6F4FE" },
     },
   };
 
@@ -242,46 +414,33 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     setFormData((prev) => ({
       ...prev,
       [name as keyof ServiceFormData]: value,
+      ...(name === "branchId" ? { departmentIds: [], collectionIds: [] } : {}), // Clear selections on branch change
     }));
     setCreateProgramError(null);
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleChange(e);
-    if (formData.recurrenceType === "monthly" && e.target.value) {
-      setMonthlyModalOpen(true);
-    }
-  };
-
   const handleDepartmentChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value as string[];
-
     if (value.includes("all")) {
-      // Toggle select all
       if (formData.departmentIds.length === departments.length) {
-        // unselect all
         setFormData((prev) => ({ ...prev, departmentIds: [] }));
       } else {
-        // select all
         setFormData((prev) => ({
           ...prev,
-          departmentIds: departments.map((dept: any) => dept.id),
+          departmentIds: departments.map((dept) => dept.id).filter((id) => id),
         }));
       }
     } else {
-      // normal multi-select
       setFormData((prev) => ({
         ...prev,
-        departmentIds: value.filter((id) => id !== null && id !== "null"),
+        departmentIds: value.filter((id) => id),
       }));
     }
   };
 
-  const handleCollectionChange = (event: SelectChangeEvent<typeof formData.collectionIds>) => {
+  const handleCollectionChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
-    const cleanedValue = Array.isArray(value)
-      ? value.filter(id => id !== null && id !== undefined && id !== '')
-      : [];
+    const cleanedValue = Array.isArray(value) ? value.filter((id) => id) : [];
     setFormData((prev) => ({
       ...prev,
       collectionIds: cleanedValue,
@@ -289,12 +448,71 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     setCreateProgramError(null);
   };
 
-  const handleWeekdayChange = (event: SelectChangeEvent<string[]>) => {
-    const { value } = event.target;
-    const selected = typeof value === "string" ? value.split(",") : value;
-    setSelectedWeekdays(selected);
-    const byWeekday = selected.map((day) => daysOfWeek.indexOf(day));
-    setFormData((prev) => ({ ...prev, byWeekday }));
+  const handleWeekdayChange = (event: SelectChangeEvent<unknown>) => {
+    const value = event.target.value as number[];
+    setSelectedWeekdays(value);
+    setFormData((prev) => {
+      const updated = [...(prev.byWeekday || [])];
+      value.forEach((dayNum) => {
+        if (!updated.find((w) => w.weekday === dayNum)) {
+          updated.push({ weekday: dayNum, startTime: "", endTime: "" });
+        }
+      });
+      const filtered = updated.filter((w) => value.includes(w.weekday));
+      return { ...prev, byWeekday: filtered };
+    });
+  };
+
+  const handleWeekdayTimeChange = (
+    weekday: number,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      byWeekday: prev.byWeekday?.map((w) =>
+        w.weekday === weekday ? { ...w, [field]: value } : w
+      ) || [],
+    }));
+  };
+
+  const handleConfirmMonthly = () => {
+    if (monthlyOption === "byWeek") {
+      const selectedDate = moment(formData.date);
+      const dayNum = selectedDate.date();
+      const weekday = selectedDate.day();
+      let weekOrdinal = Math.ceil(dayNum / 7);
+      const daysInMonth = selectedDate.daysInMonth();
+      const lastWeek = Math.ceil(daysInMonth / 7);
+      if (weekOrdinal === lastWeek) weekOrdinal = -1;
+      const newNthWeekdays = [
+        {
+          weekday,
+          nth: weekOrdinal,
+          startTime: "",
+          endTime: "",
+        },
+      ];
+      setFormData((prev) => ({
+        ...prev,
+        nthWeekdays: newNthWeekdays,
+      }));
+    }
+    setMonthlyModalOpen(false);
+  };
+
+  const handleMonthlyWeekdayTimeChange = (
+    weekday: number,
+    nth: number,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      nthWeekdays: prev.nthWeekdays?.map((w) =>
+        w.weekday === weekday && w.nth === nth ? { ...w, [field]: value } : w
+      ),
+    }));
   };
 
   const handleAddNthWeekday = (weekday: number, nth: number) => {
@@ -323,124 +541,247 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     }
   };
 
-  const handleAddCollection = async () => {
-    if (tempNewCollection.trim() === "") {
-      setFetchCollectionsError("Collection name cannot be empty.");
-      return;
+  const validateForm = () => {
+    if (!formData.title) {
+      showPageToast("Program title is required", "error");
+      return false;
     }
-    if (collections.some((col) => col.name.toLowerCase() === tempNewCollection.trim().toLowerCase())) {
-      setFetchCollectionsError("Collection already exists.");
-      return;
+    if (!formData.date && formData.recurrenceType !== "custom") {
+      showPageToast("Start date is required", "error");
+      return false;
     }
-
-    try {
-      setAddingCollection(true);
-      setFetchCollectionsError(null);
-      const response = await Api.post("/church/create-collection", { name: tempNewCollection.trim() });
-      const newCollection = response.data.collection;
-      setCollections((prev) => [...prev, newCollection]);
-      setTempNewCollection("");
-      setFetchCollectionsError("Collection added successfully!");
-      fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
-    } catch (error) {
-      console.error("Failed to create collection:", error);
-      setFetchCollectionsError("Failed to create collection. Please try again.");
-    } finally {
-      setAddingCollection(false);
+    if (formData.recurrenceType === "weekly") {
+      if (!formData.byWeekday || formData.byWeekday.length === 0) {
+        showPageToast("Please select at least one day", "error");
+        return false;
+      }
+      for (const day of formData.byWeekday) {
+        if (!day.startTime || !day.endTime) {
+          showPageToast(
+            `Start and End time are required for ${
+              daysOfWeek.find((d) => d.value === day.weekday)?.label || day.weekday
+            }`,
+            "error"
+          );
+          return false;
+        }
+      }
     }
+    if (formData.recurrenceType === "monthly" && monthlyOption === "byWeek") {
+      if (formData.nthWeekdays?.length) {
+        for (const w of formData.nthWeekdays) {
+          if (!w.startTime || !w.endTime) {
+            showPageToast(
+              `Start and End time are required for ${
+                daysOfWeek.find((d) => d.value === w.weekday)?.label || w.weekday
+              }`,
+              "error"
+            );
+            return false;
+          }
+        }
+      } else if (!formData.startTime || !formData.endTime) {
+        showPageToast("Start and End time are required for the month", "error");
+        return false;
+      }
+    }
+    return true;
   };
 
-  const handleSubmit = async () => {    
-    let payload: any = {
+  const buildPayload = () => {
+    const payload: any = {
       title: formData.title,
       recurrenceType: formData.recurrenceType,
-      date: formData.date,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
       departmentIds: formData.departmentIds,
       collectionIds: formData.collectionIds,
+      date: formData.date,
+      branchId: formData.branchId,
     };
 
-    if (formData.recurrenceType && formData.recurrenceType !== "none") {
-      payload.recurrenceType = formData.recurrenceType;
+    if (formData.recurrenceType === "weekly" && formData.byWeekday?.length) {
+      payload.byWeekday = formData.byWeekday.map((day) => ({
+        weekday: day.weekday,
+        startTime: day.startTime,
+        endTime: day.endTime,
+      }));
+    }
 
-      if (["weekly", "monthly"].includes(formData.recurrenceType)) {
-        payload.endDate =
-          formData.endDate ||
-          moment(formData.date).add(3, "months").format("YYYY-MM-DD");
-      }
-
-      if (formData.recurrenceType === "weekly") {
-        payload.date = formData.date;
-        payload.byWeekday = formData.byWeekday
-      }
-
-      if (formData.recurrenceType === "monthly") {
-        if (monthlyOption === "byDate") {
-          const selectedDate = moment(formData.date);
-          const dayNum = selectedDate.date();
-          payload.nthWeekdays = [
-            { weekday: selectedDate.day(), nth: Math.ceil(dayNum / 7) },
-          ];
+    if (formData.recurrenceType === "monthly") {
+      if (monthlyOption === "byWeek") {
+        if (formData.nthWeekdays?.length) {
+          payload.nthWeekdays = formData.nthWeekdays.map((w) => ({
+            weekday: w.weekday,
+            nth: w.nth,
+            startTime: w.startTime || "",
+            endTime: w.endTime || "",
+          }));
+          delete payload.startTime;
+          delete payload.endTime;
+        } else {
+          payload.startTime = formData.startTime;
+          payload.endTime = formData.endTime;
+          delete payload.nthWeekdays;
         }
-      }
-
-      if (
-        formData.recurrenceType === "custom" &&
-        formData.customRecurrenceDates?.length
-      ) {
-        payload.customRecurrenceDates = formData.customRecurrenceDates;
-        delete payload.date;
+      } else if (monthlyOption === "byDate") {
+        payload.startTime = formData.startTime;
+        payload.endTime = formData.endTime;
+        delete payload.nthWeekdays;
       }
     }
-    try{
+
+    if (formData.recurrenceType === "custom" && formData.customRecurrenceDates?.length) {
+      payload.customRecurrenceDates = formData.customRecurrenceDates;
+      delete payload.date;
+      delete payload.startTime;
+      delete payload.endTime;
+    }
+
+    if (formData.recurrenceType === "none") {
+      payload.startTime = formData.startTime;
+      payload.endTime = formData.endTime;
+    }
+
+    if (["weekly", "monthly"].includes(formData.recurrenceType)) {
+      payload.endDate =
+        formData.endDate ||
+        moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+    }
+
+    return payload;
+  };
+
+  const buildEditPayload = (initial: typeof formData) => {
+    const payload: any = {};
+
+    const addIfChanged = (key: keyof typeof formData) => {
+      const current = formData[key];
+      const previous = initial[key];
+
+      const isObjectOrArray = typeof current === "object" && current !== null;
+
+      if (isObjectOrArray) {
+        if (JSON.stringify(current) !== JSON.stringify(previous)) {
+          payload[key] = current;
+        }
+      } else {
+        if (current !== previous) {
+          payload[key] = current;
+        }
+      }
+    };
+
+    addIfChanged("title");
+    addIfChanged("departmentIds");
+    addIfChanged("collectionIds");
+    addIfChanged("date");
+    addIfChanged("startTime");
+    addIfChanged("endTime");
+
+    if (formData.recurrenceType !== initial.recurrenceType) {
+      payload.recurrenceType = formData.recurrenceType;
+    }
+
+    if (formData.recurrenceType === "weekly") {
+      if (JSON.stringify(formData.byWeekday) !== JSON.stringify(initial.byWeekday)) {
+        payload.byWeekday = formData.byWeekday;
+      }
+    }
+
+    if (formData.recurrenceType === "monthly") {
+      if (monthlyOption === "byWeek") {
+        if (
+          JSON.stringify(formData.nthWeekdays) !== JSON.stringify(initial.nthWeekdays)
+        ) {
+          payload.nthWeekdays = formData.nthWeekdays;
+        }
+      } else if (monthlyOption === "byDate") {
+        addIfChanged("startTime");
+        addIfChanged("endTime");
+      }
+    }
+
+    if (
+      formData.recurrenceType === "custom" &&
+      JSON.stringify(formData.customRecurrenceDates) !==
+        JSON.stringify(initial.customRecurrenceDates)
+    ) {
+      payload.customRecurrenceDates = formData.customRecurrenceDates;
+    }
+
+    if (
+      ["weekly", "monthly"].includes(formData.recurrenceType) &&
+      formData.endDate !== initial.endDate
+    ) {
+      payload.endDate =
+        formData.endDate ||
+        moment(formData.date).add(3, "months").format("YYYY-MM-DD");
+    }
+
+    return payload;
+  };
+
+  const handleCreate = async () => {
+    if (!validateForm()) return;
+    try {
       setLoading(true);
+      const payload = buildPayload();
       const response = await Api.post("/church/create-event", payload);
-      toast.success( `Program ${response.data.event?.title || formData.title}" created successfully!`, { position: isMobile ? "top-center" : "top-right", autoClose: 600 } );
+      showPageToast(
+        `Program "${response.data.event?.title || formData.title}" created successfully!`,
+        "success"
+      );
       resetForm();
       onSuccess?.();
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      setTimeout(() => onClose(), 1000);
     } catch (error: any) {
-      console.error("Error processing program:", error.response?.data || error.message);
-      let errorMessage = "Failed to process program. Please try again.";
-
-      if (error.response?.data?.error?.message) {
-        errorMessage = `${error.response.data.error.message} Please try again.`;
-      } else if (error.response?.data?.message) {
-        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
-          errorMessage = error.response.data.errors.join(", ");
-        } else {
-          errorMessage = `${error.response.data.message} Please try again.`;
+      const responseData = error.response?.data;
+      let errorMessage = "Failed to create program";
+      if (responseData) {
+        if (Array.isArray(responseData.errors)) {
+          errorMessage = responseData.errors.join(", ") || responseData.message || errorMessage;
+        } else if (responseData.error?.message) {
+          errorMessage = responseData.error.message;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
         }
-      } else if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors.join(", ");
       }
-
-      toast.error(errorMessage, { autoClose: 5000 });
+      showPageToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // const handleEdit = async () => {
-  //   let payload: any = {
-  //     title: formData.title,
-  //     recurrenceType: formData.recurrenceType,
-  //     date: formData.date,
-  //     startTime: formData.startTime,
-  //     endTime: formData.endTime,
-  //     departmentIds: formData.departmentIds,
-  //     collectionIds: formData.collectionIds,
-  //   };
+  const handleEdit = async () => {
+    if (!validateForm() || !eventId || !formData.branchId || !initialFormData) return;
 
-  //   await Api.put(`/church/update-event/${eventId}`, payload);
-  //   toast.success(`Program "${formData.title}" updated successfully!`, {
-  //     position: isMobile ? "top-center" : "top-right",
-  //     autoClose: 500,
-  //   });
-  // };
+    try {
+      setLoading(true);
+
+      const payload = buildEditPayload(initialFormData);
+
+      if (Object.keys(payload).length === 0) {
+        showPageToast("No changes to update", "warning");
+        setLoading(false);
+        return;
+      }
+
+      await Api.patch(
+        `/church/edit-an-event/${eventId}/branch/${formData.branchId}`,
+        payload
+      );
+
+      showPageToast(`Program "${formData.title}" updated successfully!`, "success");
+      resetForm();
+      onSuccess?.();
+      setTimeout(() => onClose(), 1000);
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.message || error.message || "Failed to update program";
+      showPageToast(errorMessage, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -452,14 +793,31 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       collectionIds: [],
       recurrenceType: "none",
       customRecurrenceDates: [],
+      branchId: authData?.branchId || "",
     });
+    setInitialFormData({
+      title: "",
+      date: "",
+      startTime: "",
+      endTime: "",
+      departmentIds: [],
+      collectionIds: [],
+      recurrenceType: "none",
+      branchId: authData?.branchId || "",
+    });
+    setDepartments([]);
+    setCollections([]);
     setMonthlyOption("byDate");
     setSelectedWeekdays([]);
     setNthWeekdays([]);
-    setTempNewCollection("");
     setSelectOpen(false);
+    setDepartmentSelectOpen(false);
+    setBranchSelectOpen(false);
     setCreateProgramError(null);
     setEventData(null);
+    setFetchCollectionsError(null);
+    setFetchDepartmentsError(null);
+    setFetchBranchesError(null);
   };
 
   const renderProgramType = () => (
@@ -470,15 +828,9 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
       >
         Program Type
       </FormLabel>
-
       <RadioGroup
         row
-        sx={{
-          display: "flex",
-          justifyContent: "space-around",
-          mt: 1,
-          color: "#F6F4FE",
-        }}
+        sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "#F6F4FE" }}
         aria-labelledby="program-type-label"
         name="recurrenceType"
         value={formData.recurrenceType}
@@ -488,9 +840,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           {
             value: "none",
             label: "Single",
-            icon: (
-              <CalendarTodayOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />
-            ),
+            icon: <CalendarTodayOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />,
           },
           {
             value: "weekly",
@@ -513,15 +863,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             value={value}
             disabled={loading}
             control={
-              <Radio
-                sx={{
-                  ml: 2,
-                  color: "#F6F4FE",
-                  "&.Mui-checked": {
-                    color: "#F6F4FE",
-                  },
-                }}
-              />
+              <Radio sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }} />
             }
             label={
               <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -544,53 +886,12 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     </Grid>
   );
 
-  const renderDateTimeInputs = () => {
-    return (
-      <Grid size={{ xs: 12 }}>
-        <Grid container spacing={2}>
-          {/* Date input for all recurrence types except custom */}
-          {formData.recurrenceType !== "custom" && (
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="Start Date"
-                name="date"
-                type="date"
-                value={formData.date}
-                onChange={handleDateChange}
-                variant="outlined"
-                disabled={loading}
-                InputLabelProps={{ shrink: true, ...inputLabelProps }}
-                inputProps={inputProps}
-                sx={{                
-                  borderRadius: '8px',
-                  '& .MuiOutlinedInput-root': {
-                    color: '#F6F4FE',
-                    '& fieldset': { borderColor: '#F6F4FE' },
-                    '&:hover fieldset': { borderColor: '#F6F4FE' },
-                    '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                    '&.Mui-disabled': {
-                      color: '#777280',
-                      '& fieldset': { borderColor: 'transparent' },
-                    },
-                  },
-                  '& .MuiInputBase-input': {
-                    color: '#F6F4FE',
-                    // ✅ Change the calendar/clock icons
-                    '&::-webkit-calendar-picker-indicator': {
-                      filter: 'invert(1)', // turns it white-ish
-                      cursor: 'pointer',
-                    },
-                  },
-                }}
-              />
-
-            </Grid>
-          )}
-
-          {/* Days of Week selector only for weekly recurrence */}
-          {formData.recurrenceType === "weekly" && (
-            <Grid size={{ xs: 12, sm: 6 }}>
+  const renderDateTimeInputs = () => (
+    <Grid size={{ xs: 12 }}>
+      <Grid container spacing={2}>
+        {formData.recurrenceType === "weekly" && (
+          <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth variant="outlined" disabled={loading}>
                 <InputLabel id="weekday-label" sx={inputLabelProps.sx}>
                   Days of the Week
@@ -600,66 +901,563 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   multiple
                   value={selectedWeekdays}
                   onChange={handleWeekdayChange}
-                  label="Days of the Week"
-                  renderValue={(selected) => selected.join(", ")}
+                  open={weekdayMenuOpen}
+                  onOpen={() => setWeekdayMenuOpen(true)}
+                  onClose={() => setWeekdayMenuOpen(false)}
+                  ref={selectRef}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip
+                          key={value}
+                          label={daysOfWeek.find((d) => d.value === value)?.label}
+                          onDelete={() => {
+                            setSelectedWeekdays((prev) => prev.filter((day) => day !== value));
+                            setFormData((prev) => ({
+                              ...prev,
+                              byWeekday: prev.byWeekday?.filter((w) => w.weekday !== value) || [],
+                            }));
+                          }}
+                          deleteIcon={<span onMouseDown={(e) => e.stopPropagation()}>×</span>}
+                          sx={{
+                            bgcolor: "rgba(121,121,121,0.2)",
+                            color: "#F6F4FE",
+                            "& .MuiChip-deleteIcon": {
+                              color: "#F6F4FE",
+                              "&:hover": { color: "#4B8DF8" },
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
                   sx={{
                     fontSize: isLargeScreen ? "1rem" : undefined,
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },              
-                    borderRadius: '8px',
-                    '& .MuiOutlinedInput-root': {
-                      color: '#F6F4FE',
-                      '& fieldset': { borderColor: '#F6F4FE' },
-                      '&:hover fieldset': { borderColor: '#F6F4FE' },
-                      '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                      '&.Mui-disabled': {
-                        color: '#777280',
-                        '& fieldset': { borderColor: 'transparent' },
+                    "& .MuiSelect-select": {
+                      borderColor: "#777280",
+                      color: "#F6F4FE",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "4px",
+                    },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    borderRadius: "8px",
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                      "&.Mui-disabled": {
+                        color: "#777280",
+                        "& fieldset": { borderColor: "transparent" },
                       },
                     },
-                    '& .MuiInputBase-input': {
-                      color: '#F6F4FE',
-                    },
+                    "& .MuiInputBase-input": { color: "#F6F4FE" },
                   }}
                 >
                   {daysOfWeek.map((day) => (
-                    <MenuItem key={day} value={day}>
-                      <Checkbox checked={selectedWeekdays.indexOf(day) > -1} />
-                      <ListItemText primary={day} />
+                    <MenuItem key={day.value} value={day.value}>
+                      <Checkbox checked={selectedWeekdays.indexOf(day.value) > -1} />
+                      <ListItemText primary={day.label} />
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
-          )}
-
-          {/* Custom date input for custom recurrence */}
-            {formData.recurrenceType === "custom" && (
-              <Grid size={{ xs: 12, sm: 6 }} >
-                <MultiDatePicker                  
-                  value={formData.customRecurrenceDates ?? []}
-                  onChange={(dates) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      customRecurrenceDates: dates,
-                    }))
-                  }
-                />
-
+            {formData.byWeekday?.map((w) => (
+              <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} sx={{ mb: 2 }} key={w.weekday}>
+                <Box
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "#777280",
+                    borderRadius: "8px",
+                    p: 2,
+                    color: "#F6F4FE",
+                    bgcolor: "rgba(121,121,121,0.2)",
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: { xs: "wrap", lg: "nowrap" },
+                    gap: 2,
+                    mt: 1,
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ mb: 1, textAlign: "center" }}>
+                    {daysOfWeek.find((opt) => opt.value === w.weekday)?.label ?? w.weekday}
+                  </Typography>
+                  <TextField
+                    type="time"
+                    label="Start Time"
+                    fullWidth
+                    value={w.startTime}
+                    onChange={(e) => handleWeekdayTimeChange(w.weekday, "startTime", e.target.value)}
+                    sx={{
+                      borderRadius: "8px",
+                      "& .MuiOutlinedInput-root": {
+                        color: "#F6F4FE",
+                        "& fieldset": { borderColor: "#F6F4FE" },
+                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                        "&.Mui-disabled": {
+                          color: "#777280",
+                          "& fieldset": { borderColor: "transparent" },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        color: "#F6F4FE",
+                        "&::-webkit-calendar-picker-indicator": {
+                          filter: "invert(1)",
+                          cursor: "pointer",
+                        },
+                      },
+                    }}
+                    InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                    inputProps={inputProps}
+                  />
+                  <TextField
+                    type="time"
+                    label="End Time"
+                    fullWidth
+                    value={w.endTime}
+                    onChange={(e) => handleWeekdayTimeChange(w.weekday, "endTime", e.target.value)}
+                    InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                    inputProps={inputProps}
+                    sx={{
+                      borderRadius: "8px",
+                      "& .MuiOutlinedInput-root": {
+                        color: "#F6F4FE",
+                        "& fieldset": { borderColor: "#F6F4FE" },
+                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                        "&.Mui-disabled": {
+                          color: "#777280",
+                          "& fieldset": { borderColor: "transparent" },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        color: "#F6F4FE",
+                        "&::-webkit-calendar-picker-indicator": {
+                          filter: "invert(1)",
+                          cursor: "pointer",
+                        },
+                      },
+                    }}
+                  />
+                </Box>
               </Grid>
-            )}
-
-
-          {/* Time inputs */}
-          <Grid size={{ xs: 6, sm: 3 }}>
+            ))}
+          </Grid>
+        )}
+        {formData.recurrenceType === "monthly" && (
+          <Box sx={{ mb: 3, width: "100%" }}>
+            <FormControl fullWidth disabled={loading}>
+              <TextField
+                label="Select Date For The Month"
+                type="date"
+                value={formData.date || ""}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, date: e.target.value }));
+                  setMonthlyModalOpen(true);
+                }}
+                fullWidth
+                sx={{
+                  borderRadius: "8px",
+                  "& .MuiOutlinedInput-root": {
+                    color: "#F6F4FE",
+                    "& fieldset": { borderColor: "#F6F4FE" },
+                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                    "&.Mui-disabled": {
+                      color: "#777280",
+                      "& fieldset": { borderColor: "transparent" },
+                    },
+                  },
+                  "& .MuiInputBase-input": {
+                    color: "#F6F4FE",
+                    "&::-webkit-calendar-picker-indicator": {
+                      filter: "invert(1)",
+                      cursor: "pointer",
+                    },
+                  },
+                }}
+                InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                inputProps={inputProps}
+              />
+            </FormControl>
+          </Box>
+        )}
+        {monthlyOption === "byWeek" &&
+          formData.nthWeekdays?.map((w) => (
+            <Grid
+              size={{ xs: 12, sm: 12, md: 12, lg: 12 }}
+              key={`${w.weekday}-${w.nth}`}
+            >
+              <Box
+                sx={{
+                  border: "1px solid",
+                  borderColor: "#777280",
+                  borderRadius: "8px",
+                  p: 2,
+                  color: "#F6F4FE",
+                  bgcolor: "rgba(121,121,121,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: { xs: "wrap", lg: "nowrap" },
+                  gap: 2,
+                  mb: 2,
+                }}
+              >
+                <Typography variant="subtitle1" sx={{ mb: 1, textAlign: "center" }}>
+                  {w.nth === -1
+                    ? `Last ${daysOfWeek[w.weekday]?.label ?? w.weekday}`
+                    : `${
+                        ["First", "Second", "Third", "Fourth", "Fifth"][w.nth - 1]
+                      } ${daysOfWeek[w.weekday]?.label ?? w.weekday} Of Each Month`}
+                </Typography>
+                <TextField
+                  type="time"
+                  label="Start Time"
+                  fullWidth
+                  value={w.startTime || ""}
+                  onChange={(e) =>
+                    handleMonthlyWeekdayTimeChange(w.weekday, w.nth, "startTime", e.target.value)
+                  }
+                  InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                  inputProps={inputProps}
+                  sx={{
+                    borderRadius: "8px",
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                      "&.Mui-disabled": {
+                        color: "#777280",
+                        "& fieldset": { borderColor: "transparent" },
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      color: "#F6F4FE",
+                      "&::-webkit-calendar-picker-indicator": {
+                        filter: "invert(1)",
+                        cursor: "pointer",
+                      },
+                    },
+                  }}
+                />
+                <TextField
+                  type="time"
+                  label="End Time"
+                  fullWidth
+                  value={w.endTime || ""}
+                  onChange={(e) =>
+                    handleMonthlyWeekdayTimeChange(w.weekday, w.nth, "endTime", e.target.value)
+                  }
+                  InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                  inputProps={inputProps}
+                  sx={{
+                    borderRadius: "8px",
+                    "& .MuiOutlinedInput-root": {
+                      color: "#F6F4FE",
+                      "& fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                      "&.Mui-disabled": {
+                        color: "#777280",
+                        "& fieldset": { borderColor: "transparent" },
+                      },
+                    },
+                    "& .MuiInputBase-input": {
+                      color: "#F6F4FE",
+                      "&::-webkit-calendar-picker-indicator": {
+                        filter: "invert(1)",
+                        cursor: "pointer",
+                      },
+                    },
+                  }}
+                />
+              </Box>
+            </Grid>
+          ))}
+        {formData.recurrenceType === "custom" && (
+          <Grid
+            container
+            spacing={2}
+            sx={{
+              border: "1px solid",
+              borderColor: "#777280",
+              borderRadius: "8px",
+              p: 2,
+              color: "#F6F4FE",
+              bgcolor: "rgba(121,121,121,0.2)",
+              mb: 2,
+            }}
+          >
+            <p>Selected Dates</p>
+            {formData.customRecurrenceDates?.map((d, index) => (
+              <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }} key={d.date}>
+                <Box
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "#777280",
+                    borderRadius: "8px",
+                    p: 2,
+                    color: "#F6F4FE",
+                    bgcolor: "rgba(121,121,121,0.2)",
+                    display: "flex",
+                    flexDirection: { xs: "column", lg: "row" },
+                    alignItems: { xs: "flex-start", lg: "center" },
+                    gap: 2,
+                    mb: 1,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    <Typography>{dayjs(d.date).format("MMMM DD, YYYY")}</Typography>
+                    <Box sx={{ display: { xs: "block", lg: "none" } }}>
+                      <IconButton
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            customRecurrenceDates:
+                              prev.customRecurrenceDates?.filter((_, i) => i !== index) || [],
+                          }))
+                        }
+                        sx={{ color: "#F6F4FE", "&:hover": { color: "#FF6B6B" } }}
+                      >
+                        <Close />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                  <TextField
+                    label="Start Time"
+                    type="time"
+                    fullWidth
+                    value={d.startTime}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => {
+                        const updated = [...(prev.customRecurrenceDates || [])];
+                        updated[index] = { ...updated[index], startTime: value };
+                        return { ...prev, customRecurrenceDates: updated };
+                      });
+                    }}
+                    sx={{
+                      borderRadius: "8px",
+                      "& .MuiOutlinedInput-root": {
+                        color: "#F6F4FE",
+                        "& fieldset": { borderColor: "#F6F4FE" },
+                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                        "&.Mui-disabled": {
+                          color: "#777280",
+                          "& fieldset": { borderColor: "transparent" },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        color: "#F6F4FE",
+                        "&::-webkit-calendar-picker-indicator": {
+                          filter: "invert(1)",
+                          cursor: "pointer",
+                        },
+                      },
+                    }}
+                    InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                    inputProps={inputProps}
+                  />
+                  <TextField
+                    label="End Time"
+                    type="time"
+                    fullWidth
+                    value={d.endTime}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => {
+                        const updated = [...(prev.customRecurrenceDates || [])];
+                        updated[index] = { ...updated[index], endTime: value };
+                        return { ...prev, customRecurrenceDates: updated };
+                      });
+                    }}
+                    sx={{
+                      borderRadius: "8px",
+                      "& .MuiOutlinedInput-root": {
+                        color: "#F6F4FE",
+                        "& fieldset": { borderColor: "#F6F4FE" },
+                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                        "&.Mui-disabled": {
+                          color: "#777280",
+                          "& fieldset": { borderColor: "transparent" },
+                        },
+                      },
+                      "& .MuiInputBase-input": {
+                        color: "#F6F4FE",
+                        "&::-webkit-calendar-picker-indicator": {
+                          filter: "invert(1)",
+                          cursor: "pointer",
+                        },
+                      },
+                    }}
+                    InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                    inputProps={inputProps}
+                  />
+                  <Box sx={{ display: { xs: "none", lg: "block" } }}>
+                    <IconButton
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          customRecurrenceDates:
+                            prev.customRecurrenceDates?.filter((_, i) => i !== index) || [],
+                        }))
+                      }
+                      sx={{ color: "#F6F4FE", "&:hover": { color: "#FF6B6B" } }}
+                    >
+                      <Close />
+                    </IconButton>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+            <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+              <IconButton
+                onClick={() => setCalendarOpen(true)}
+                sx={{
+                  color: "#F6F4FE",
+                  bgcolor: "#2C2C2C",
+                  borderRadius: 2,
+                  "&:hover": { bgcolor: "#3a3a3a" },
+                }}
+              >
+                <Add />
+              </IconButton>
+            </Box>
+          </Grid>
+        )}
+        {formData.recurrenceType !== "custom" &&
+          !(formData.recurrenceType === "monthly" && monthlyOption === "byDate") && (
+            <Grid size={{ xs: 12, sm: 12 }} sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                label="Start Date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
+                variant="outlined"
+                disabled={loading}
+                InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                inputProps={inputProps}
+                sx={{
+                  borderRadius: "8px",
+                  "& .MuiOutlinedInput-root": {
+                    color: "#F6F4FE",
+                    "& fieldset": { borderColor: "#F6F4FE" },
+                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                    "&.Mui-disabled": {
+                      color: "#777280",
+                      "& fieldset": { borderColor: "transparent" },
+                    },
+                  },
+                  "& .MuiInputBase-input": {
+                    color: "#F6F4FE",
+                    "&::-webkit-calendar-picker-indicator": {
+                      filter: "invert(1)",
+                      cursor: "pointer",
+                    },
+                  },
+                }}
+              />
+            </Grid>
+          )}
+        {(formData.recurrenceType === "none" ||
+          (formData.recurrenceType === "monthly" && monthlyOption === "byDate")) && (
+          <>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="Start Time"
+                name="startTime"
+                type="time"
+                value={formData.startTime ?? ""}
+                onChange={handleChange}
+                variant="outlined"
+                disabled={loading}
+                sx={{
+                  borderRadius: "8px",
+                  "& .MuiOutlinedInput-root": {
+                    color: "#F6F4FE",
+                    "& fieldset": { borderColor: "#F6F4FE" },
+                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                    "&.Mui-disabled": {
+                      color: "#777280",
+                      "& fieldset": { borderColor: "transparent" },
+                    },
+                  },
+                  "& .MuiInputBase-input": {
+                    color: "#F6F4FE",
+                    "&::-webkit-calendar-picker-indicator": {
+                      filter: "invert(1)",
+                      cursor: "pointer",
+                    },
+                  },
+                }}
+                InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                inputProps={inputProps}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth
+                label="End Time"
+                name="endTime"
+                type="time"
+                value={formData.endTime ?? ""}
+                onChange={handleChange}
+                variant="outlined"
+                disabled={loading}
+                sx={{
+                  borderRadius: "8px",
+                  "& .MuiOutlinedInput-root": {
+                    color: "#F6F4FE",
+                    "& fieldset": { borderColor: "#F6F4FE" },
+                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
+                    "&.Mui-disabled": {
+                      color: "#777280",
+                      "& fieldset": { borderColor: "transparent" },
+                    },
+                  },
+                  "& .MuiInputBase-input": {
+                    color: "#F6F4FE",
+                    "&::-webkit-calendar-picker-indicator": {
+                      filter: "invert(1)",
+                      cursor: "pointer",
+                    },
+                  },
+                }}
+                InputLabelProps={{ shrink: true, ...inputLabelProps }}
+                inputProps={inputProps}
+              />
+            </Grid>
+          </>
+        )}
+        {["weekly", "monthly"].includes(formData.recurrenceType) && (
+          <Grid size={{ xs: 12, sm: 12 }} sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              label="Start Time"
-              name="startTime"
-              type="time"
-              value={formData.startTime ?? ""}
+              label="End Date"
+              name="endDate"
+              type="date"
+              value={formData.endDate}
               onChange={handleChange}
               variant="outlined"
               disabled={loading}
@@ -687,86 +1485,10 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               inputProps={inputProps}
             />
           </Grid>
-
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField
-              fullWidth
-              label="End Time"
-              name="endTime"
-              type="time"
-              value={formData.endTime ?? ""}
-              onChange={handleChange}
-              variant="outlined"
-              disabled={loading}
-              sx={{
-                borderRadius: '8px',
-                '& .MuiOutlinedInput-root': {
-                  color: '#F6F4FE',
-                  '& fieldset': { borderColor: '#F6F4FE' },
-                  '&:hover fieldset': { borderColor: '#F6F4FE' },
-                  '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                  '&.Mui-disabled': {
-                    color: '#777280',
-                    '& fieldset': { borderColor: 'transparent' },
-                  },
-                },
-                '& .MuiInputBase-input': {
-                  color: '#F6F4FE',
-                  // ✅ Change the calendar/clock icons
-                  '&::-webkit-calendar-picker-indicator': {
-                    filter: 'invert(1)', // turns it white-ish
-                    cursor: 'pointer',
-                  },
-                },
-              }}
-
-              InputLabelProps={{ shrink: true, ...inputLabelProps }}
-              inputProps={inputProps}
-            />
-          </Grid>
-
-          {/* End Date for weekly and monthly recurrence */}
-          {["weekly", "monthly",].includes(formData.recurrenceType) && (
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                label="End Date"
-                name="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={handleChange}
-                variant="outlined"
-                disabled={loading}
-                sx={{                
-                  borderRadius: '8px',
-                  '& .MuiOutlinedInput-root': {
-                    color: '#F6F4FE',
-                    '& fieldset': { borderColor: '#F6F4FE' },
-                    '&:hover fieldset': { borderColor: '#F6F4FE' },
-                    '&.Mui-focused fieldset': { borderColor: '#4B8DF8' },
-                    '&.Mui-disabled': {
-                      color: '#777280',
-                      '& fieldset': { borderColor: 'transparent' },
-                    },
-                  },
-                  '& .MuiInputBase-input': {
-                    color: '#F6F4FE',
-                    // ✅ Change the calendar/clock icons
-                    '&::-webkit-calendar-picker-indicator': {
-                      filter: 'invert(1)', // turns it white-ish
-                      cursor: 'pointer',
-                    },
-                  },
-                }}
-                InputLabelProps={{ shrink: true, ...inputLabelProps }}
-                inputProps={inputProps}
-              />
-            </Grid>
-          )}
-        </Grid>
+        )}
       </Grid>
-    );
-  };
+    </Grid>
+  );
 
   const renderMonthlyModal = () => {
     if (!formData.date || formData.recurrenceType !== "monthly") return null;
@@ -776,88 +1498,52 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     let weekOrdinal = Math.ceil(dayNum / 7);
     const daysInMonth = selectedDate.daysInMonth();
     const lastWeek = Math.ceil(daysInMonth / 7);
-    if (weekOrdinal === lastWeek) {
-      weekOrdinal = -1;
-    }
+    if (weekOrdinal === lastWeek) weekOrdinal = -1;
     const byDateLabel = `${dayNum}${getOrdinalSuffix(dayNum)} of each month`;
-    const byWeekLabel = `${weekOrdinal === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][weekOrdinal - 1]
-      } ${daysOfWeek[weekday]} of each month`;
-
+    const byWeekLabel = `${
+      weekOrdinal === -1
+        ? "Last"
+        : ["First", "Second", "Third", "Fourth", "Fifth"][weekOrdinal - 1]
+    } ${daysOfWeek[weekday]?.label ?? weekday} of each month`;
     return (
       <Dialog
-        open={monthlyModalOpen}
-        onClose={() => setMonthlyModalOpen(false)}
-        sx={{
-          "& .MuiDialog-paper": {
-            borderRadius: 2,
-            bgcolor: "#2C2C2C",
-            py: 3,
-            px: 2,
-          },
+        open={monthlyModalOpen}       
+        onClose={(_, reason) => {
+          if (reason !== "backdropClick") {
+            setMonthlyModalOpen(false)
+          }
         }}
+        sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
       >
         <DialogTitle color="#F6F4FE">Choose Monthly Recurrence</DialogTitle>
         <DialogContent>
           <RadioGroup
             value={monthlyOption}
-            onChange={(e) => setMonthlyOption(e.target.value as "byDate" | "byWeek")}
+            onChange={(e) => {
+              const value = e.target.value as "byDate" | "byWeek";
+              setMonthlyOption(value);
+              if (value === "byWeek") {
+                handleAddNthWeekday(weekday, weekOrdinal);
+              }
+            }}
           >
             <FormControlLabel
               value="byDate"
               sx={{ color: "#F6F4FE" }}
-              control={<Radio color="default" />}
+              control={<Radio sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
               label={byDateLabel}
             />
             <FormControlLabel
               value="byWeek"
               sx={{ color: "#F6F4FE" }}
-              control={<Radio color="default" />}
+              control={<Radio  sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
               label={byWeekLabel}
             />
           </RadioGroup>
-          {monthlyOption === "byWeek" && (
-            <Box sx={{ mt: 2 }}>
-              <Typography sx={{ color: "#F6F4FE" }}>Add Additional nth Weekday</Typography>
-              <FormControl fullWidth sx={{ mt: 1 }}>
-                <InputLabel id="weekday-select-label" sx={inputLabelProps.sx}>
-                  Weekday
-                </InputLabel>
-                <Select
-                  labelId="weekday-select-label"
-                  onChange={(e) => {
-                    const weekday = daysOfWeek.indexOf(e.target.value as string);
-                    handleAddNthWeekday(weekday, weekOrdinal);
-                  }}
-                  label="Weekday"
-                  sx={{
-                    color: "#F6F4FE",
-                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  }}
-                >
-                  {daysOfWeek.map((day) => (
-                    <MenuItem key={day} value={day}>
-                      {day}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Box sx={{ mt: 1 }}>
-                {nthWeekdays.map((item, index) => (
-                  <Typography key={index} sx={{ color: "#F6F4FE" }}>
-                    {item.nth === -1 ? "Last" : ["First", "Second", "Third", "Fourth", "Fifth"][item.nth - 1]}{" "}
-                    {daysOfWeek[item.weekday]}
-                  </Typography>
-                ))}
-              </Box>
-              {createProgramError && monthlyOption === "byWeek" && (
-                <Typography sx={{ color: "#FF6B6B", mt: 1 }}>{createProgramError}</Typography>
-              )}
-            </Box>
-          )}
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setMonthlyModalOpen(false)}
+            onClick={handleConfirmMonthly}
             sx={{
               py: 1,
               backgroundColor: "#F6F4FE",
@@ -879,7 +1565,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
 
   const renderCollectionInput = () => (
     <Grid size={{ xs: 12 }}>
-      <FormControl fullWidth variant="outlined" disabled={loading || addingCollection}>
+      <FormControl fullWidth variant="outlined" disabled={loading}>
         <InputLabel id="collection-label" sx={inputLabelProps.sx}>
           Collections
         </InputLabel>
@@ -893,15 +1579,18 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
           open={selectOpen}
           onOpen={() => setSelectOpen(true)}
           onClose={() => {
-            setSelectOpen(false);
-            setTempNewCollection("");
+            setSelectOpen(false);         
           }}
-          renderValue={(selected) =>
-            selected
-              .filter(id => id !== null && id !== undefined)
-              .map((id) => collections.find((col) => col.id === id)?.name || id)
-              .join(", ")
-          }
+          renderValue={(selected) => {
+            const selectedNames = selected
+              .map((id) => {
+                const collection = collections.find((col) => col.id === id);
+                return collection ? collection.name : null;
+              })
+              .filter((name) => name != null)
+              .join(", ");
+            return selectedNames || "No collections selected";
+          }}
           sx={{
             fontSize: isLargeScreen ? "1rem" : undefined,
             color: "#F6F4FE",
@@ -909,146 +1598,187 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
             "& .MuiSelect-icon": { color: "#F6F4FE" },
           }}
-          MenuProps={{ 
+          MenuProps={{
             disableAutoFocus: true,
             disableEnforceFocus: true,
             onKeyDown: (e) => {
-              if ((e.target as HTMLElement).tagName === 'INPUT') {
+              if ((e.target as HTMLElement).tagName === "INPUT") {
                 e.stopPropagation();
               }
-            }
+            },
           }}
         >
-          {/* Close button at the top of the menu - aligned with select width */}
-          <Box sx={{ 
-            position: 'sticky', 
-            top: 0,              
-            zIndex: 1, 
-            display: 'flex', 
-            justifyContent: 'flex-end',
-            p: 1,
-            borderBottom: '1px solid #777280',
-            width: '100%', // Ensure it takes full width of the menu
-            boxSizing: 'border-box', // Include padding in width calculation
-          }}>
+          <Box
+            sx={{
+              position: "sticky",
+              top: 0,
+              zIndex: 1,
+              display: "flex",
+              justifyContent: "flex-end",
+              p: 1,
+              borderBottom: "1px solid #777280",
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
             <IconButton
               size="small"
               onClick={() => setSelectOpen(false)}
-              sx={{ color: "#2C2C2C", backgroundColor: 'transparent !important', }}
+              sx={{ color: "#2C2C2C", backgroundColor: "transparent !important" }}
               aria-label="Close menu"
             >
               <Close fontSize="small" />
             </IconButton>
           </Box>
-
           {fetchingCollections ? (
             <MenuItem disabled>
               <CircularProgress size={24} />
               <Typography sx={{ ml: 1 }}>Loading collections...</Typography>
             </MenuItem>
           ) : fetchCollectionsError ? (
-              <MenuItem                
-                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="body2" sx={{ mr: 1 }}>
+                {fetchCollectionsError}
+              </Typography>
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchCollections(
+                    setCollections,
+                    setFetchingCollections,
+                    setFetchCollectionsError,
+                    setFormData,
+                    formData.branchId || authData?.branchId,                    
+                  );
+                }}
               >
-                <Typography variant="body2" sx={{ mr: 1 }}>
-                  {fetchCollectionsError}
-                </Typography>
-                <IconButton
-                  size="small"
-                  color="inherit"
-                  onClick={(e) => {
-                    e.stopPropagation(); // ✅ prevents select from closing
-                    fetchCollections(setCollections, setFetchingCollections, setFetchCollectionsError);
-                  }}
-                >
-                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
-                </IconButton>
-              </MenuItem>
+                <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+              </IconButton>
+            </MenuItem>
           ) : collections.length > 0 ? (
             collections.map((col) => (
-              <MenuItem key={col.id} value={col.id} sx={{ width: '100%', boxSizing: 'border-box' }}>
-                <Checkbox checked={formData.collectionIds.includes(col.id)} 
-                  sx={{ color: "var(--color-primary)", "&.Mui-checked": { color: "var(--color-primary)" } }}
+              <MenuItem key={col.id} value={col.id} sx={{ width: "100%", boxSizing: "border-box" }}>
+                <Checkbox
+                  checked={formData.collectionIds.includes(col.id)}
+                  sx={{
+                    color: "var(--color-primary)",
+                    "&.Mui-checked": { color: "var(--color-primary)" },
+                  }}
                 />
                 <ListItemText primary={col.name} />
               </MenuItem>
             ))
           ) : (
-            <MenuItem disabled sx={{ width: '100%', boxSizing: 'border-box' }}>
+            <MenuItem disabled sx={{ width: "100%", boxSizing: "border-box" }}>
               <Typography>No collections available</Typography>
             </MenuItem>
           )}
-          
-          <Divider sx={{ width: '100%', boxSizing: 'border-box' }} />
-          
-          <Box sx={{ p: 1, width: '100%', boxSizing: 'border-box' }} onClick={(e) => e.stopPropagation()}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Add New Collection
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: '100%' }}>
-              <TextField
-                fullWidth
-                size="small"
-                value={tempNewCollection}
-                onChange={(e) => setTempNewCollection(e.target.value)}
-                placeholder="Enter new collection name"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                    handleAddCollection();
-                  }
-                  e.stopPropagation();
-                }}
-                onKeyUp={(e) => e.stopPropagation()}
-                onKeyPress={(e) => e.stopPropagation()}
-                disabled={addingCollection}
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck="false"
-                sx={{ 
-                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },                 
-                }}
-                inputProps={{
-                  autoComplete: "new-password",
-                  form: {
-                    autoComplete: "off",
-                  },
-                }}
-              />
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAddCollection();
-                }}
-                disabled={!tempNewCollection.trim() || addingCollection}
-                size="small"
+        </Select>
+      </FormControl>
+    </Grid>
+  );
+
+  const renderBranchInput = () => (
+    <Grid size={{ xs: 12 }}>
+      <FormControl fullWidth variant="outlined" disabled={loading}>
+        <InputLabel id="branch-label" sx={inputLabelProps.sx}>
+          Expected Branch
+        </InputLabel>
+        <Select
+          labelId="branch-label"
+          name="branchId"
+          value={formData.branchId || ""}
+          onChange={handleChange}
+          open={branchSelectOpen}
+          onOpen={() => setBranchSelectOpen(true)}
+          onClose={() => setBranchSelectOpen(false)}
+          sx={{
+            fontSize: isLargeScreen ? "1rem" : undefined,
+            color: "#F6F4FE",
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+            "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+            "& .MuiSelect-icon": { color: "#F6F4FE" },
+          }}
+          MenuProps={{ PaperProps: { sx: { maxHeight: 350 } } }}
+        >
+          <Box
+            sx={{
+              position: "sticky",
+              top: 0,
+              zIndex: 1,
+              display: "flex",
+              justifyContent: "flex-end",
+              p: 1,
+              borderBottom: "1px solid #777280",
+              backgroundColor: "#fff",
+            }}
+          >
+            <IconButton
+              size="small"
+              onClick={() => setBranchSelectOpen(false)}
+              sx={{ color: "#2C2C2C" }}
+              aria-label="Close menu"
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </Box>
+          {fetchingBranch ? (
+            <MenuItem disabled>
+              <Box
                 sx={{
-                  color: "#F6F4FE",
-                  backgroundColor: "#2C2C2C",
-                  borderRadius: 1,
-                  "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.8 },
-                  "&:disabled": { opacity: 0.5 },
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  justifyContent: "center",
                 }}
               >
-                {addingCollection ? (
-                  <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-                ) : (
-                  <Add fontSize="small" />
-                )}
+                <CircularProgress size={20} />
+                <Typography sx={{ ml: 1 }} variant="body2">
+                  Loading branches...
+                </Typography>
+              </Box>
+            </MenuItem>
+          ) : fetchBranchesError ? (
+            <MenuItem
+              sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <Typography variant="body2" sx={{ mr: 1 }}>
+                {fetchBranchesError}
+              </Typography>
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError);
+                }}
+              >
+                <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
               </IconButton>
-            </Box>
-          </Box>
+            </MenuItem>
+          ) : branches.length > 0 ? (
+            branches.map((branch: any) => (
+              <MenuItem key={branch.id} value={branch.id}>
+                {branch.name}
+              </MenuItem>
+            ))
+          ) : (
+            <MenuItem disabled>
+              <Typography variant="body2">No branches available</Typography>
+            </MenuItem>
+          )}
         </Select>
       </FormControl>
     </Grid>
   );
 
   const renderDepartmentInput = () => {
-    const allSelected = 
-      departments.length > 0 && formData.departmentIds.length === departments.length;
+    const allSelected = departments.length > 0 && formData.departmentIds.length === departments.length;
     return (
       <Grid size={{ xs: 12 }}>
-        <FormControl fullWidth variant="outlined" disabled={loading}>
+        <FormControl fullWidth variant="outlined" disabled={loading || !formData.branchId}>
           <InputLabel id="department-label" sx={inputLabelProps.sx}>
             Expected Departments
           </InputLabel>
@@ -1059,8 +1789,9 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             value={formData.departmentIds}
             onChange={handleDepartmentChange}
             renderValue={(selected) =>
-              (selected as string[])
-                .map((id) => departments.find((dept) => dept.id === id)?.name || id)
+              selected
+                .map((id) => departments.find((dept) => dept.id === id)?.name || "")
+                .filter((name) => name)
                 .join(", ")
             }
             open={departmentSelectOpen}
@@ -1073,11 +1804,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
               "& .MuiSelect-icon": { color: "#F6F4FE" },
             }}
-            MenuProps={{
-              PaperProps: { sx: { maxHeight: 350 } }
-            }}
+            MenuProps={{ PaperProps: { sx: { maxHeight: 350 } } }}
           >
-            {/* ✅ Close button inside menu */}
             <Box
               sx={{
                 position: "sticky",
@@ -1093,16 +1821,12 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               <IconButton
                 size="small"
                 onClick={() => setDepartmentSelectOpen(false)}
-                sx={{
-                  color: "#2C2C2C",                
-                }}
+                sx={{ color: "#2C2C2C" }}
                 aria-label="Close menu"
               >
                 <Close fontSize="small" />
               </IconButton>
             </Box>
-
-            {/* ✅ Select All option */}
             {departments.length > 0 && (
               <MenuItem value="all">
                 <Checkbox
@@ -1119,12 +1843,16 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                 <ListItemText primary="Select All" />
               </MenuItem>
             )}
-
-
-            {/* Items */}
             {fetchingDepartments ? (
               <MenuItem disabled>
-                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    justifyContent: "center",
+                  }}
+                >
                   <CircularProgress size={20} />
                   <Typography sx={{ ml: 1 }} variant="body2">
                     Loading departments...
@@ -1132,7 +1860,9 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                 </Box>
               </MenuItem>
             ) : fetchDepartmentsError ? (
-              <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <MenuItem
+                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
                 <Typography variant="body2" sx={{ mr: 1 }}>
                   {fetchDepartmentsError}
                 </Typography>
@@ -1140,11 +1870,17 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   size="small"
                   color="inherit"
                   onClick={(e) => {
-                    e.stopPropagation(); // ✅ Prevents Select from closing immediately
-                    fetchDepartments();
+                    e.stopPropagation();
+                    fetchDepartments(
+                      setDepartments,
+                      setFetchingDepartments,
+                      setFetchDepartmentsError,
+                      setFormData,
+                      formData.branchId
+                    );
                   }}
                 >
-                  <Refresh fontSize="small" sx={{ color: '#2C2C2C' }} />
+                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
                 </IconButton>
               </MenuItem>
             ) : departments.length > 0 ? (
@@ -1157,8 +1893,8 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                       "&.Mui-checked": { color: "var(--color-primary)" },
                     }}
                   />
-                  <ListItemText 
-                    primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name} 
+                  <ListItemText
+                    primary={dept.type ? `${dept.name} - (${dept.type})` : dept.name}
                   />
                 </MenuItem>
               ))
@@ -1173,37 +1909,45 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
     );
   };
 
-
   return (
     <Dialog
       open={open}
-      onClose={() => { resetForm(); onClose(); }}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          resetForm();
+          onClose();
+        }
+      }}
       fullWidth
       maxWidth="md"
-      sx={{
-        "& .MuiDialog-paper": {
-          borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          py: 3,
-          px: 2,
-        },
-      }}
+      sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
     >
-      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" color="#F6F4FE" fontWeight={600}>
             {isEdit ? "Edit Program" : "Create Program"}
           </Typography>
-          <IconButton onClick={() => { resetForm(); onClose(); }}>
+          <IconButton
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+          >
             <Close className="text-gray-300" />
           </IconButton>
         </Box>
       </DialogTitle>
-
       <DialogContent dividers>
         {isEdit && loadingEdit ? (
-          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px" }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              color: "gray.400",
+              alignItems: "center",
+              height: "200px",
+            }}
+          >
             <CircularProgress />
           </Box>
         ) : (
@@ -1222,9 +1966,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   InputProps={{
                     sx: {
                       color: "#F6F4FE",
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#777280",
-                      },
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&:hover .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#777280",
                       },
@@ -1237,9 +1979,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
                   InputLabelProps={{
                     sx: {
                       color: "#F6F4FE",
-                      "&.Mui-focused": {
-                        color: "#F6F4FE",
-                      },
+                      "&.Mui-focused": { color: "#F6F4FE" },
                       fontSize: isMobile ? "0.875rem" : "1rem",
                     },
                   }}
@@ -1248,6 +1988,7 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               </Grid>
               {!isEdit && renderProgramType()}
               {renderDateTimeInputs()}
+              {renderBranchInput()}
               {renderDepartmentInput()}
               {renderCollectionInput()}
               {createProgramError && (
@@ -1258,12 +1999,17 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
             </Grid>
           </Box>
         )}
+        <CustomCalendarDialog
+          formData={formData}
+          setFormData={setFormData}
+          open={calendarOpen}
+          onClose={() => setCalendarOpen(false)}
+        />
       </DialogContent>
-
       <DialogActions>
         <Button
           variant="contained"
-          onClick={handleSubmit}
+          onClick={isEdit ? handleEdit : handleCreate}
           disabled={loading || (isEdit && loadingEdit)}
           sx={{
             py: 1,
@@ -1282,15 +2028,22 @@ const CreateProgramModal: React.FC<CreateProgramModalProps> = ({ open, onClose, 
               <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
               <span className="text-gray-500">{isEdit ? "Updating..." : "Creating..."}</span>
             </>
+          ) : isEdit ? (
+            "Update Program"
           ) : (
-            isEdit ? "Update Program" : "Create Program"
+            "Create Program"
           )}
         </Button>
       </DialogActions>
-
       {renderMonthlyModal()}
     </Dialog>
   );
 };
 
-export default CreateProgramModal;
+export const CreateProgramModal: React.FC<ProgramModalProps> = (props) => (
+  <ProgramModal {...props} isEdit={false} />
+);
+
+export const EditProgramModal: React.FC<ProgramModalProps> = (props) => (
+  <ProgramModal {...props} isEdit={true} />
+);

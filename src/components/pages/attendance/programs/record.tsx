@@ -9,13 +9,16 @@ import {
   TextField,
   Box,
   Grid,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import { Close, Save } from '@mui/icons-material';
-import { toast, ToastContainer } from 'react-toastify';
+import { usePageToast } from '../../../hooks/usePageToast';
+import { showPageToast } from '../../../util/pageToast';
 import Api from '../../../shared/api/api';
-
-interface CollectionItem {
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../reduxstore/redux';
+// Interface definitions
+export interface CollectionItem {
   id: string;
   amount: string;
   collection: {
@@ -24,12 +27,12 @@ interface CollectionItem {
   };
 }
 
-interface Event {
+export interface Event {
   id: string;
   title: string;
 }
 
-interface EventOccurrence {
+export interface EventOccurrence {
   id: string;
   eventId: string;
   date: string;
@@ -41,22 +44,17 @@ interface EventOccurrence {
   createdAt: string;
   updatedAt: string;
   attendances: any[];
+  assignedDepartments: any[];
   event: Event;
   collection: CollectionItem[];
 }
 
-interface EventResponse {
+export interface EventResponse {
   message: string;
   eventOccurrence: EventOccurrence;
 }
 
-interface RecordDialogueProps {
-  eventId: string;
-  open: boolean;
-  onClose: () => void;
-}
-
-interface AttendanceData {
+export interface AttendanceData {
   eventId: string;
   date?: string;
   total: string;
@@ -65,87 +63,113 @@ interface AttendanceData {
   children: string;
 }
 
-interface CollectionData {
+export interface CollectionData {
   [key: string]: string;
 }
 
-interface InputField {
+export interface InputField {
   label: string;
   key: keyof AttendanceData;
 }
 
-const RecordDialogue: React.FC<RecordDialogueProps> = ({
-  eventId,
-  open,
-  onClose,
-}) => {
+export interface RecordDialogueProps {
+  eventId: string;
+  open: boolean;
+  onClose: () => void;
+}
+
+const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose }) => {
   const inputFields: InputField[] = [
-    { label: "Men", key: "male" },
-    { label: "Women", key: "female" },
-    { label: "Children", key: "children" },
-    { label: "Total", key: "total" }
+    { label: 'Men', key: 'male' },
+    { label: 'Women', key: 'female' },
+    { label: 'Children', key: 'children' },
+    { label: 'Total', key: 'total' },
   ];
-  
   const [eventData, setEventData] = useState<EventOccurrence | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const authData = useSelector((state: RootState) => state?.auth?.authData);
+  usePageToast('record-attendance');
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({
     eventId: eventId,
     total: '',
     male: '',
     female: '',
-    children: ''
+    children: '',
   });
   const [collectionData, setCollectionData] = useState<CollectionData>({});
 
   useEffect(() => {
     if (open && eventId) {
-      const fetchEventData = async () => {
+      const fetchData = async () => {
         try {
           setLoading(true);
           setFetchError(null);
-          const response = await Api.get<EventResponse>(`/church/get-event/${eventId}`);
-          const eventOccurrence = response.data.eventOccurrence;
+
+          const eventResponse = await Api.get<EventResponse>(`/church/get-event/${eventId}`);        
+
+          if (!eventResponse?.data?.eventOccurrence) {
+            throw new Error('Invalid event data: eventOccurrence is missing');
+          }
+
+          const eventOccurrence = eventResponse.data.eventOccurrence;
           setEventData(eventOccurrence);
-          
+
           const initialCollectionData: CollectionData = {};
-          eventOccurrence.collection.forEach(item => {
-            initialCollectionData[item.id] = item.amount; // Use item.id instead of collection.id
-          });
+          if (Array.isArray(eventOccurrence.collection)) {
+            eventOccurrence.collection.forEach((item) => {
+              initialCollectionData[item.id] = item.amount || '';
+            });
+          }
           setCollectionData(initialCollectionData);
-          
-          setAttendanceData(prev => ({
+
+          setAttendanceData((prev) => ({
             ...prev,
-            eventId: eventId
+            eventId: eventId,
           }));
-        } catch (err) {
-          const errorMessage = 'Error fetching event data';
+        } catch (err: any) {
+          const errorMessage = err.message || 'Error processing event data';
+          console.error('Fetch error:', err);
           setFetchError(errorMessage);
-          toast.error(errorMessage);
+          showPageToast(errorMessage, 'error');
         } finally {
           setLoading(false);
         }
       };
 
-      fetchEventData();
+      fetchData();
     }
   }, [eventId, open]);
 
   const handleInputChange = (field: keyof AttendanceData, value: string) => {
-    if (value === '' || /^\d+$/.test(value)) {
-      setAttendanceData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+    if (value === '' || /^\d+$/.test(value.replace(/,/g, ''))) {
+      setAttendanceData((prev) => {
+        const updated = { ...prev, [field]: value };
+        if (field !== 'total') {
+          const male = parseInt(updated.male.replace(/,/g, '') || '0', 10);
+          const female = parseInt(updated.female.replace(/,/g, '') || '0', 10);
+          const children = parseInt(updated.children.replace(/,/g, '') || '0', 10);
+          const sum = male + female + children;
+          updated.total = sum > 0 ? sum.toString() : '';
+        }
+        return updated;
+      });
     }
   };
 
+  const formatNumber = (value: string) => {
+    if (!value) return '';
+    const numericValue = value.replace(/,/g, '');
+    return Number(numericValue).toLocaleString();
+  };
+
   const handleCollectionChange = (collectionItemId: string, value: string) => {
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setCollectionData(prev => ({
+    const raw = value.replace(/,/g, '');
+    if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+      setCollectionData((prev) => ({
         ...prev,
-        [collectionItemId]: value
+        [collectionItemId]: formatNumber(raw),
       }));
     }
   };
@@ -153,57 +177,52 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
   const handleSave = async () => {
     try {
       setSubmitting(true);
-      
-      // Create attendance payload
-      const attendancePayload: any = {};
-      if (attendanceData.total) attendancePayload.total = parseInt(attendanceData.total);
-      if (attendanceData.male) attendancePayload.male = parseInt(attendanceData.male);
-      if (attendanceData.female) attendancePayload.female = parseInt(attendanceData.female);
-      if (attendanceData.children) attendancePayload.children = parseInt(attendanceData.children);
-      
-      // Create collection payload in the correct format
+
+      const attendancePayload: Record<string, number> = {};
+      if (attendanceData.total) attendancePayload.total = parseInt(attendanceData.total.replace(/,/g, ''));
+      if (attendanceData.male) attendancePayload.male = parseInt(attendanceData.male.replace(/,/g, ''));
+      if (attendanceData.female) attendancePayload.female = parseInt(attendanceData.female.replace(/,/g, ''));
+      if (attendanceData.children) attendancePayload.children = parseInt(attendanceData.children.replace(/,/g, ''));
+
       const collectionUpdates = [];
       for (const [collectionItemId, amount] of Object.entries(collectionData)) {
-        if (amount && amount !== '' && amount !== '0.00') {
+        const clean = amount.replace(/,/g, '');
+        if (clean && clean !== '' && clean !== '0.00') {
           collectionUpdates.push({
-            id: collectionItemId, // This should be the collection item ID
-            amount: parseFloat(amount) || 0
+            id: collectionItemId,
+            amount: parseFloat(clean) || 0,
           });
         }
       }
-      
-      // Check if both payloads are empty
+
       if (Object.keys(attendancePayload).length === 0 && collectionUpdates.length === 0) {
-        toast.error('Please enter at least one attendance or collection value');
+        showPageToast('Please enter at least one attendance or collection value', 'error');
         return;
       }
-      
-      // Save attendance if there are values
+
       let attendanceSuccess = false;
       let collectionSuccess = false;
-      
+
       if (Object.keys(attendancePayload).length > 0) {
         await Api.post(`/church/create-attendance/${attendanceData.eventId}`, attendancePayload);
         attendanceSuccess = true;
       }
-      
-      // Save collections if there are values
+
       if (collectionUpdates.length > 0) {
         await Api.post(`/church/event-collections/${eventId}`, {
-          updates: collectionUpdates
+          updates: collectionUpdates,
         });
         collectionSuccess = true;
       }
-      
-      // Show appropriate success message
+
       if (attendanceSuccess && collectionSuccess) {
-        toast.success('Attendance and collections saved successfully!', {autoClose: 1000});
+        showPageToast('Attendance and collections saved successfully!', 'success');
       } else if (attendanceSuccess) {
-        toast.success('Attendance saved successfully!');
+        showPageToast('Attendance saved successfully!', 'success');
       } else if (collectionSuccess) {
-        toast.success('Collections updated successfully!');
+        showPageToast('Collections updated successfully!', 'success');
       }
-      
+
       setTimeout(() => {
         onClose();
         setAttendanceData({
@@ -211,15 +230,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
           total: '',
           male: '',
           female: '',
-          children: ''
+          children: '',
         });
-      }, 1500);
+      }, 3000);
     } catch (err: any) {
-      console.error('Save error:', err);
-      
       let errorMessage = 'Error saving records';
-      
-      // Handle different error response structures
       if (err.response?.data?.error?.message) {
         errorMessage = err.response.data.error.message;
       } else if (err.response?.data?.message) {
@@ -227,14 +242,13 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
-      // Show specific error messages based on the endpoint
+
       if (err.config?.url?.includes('create-attendance')) {
-        toast.error(`Attendance Error: ${errorMessage}`);
+        showPageToast(`Attendance Error: ${errorMessage}`, 'error');
       } else if (err.config?.url?.includes('event-collections')) {
-        toast.error(`Collections Error: ${errorMessage}`);
+        showPageToast(`Collections Error: ${errorMessage}`, 'error');
       } else {
-        toast.error(errorMessage);
+        showPageToast(errorMessage, 'error');
       }
     } finally {
       setSubmitting(false);
@@ -249,38 +263,35 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
         fullWidth
         maxWidth="md"
         sx={{
-          "& .MuiDialog-paper": {
+          '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: '#2C2C2C',
           },
         }}
       >
-        <ToastContainer/>
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          color: '#F6F4FE'
-        }}>
-          <Typography variant="h5" component="h2" fontWeight="bold">
-            Loading...
-          </Typography>
-          <IconButton 
-            onClick={onClose} 
-            sx={{ color: '#F6F4FE' }}
-            aria-label="Close dialog"
-          >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: '#F6F4FE',
+          }}
+        >
+          <Typography fontWeight="bold">Loading...</Typography>
+          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ 
-          p: 3, 
-          mt: 2, 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          minHeight: '200px'
-        }}>
+        <DialogContent
+          sx={{
+            p: 3,
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '200px',
+          }}
+        >
           <CircularProgress sx={{ color: '#777280' }} />
         </DialogContent>
       </Dialog>
@@ -295,31 +306,29 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
         fullWidth
         maxWidth="md"
         sx={{
-          "& .MuiDialog-paper": {
+          '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: '#2C2C2C',
           },
         }}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          color: '#F6F4FE'
-        }}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: '#F6F4FE',
+          }}
+        >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Error
           </Typography>
-          <IconButton 
-            onClick={onClose} 
-            sx={{ color: '#F6F4FE' }}
-            aria-label="Close dialog"
-          >
+          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="h6" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
             {fetchError}
           </Typography>
         </DialogContent>
@@ -334,211 +343,220 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({
       fullWidth
       maxWidth="md"
       sx={{
-        "& .MuiDialog-paper": {
+        '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
+          bgcolor: '#2C2C2C',
         },
       }}
     >
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        color: '#F6F4FE'
-      }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#F6F4FE',
+        }}
+      >
         <Typography variant="h5" component="h2" fontWeight="bold">
           {eventData && eventData.event.title}
         </Typography>
-        <IconButton 
-          onClick={onClose} 
-          sx={{ color: '#F6F4FE' }}
-          aria-label="Close dialog"
-        >
+        <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
           <Close />
         </IconButton>
       </DialogTitle>
-
       <DialogContent sx={{ p: 3, mt: 2 }}>
         <Box>
-          {/* Members Count Section */}
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column',
-            justifyContent: 'center', 
-            color: '#F6F4FE',
-          }}>
-            <Box sx={{ 
-              mb: { xs: 2, sm: 3 }, 
-              justifyContent: 'center' 
-            }}>
-              <Typography variant="h6" fontWeight="medium">
-                Members Count
-              </Typography>
+          {/* Members Count Section (Branch Role Only) */}
+          {authData?.role !== 'department' && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                color: '#F6F4FE',
+              }}
+            >
+              <Box sx={{ mb: { xs: 2, sm: 3 }, justifyContent: 'center' }}>
+                <Typography variant="h6" fontWeight="medium">
+                  Members Count
+                </Typography>
+              </Box>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
+                {inputFields.map((field) => (
+                  <Grid size={{ xs: 6, sm: 6, lg: 3 }} key={field.key}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <TextField
+                        variant="outlined"
+                        value={attendanceData[field.key]}
+                        onChange={(e) => handleInputChange(field.key, e.target.value)}
+                        type="text"
+                        inputMode="numeric"
+                        sx={{
+                          width: { xs: 90, sm: 95, md: 100 },
+                          justifyContent: 'center',
+                          '& .MuiInputBase-root': {
+                            height: { xs: 70, sm: 80 },
+                          },
+                          '&.Mui-disabled': {
+                            WebkitTextFillColor: '#F6F4FE',
+                            color: '#777280',
+                          },
+                        }}
+                        disabled={
+                          field.key === 'total' &&
+                          (!!attendanceData.male || !!attendanceData.female || !!attendanceData.children)
+                        }
+                        InputProps={{
+                          sx: {
+                            color: '#F6F4FE',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
+                            },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
+                            },
+                            '&.Mui-disabled': {
+                              '& .MuiInputBase-input.Mui-disabled': {
+                                WebkitTextFillColor: '#F6F4FE',
+                                color: '#F6F4FE',
+                              },
+                            },
+                          },
+                        }}
+                        inputProps={{
+                          sx: {
+                            WebkitTextFillColor: '#F6F4FE',
+                            color: '#F6F4FE',
+                            '&.Mui-disabled': {
+                              color: '#777280',
+                            },
+                          },
+                        }}
+                        size="small"
+                      />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          mt: 1,
+                          fontWeight: 'medium',
+                          fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                        }}
+                      >
+                        {field.label}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
             </Box>
-            
-            <Grid container spacing={{ xs: 2, sm: 3 }}>
-              {inputFields.map((field) => (
-                <Grid size={{xs: 6, sm: 6, lg: 3}}  key={field.key}>
-                  <Box sx={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}>
-                    <TextField
-                      variant="outlined"
-                      value={attendanceData[field.key]}
-                      onChange={(e) => handleInputChange(field.key, e.target.value)}
-                      type="text"
-                      inputMode="numeric"
-                      sx={{ 
-                        width: { xs: 90, sm: 95, md: 100 },
-                        justifyContent: 'center',
-                        '& .MuiInputBase-root': {
-                          height: { xs: 70, sm: 80 }
-                        }
-                      }}
-                      InputProps={{
-                        sx: {
-                          color: "#F6F4FE",
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#777280",
-                          },
-                          "&:hover .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#777280",
-                          },
-                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#777280",
-                          },   
-                        }
-                      }}
-                      InputLabelProps={{
-                        sx: {
-                          color: "#F6F4FE",
-                          "&.Mui-focused": {
-                            color: "#F6F4FE",
-                          }, 
-                        }                                                           
-                      }}
-                      size="small"
-                    />
-                    <Typography variant="body2" sx={{ 
-                      mt: 1, 
-                      fontWeight: 'medium',
-                      fontSize: { xs: '0.8rem', sm: '0.875rem' }
-                    }}>
-                      {field.label}
-                    </Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>                
-          </Box>
+          )}
 
-          {/* Collections Records Section */}
-          {eventData?.collection && eventData.collection.length > 0 && (
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              justifyContent: 'center', 
-              color: '#F6F4FE',
-              mt: 4
-            }}>
-              <Box sx={{             
-                mb: { xs: 2, sm: 3 }, 
-                justifyContent: 'center' 
-              }}>
+          {/* Collections Records Section (Branch Role Only) */}
+          {authData?.role !== 'department' && eventData?.collection && eventData.collection.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                color: '#F6F4FE',
+                mt: 4,
+              }}
+            >
+              <Box sx={{ mb: { xs: 2, sm: 3 }, justifyContent: 'center' }}>
                 <Typography variant="h6" fontWeight="medium">
                   Collections
                 </Typography>
               </Box>
-              
               <Grid container spacing={{ xs: 2, sm: 3 }}>
                 {eventData.collection.map((item) => (
-                  <Grid size={{xs: 6, sm: 6, lg: 3}} key={item.id}>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                    }}>
+                  <Grid size={{ xs: 6, sm: 6, lg: 3 }} key={item.id}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                      }}
+                    >
                       <TextField
                         variant="outlined"
-                        value={collectionData[item.id] || item.amount}
+                        value={collectionData[item.id] ?? ''}
                         onChange={(e) => handleCollectionChange(item.id, e.target.value)}
                         type="text"
                         inputMode="decimal"
-                        sx={{ 
+                        sx={{
                           width: { xs: 90, sm: 95, md: 100 },
                           '& .MuiInputBase-root': {
-                            height: { xs: 70, sm: 80 }
-                          }
+                            height: { xs: 70, sm: 80 },
+                          },
                         }}
                         InputProps={{
                           sx: {
-                            color: "#F6F4FE",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
+                            color: '#F6F4FE',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
                             },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
                             },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
-                            },   
-                          }
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                              borderColor: '#777280',
+                            },
+                          },
                         }}
                         InputLabelProps={{
                           sx: {
-                            color: "#F6F4FE",
-                            "&.Mui-focused": {
-                              color: "#F6F4FE",
-                            }, 
-                          }                                                           
+                            color: '#F6F4FE',
+                            '&.Mui-focused': {
+                              color: '#F6F4FE',
+                            },
+                          },
                         }}
                         size="small"
                       />
-                      <Typography variant="body2" sx={{ 
-                        mt: 1, 
-                        fontWeight: 'medium',
-                        fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                        textAlign: 'center'
-                      }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          mt: 1,
+                          fontWeight: 'medium',
+                          fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                          textAlign: 'center',
+                        }}
+                      >
                         {item.collection.name}
                       </Typography>
                     </Box>
                   </Grid>
                 ))}
-              </Grid>                
+              </Grid>
             </Box>
           )}
 
           {/* Action Buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, pt: 4 }}>          
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, pt: 4 }}>
             <Button
               onClick={handleSave}
               variant="contained"
-              startIcon={submitting ? <CircularProgress size={20}/> : <Save />}
+              startIcon={submitting ? <CircularProgress size={20} /> : <Save />}
               disabled={submitting}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: '#F6F4FE',
                 px: { xs: 2, sm: 2 },
                 borderRadius: 50,
-                color: "#2C2C2C",
-                fontWeight: "semibold",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                color: '#2C2C2C',
+                fontWeight: 'semibold',
+                textTransform: 'none',
+                fontSize: { xs: '1rem', sm: '1rem' },
+                '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
               }}
             >
               Save Information

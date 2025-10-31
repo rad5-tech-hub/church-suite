@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Api from "../../../shared/api/api";
-import { toast, ToastContainer } from "react-toastify";
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import {
@@ -37,6 +38,11 @@ interface Department {
   name: string;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
 interface UnitModalProps {
   open: boolean;
   onClose: () => void;
@@ -44,29 +50,69 @@ interface UnitModalProps {
 }
 
 const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
+  usePageToast("unit-modal");
   const [units, setUnits] = useState<UnitFormData[]>([{ name: "", description: "" }]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [fetchingDepartments, setFetchingDepartments] = useState(false);
+  const [fetchingBranches, setFetchingBranches] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
 
+  // Fetch branches when modal opens
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        setFetchingBranches(true);
+        const response = await Api.get<{ branches: Branch[] }>("/church/get-branches");
+        const branchesData = response.data?.branches || [];
+        setBranches(branchesData);
+        // Set default branch to authData.branchId or HeadQuarter if no branchId
+        setSelectedBranch(authData?.branchId);
+      } catch (error) {
+        console.error("Failed to fetch branches:", error);
+        showPageToast("Failed to load branches. Please try again.", "error");
+      }
+      finally{
+        setFetchingBranches(false);
+      }
+    };
+
+    if (open) {
+      fetchBranches();
+    }
+  }, [open, authData?.branchId]);
+
+  // Fetch departments when selectedBranch changes
   useEffect(() => {
     const fetchDepartments = async () => {
+      if (!selectedBranch) {
+        setDepartments([]);
+        setSelectedDepartment("");
+        return;
+      }
+
       try {
         setFetchingDepartments(true);
-        const response = await Api.get(`/church/get-departments`);
+        const params = new URLSearchParams();
+        if (selectedBranch) {
+          params.append("branchId", selectedBranch);
+        }
+
+        const response = await Api.get<{ departments: Department[] }>(
+          `/church/get-departments?${params.toString()}`
+        );
         setDepartments(response.data?.departments || []);
+        setSelectedDepartment(authData?.department || ''); // Reset department selection on branch change
       } catch (error) {
         console.error("Failed to fetch departments:", error);
-        toast.error("Failed to load departments. Please try again.", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Failed to load departments. Please try again.", "error");
       } finally {
         setFetchingDepartments(false);
       }
@@ -74,11 +120,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
 
     if (open) {
       fetchDepartments();
-      setUnits([{ name: "", description: "" }]);
-      setSelectedDepartment("");
-      setShowValidationErrors(false);
     }
-  }, [authData?.branchId, isMobile, open]);
+  }, [selectedBranch, open]);
 
   const handleUnitChange = (index: number, field: keyof UnitFormData, value: string) => {
     const updatedUnits = [...units];
@@ -103,11 +146,13 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
   };
 
   const handleAddUnits = async () => {
+    if (!selectedBranch) {
+      showPageToast("Please select a branch", "error");
+      return;
+    }
+
     if (!selectedDepartment) {
-      toast.error("Please select a department", {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Please select a department", "error");
       return;
     }
 
@@ -115,44 +160,60 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
 
     for (const unit of units) {
       if (!unit.name.trim()) {
-        toast.error("Unit name is required for all units", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Unit name is required for all units", "error");
         return;
       }
-
       if (!unit.description.trim()) {
-        toast.error("Description is required for all units", {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Description is required for all units", "error");
         return;
       }
     }
 
+    const payload: any = {
+      departmentId: selectedDepartment,
+      units: units.map(unit => ({
+        name: unit.name.trim(),
+        description: unit.description.trim(),
+      })),
+    };
+
+    if (selectedBranch) {
+      payload.branchId = selectedBranch;
+    }
+
     try {
       setLoading(true);
-      const response = await Api.post(`/church/create-units`, {
-        departmentId: selectedDepartment,
-        units,
-      });
+      const response = await Api.post(`/church/create-units`, payload);
 
       if (response.data?.units) {
-        toast.success(`${response.data.units.length} units created successfully!`, {
-          autoClose: 3000,
-          position: isMobile ? "top-center" : "top-right",
-        });
-        onClose();
-        if (onSuccess) onSuccess();
+        showPageToast(`${response.data.units.length} unit(s) created successfully!`, "success");
+        setUnits([{ name: "", description: "" }]);
+        setSelectedDepartment("");
+        setSelectedBranch(authData?.branchId);
+        setShowValidationErrors(false);
+
+        setTimeout(() => {
+          onClose();
+          if (onSuccess) onSuccess();
+        }, 2500);
       }
     } catch (error: any) {
       console.error("Unit creation error:", error);
-      const errorMessage = error.response?.data?.message || "Failed to create units. Please try again.";
-      toast.error(errorMessage, {
-        autoClose: 3000,
-        position: isMobile ? "top-center" : "top-right",
-      });
+      let errorMessage = "Failed to create Unit. Please try again.";
+
+      if (error.response?.data?.error?.message) {
+        errorMessage = `${error.response.data.error.message} Please try again.`;
+      } else if (error.response?.data?.message) {
+        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+          errorMessage = error.response.data.errors.join(", ");
+        } else {
+          errorMessage = `${error.response.data.message} Please try again.`;
+        }
+      } else if (error.response?.data?.errors) {
+        errorMessage = error.response.data.errors.join(", ");
+      }
+
+      showPageToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -165,15 +226,14 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
-       sx={{
+      sx={{
         "& .MuiDialog-paper": {
-          borderRadius:  2,
+          borderRadius: 2,
           bgcolor: '#2C2C2C',
           color: "#F6F4FE",
         },
       }}
     >
-      <ToastContainer/>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">      
           <Typography
@@ -186,50 +246,90 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
           >
             Create New Units
           </Typography>
-          <IconButton onClick={onClose}>
-            <Close className="text-gray-300"/>
+          <IconButton onClick={onClose} aria-label="Close dialog">
+            <Close sx={{ color: "#B0B0B0" }} />
           </IconButton>
         </Box>
       </DialogTitle>
 
       <DialogContent dividers>
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
-          {/* Department Selection */}
           <FormControl fullWidth>
-            <InputLabel id="department-select-label" sx={{ fontSize: isLargeScreen ? '1rem' : undefined, color: '#F6F4FE'  }}>
+            <InputLabel 
+              id="branch-select-label" 
+              sx={{ 
+                fontSize: isLargeScreen ? '1rem' : undefined, 
+                color: '#F6F4FE',
+                '&.Mui-focused': { color: '#F6F4FE' }
+              }}
+            >
+              Select Branch *
+            </InputLabel>
+            <Select
+              labelId="branch-select-label"
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              label="Select Branch *"
+              disabled={loading}
+              sx={{
+                color: "#F6F4FE",
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "& .MuiSelect-select": { color: "#F6F4FE" },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                fontSize: isLargeScreen ? "1rem" : undefined,
+              }}
+              aria-label="Select branch"
+            >
+              {fetchingBranches ? (
+                <MenuItem disabled>
+                  <Box display="flex" alignItems="center" width="100%">
+                    <CircularProgress size={20} sx={{ color: "#F6F4FE", mr: 1 }} />
+                    Loading branches...
+                  </Box>
+                </MenuItem>
+              ) : branches.length === 0 ? (
+                <MenuItem disabled>No branches available</MenuItem>
+              ) :
+               (branches.map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+              )))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel 
+              id="department-select-label" 
+              sx={{ 
+                fontSize: isLargeScreen ? '1rem' : undefined, 
+                color: '#F6F4FE',
+                '&.Mui-focused': { color: '#F6F4FE' }
+              }}
+            >
               Select Department *
             </InputLabel>
             <Select
               labelId="department-select-label"
-              id="department-select"
               value={selectedDepartment}
               label="Select Department *"
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              disabled={loading}
+              disabled={loading || !selectedBranch || fetchingDepartments}
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                '& .MuiSelect-icon': {
-                  display: loading ? 'none' : 'block',
-                },                            
                 color: "#F6F4FE",
-                outlineColor: "#777280",
-                borderColor: "#777280",
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: "#777280",
-                },
-                "& .MuiSelect-select": {
-                    borderColor: "#777280",
-                    color: "#F6F4FE",
-                },              
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "& .MuiSelect-select": { color: "#F6F4FE" },
+                "& .MuiSelect-icon": { color: "#F6F4FE" },
               }}
-              IconComponent={loading ? () => null : undefined}
+              aria-label="Select department"
             >
               {fetchingDepartments ? (
                 <MenuItem disabled>
-                  <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <CircularProgress size={20} style={{ marginRight: '8px' }} />
+                  <Box display="flex" alignItems="center" width="100%">
+                    <CircularProgress size={20} sx={{ color: "#F6F4FE", mr: 1 }} />
                     Loading departments...
-                  </div>
+                  </Box>
                 </MenuItem>
               ) : departments.length === 0 ? (
                 <MenuItem disabled>No departments available</MenuItem>
@@ -247,8 +347,14 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
             </Select>
           </FormControl>
 
-          {/* Units Fields */}
-          <Typography variant="h6" component="h2" sx={{ fontSize: isLargeScreen ? '1.2rem' : undefined }}>
+          <Typography 
+            variant="h6" 
+            component="h2" 
+            sx={{ 
+              fontSize: isLargeScreen ? '1.2rem' : undefined,
+              color: "#F6F4FE"
+            }}
+          >
             Units
           </Typography>
 
@@ -261,20 +367,37 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                 title={isDisabled ? "Select department first" : ""}
                 disableInteractive
                 placement="top"
+                key={index}
               >
                 <Paper
-                  key={index}
                   elevation={1}
                   sx={{
                     p: 2,
-                    backgroundColor: isUnitEmpty ? 'rgba(255, 0, 0, 0.05)' : 'inherit',
-                    border: isUnitEmpty ? '1px solid rgba(255, 0, 0, 0.2)' : '1px solid rgba(0, 0, 0, 0.12)',
+                    backgroundColor: isUnitEmpty ? '#353535' : '#2C2C2C', // Lighter dialog background for validation errors
+                    border: isUnitEmpty ? '1px solid #4B4B4B' : '1px solid #2C2C2C',
                     transition: 'all 0.3s ease',
-                    pointerEvents: isDisabled ? 'none' : 'auto', // Prevent interaction when disabled
-                    opacity: isDisabled ? 0.6 : 1, // Visual cue for disabled state
+                    pointerEvents: isDisabled ? 'none' : 'auto',
+                    opacity: isDisabled ? 0.6 : 1,
                   }}
                 >
                   <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12 }} sx={{ textAlign: 'right' }}>                     
+                      {units.length > 1 && (
+                        <IconButton
+                          onClick={() => removeUnitField(index)}
+                          title="Remove Unit"
+                          sx={{
+                            color: 'red',                        
+                            ml: 1,                           
+                            borderRadius: '4px'
+                          }}
+                          disabled={isDisabled}
+                          aria-label={`Remove unit ${index + 1}`}
+                        >
+                          <Close fontSize="small"/>
+                        </IconButton>
+                      )}
+                    </Grid>
                     <Grid size={{ xs: 12 }}>
                       <TextField
                         fullWidth
@@ -288,28 +411,22 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         size="medium"
                         error={showValidationErrors && !unit.name.trim()}
                         helperText={showValidationErrors && !unit.name.trim() ? "Required field" : ""}
-                        InputProps={{                  
+                        InputProps={{
                           sx: {
                             color: "#F6F4FE",
-                            outlineColor: "#777280",
-                            borderColor: "#777280",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
-                            },
+                            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
                             fontSize: isLargeScreen ? "1rem" : undefined,
                           },
                         }}
                         InputLabelProps={{
                           sx: {
                             fontSize: isLargeScreen ? "1rem" : undefined,
-                            color: "#F6F4FE",                    
-                            outlineColor: "#777280",
-                            borderColor: "#777280",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
-                            },                    
+                            color: "#F6F4FE",
+                            "&.Mui-focused": { color: "#F6F4FE" },
                           },
                         }}
+                        aria-label={`Unit name ${index + 1}`}
                       />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
@@ -317,6 +434,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         fullWidth
                         label="Description *"
                         name={`description-${index}`}
+                        multiline
+                        rows={2}
                         value={unit.description}
                         onChange={(e) => handleUnitChange(index, 'description', e.target.value)}
                         variant="outlined"
@@ -325,63 +444,44 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         size="medium"
                         error={showValidationErrors && !unit.description.trim()}
                         helperText={showValidationErrors && !unit.description.trim() ? "Required field" : ""}
-                        InputProps={{                  
+                        InputProps={{
                           sx: {
                             color: "#F6F4FE",
-                            outlineColor: "#777280",
-                            borderColor: "#777280",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
-                            },
+                            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
                             fontSize: isLargeScreen ? "1rem" : undefined,
                           },
                         }}
                         InputLabelProps={{
                           sx: {
                             fontSize: isLargeScreen ? "1rem" : undefined,
-                            color: "#F6F4FE",                    
-                            outlineColor: "#777280",
-                            borderColor: "#777280",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#777280",
-                            },                    
+                            color: "#F6F4FE",
+                            "&.Mui-focused": { color: "#F6F4FE" },
                           },
                         }}
+                        aria-label={`Unit description ${index + 1}`}
                       />
                     </Grid>
                     <Grid size={{ xs: 12 }} sx={{ textAlign: 'right' }}>
                       {index === units.length - 1 ? (
                         <IconButton
                           onClick={addUnitField}
+                          title="Add More Unit"
                           sx={{
-                            color: "#F6F4FE",   
-                            border: '0.5px solid #F6F4FE'                        ,                          
+                            color: "#F6F4FE",
+                            borderRadius: '5px',
+                            border: '0.5px solid gray',
                             '&:hover': {
-                              backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
                               boxShadow: '0.5px 1px 0.5px',
                             },
                           }}
                           disabled={isDisabled}
+                          aria-label="Add new unit"
                         >
                           <AddIcon />
                         </IconButton>
                       ) : null}
-                      {units.length > 1 && (
-                        <IconButton
-                          onClick={() => removeUnitField(index)}
-                          sx={{
-                            color: theme.palette.error.main,
-                            border: '0.5px solid red',                          
-                            ml: 1,
-                            '&:hover': {
-                              backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                            },
-                          }}
-                          disabled={isDisabled}
-                        >
-                          <Close />
-                        </IconButton>
-                      )}
                     </Grid>
                   </Grid>
                 </Paper>
@@ -391,11 +491,11 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2 }}>        
+      <DialogActions sx={{ p: 2 }}>
         <Button
           variant="contained"
           onClick={handleAddUnits}
-          disabled={loading || fetchingDepartments || !selectedDepartment}
+          disabled={loading || fetchingDepartments || !selectedBranch || !selectedDepartment}
           sx={{
             py: 1,
             backgroundColor: "#F6F4FE",
@@ -410,12 +510,13 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               opacity: 0.9,
             },
           }}
+          aria-label="Create units"
         >
           {loading ? (
-            <>
-              <CircularProgress size={18} sx={{ color: 'white', mr: 1 }} />
+            <Box display="flex" alignItems="center" color='#777280'>
+              <CircularProgress size={18} sx={{ color: '#777280', mr: 1 }} />
               Creating...
-            </>
+            </Box>
           ) : (
             `Create ${units.length > 1 ? `${units.length} Units` : 'Unit'}`
           )}

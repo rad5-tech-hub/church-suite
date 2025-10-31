@@ -16,12 +16,12 @@ import {
   TextField,
   Menu,
   Divider,
-  Select as MuiSelect,
   MenuItem,
   useTheme,
   useMediaQuery,
   CircularProgress,
   Grid,
+  Autocomplete,
 } from "@mui/material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import {
@@ -36,7 +36,8 @@ import { MdRefresh, MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
-import { toast, ToastContainer } from "react-toastify";
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import { TbArrowFork } from "react-icons/tb";
@@ -205,6 +206,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 
 const ViewBranches: React.FC = () => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
+  usePageToast('view-branch');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -241,7 +243,7 @@ const fetchBranches = useCallback(
       console.error("Failed to fetch branches:", error);
       handleStateChange("error", "Failed to load branches. Please try again later.");
       handleStateChange("loading", false);
-      toast.error("Failed to load branches");
+      showPageToast("Failed to load branches", 'error');
       throw error;
     }
   },
@@ -249,35 +251,43 @@ const fetchBranches = useCallback(
 );
 
   const searchBranches = useCallback(
-    async (url: string | null = "/church/search-branches") => {
+    async (url: string | null = "/church/get-branches") => {
       handleStateChange("isSearching", true);
       try {
         const params = new URLSearchParams();
-        if (state.searchTerm) params.append("name", state.searchTerm);
-        if (state.locationFilter) params.append("location", state.locationFilter);
-        const fullUrl = url && url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
+
+        if (state.searchTerm) {
+          params.append("search[name]", state.searchTerm);        
+        }
+
+        if (state.locationFilter) {
+          params.append("search[address]", state.locationFilter);
+        }
+        const fullUrl =
+          url && url.includes("?")
+            ? `${url}&${params.toString()}`
+            : `${url}?${params.toString()}`;
+
         const response = await Api.get<FetchBranchesResponse>(fullUrl);
         const data = response.data;
+
         if (!data || !data.branches) {
           throw new Error("Invalid response structure");
         }
+
         handleStateChange("isSearching", false);
-        toast.success("Search completed successfully!", {
-          position: isMobile ? "top-center" : "top-right",
-        });
         return data;
       } catch (error) {
         console.error("Error searching branches:", error);
-        toast.warn("Server search failed, applying local filter", {
-          position: isMobile ? "top-center" : "top-right",
-        });
 
         let filtered = [...state.branches];
+
         if (state.searchTerm) {
           filtered = filtered.filter((branch) =>
             branch.name.toLowerCase().includes(state.searchTerm.toLowerCase())
           );
         }
+
         if (state.locationFilter) {
           filtered = filtered.filter(
             (branch) =>
@@ -286,6 +296,7 @@ const fetchBranches = useCallback(
               (state.locationFilter === "hq" && branch.isHeadQuarter)
           );
         }
+
         setState((prev) => ({
           ...prev,
           filteredBranches: filtered,
@@ -294,6 +305,7 @@ const fetchBranches = useCallback(
           pageHistory: [],
           isSearching: false,
         }));
+
         throw error;
       }
     },
@@ -412,7 +424,7 @@ const fetchBranches = useCallback(
         const errorMessage = "Failed to load page";
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        toast.error(errorMessage);
+        showPageToast(errorMessage, 'error');
       }
     },
     [state.pagination.nextPage, state.pageHistory, state.searchTerm, state.locationFilter, fetchBranches, searchBranches, handleStateChange]
@@ -423,7 +435,7 @@ const fetchBranches = useCallback(
     handleStateChange("currentPage", 1);
     handleStateChange("pageHistory", []);
     if (state.searchTerm || state.locationFilter) {
-      searchBranches("/church/search-branches").then((data) => {
+      searchBranches("/church/get-branches").then((data) => {
         if (data) {
           setState((prev) => ({
             ...prev,
@@ -471,34 +483,51 @@ const fetchBranches = useCallback(
   const handleEditSubmit = async () => {
     if (!state.currentBranch?.id) {
       console.error("Branch ID is undefined");
-      toast.error("Invalid branch data");
+      showPageToast("Invalid branch data", "error");
       return;
     }
 
     try {
       handleStateChange("loading", true);
-      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, state.editFormData);
+
+      // Build payload with only changed fields
+      const payload: Partial<typeof state.editFormData> = {};
+      const original = state.currentBranch;
+
+      Object.keys(state.editFormData).forEach((key) => {
+        const k = key as keyof typeof state.editFormData;
+        const newValue = state.editFormData[k];
+        const oldValue = original[k];
+
+        if (newValue !== oldValue) {
+          payload[k] = newValue;
+        }
+      });
+
+      // If no changes, stop here
+      if (Object.keys(payload).length === 0) {
+        showPageToast("No changes to update", "warning");
+        return;
+      }
+
+      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, payload);
 
       setState((prev) => ({
         ...prev,
         branches: prev.branches.map((branch) =>
-          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+          branch.id === prev.currentBranch!.id ? { ...branch, ...payload } : branch
         ),
         filteredBranches: prev.filteredBranches.map((branch) =>
-          branch.id === prev.currentBranch!.id ? { ...branch, ...prev.editFormData } : branch
+          branch.id === prev.currentBranch!.id ? { ...branch, ...payload } : branch
         ),
       }));
 
-      toast.success("Branch updated successfully!", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Branch updated successfully!", "success");
       handleStateChange("editModalOpen", false);
       handleStateChange("currentBranch", null);
     } catch (error) {
       console.error("Update error:", error);
-      toast.error("Failed to update branch", {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast("Failed to update branch", "error");
     } finally {
       handleStateChange("loading", false);
     }
@@ -519,9 +548,7 @@ const fetchBranches = useCallback(
           pageHistory: prev.currentPage > 1 ? prev.pageHistory.slice(0, -1) : prev.pageHistory,
           currentPage: prev.currentPage > 1 && prev.filteredBranches.length === 1 ? prev.currentPage - 1 : prev.currentPage,
         }));
-        toast.success("Branch deleted successfully!", {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast("Branch deleted successfully!",'success');
       } else if (state.actionType === "suspend") {
         const newStatus = !state.currentBranch.isActive;
         await Api.patch(`/church/${newStatus ? "activate" : "suspend"}-branch/${state.currentBranch.id}`);
@@ -534,15 +561,11 @@ const fetchBranches = useCallback(
             branch.id === prev.currentBranch!.id ? { ...branch, isActive: newStatus } : branch
           ),
         }));
-        toast.success(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, {
-          position: isMobile ? "top-center" : "top-right",
-        });
+        showPageToast(`Branch ${newStatus ? "activated" : "suspended"} successfully!`, 'success');
       }
     } catch (error) {
       console.error("Action error:", error);
-      toast.error(`Failed to ${state.actionType} branch`, {
-        position: isMobile ? "top-center" : "top-right",
-      });
+      showPageToast(`Failed to ${state.actionType} branch`, 'error');
     } finally {
       handleStateChange("loading", false);
       handleStateChange("confirmModalOpen", false);
@@ -562,10 +585,10 @@ const fetchBranches = useCallback(
         justifyContent: "center",
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
+        color="rgba(255, 255, 255, 0.5)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
@@ -603,12 +626,18 @@ const fetchBranches = useCallback(
     return <Navigate to="/manage/view-admins" replace />;
   }
 
+  // ✅ Deduplicate by address
+  const uniqueBranches = Array.from(
+    new Map(
+      state.branches.map((branch) => [branch.address, branch]) // address as key
+    ).values()
+  );
+
   return (
-    <DashboardManager>
-      <ToastContainer />
+    <DashboardManager> 
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 5 }}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Typography
               variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
               component="h4"
@@ -635,61 +664,93 @@ const fetchBranches = useCallback(
                   alignItems: "center",
                   backgroundColor: "#4d4d4e8e",
                   padding: "4px",
-                  width: "fit-content",
+                  width: "auto",
                   gap: "8px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                   "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
                 }}
               >
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 16px" }}>
+                {/* Name Autocomplete */}
+                <Box sx={{ display: "flex", flex: 1, flexDirection: "column", padding: "4px 16px", minWidth: 180 }}>
                   <Typography
                     variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
+                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}
                   >
-                    Where?
+                    Name?
                   </Typography>
-                  <TextField
-                    variant="standard"
-                    placeholder="Search by name"
+                  <Autocomplete
+                    freeSolo
+                    options={state.branches} // Pass full branch objects
+                    getOptionLabel={(option) => (typeof option === "string" ? option : option.name)} // Handle both string & object
                     value={state.searchTerm}
-                    onChange={(e) => handleStateChange("searchTerm", e.target.value)}
-                    sx={{
-                      color: "#F6F4FE",
-                      "& .MuiInputBase-input": { color: "#F6F4FE", fontWeight: 500, fontSize: "14px", py: "4px" },
-                      flex: 1,
-                    }}
-                    InputProps={{ disableUnderline: true }}
-                    aria-label="Search branches by name"
+                    onInputChange={(_, newValue) => handleStateChange("searchTerm", newValue)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        placeholder="Search by name"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          sx: {
+                            color: "#F6F4FE",
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            py: "4px",
+                            "& .MuiAutocomplete-clearIndicator": {
+                              color: "#F6F4FE",
+                            },
+                          },
+                        }}
+                      />
+                    )}
                   />
                 </Box>
+
                 <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-                <Box sx={{ display: "flex", flexDirection: "column", padding: "4px 8px" }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", ml: "8px" }}
-                  >
-                    Location
-                  </Typography>
-                  <MuiSelect
-                    value={state.locationFilter}
-                    onChange={(e) => handleStateChange("locationFilter", e.target.value)}
-                    displayEmpty
-                    sx={{
-                      color: state.locationFilter ? "#F6F4FE" : "#777280",
-                      fontWeight: 500,
-                      fontSize: "14px",
-                      ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-                      ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                      "& .MuiSelect-icon": { display: "none" },
-                    }}
-                    renderValue={(selected) => selected || "Select Location"}
-                    aria-label="Filter branches by location"
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="branch">Branch</MenuItem>
-                    <MenuItem value="hq">Headquarters</MenuItem>
-                  </MuiSelect>
+
+                {/* Location Autocomplete */}
+                <Box sx={{ display: "flex", flex: 1, flexDirection: "column", padding: "4px 8px", minWidth: 160 }}>
+                  <Autocomplete
+                    options={uniqueBranches.map((branch) => ({
+                      id: branch.id,
+                      label: branch.address || "",
+                    }))}
+                    value={
+                      state.locationFilter
+                        ? { id: state.locationFilter, label: state.locationFilter }
+                        : null
+                    }
+                    onChange={(_, newValue) =>
+                      handleStateChange("locationFilter", newValue?.label || "")
+                    }
+                    getOptionLabel={(option) => option.label || ""}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    popupIcon={null} // ✅ removes dropdown arrow
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Search by location"
+                        variant="standard"
+                        InputProps={{
+                          ...params.InputProps,
+                          disableUnderline: true,
+                          sx: {
+                            color: "#F6F4FE",
+                            fontWeight: 500,
+                            fontSize: "14px",
+                            py: "4px",
+                            "& .MuiAutocomplete-clearIndicator": {
+                              color: "#F6F4FE",
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
                 </Box>
+
+                {/* Search button */}
                 <Box sx={{ pr: "8px" }}>
                   <Button
                     onClick={handleSearch}
@@ -717,7 +778,7 @@ const fetchBranches = useCallback(
             </Box>
           </Grid>
           <Grid
-            size={{ xs: 12, md: 7 }}
+            size={{ xs: 12, md: 5 }}
             sx={{
               display: "flex",
               justifyContent: { xs: "flex-end", md: "flex-end" },
@@ -819,21 +880,21 @@ const fetchBranches = useCallback(
                       </Box>
                       <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
                         <Typography
-                          variant="body2"
+                          variant="h6"
+                          fontWeight={600}
                           sx={{
                             textDecoration: branch.isDeleted ? "line-through" : "none",
-                            color: branch.isDeleted ? "gray" : "#777280",
-                          }}
+                            color: branch.isDeleted ? "gray" : "#E1E1E1",
+                          }}                          
                         >
                           {branch.name}
                         </Typography>
                         {branch.address && (
                           <Typography
-                            variant="h6"
-                            fontWeight={600}
+                           variant="body2"
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#E1E1E1",
+                              color: branch.isDeleted ? "gray" : "#777280",
                             }}
                           >
                             {branch.address}
@@ -882,7 +943,7 @@ const fetchBranches = useCallback(
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("suspend")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
           >
             {state.currentBranch?.isActive ? (
               <>
@@ -898,7 +959,7 @@ const fetchBranches = useCallback(
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("delete")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false }
           >
             <AiOutlineDelete style={{ marginRight: "8px", fontSize: "1rem" }} />
             Delete
@@ -1057,7 +1118,7 @@ const fetchBranches = useCallback(
               disabled={state.loading}
               aria-label="Save branch changes"
             >
-              {state.loading ? "Saving..." : "Save Changes"}
+              {state.loading ? <span className="text-gray-500">Saving..</span> : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1072,6 +1133,13 @@ const fetchBranches = useCallback(
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: 2,
+              bgcolor: "#2C2C2C",
+              color: "#F6F4FE",
+            },
+          }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"
@@ -1100,7 +1168,8 @@ const fetchBranches = useCallback(
             </Button>
             <Button
               onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400",
+                "&:hover": { backgroundColor: state.actionType === "delete" ? "#D32F2F" : "gray.400", opacity: 0.9 } }}
               color={state.actionType === "delete" ? "error" : "primary"}
               variant="contained"
               disabled={state.loading || (state.actionType === "delete" && state.currentBranch?.isHeadQuarter)}

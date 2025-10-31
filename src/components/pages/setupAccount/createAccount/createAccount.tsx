@@ -7,8 +7,8 @@ import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import 'react-toastify/dist/ReactToastify.css';
+import { usePageToast } from "../../../hooks/usePageToast";
+import { showPageToast } from "../../../util/pageToast";
 
 interface ChurchData {
   churchName?: string;
@@ -21,6 +21,7 @@ interface ChurchData {
 }
 
 const CreateAccount: React.FC = () => {
+  usePageToast("create-account"); 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ const CreateAccount: React.FC = () => {
     emailInvalid: false
   });
   const [showCongratsDialog, setShowCongratsDialog] = useState(true);
-  const churchData = useSelector((state: RootState) => state.church);
+  const churchData = useSelector((state: RootState) => state?.church);
   const navigate = useNavigate();
 
   const validateForm = (password: string, confirmPassword: string, email: string): boolean => {
@@ -41,17 +42,11 @@ const CreateAccount: React.FC = () => {
     setFormErrors(errors);
     
     if (errors.passwordMismatch) {
-      toast.error('Passwords do not match', {
-        position: "top-right",
-        autoClose: 5000,
-      });
+      showPageToast('Passwords do not match', "error");
     }
     
-    if (errors.emailInvalid) {
-      toast.error('Please enter a valid email address', {
-        position: "top-right",
-        autoClose: 5000,
-      });
+    if (errors.emailInvalid) {     
+      showPageToast('Please enter a valid email address', "error");
     }
     
     return !errors.passwordMismatch && !errors.emailInvalid;
@@ -177,108 +172,95 @@ const submitChurchData = async (formData: FormData) => {
   }
 };
 
-const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
-  try {
-    // Validate email before storing
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error("Invalid email format");
-    }
-
-    // Store email in sessionStorage
-    sessionStorage.setItem('email', email);
-    
-    // Verify the value was stored correctly
-    const storedEmail = sessionStorage.getItem('email');
-    if (storedEmail !== email) {
-      throw new Error("Failed to store email in sessionStorage");
-    }
-
-    // Show success message (using the response email if available)
-    showSuccessMessage(responseData.email || email);    
-    
-    // Reset form and clear Redux store
-    form.reset();
-    store.dispatch(clearChurchData());
-    navigate('/verify-email')
-
-  } catch (error) {
-    console.error("Error in handleSuccess:", error);
-    // Fallback: Show error to user or implement alternative storage
-    // showErrorMessage("Failed to complete setup. Please try again.");
-  }
-};
-  
-const handleSubmissionError = (error: unknown) => {
-  console.error("Account creation error:", error);
-  
-  if (error instanceof Error) {
+  const handleSuccess = (responseData: any, email: string, form: HTMLFormElement) => {
     try {
-      const errorObj = JSON.parse(error.message);
-      if (errorObj?.error?.message) {
-        // Properly format the error message for display
-        const errorDetails = errorObj.error.details?.map((detail: any) => 
-          `${detail.field}: ${detail.value} has already been used`
-        ).join('\n') || '';
-
-        toast.error(
-          <div>
-            <div>{errorObj.error.message}</div>
-            {errorDetails && (
-              <pre style={{ 
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'inherit',
-                marginTop: '8px'
-              }}>
-                {errorDetails}
-              </pre>
-            )}
-          </div>, 
-          {
-            position: "top-right",
-            autoClose: 8000,
-          }
-        );
-      } else if (error.message.includes('<!DOCTYPE html>')) {          
-        toast.error("Server error occurred. Please try again later.", {
-          position: "top-right",
-          autoClose: 5000,
-        });
-      } else {
-        toast.error(error.message, {
-          position: "top-right",
-          autoClose: 5000,
-        });
+      // Validate email before storing
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Invalid email format");
       }
-    } catch {
-      const errorMessage = error.message.includes('<!DOCTYPE html>')
-        ? "Server error occurred. Please try again later."
-        : error.message;
 
-      toast.error(errorMessage, {
-        position: "top-right",
-        autoClose: 5000,
-      });
+      // Store email in sessionStorage
+      sessionStorage.setItem('email', email);
+      
+      // Verify the value was stored correctly
+      const storedEmail = sessionStorage.getItem('email');
+      if (storedEmail !== email) {
+        throw new Error("Failed to store email in sessionStorage");
+      }
+
+      // Show success message and navigate after it auto-closes
+      showSuccessMessage(responseData.email || email);    
+
+      // Reset form and clear Redux store
+      form.reset();
+      store.dispatch(clearChurchData());
+
+
+      // Navigate after the toast auto-closes
+      setTimeout(() => {
+        navigate('/verify-email');
+      }, 1500); // Match the autoClose duration
+
+    } catch (error) {
+      console.error("Error in handleSuccess:", error);
+      // Fallback: Show error to user or implement alternative storage
+      // showErrorMessage("Failed to complete setup. Please try again.");
     }
-  } else {
-    toast.error("An unexpected error occurred. Please try again.", {
-      position: "top-right",
-      autoClose: 5000,
-    });
-  }
-};
+  };
+    
+  const handleSubmissionError = (error: unknown) => {
+    console.error("Account creation error:", error);
+    
+    if (error instanceof Error) {
+      try {
+        const errorObj = JSON.parse(error.message);
+        if (errorObj?.error?.message) {
+          // Properly format the error message for display
+          const errorDetails = errorObj.error.details?.map((detail: any) => 
+            `${detail.field}: ${detail.value} has already been used`
+          ).join('\n') || '';
+
+          showPageToast(
+            <div>
+              <div>{errorObj.error.message}</div>
+              {errorDetails && (
+                <pre style={{ 
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: 'inherit',
+                  marginTop: '8px'
+                }}>
+                  {errorDetails}
+                </pre>
+              )}
+            </div>, 'error'
+          );
+        } else if (error.message.includes('<!DOCTYPE html>')) {          
+          showPageToast("Server error occurred. Please try again later.", 'error');
+          
+        } else {
+          showPageToast(error.message, 'error');
+        }
+      } catch {
+        const errorMessage = error.message.includes('<!DOCTYPE html>')
+          ? "Server error occurred. Please try again later."
+          : error.message;
+
+        showPageToast(errorMessage,'error');
+      }
+    } else {
+      showPageToast("An unexpected error occurred. Please try again.", 'error');
+    }
+  };
 
   const showSuccessMessage = (email: string) => {
-    toast.success(
+    showPageToast(
       <div>
         <div>Account created successfully!</div>
         <div>We sent a verification link to: {email}</div>
         <div className="mt-2">
         </div>
       </div>,
-      {
-        position: "top-right",
-        autoClose: 10000,
-      }
+      'success'
     );
   };
 
@@ -341,6 +323,9 @@ const handleSubmissionError = (error: unknown) => {
       {/* Main Content */}
       {!showCongratsDialog && (       
         <div className="max-w-2xl mx-auto px-4 py-30 relative z-10">
+        <div className="text-center mb-5">
+          <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+        </div>
           <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
             <div className="text-center mb-5">
               <p className="mb-2 text-gray-600 text-end">Step 3 of 3</p>

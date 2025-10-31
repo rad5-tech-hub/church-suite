@@ -7,6 +7,7 @@ import ChangeColorButton from "./churchSettings/setting";
 import EmailVerification from "./setupAccount/verify-email/otp";
 
 // Lazy-loaded components
+const Login = React.lazy(() => import("./login/login"));
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
 const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
@@ -14,16 +15,18 @@ const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewNewcomersForm = React.lazy(() => import("./members/viewNewcomersForms/viewforms"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
-const EditMember = React.lazy(() => import("./members/singleMember/editmember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
-const ViewSingleFollowUp = React.lazy(() => import("./members/new-comers/singlefollowup"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
-const Login = React.lazy(() => import("./login/login"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
-const SettingProfile = React.lazy(() => import("./settingAdminProfile/settingProfile"));
+const SettingProfile = React.lazy(() => import("./profile/userProfile"));
+const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
+const FinanceWallets = React.lazy(() => import("./finance/wallet/viewWallet"));
+const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
+const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
 const MemberQrcodepage = React.lazy(() => import("./members/allMembers/qrcodeMemberPage"));
 const ViewServices = React.lazy(() => import("./attendance/programs/viewServices"));
@@ -35,7 +38,7 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const token = useSelector((state: RootState) => state.auth?.authData?.token);
+  const token = useSelector((state: RootState) => state?.auth?.authData?.token);
   
   return token ? (
     <>{children}</>
@@ -90,6 +93,11 @@ const AppRoutes: React.FC = () => {
               <ViewUnit/>
             </PrivateRoute>
           } />
+          <Route path="/messages" element={
+            <PrivateRoute>
+              <ViewMessageHistory/>
+            </PrivateRoute>
+          } />
           <Route path="/members/view-workers" element={
             <PrivateRoute>
               <ViewMember />
@@ -100,19 +108,29 @@ const AppRoutes: React.FC = () => {
               <ViewSingleMember />
             </PrivateRoute>
           } />
-           <Route path="/members/edit/:memberId" element={
-            <PrivateRoute>
-              <EditMember/>
-            </PrivateRoute>
-          } />
-            <Route path="/members/view-followup" element={
+          <Route path="/members/view-followup" element={
             <PrivateRoute>
               <ViewFollowUp/>
             </PrivateRoute>
-          } />
-            <Route path="/view/single-fellower/:followUpId" element={
+          } />           
+          <Route path="/members/view-forms" element={
             <PrivateRoute>
-              <ViewSingleFollowUp/>
+              <ViewNewcomersForm/>
+            </PrivateRoute>
+          } /> 
+          <Route path="/finance/collections" element={
+            <PrivateRoute>
+              <FinanceCollections/>
+            </PrivateRoute>
+          } />
+          <Route path="/finance/wallets" element={
+            <PrivateRoute>
+              <FinanceWallets/>
+            </PrivateRoute>
+          } />
+          <Route path="/finance/accounts" element={
+            <PrivateRoute>
+              <FinanceAccounts/>
             </PrivateRoute>
           } />
           <Route path="/programs" element={

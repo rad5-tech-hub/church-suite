@@ -1,43 +1,29 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { store } from "../../reduxstore/redux";
-import { setAuthData, clearAuth } from "../../reduxstore/authstore";
+import { clearAuth } from "../../reduxstore/authstore";
+import { showPageToast } from "../../util/pageToast";
 
-// Track if we've shown a session expired toast
+// ✅ Prevent duplicate session/network toasts
 let hasShownSessionExpiredToast = false;
+let hasShownNetworkErrorToast = false;
 
-// Function to check if the token is expired
+/**
+ * ✅ Check if a JWT token is expired
+ */
 const isTokenExpired = (token: string): boolean => {
   try {
-    const decodedToken: { exp: number } = jwtDecode(token);
-    const currentTime = Date.now() / 1000;
-    return decodedToken.exp < currentTime;
-  } catch (error) {
+    const { exp }: { exp: number } = jwtDecode(token);
+    return exp < Date.now() / 1000;
+  } catch {
     return true;
   }
 };
 
-// Function to refresh the token using HTTP-only cookie
-const refreshToken = async (): Promise<string> => {
-  try {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL}/church/refresh-token`,
-      {},
-      {
-        withCredentials: true,       
-      }
-    );
-    return response.data.accessToken;
-  } catch (error) {
-    // Clear auth if refresh fails
-    store.dispatch(clearAuth());
-    throw error;
-  }
-};
-
-// Create an Axios instance
+/**
+ * ✅ Axios instance
+ */
 const Api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
@@ -47,107 +33,60 @@ const Api = axios.create({
   withCredentials: true,
 });
 
-// Token refresh management
-let isRefreshing = false;
-let failedRequestsQueue: ((token: string) => void)[] = [];
-
-const processQueue = (error: Error | null, token: string | null = null) => {
-  failedRequestsQueue.forEach((prom) => {
-    if (error) {
-      prom(error as any);
-    } else {
-      prom(token as string);
-    }
-  });
-  failedRequestsQueue = [];
-};
-
-// Request interceptor
+/**
+ * ✅ Request Interceptor
+ * - If token is expired → logout immediately
+ */
 Api.interceptors.request.use(
   async (config) => {
-    const state = store.getState();
-    const token = state.auth?.authData?.token;
+    const token = store.getState().auth?.authData?.token;
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-
       if (isTokenExpired(token)) {
-        if (!isRefreshing) {
-          isRefreshing = true;
-          try {
-            const newToken = await refreshToken();
-            const currentAuthData = state.auth?.authData;
+        // 🔥 Clear session & logout
+        store.dispatch(clearAuth());
+        window.location.href = "/";
 
-            if (currentAuthData) {
-              const updatedAuthData = {
-                ...currentAuthData,
-                token: newToken,
-              };
-              store.dispatch(setAuthData(updatedAuthData));
-            }
-
-            config.headers.Authorization = `Bearer ${newToken}`;
-            processQueue(null, newToken);
-            return config;
-          } catch (refreshError) {
-            processQueue(refreshError as Error);
-            
-            // Only show one session expired toast
-            if (!hasShownSessionExpiredToast) {
-              hasShownSessionExpiredToast = true;
-              toast.error("Your session has expired. Please log in again.", {
-                position: "top-center",
-                autoClose: 5000,              
-              });
-            }
-            
-            return Promise.reject(refreshError);
-          } finally {
-            isRefreshing = false;
-          }
+        // Optional toast (only once)
+        if (!hasShownSessionExpiredToast) {
+          hasShownSessionExpiredToast = true;
+          showPageToast("Session expired. Please log in again.", "error");
         }
 
-        return new Promise((resolve, reject) => {
-          failedRequestsQueue.push((newToken: string) => {
-            if (newToken) {
-              config.headers.Authorization = `Bearer ${newToken}`;
-              resolve(config);
-            } else {
-              reject(new Error("Token refresh failed"));
-            }
-          });
-        });
+        throw new axios.Cancel("Token expired - user logged out");
       }
+
+      config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor
+/**
+ * ✅ Response Interceptor
+ * - Still catches 401 from backend and logs out (if token manually invalidated)
+ */
 Api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // Don't show duplicate toasts for 401 errors
       if (error.response.status === 401 && !hasShownSessionExpiredToast) {
         hasShownSessionExpiredToast = true;
-        toast.error("Unauthorized access. Please log in again.", {
-          autoClose: 5000,
-          onClose: () => {
-            store.dispatch(clearAuth());
-            window.location.href = "/";
-          },
-        });
+
+        // 🔥 Force logout
+        store.dispatch(clearAuth());
+        showPageToast("Unauthorized access. Please log in again.", "error");
+        window.location.href = "/";
       }
     } else if (error.request) {
-      // Handle network errors
-      toast.error("Network error. Please check your connection.", {
-        autoClose: 5000,
-      });
+      if (!hasShownNetworkErrorToast) {
+        hasShownNetworkErrorToast = true;
+        showPageToast("Network error. Please check your connection.", "error");
+      }
     }
+
     return Promise.reject(error);
   }
 );
