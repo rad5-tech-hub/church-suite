@@ -62,6 +62,8 @@ interface Member {
   branch: { name: string };
   phoneNo: string;
   sex: string;
+  departments: {name: string}[];
+  units: {name: string}[];
   whatappNo: string;
   isDeleted?: boolean;
 }
@@ -109,9 +111,11 @@ interface MemberRowProps {
 const columnWidths = {
   snumber: "3%",
   name: "25%",
-  contact: "15%",
-  branch: "25%",
-  whatsapp: "15%",
+  contact: "13%",
+  branch: "12%",
+  whatsapp: "13%",
+  departments: "9%",
+  units: "8%",
   actions: "17%",
 };
 
@@ -195,6 +199,20 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
     <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
       <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {member.branch?.name || "N/A"}
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {member.departments?.length
+          ? member.departments.map(dept => dept.name).join(", ")
+          : "N/A"}
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {member.units?.length
+          ? member.units.map(unit => unit.name).join(", ")
+          : "N/A"}
       </Box>
     </TableCell>
     <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
@@ -1149,7 +1167,7 @@ const ViewMembers: React.FC = () => {
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#E61E4D" },
+              "&:hover": { backgroundColor: "#777280" },
             }}
             disabled={state.isSearching}
           >
@@ -1191,7 +1209,7 @@ const ViewMembers: React.FC = () => {
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, lg: 7 }}>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
               variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
               component="h4"
@@ -1203,6 +1221,57 @@ const ViewMembers: React.FC = () => {
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
               <span className="text-[#F6F4FE]">Worker</span>
             </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}  
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "center", md: "flex-end" },
+            }}
+          >
+            <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
+              <Button
+                variant="contained"
+                onClick={handleImportExcel}
+                disabled={state.isLoading}
+                sx={{
+                  py: 1,
+                  backgroundColor: "#363740",
+                  px: { xs: 3, sm: 3 },
+                  borderRadius: 50,
+                  fontWeight: "semibold",
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: "max-content",
+                }}
+              >
+                Upload Workers <MdOutlineFileUpload className="ml-1" />
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleAddMember}
+                size="medium"
+                sx={{
+                  backgroundColor: "#363740",
+                  px: { xs: 2, sm: 2 },
+                  py: 1,
+                  borderRadius: 50,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: "max-content",
+                }}
+              >
+                Add Worker +
+              </Button>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
@@ -1256,7 +1325,7 @@ const ViewMembers: React.FC = () => {
                           minWidth: "48px",
                           height: "48px",
                           padding: 0,
-                          "&:hover": { backgroundColor: "#E61E4D" },
+                          "&:hover": { backgroundColor: "#777280" },
                         }}
                         disabled={state.isSearching}
                       >
@@ -1269,50 +1338,6 @@ const ViewMembers: React.FC = () => {
               ) : (
                 renderDesktopFilters()
               )}
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 5 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mt: { xs: 2, md: 0 } }}>
-            <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
-              <Button
-                variant="contained"
-                onClick={handleImportExcel}
-                disabled={state.isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#363740",
-                  px: { xs: 3, sm: 3 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content",
-                }}
-              >
-                Upload Workers <MdOutlineFileUpload className="ml-1" />
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleAddMember}
-                size="medium"
-                sx={{
-                  backgroundColor: "#363740",
-                  px: { xs: 2, sm: 2 },
-                  py: 1,
-                  borderRadius: 50,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content",
-                }}
-              >
-                Add Worker +
-              </Button>
             </Box>
           </Grid>
         </Grid>
@@ -1350,6 +1375,8 @@ const ViewMembers: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.name, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Name</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Branch</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Departments</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.units, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Units</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Whatsapp Number</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Actions</TableCell>
                   </TableRow>
@@ -1446,7 +1473,7 @@ const ViewMembers: React.FC = () => {
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
-          <DialogContent>
+          <DialogContent sx={{mt: 3}}>
             <Autocomplete
               options={state.branches}
               getOptionLabel={(option) => option.name}

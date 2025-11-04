@@ -1366,7 +1366,7 @@ const ViewAdmins: React.FC = () => {
               fontWeight={600}
               sx={{
                 color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.1rem" : undefined,
+                fontSize: isLargeScreen ? "1.5rem" : undefined,
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
@@ -1397,8 +1397,8 @@ const ViewAdmins: React.FC = () => {
               Create Admin +
             </Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: 2 }}>
-            <Box sx={{ mt: 2 }}>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: { xs: 2, lg: 0 },}}>
+            <Box>
               {isMobile ? (
                 <>
                   <Box sx={{ display: "flex", width: "100%" }}>

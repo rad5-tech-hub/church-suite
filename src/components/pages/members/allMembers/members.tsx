@@ -183,15 +183,34 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     setBranchesError('');
     try {
       const response = await Api.get('/church/get-branches');
-      setBranches(response.data.branches || []);
+      const branchList = response.data.branches || [];
+      setBranches(branchList);
       setHasFetchedBranches(true);
+
+      // Auto-select user's branch
+      if (authData?.branchId && !formData.branchId) {
+        const userBranch = branchList.find((b: Branch) => b.id === authData.branchId);
+        if (userBranch) {
+          setFormData((prev) => ({ ...prev, branchId: userBranch.id }));
+          // Auto-load departments
+          if (!hasFetchedDepartments) {
+            fetchDepartments(userBranch.id);
+          }
+        }
+      }
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
       showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
-  }, [isFetchingBranches, hasFetchedBranches]);
+  }, [
+    isFetchingBranches,
+    hasFetchedBranches,
+    authData?.branchId,
+    formData.branchId,
+    hasFetchedDepartments,
+  ]);
 
   // Fetch Departments
   const fetchDepartments = useCallback(async (branchId: string) => {
@@ -213,26 +232,44 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   }, [isFetchingDepartments]);
 
   // Fetch Units
-    const fetchUnits = useCallback(async (deptId: string) => {
-      // require a selected branch before fetching units
-      if (!formData.branchId) return;
-      if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
-      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
-      setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
-      try {
-        const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
-        const units = (response.data.department?.units || []).map((unit: Unit) => ({
-          ...unit,
-          departmentId: deptId,
-        }));
-        setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
-        setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
-      } catch (error: any) {
-        setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-      } finally {
-        setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+  const fetchUnits = useCallback(async (deptId: string) => {
+    // require a selected branch before fetching units
+    if (!formData.branchId) return;
+    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+    setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
+    try {
+      const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
+      const units = (response.data.department?.units || []).map((unit: Unit) => ({
+        ...unit,
+        departmentId: deptId,
+      }));
+      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+    } catch (error: any) {
+      setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+    } finally {
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+    }
+  }, [hasFetchedUnits, isFetchingUnits, formData.branchId]);
+
+  useEffect(() => {
+    if (!hasFetchedBranches && !isFetchingBranches) {
+      fetchBranches();
+    }
+
+    if ( authData?.branchId) {
+      setFormData((prev) => ({
+        ...prev,
+        branchId: authData.branchId || "",
+      }));
+
+      // Auto-fetch departments for the default branch
+      if (authData.branchId && !hasFetchedDepartments) {
+        fetchDepartments(authData.branchId);
       }
-    }, [hasFetchedUnits, isFetchingUnits, formData.branchId]);
+    } 
+  }, [authData?.branchId, hasFetchedDepartments, hasFetchedBranches, isFetchingBranches, fetchBranches]);
 
   // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
@@ -434,18 +471,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // Form Components
   const renderBasicInfo = () => (
     <Grid container spacing={4}>
-      <Grid size={{ xs: 12, md: 6 }}>
+      {!authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Branch *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+            Branch *
+          </InputLabel>
           <Select
             name="branchId"
             value={formData.branchId}
             onChange={handleChange}
-            onOpen={() => {
-              if (!hasFetchedBranches && !isFetchingBranches) {
-                fetchBranches();
-              }
-            }}
             disabled={isLoading || isFetchingBranches}
             label="Branch *"
             sx={{
@@ -455,24 +489,33 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               "& .MuiSelect-icon": { color: "#F6F4FE" },
               "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
+            renderValue={(selected) => {
+              if (!selected) return "Select Branch";
+              const branch = branches.find(b => b.id === selected);
+              return branch ? branch.name : "Select Branch";
+            }}
           >
-            <MenuItem value="" disabled>Select Branch</MenuItem>
             {isFetchingBranches ? (
-              <MenuItem disabled>Loading...</MenuItem>
+              <MenuItem disabled>
+                <CircularProgress size={16} sx={{ mr: 1 }} /> Loading...
+              </MenuItem>
+            ) : branches.length === 0 ? (
+              <MenuItem disabled>No branches available</MenuItem>
             ) : (
               branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                <MenuItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </MenuItem>
               ))
             )}
           </Select>
           {branchesError && !isFetchingBranches && (
-            <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
-              <Box component="span" sx={{ mr: 1 }}>⚠️</Box>
-              {branchesError}
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              Warning: {branchesError}
             </Typography>
           )}
         </FormControl>
-      </Grid>
+      </Grid>}
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
@@ -560,19 +603,34 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           fullWidth
           label="Phone Number *"
           name="phoneNo"
-          type="number"
+          type="tel"
           value={formData.phoneNo}
-          onChange={handleChange}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, ""); // Remove non-digits
+            if (value.length <= 11) {
+              handleChange({
+                target: {
+                  name: "phoneNo",
+                  value,
+                },
+              });
+            }
+          }}
           variant="outlined"
           placeholder="Enter phone number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: (
+              <InputAdornment position="start">
+                <IoCallOutline style={{ color: '#F6F4FE' }} />
+              </InputAdornment>
+            ),
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
+            inputMode: "numeric", // ensures numeric keypad on mobile
           }}
           InputLabelProps={{
             sx: {
@@ -944,7 +1002,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
-        <FormControl fullWidth>
+        <FormControl fullWidth required>
           <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Departments</InputLabel>
           <Select
             name="departmentIds"

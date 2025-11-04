@@ -7,8 +7,7 @@ import { store } from "../../../reduxstore/redux";
 import { RootState } from '../../../reduxstore/redux';
 import { useSelector } from 'react-redux';
 import { useNavigate } from "react-router-dom";
-import { usePageToast } from "../../../hooks/usePageToast";
-import { showPageToast } from "../../../util/pageToast";
+import { toast, ToastContainer } from "react-toastify";
 
 interface ChurchData {
   churchName?: string;
@@ -21,7 +20,6 @@ interface ChurchData {
 }
 
 const CreateAccount: React.FC = () => {
-  usePageToast("create-account"); 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,11 +40,11 @@ const CreateAccount: React.FC = () => {
     setFormErrors(errors);
     
     if (errors.passwordMismatch) {
-      showPageToast('Passwords do not match', "error");
+      toast.error('Passwords do not match');
     }
     
     if (errors.emailInvalid) {     
-      showPageToast('Please enter a valid email address', "error");
+      toast.error('Please enter a valid email address');
     }
     
     return !errors.passwordMismatch && !errors.emailInvalid;
@@ -217,10 +215,10 @@ const submitChurchData = async (formData: FormData) => {
         if (errorObj?.error?.message) {
           // Properly format the error message for display
           const errorDetails = errorObj.error.details?.map((detail: any) => 
-            `${detail.field}: ${detail.value} has already been used`
+            `${detail.field}: ${detail.value} has already been used or login`
           ).join('\n') || '';
 
-          showPageToast(
+          toast.error(
             <div>
               <div>{errorObj.error.message}</div>
               {errorDetails && (
@@ -232,40 +230,40 @@ const submitChurchData = async (formData: FormData) => {
                   {errorDetails}
                 </pre>
               )}
-            </div>, 'error'
+            </div>
           );
         } else if (error.message.includes('<!DOCTYPE html>')) {          
-          showPageToast("Server error occurred. Please try again later.", 'error');
+          toast.error("Server error occurred. Please try again later.");
           
         } else {
-          showPageToast(error.message, 'error');
+          toast.error(error.message);
         }
       } catch {
         const errorMessage = error.message.includes('<!DOCTYPE html>')
           ? "Server error occurred. Please try again later."
           : error.message;
 
-        showPageToast(errorMessage,'error');
+        toast.error(errorMessage);
       }
     } else {
-      showPageToast("An unexpected error occurred. Please try again.", 'error');
+      toast.error("An unexpected error occurred. Please try again.");
     }
   };
 
   const showSuccessMessage = (email: string) => {
-    showPageToast(
+    toast.success(
       <div>
         <div>Account created successfully!</div>
         <div>We sent a verification link to: {email}</div>
         <div className="mt-2">
         </div>
-      </div>,
-      'success'
+      </div>
     );
   };
 
   return (
     <div className="bg-[#F6F4FE] min-h-screen ">
+      <ToastContainer/>
       {/* SVG Pattern at the top */}
       <div 
         className="fixed top-0 left-0 w-full h-[200px] z-0"

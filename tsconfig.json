@@ -1,7 +1,6 @@
 {
-  "files": [],
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "allowJs": false,
@@ -16,10 +15,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite-plugin-pwa/client", "node", "vite/client", "jest", "@testing-library/jest-dom"]
+
+    // ✅ use vitest instead of jest
+    "types": ["vite-plugin-pwa/client","vitest/globals", "node", "vitest", "@testing-library/jest-dom"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],// Include only TypeScript files
-  "exclude": ["node_modules", "dist", "src/tests/**/*"], // Exclude unnecessary files and directories
+
+  "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts", "tests/**/*.tsx"],
+  "exclude": ["node_modules", "dist"],
+
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }

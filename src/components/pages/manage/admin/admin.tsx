@@ -133,27 +133,38 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
 
-  const getScopeLevels = (role?: string) => {
+  const getScopeLevels = (
+    role?: string,
+    isHeadquarter?: boolean,
+    isSuperAdmin?: boolean
+  ) => {
     switch (role) {
       case "branch":
         return [
-          { value: "branch", label: "Branch" },
+          ...(isHeadquarter && isSuperAdmin
+            ? [{ value: "branch", label: "Branch" }]
+            : []),
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
+
       case "department":
-        return [
-          { value: "unit", label: "Unit" },
-        ];
-      case "unit ":
         return [{ value: "unit", label: "Unit" }];
+
+      case "unit":
+        return [{ value: "unit", label: "Unit" }];
+
       default:
         return [];
     }
   };
 
-  const scopeLevels = getScopeLevels(authData?.role);
-
+  // ✅ Usage
+  const scopeLevels = getScopeLevels(
+    authData?.role,
+    authData?.isHeadQuarter,
+    authData?.isSuperAdmin
+  );
 
   const fetchBranches = async () => {
     if (hasFetchedBranches || isFetchingBranches) return;
