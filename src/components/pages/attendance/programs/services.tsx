@@ -1988,7 +1988,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               </Grid>
               {!isEdit && renderProgramType()}
               {renderDateTimeInputs()}
-              {renderBranchInput()}
+              {(authData?.isHeadQuarter ||
+              ((authData?.branchId ?? "").length > 1 && authData?.role === "branch")
+              ) && renderBranchInput()}
               {renderDepartmentInput()}
               {renderCollectionInput()}
               {createProgramError && (
