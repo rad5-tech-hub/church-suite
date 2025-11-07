@@ -12,6 +12,7 @@ import { RootState } from "../../reduxstore/redux";
 import { FaBoxTissue } from "react-icons/fa";
 import { CiWallet } from "react-icons/ci";
 import { MdOutlineAccountBalance } from "react-icons/md";
+import { IoIosPeople } from "react-icons/io";
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -30,6 +31,7 @@ const Sidebar: React.FC = () => {
 
   const member = [
     { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
+    { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Member" },
     { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
     { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
   ];

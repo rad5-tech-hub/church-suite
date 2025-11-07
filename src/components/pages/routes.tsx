@@ -14,7 +14,8 @@ const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
-const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewWorker = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewMember = React.lazy(() => import("./members/non-workerMembers/viewMembers"));
 const ViewNewcomersForm = React.lazy(() => import("./members/viewNewcomersForms/viewforms"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
@@ -104,6 +105,11 @@ const AppRoutes: React.FC = () => {
             </PrivateRoute>
           } />
           <Route path="/members/view-workers" element={
+            <PrivateRoute>
+              <ViewWorker />
+            </PrivateRoute>
+          } />
+          <Route path="/members/view-members" element={
             <PrivateRoute>
               <ViewMember />
             </PrivateRoute>
