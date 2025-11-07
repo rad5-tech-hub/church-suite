@@ -170,7 +170,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon, color =
   return (
     <Card
       sx={{
-        background: "rgba(255,255,255,0.06)",
+        backgroundColor: "#4d4d4e8e",
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(255,255,255,0.1)",
         borderRadius: "16px",
@@ -211,10 +211,10 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon, color =
             />
           )}
         </Box>
-        <Typography variant="h6" sx={{ color: "#F6F4FE", fontWeight: "bold", mb: 1 }}>
+        <Typography variant="h5" sx={{ color: "#ffffff", fontWeight: "bold", mb: 1 }}>
           {value}
         </Typography>
-        <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.6)" }}>
+        <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.8)" }}>
           {title}
         </Typography>
       </CardContent>
@@ -232,7 +232,7 @@ const QuickActionButton: React.FC<{ title: string; icon: React.ReactNode; onClic
     startIcon={icon}
     onClick={onClick}
     sx={{
-      background: "rgba(255,255,255,0.06)",
+      backgroundColor: "#4d4d4e8e",
       border: "1px solid rgba(255,255,255,0.1)",
       borderRadius: "12px",
       py: 2,
@@ -460,7 +460,7 @@ const Dashboard: React.FC = () => {
       <DashboardManager>
         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-text-on-primary)]"></div>
           </Box>
         </Box>
       </DashboardManager>
@@ -471,12 +471,12 @@ const Dashboard: React.FC = () => {
     <DashboardManager>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {/* Header with View Toggle */}
-        <Box sx={{ mb: 4, gap: 2 }}>
+        <Box sx={{ mb: 4, gap: 2, color: 'var(--color-text-on-primary)' }}>
           <Box>
-            <Typography variant="h5" sx={{ color: "#F6F4FE", fontWeight: "bold", mb: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: "bold", mb: 1 }}>
               Welcome back, {authData?.name || "Admin"}
             </Typography>
-            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.7)" }}>
+            <Typography variant="body1">
               Here's what's happening in your {dashboardData.scope}
             </Typography>
           </Box>
@@ -578,7 +578,7 @@ const Dashboard: React.FC = () => {
           spacing={3}
           sx={{
             mb: 4,
-            background: "rgba(255,255,255,0.06)",
+            backgroundColor: "#4d4d4e8e",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: "16px",
             p: 3,
@@ -644,7 +644,7 @@ const Dashboard: React.FC = () => {
         <Grid size={{ xs: 12 }}>
           <Paper
             sx={{
-              background: "rgba(255,255,255,0.06)",
+              backgroundColor: "#4d4d4e8e",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: "16px",
               p: 3,
@@ -676,8 +676,8 @@ const Dashboard: React.FC = () => {
           {isBranch && (
             <Grid size={{ xs: 12, md: 8 }}>
               <Paper
-                sx={{
-                  background: "rgba(255,255,255,0.06)",
+                  sx={{
+                  backgroundColor: "#4d4d4e8e",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: "16px",
                   p: 3,
@@ -725,7 +725,7 @@ const Dashboard: React.FC = () => {
           <Grid size={{ xs: 12, md: isBranch ? 4 : 12 }}>
             <Paper
               sx={{
-                background: "rgba(255,255,255,0.06)",
+                backgroundColor: "#4d4d4e8e",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: "16px",
                 p: 3,

@@ -1989,7 +1989,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               {!isEdit && renderProgramType()}
               {renderDateTimeInputs()}
               {(authData?.isHeadQuarter ||
-              ((authData?.branchId ?? "").length > 1 && authData?.role === "branch")
+              ((authData?.branches ?? "").length > 1 && authData?.role === "branch")
               ) && renderBranchInput()}
               {renderDepartmentInput()}
               {renderCollectionInput()}

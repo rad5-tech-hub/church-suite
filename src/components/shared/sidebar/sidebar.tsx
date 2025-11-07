@@ -4,7 +4,7 @@ import { People } from "@mui/icons-material";
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { LuNotebookPen } from "react-icons/lu";
 import { MdOutlineHub } from "react-icons/md";
-import { FaPeopleCarry } from "react-icons/fa";
+import { FaPeopleCarry, FaSms } from "react-icons/fa";
 // import { IoIosPeople } from "react-icons/io";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { useSelector } from "react-redux";
@@ -17,6 +17,7 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
   const isManageRoute = location.pathname.startsWith("/manage");
   const isMemberRoute = location.pathname.startsWith("/members");
+  const isMessageRoute = location.pathname.startsWith("/messages");
   const isFinanceRoute = location.pathname.startsWith("/finance");
   const authData = useSelector((state: RootState) => state?.auth?.authData);
 
@@ -33,11 +34,16 @@ const Sidebar: React.FC = () => {
     { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
   ];
 
+  const message = [
+    { to: "/messages/sms", icon: <FaSms className="text-2xl" />, label: "SMS" },
+    { to: "/messages/wallets", icon: <CiWallet className="text-2xl" />, label: "SMS Wallets" },
+  ];
+
   const finance = [
-    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections" },
-    { to: "/finance/wallets", icon: <CiWallet className="text-2xl" />, label: "Wallets" },
+    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections" }, 
     { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account" },
   ];
+
 
 
   // Filter manage items
@@ -77,7 +83,7 @@ const Sidebar: React.FC = () => {
                   to={item.to}
                   className={({ isActive }) =>
                     `block py-4 px-2 rounded-full text-center ${
-                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
+                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#4d4d4e8e] text-[var(--color-text-on-primary)]"
                     }`
                   }
                 >
@@ -94,6 +100,27 @@ const Sidebar: React.FC = () => {
         {isMemberRoute && (
           <ul className="space-y-8">
             {filteredMembers.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `block px-2 py-4 rounded-full text-center ${
+                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
+                    }`
+                  }
+                >                  
+                  <div className="flex flex-col items-center justify-center">
+                    <div>{item.icon}</div>
+                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
+                  </div>                
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        )}
+        {isMessageRoute && (
+          <ul className="space-y-8">
+            {message.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}

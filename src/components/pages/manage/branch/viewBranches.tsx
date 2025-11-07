@@ -143,7 +143,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
         <Typography
           sx={{
             fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "#777280",
+            color: "var(--color-text-on-primary)",
           }}
         >
           Page {currentPage}
@@ -493,7 +493,7 @@ const ViewBranches: React.FC = () => {
       <Button
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
-        sx={{ mt: 2, backgroundColor: "#363740", "&:hover": { backgroundColor: "#363740", opacity: 0.9 } }}
+        sx={{ mt: 2, backgroundColor: "#4d4d4e8e", "&:hover": { backgroundColor: "#4d4d4e8e", opacity: 0.9 } }}
       >
         Create New Branch
       </Button>
@@ -528,9 +528,9 @@ const ViewBranches: React.FC = () => {
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Manage</span>{" "}
+              <span className="text-[#828283ad]">Manage</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]">Branches</span>
+              <span className="text-[var(--color-text-on-primary)]">Branches</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
@@ -538,7 +538,7 @@ const ViewBranches: React.FC = () => {
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "#4d4d4e8e",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 50,
@@ -853,8 +853,8 @@ const ViewBranches: React.FC = () => {
                   <Card
                     sx={{
                       borderRadius: "10.267px",
-                      backgroundColor: "rgba(255,255,255,0.06)",
-                      boxShadow: "0 1.272px 15.267px 0 rgba(0,0,0,0.05)",
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      boxShadow: "0 1.272px 15.267px 0 rgba(0,0,0,0.1)",
                       height: "100%",
                       display: "flex",
                       flexDirection: "column",
@@ -875,8 +875,8 @@ const ViewBranches: React.FC = () => {
                               borderRadius: 1,
                             }}
                           >
-                            <span className="border-2 rounded-md border-[#777280] p-1">
-                              <TbArrowFork size={30} />
+                            <span className="border-2 rounded-md border-[var(--color-text-on-primary)] p-1">
+                              <TbArrowFork size={30} className="text-[var(--color-text-on-primary)]"/>
                             </span>
                           </IconButton>
                         </Box>
@@ -888,7 +888,7 @@ const ViewBranches: React.FC = () => {
                             }}
                             sx={{
                               backgroundColor: "rgba(255,255,255,0.06)",
-                              color: "#777280",
+                              color: "var(--color-text-on-primary)",
                               padding: "8px",
                               borderRadius: 1,
                             }}
@@ -903,7 +903,7 @@ const ViewBranches: React.FC = () => {
                           fontWeight={600}
                           sx={{
                             textDecoration: branch.isDeleted ? "line-through" : "none",
-                            color: branch.isDeleted ? "gray" : "#E1E1E1",
+                            color: branch.isDeleted ? "gray" : "var(--color-text-on-primary)",
                           }}
                         >
                           {branch.name}
@@ -913,7 +913,7 @@ const ViewBranches: React.FC = () => {
                             variant="body2"
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#777280",
+                              color: branch.isDeleted ? "gray" : "#4d4d4e8e",
                             }}
                           >
                             {branch.address}

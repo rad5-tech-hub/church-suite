@@ -58,7 +58,7 @@ const Header: React.FC<HeaderProps> = () => {
     Dashboard: "/dashboard",
     Manage: "/manage/view-admins",
     Membership: "/members/view-workers",
-    Messages: "/messages",
+    Messages: "/messages/sms",
     Finance: "/finance/collections",
     Programs: "/programs",
     Settings: "/settings",
@@ -264,10 +264,10 @@ const Header: React.FC<HeaderProps> = () => {
             <img
               src={authData.logo}
               alt={`${authData?.church_name || "Church"} logo`}
-              className="h-16 w-16 object-contain rounded-full"
+              className="h-15 object-contain rounded-full"
             />
           ) : (
-            <div className="h-16 w-16 flex items-center justify-center bg-gray-300 rounded-full text-gray-600 font-bold text-lg">
+            <div className="h-14 w-14 flex items-center justify-center bg-[var(--color-text-on-primary)] rounded-full text-[var(--color-primary)]  font-bold text-2xl">
               {authData?.church_name?.charAt(0).toUpperCase() || "C"}
             </div>
           )}
@@ -290,8 +290,8 @@ const Header: React.FC<HeaderProps> = () => {
                 key={label}
                 onClick={() => handleButtonClick(label)}
                 sx={{
-                  color: activeButton === label ? "#160F38" : "#777280",
-                  backgroundColor: activeButton === label ? "#F6F4FE" : "#363740",
+                  color: activeButton === label ? "#160F38" : "[var(--color-primary)]",
+                  backgroundColor: activeButton === label ? "#F6F4FE" : "[var(--color-text-on-primary)]",
                   textTransform: "none",
                   padding: "12px 18px",
                   fontSize: "0.875rem",
@@ -327,7 +327,7 @@ const Header: React.FC<HeaderProps> = () => {
           </span>
         </button> */}
 
-        <div className="relative">
+        <div className="relative text-[var(--color-text-on-primary)]">
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={handleProfileClick}
@@ -363,7 +363,7 @@ const Header: React.FC<HeaderProps> = () => {
                   cursor: "pointer",
                 }}
                 onClick={() => {
-                  navigate("/settings");
+                  navigate("/profile");
                   handleClose();
                 }}
               >
@@ -391,107 +391,107 @@ const Header: React.FC<HeaderProps> = () => {
                 </Typography>
               </Box>
 
-              <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
-                <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
-                  Switch Branch
-                </Typography>
-                <Select
-                  value={currentBranchId}
-                  onChange={handleBranchSelect}
-                  fullWidth
-                  size="small"
-                  disabled={!branches.length}
-                  sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
-                  displayEmpty
-                  renderValue={(value) =>
-                    value
-                      ? branches.find((b) => b.id === value)?.name || "Select Branch"
-                      : "Select Branch"
-                  }
-                >
-                  {loadingBranches ? (
-                    <MenuItem disabled>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <CircularProgress size={12} />
-                        <Typography variant="body2">Loading...</Typography>
-                      </Box>
-                    </MenuItem>
-                  ) : errorBranches ? (
-                    <MenuItem disabled>
-                      <Typography variant="body2" color="error">
-                        {errorBranches}
-                      </Typography>
-                    </MenuItem>
-                  ) : branches.length === 0 ? (
-                    <MenuItem disabled>
-                      <Typography variant="body2">No branches available</Typography>
-                    </MenuItem>
-                  ) : (
-                    branches.map((branch) => (
-                      <MenuItem key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-                {errorBranches && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1 }}>
-                    {errorBranches}
-                  </Typography>
-                )}
-              </Box>
-
-              {authData?.role === "department" && (
-                <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
+                {((authData?.branches?.length ?? 0) > 1  || authData?.isHeadQuarter) && <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
                   <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
-                    Select Department
+                    Switch Branch
                   </Typography>
                   <Select
-                    value={currentDepartmentId}
-                    onChange={handleDepartmentSelect}
+                    value={currentBranchId}
+                    onChange={handleBranchSelect}
                     fullWidth
                     size="small"
-                    disabled={!currentBranchId || !departments.length}
+                    disabled={!branches.length}
                     sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
                     displayEmpty
                     renderValue={(value) =>
                       value
-                        ? departments.find((d) => d.id === value)?.name || "Select Department"
-                        : "Select Department"
+                        ? branches.find((b) => b.id === value)?.name || "Select Branch"
+                        : "Select Branch"
                     }
                   >
-                    {loadingDepartments ? (
+                    {loadingBranches ? (
                       <MenuItem disabled>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <CircularProgress size={12} />
                           <Typography variant="body2">Loading...</Typography>
                         </Box>
                       </MenuItem>
-                    ) : errorDepartments ? (
+                    ) : errorBranches ? (
                       <MenuItem disabled>
                         <Typography variant="body2" color="error">
-                          {errorDepartments}
+                          {errorBranches}
                         </Typography>
                       </MenuItem>
-                    ) : departments.length === 0 ? (
+                    ) : branches.length === 0 ? (
                       <MenuItem disabled>
-                        <Typography variant="body2">No departments available</Typography>
+                        <Typography variant="body2">No branches available</Typography>
                       </MenuItem>
                     ) : (
-                      departments.map((dept) => (
-                        <MenuItem key={dept.id} value={dept.id}>
-                          {dept.name}
+                      branches.map((branch) => (
+                        <MenuItem key={branch.id} value={branch.id}>
+                          {branch.name}
                         </MenuItem>
                       ))
                     )}
                   </Select>
-                  {errorDepartments && (
+                  {errorBranches && (
                     <Typography variant="caption" color="error" sx={{ mt: 1 }}>
-                      {errorDepartments}
+                      {errorBranches}
                     </Typography>
                   )}
-                </Box>
-              )}
+                </Box>}
+
+                {authData?.role === "department" && (
+                  <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
+                    <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
+                      Select Department
+                    </Typography>
+                    <Select
+                      value={currentDepartmentId}
+                      onChange={handleDepartmentSelect}
+                      fullWidth
+                      size="small"
+                      disabled={!currentBranchId || !departments.length}
+                      sx={{ backgroundColor: "#f9f9f9", borderRadius: 1 }}
+                      displayEmpty
+                      renderValue={(value) =>
+                        value
+                          ? departments.find((d) => d.id === value)?.name || "Select Department"
+                          : "Select Department"
+                      }
+                    >
+                      {loadingDepartments ? (
+                        <MenuItem disabled>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <CircularProgress size={12} />
+                            <Typography variant="body2">Loading...</Typography>
+                          </Box>
+                        </MenuItem>
+                      ) : errorDepartments ? (
+                        <MenuItem disabled>
+                          <Typography variant="body2" color="error">
+                            {errorDepartments}
+                          </Typography>
+                        </MenuItem>
+                      ) : departments.length === 0 ? (
+                        <MenuItem disabled>
+                          <Typography variant="body2">No departments available</Typography>
+                        </MenuItem>
+                      ) : (
+                        departments.map((dept) => (
+                          <MenuItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {errorDepartments && (
+                      <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                        {errorDepartments}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
             </Box>
           </Popover>
         </div>

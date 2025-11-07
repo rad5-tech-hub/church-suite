@@ -25,6 +25,7 @@ import {
   InputAdornment,
   TextField,
   FormControlLabel as CheckboxFormControlLabel,
+  Alert,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";
@@ -1120,6 +1121,19 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         </Box>
       </DialogTitle>
       <DialogContent dividers>
+        {authData?.role === 'branch' && <Alert
+          severity="info"
+          sx={{
+            mb: 2,
+            bgcolor: "rgba(255,255,255,0.1)",
+            color: "#F6F4FE",
+            border: "1px solid #777280",
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 500}}>
+            Note: Your custom SMS name is being processed. It will take up to 2 days after church creation. before you can start sending SMS with your church name.
+          </Typography>
+        </Alert>}
         <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, py: 2 }}>
           <Grid container spacing={3}>
             <RenderAudienceType

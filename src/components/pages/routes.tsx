@@ -24,7 +24,7 @@ const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/crea
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
 const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
-const FinanceWallets = React.lazy(() => import("./finance/wallet/viewWallet"));
+const FinanceWallets = React.lazy(() => import("./messages/wallet/viewWallet"));
 const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
 const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
@@ -68,7 +68,7 @@ const AppRoutes: React.FC = () => {
               <Dashboard />
             </PrivateRoute>
           } />
-          <Route path="/settings" element={
+          <Route path="/profile" element={
             <PrivateRoute>
               <SettingProfile/>
             </PrivateRoute>
@@ -92,10 +92,15 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <ViewUnit/>
             </PrivateRoute>
-          } />
-          <Route path="/messages" element={
+          } />          
+          <Route path="/messages/sms" element={
             <PrivateRoute>
               <ViewMessageHistory/>
+            </PrivateRoute>
+          } />
+          <Route path="/messages/wallets" element={
+            <PrivateRoute>
+              <FinanceWallets/>
             </PrivateRoute>
           } />
           <Route path="/members/view-workers" element={
@@ -123,11 +128,6 @@ const AppRoutes: React.FC = () => {
               <FinanceCollections/>
             </PrivateRoute>
           } />
-          <Route path="/finance/wallets" element={
-            <PrivateRoute>
-              <FinanceWallets/>
-            </PrivateRoute>
-          } />
           <Route path="/finance/accounts" element={
             <PrivateRoute>
               <FinanceAccounts/>
@@ -146,7 +146,7 @@ const AppRoutes: React.FC = () => {
            <Route path="/verify-email" element={
             <EmailVerification/>
           } />
-           <Route path="/church/settings" element={
+           <Route path="/settings" element={
             <PrivateRoute>
               <ViewChurch/>
             </PrivateRoute>

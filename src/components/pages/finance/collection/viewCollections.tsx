@@ -17,10 +17,15 @@ import {
   useTheme,
   useMediaQuery,
   Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent,
+  CircularProgress,
 } from "@mui/material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
-import { 
-  // MoreVert as MoreVertIcon,
+import {
+  MoreVert as MoreVertIcon,
   ChevronLeft,
   ChevronRight,
   Close,
@@ -38,32 +43,43 @@ interface Collections {
   id: string;
   name: string;
   description: string;
+  scopeType?: "church" | "branch" | "department";
+  branchId?: string;
+  departmentId?: string;
 }
 
+/* ---------- Pagination & API types ---------- */
 interface Pagination {
   hasNextPage: boolean;
   nextCursor: string | null;
   nextPage: string | null;
 }
-
 interface FetchCollectionsResponse {
   message: string;
   pagination: Pagination;
   collections: Collections[];
 }
 
-interface CustomPaginationProps {
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-  onPageChange: (direction: "next" | "prev") => void;
-  currentPage: number;
-  isLargeScreen: boolean;
-  isLoading?: boolean;
+/* ---------- Branch / Department fetch types ---------- */
+interface Branch {
+  id: string;
+  name: string;
+}
+interface Department {
+  id: string;
+  name: string;
+}
+interface FetchBranchesResponse {
+  branches: Branch[];
+}
+interface FetchDepartmentsResponse {
+  departments: Department[];
 }
 
+/* ---------- State ---------- */
 interface State {
   collections: Collections[];
-  fillteredCollection: Collections[];
+  filteredCollection: Collections[];
   pagination: Pagination;
   currentPage: number;
   pageHistory: string[];
@@ -72,20 +88,26 @@ interface State {
   editModalOpen: boolean;
   confirmModalOpen: boolean;
   isModalOpen: boolean;
-  currentBranch: Collections | null;
+  currentCollection: Collections | null;
   actionType: string | null;
   anchorEl: HTMLElement | null;
-  editFormData: Partial<Pick<Collections, "name" | 'description'>>;
+
+  /* edit form */
+  editFormData: Partial<
+    Pick<Collections, "name" | "description" | "scopeType" | "branchId" | "departmentId">
+  >;
+
+  /* level-dependent selects */
+  branches: Branch[];
+  departments: Department[];
+  loadingBranches: boolean;
+  loadingDepartments: boolean;
 }
 
 const initialState: State = {
-  fillteredCollection: [],
+  filteredCollection: [],
   collections: [],
-  pagination: {
-    hasNextPage: false,
-    nextCursor: null,
-    nextPage: null,
-  },
+  pagination: { hasNextPage: false, nextCursor: null, nextPage: null },
   currentPage: 1,
   pageHistory: [],
   loading: false,
@@ -93,15 +115,25 @@ const initialState: State = {
   editModalOpen: false,
   confirmModalOpen: false,
   isModalOpen: false,
-  currentBranch: null,
+  currentCollection: null,
   actionType: null,
   anchorEl: null,
-  editFormData: {
-    name: "",
-    description: "",
-  },
+  editFormData: { name: "", description: "", scopeType: "church" },
+  branches: [],
+  departments: [],
+  loadingBranches: false,
+  loadingDepartments: false,
 };
 
+/* ---------- Custom Pagination (unchanged) ---------- */
+interface CustomPaginationProps {
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  onPageChange: (direction: "next" | "prev") => void;
+  currentPage: number;
+  isLargeScreen: boolean;
+  isLoading?: boolean;
+}
 const CustomPagination: React.FC<CustomPaginationProps> = ({
   hasNextPage,
   hasPrevPage,
@@ -143,14 +175,8 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             borderRadius: "8px",
             backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
             color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
+            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
           }}
           aria-label="Previous page"
         >
@@ -165,14 +191,8 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             borderRadius: "8px",
             backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
             color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": {
-              backgroundColor: "#F6F4FE",
-              opacity: 0.9,
-            },
-            "&:disabled": {
-              backgroundColor: "#4d4d4e8e",
-              color: "#777280",
-            },
+            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
           }}
           aria-label="Next page"
         >
@@ -183,9 +203,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   );
 };
 
+/* ---------- Main Component ---------- */
 const ViewCollections: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
-  usePageToast('view-branch');
+  usePageToast("view-branch");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -199,37 +220,26 @@ const ViewCollections: React.FC = () => {
     []
   );
 
+  /* ---------- FETCH COLLECTIONS (unchanged) ---------- */
   const fetchCollections = useCallback(
     async (url?: string) => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
-
       try {
         let finalUrl = url || "/church/get-collection-attributes";
 
-        // ✅ If role is "department", use new route with params
         if (authData?.role === "department") {
           const params = new URLSearchParams();
-          
           if (authData?.department) params.append("departmentId", authData.department);
-
           finalUrl = `/church/get-all-collections/${authData.branchId}?${params.toString()}`;
         }
 
         const response = await Api.get<FetchCollectionsResponse>(finalUrl);
-        const data = response.data;
-
-        if (!data?.collections) {
-          throw new Error("Invalid response structure");
-        }
-
-        return data;
+        return response.data;
       } catch (error: any) {
-        console.error("Failed to fetch Collections:", error?.response?.data?.error?.message);
-        const errorMessage = error?.response?.data?.error?.message || "Failed to load collections";
-
-        handleStateChange("error", `${errorMessage}, Please try again later.`);
-        showPageToast(errorMessage, "error");
+        const msg = error?.response?.data?.error?.message || "Failed to load collections";
+        handleStateChange("error", `${msg}, Please try again later.`);
+        showPageToast(msg, "error");
         throw error;
       } finally {
         handleStateChange("loading", false);
@@ -238,15 +248,13 @@ const ViewCollections: React.FC = () => {
     [authData?.role, authData?.branchId, authData?.department, handleStateChange]
   );
 
-
   const refreshCollections = useCallback(async () => {
     try {
-      const response = await fetchCollections();
-      const data = response as unknown as FetchCollectionsResponse;
+      const data = await fetchCollections();
       setState((prev) => ({
         ...prev,
-        fillteredCollection: data.collections || [],
-        collections: data.collections || [],     
+        filteredCollection: data.collections || [],
+        collections: data.collections || [],
         pagination: {
           hasNextPage: data.pagination?.hasNextPage || false,
           nextCursor: data.pagination?.nextCursor || null,
@@ -256,25 +264,22 @@ const ViewCollections: React.FC = () => {
         pageHistory: [],
         loading: false,
       }));
-    } catch (error) {
+    } catch {
       handleStateChange("loading", false);
     }
   }, [fetchCollections, handleStateChange]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadInitialData = async () => {
+    let mounted = true;
+    const load = async () => {
       handleStateChange("loading", true);
-      handleStateChange("error", null);
       try {
-        const response = await fetchCollections();
-        const data = response as unknown as FetchCollectionsResponse;
-        if (isMounted) {
+        const data = await fetchCollections();
+        if (mounted) {
           setState((prev) => ({
             ...prev,
             collections: data.collections || [],
-            fillteredCollection: data.collections || [],         
+            filteredCollection: data.collections || [],
             pagination: {
               hasNextPage: data.pagination?.hasNextPage || false,
               nextCursor: data.pagination?.nextCursor || null,
@@ -285,144 +290,198 @@ const ViewCollections: React.FC = () => {
             loading: false,
           }));
         }
-      } catch (error) {
-        if (isMounted) {
-          handleStateChange("loading", false);
-        }
+      } catch {
+        if (mounted) handleStateChange("loading", false);
       }
     };
-
-    loadInitialData();
-
+    load();
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [fetchCollections, handleStateChange]);
 
+  /* ---------- Pagination (unchanged) ---------- */
   const handlePageChange = useCallback(
     async (direction: "next" | "prev") => {
       handleStateChange("loading", true);
-      handleStateChange("error", null);
       try {
+        let url: string | undefined;
         if (direction === "next") {
-          const url = state.pagination.nextPage;
-          if (!url) throw new Error("No next page available");
-          const response =  await fetchCollections(url);
-
-          const data = response as FetchCollectionsResponse;
-          setState((prev) => ({
-            ...prev,
-            fillteredCollection: data.collections || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            pageHistory: [...prev.pageHistory, url],
-            currentPage: prev.currentPage + 1,
-            loading: false,
-          }));
-        } else if (direction === "prev") {
-          if (state.pageHistory.length === 0) throw new Error("No previous page available");
-          const prevIndex = state.pageHistory.length - 2;
-          const url = prevIndex >= 0 ? state.pageHistory[prevIndex] : "/church/get-branches";
-          const response = await fetchCollections(url);
-
-          const data = response as FetchCollectionsResponse;
-          setState((prev) => ({
-            ...prev,
-            fillteredCollection: data.collections || [],
-            pagination: {
-              hasNextPage: data.pagination?.hasNextPage || false,
-              nextCursor: data.pagination?.nextCursor || null,
-              nextPage: data.pagination?.nextPage || null,
-            },
-            pageHistory: prev.pageHistory.slice(0, -1),
-            currentPage: prev.currentPage - 1,
-            loading: false,
-          }));
+          url = state.pagination.nextPage ?? undefined;
+        } else {
+          const hist = state.pageHistory;
+          const idx = hist.length - 2;
+          url = idx >= 0 ? hist[idx] : undefined;
         }
-      } catch (error) {
-        console.error(`Error fetching ${direction} page:`, error);
-        const errorMessage = "Failed to load page";
-        handleStateChange("error", errorMessage);
+        if (!url) throw new Error("No page URL");
+        const data = await fetchCollections(url);
+        setState((prev) => ({
+          ...prev,
+          filteredCollection: data.collections || [],
+          pagination: {
+            hasNextPage: data.pagination?.hasNextPage || false,
+            nextCursor: data.pagination?.nextCursor || null,
+            nextPage: data.pagination?.nextPage || null,
+          },
+          pageHistory:
+            direction === "next"
+              ? [...prev.pageHistory, url!]
+              : prev.pageHistory.slice(0, -1),
+          currentPage: direction === "next" ? prev.currentPage + 1 : prev.currentPage - 1,
+          loading: false,
+        }));
+      } catch {
+        handleStateChange("error", "Failed to load page");
         handleStateChange("loading", false);
-        showPageToast(errorMessage, 'error');
+        showPageToast("Failed to load page", "error");
       }
     },
-    [state.pagination.nextPage, state.pageHistory,  fetchCollections, handleStateChange]
+    [state.pagination.nextPage, state.pageHistory, fetchCollections, handleStateChange]
   );
 
+  /* ---------- FETCH BRANCHES (for edit) ---------- */
+  const fetchBranches = useCallback(async () => {
+    handleStateChange("loadingBranches", true);
+    try {
+      const resp = await Api.get<FetchBranchesResponse>("/church/get-branches");
+      handleStateChange("branches", resp.data.branches);
+    } catch (err) {
+      showPageToast("Failed to load branches", "error");
+    } finally {
+      handleStateChange("loadingBranches", false);
+    }
+  }, [handleStateChange]);
+
+  /* ---------- FETCH DEPARTMENTS (for edit) ---------- */
+  const fetchDepartments = useCallback(
+    async (branchId: string) => {
+      handleStateChange("loadingDepartments", true);
+      try {
+        const resp = await Api.get<FetchDepartmentsResponse>(
+          `/church/get-departments?branchId=${branchId}`
+        );
+        handleStateChange("departments", resp.data.departments);
+      } catch (err) {
+        showPageToast("Failed to load departments", "error");
+      } finally {
+        handleStateChange("loadingDepartments", false);
+      }
+    },
+    [handleStateChange]
+  );
+
+  /* ---------- MENU & EDIT OPEN ---------- */
   const handleMenuClose = () => handleStateChange("anchorEl", null);
 
-  const handleEditOpen = () => {
-    if (state.currentBranch) {
-      handleStateChange("editFormData", {
-        name: state.currentBranch.name,
-        description: state.currentBranch.description,});
-      handleStateChange("editModalOpen", true);
+  const handleEditOpen = async () => {
+    if (!state.currentCollection) return;
+
+    // Populate form
+    handleStateChange("editFormData", {
+      name: state.currentCollection.name,
+      description: state.currentCollection.description,
+      scopeType: state.currentCollection.scopeType,
+      branchId: state.currentCollection.branchId,
+      departmentId: state.currentCollection.departmentId,
+    });
+
+    // Load branches if needed
+    if (state.currentCollection.scopeType !== "church") await fetchBranches();
+
+    // Load departments if level = department
+    if (state.currentCollection.scopeType === "department" && state.currentCollection.branchId) {
+      await fetchDepartments(state.currentCollection.branchId);
     }
+
+    handleStateChange("editModalOpen", true);
     handleMenuClose();
   };
 
+  /* ---------- FORM HANDLERS ---------- */
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     handleStateChange("editFormData", { ...state.editFormData, [name]: value });
   };
 
-  const handleEditSubmit = async () => {
-    if (!state.currentBranch?.id) {
-      console.error("Branch ID is undefined");
-      showPageToast("Invalid branch data", "error");
-      return;
+  const handleScopeChange = (event: SelectChangeEvent<"church" | "branch" | "department">) => {
+    handleStateChange("editFormData", {
+      ...state.editFormData,
+      scopeType: event.target.value as "church" | "branch" | "department",
+    });
+  };
+
+
+  const handleBranchChange = async (e: SelectChangeEvent) => {
+    const branchId = e.target.value;
+    handleStateChange("editFormData", {
+      ...state.editFormData,
+      branchId,
+      departmentId: undefined,
+    });
+
+    if (state.editFormData.scopeType === "department") {
+      await fetchDepartments(branchId);
     }
+  };
+
+  const handleDepartmentChange = (e: SelectChangeEvent) => {
+    handleStateChange("editFormData", {
+      ...state.editFormData,
+      departmentId: e.target.value,
+    });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!state.currentCollection?.id) return;
 
     try {
       handleStateChange("loading", true);
 
-      // Build payload with only changed fields
-      const payload: Partial<typeof state.editFormData> = {};
-      const original = state.currentBranch;
+      const original = state.currentCollection;
 
-      Object.keys(state.editFormData).forEach((key) => {
-        const k = key as keyof typeof state.editFormData;
-        const newValue = state.editFormData[k];
-        const oldValue = original[k];
+      const payload: any = {};
 
-        if (newValue !== oldValue) {
-          payload[k] = newValue;
-        }
-      });
+      if (state.editFormData.name !== original.name)
+        payload.name = state.editFormData.name;
 
-      // If no changes, stop here
-      if (Object.keys(payload).length === 0) {
-        showPageToast("No changes to update", "warning");
-        return;
+      if (state.editFormData.description !== original.description)
+        payload.description = state.editFormData.description;
+
+      if (state.editFormData.scopeType !== original.scopeType)
+        payload.scopeType = state.editFormData.scopeType;
+
+      let url = `/church/edit-collection/${state.currentCollection.id}`;
+      const params = new URLSearchParams();
+
+      // 🔥 Add params instead of body based on scopeType
+      if (state.editFormData.scopeType === "branch") {
+        params.append("branchId", state.editFormData.branchId as string);
       }
 
-      await Api.patch(`/church/edit-branch/${state.currentBranch.id}`, payload);
+      if (state.editFormData.scopeType === "department") {
+        params.append("branchId", state.editFormData.branchId as string);
+        params.append("departmentId", state.editFormData.departmentId as string);
+      }
 
-      setState((prev) => ({
-        ...prev,
-        collections: prev.collections.map((collection) =>
-          collection.id === prev.currentBranch!.id ? { ...collection, ...payload } : collection
-        ),
-        fillteredCollection: prev.fillteredCollection.map((collection) =>
-          collection.id === prev.currentBranch!.id ? { ...collection, ...payload } : collection
-        ),
-      }));
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
 
-      showPageToast("Branch updated successfully!", "success");
+      await Api.patch(url, payload);
+
+      showPageToast("Collection updated successfully!", "success");
       handleStateChange("editModalOpen", false);
-      handleStateChange("currentBranch", null);
-    } catch (error) {
-      console.error("Update error:", error);
-      showPageToast("Failed to update branch", "error");
+      handleStateChange("currentCollection", null);
+      refreshCollections();
+    } catch (err) {
+      showPageToast("Failed to update collection!", "error");
     } finally {
       handleStateChange("loading", false);
     }
   };
 
+
+  /* ---------- EMPTY STATE ---------- */
   const EmptyState = () => (
     <Box
       sx={{
@@ -439,17 +498,15 @@ const ViewCollections: React.FC = () => {
         variant="h6"
         color="rgba(255, 255, 255, 0.5)"
         gutterBottom
-        sx={{
-          fontSize: isLargeScreen ? "1.25rem" : undefined,
-        }}
+        sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
       >
         No Collection found
       </Typography>
-      {state.error ? (
+      {state.error && (
         <Typography color="error" sx={{ mb: 2 }}>
           {state.error}
         </Typography>
-      ) : null}
+      )}
       <Button
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
@@ -459,29 +516,22 @@ const ViewCollections: React.FC = () => {
           mt: 2,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
           color: "var(--color-text-on-primary)",
-          "&:hover": {
-            backgroundColor: "#363740",
-            opacity: 0.9,
-          },
+          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
         }}
-        aria-label="Create new Collection"
       >
         Create New Collection
       </Button>
     </Box>
   );
 
-  // if (authData?.isHeadQuarter === false) {
-  //   return <Navigate to="/manage/view-admins" replace />;
-  // }
-
   return (
-    <DashboardManager> 
+    <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
+        {/* Header */}
         <Grid container spacing={2} sx={{ mb: 5 }}>
           <Grid size={{ xs: 12, md: 7 }}>
             <Typography
-              variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
+              variant={isMobile ? "h5" : "h5"}
               component="h4"
               fontWeight={600}
               gutterBottom
@@ -495,7 +545,7 @@ const ViewCollections: React.FC = () => {
             >
               <span className="text-[#777280]">Finance</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]"> Collections</span>
+              <span className="text-[#F6F4FE]">Collections</span>
             </Typography>
           </Grid>
           <Grid
@@ -509,7 +559,6 @@ const ViewCollections: React.FC = () => {
             <Button
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
-              size="medium"
               sx={{
                 backgroundColor: "#363740",
                 px: { xs: 2, sm: 2 },
@@ -519,32 +568,28 @@ const ViewCollections: React.FC = () => {
                 textTransform: "none",
                 color: "var(--color-text-on-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": {
-                  backgroundColor: "#363740",
-                  opacity: 0.9,
-                },
+                "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
               }}
-              aria-label="Create new branch"
             >
               Create Collection
             </Button>
           </Grid>
         </Grid>
 
-        {state.loading && state.fillteredCollection.length === 0 && (
+        {/* Loading / Empty */}
+        {state.loading && state.filteredCollection.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
           </Box>
         )}
+        {state.error && !state.loading && state.filteredCollection.length === 0 && <EmptyState />}
+        {!state.loading && !state.error && state.filteredCollection.length === 0 && <EmptyState />}
 
-        {state.error && !state.loading && state.fillteredCollection.length === 0 && <EmptyState />}
-
-        {!state.loading && !state.error && state.fillteredCollection.length === 0 && <EmptyState />}
-
-        {state.fillteredCollection.length > 0 && (
+        {/* Collections Grid */}
+        {state.filteredCollection.length > 0 && (
           <>
             <Grid container spacing={2}>
-              {state.fillteredCollection.map((collection) => (
+              {state.filteredCollection.map((collection) => (
                 <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={collection.id}>
                   <Card
                     sx={{
@@ -553,36 +598,31 @@ const ViewCollections: React.FC = () => {
                       boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
                       height: "100%",
                       display: "flex",
-                      flexDirection: "column",                    
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      },
+                      flexDirection: "column",
+                      "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.1)" },
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
-                        <Box>
+                        <Box>         
                           <IconButton
                             sx={{
                               backgroundColor: "rgba(255, 255, 255, 0.06)",
                               color: "#777280",
-                              display: "flex",
-                              flexDirection: "column",
                               padding: "15px",
                               borderRadius: 1,
-                              textAlign: "center",
                             }}
-                            aria-label={`Branch icon for ${collection.name}`}
                           >
                             <span className="border-2 rounded-md border-[#777280] p-1">
                               <FaBoxTissue size={30} />
                             </span>
                           </IconButton>
-                        </Box>
-                        {/* <Box>
+                        </Box> 
+
+                        <Box>
                           <IconButton
                             onClick={(e) => {
-                              handleStateChange("currentBranch", collection);
+                              handleStateChange("currentCollection", collection);
                               handleStateChange("anchorEl", e.currentTarget);
                             }}
                             sx={{
@@ -590,50 +630,60 @@ const ViewCollections: React.FC = () => {
                               color: "#777280",
                               padding: "8px",
                               borderRadius: 1,
-                              textAlign: "center",
                             }}
-                            aria-label={`More options for ${collection.name}`}
                           >
                             <MoreVertIcon />
                           </IconButton>
-                        </Box> */}
+                        </Box>
                       </Box>
-                      <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
-                        <Typography
-                          variant="h6"
-                          fontWeight={600}
+
+                      <Typography
+                        variant="h6"
+                        fontWeight={600}
+                        sx={{ color: "#E1E1E1", display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        {collection.name}
+                        
+                        <Box
                           sx={{
-                            color: "#E1E1E1",
-                          }}                          
+                            backgroundColor: "#533483",        // Purple badge
+                            color: "#FFFFFF",
+                            fontSize: "0.65rem",
+                            padding: "3px 8px",
+                            borderRadius: "12px",
+                            fontWeight: 600,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            letterSpacing: 0.3,
+                            textTransform: "uppercase",
+                          }}
                         >
-                          {collection.name}
-                        </Typography>
-                      </Box>
-                      <Box mt={2}>
-                        {collection.description && (
-                          <Box mb={1}>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: "#777280",
-                                width: "100%",
-                                display: "-webkit-box",
-                                WebkitBoxOrient: "vertical",
-                                WebkitLineClamp: 2,
-                                overflow: "hidden",
-                                lineHeight: 1.4,
-                                wordBreak: "break-word",        // ✅ Forces word breaking
-                                overflowWrap: "break-word",     // ✅ Modern word breaking
-                                hyphens: "auto",                // ✅ Adds hyphens for long words
-                                textOverflow: "ellipsis",       // ✅ Fallback for ellipsis
-                              }}
-                              title={collection.description}
-                            >
-                              {collection.description}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
+                          {collection.scopeType}
+                        </Box>
+                      </Typography>
+
+                      {collection.description && (
+                        <Box mt={2}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: "#777280",
+                              display: "-webkit-box",
+                              WebkitBoxOrient: "vertical",
+                              WebkitLineClamp: 2,
+                              overflow: "hidden",
+                              lineHeight: 1.4,
+                              wordBreak: "break-word",
+                              overflowWrap: "break-word",
+                              hyphens: "auto",
+                              textOverflow: "ellipsis",
+                            }}
+                            title={collection.description}
+                          >
+                            {collection.description}
+                          </Typography>
+                        </Box>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -651,41 +701,32 @@ const ViewCollections: React.FC = () => {
           </>
         )}
 
-        <CreateCollection 
+        {/* Create Modal */}
+        <CreateCollection
           open={state.isModalOpen}
           onClose={() => handleStateChange("isModalOpen", false)}
           onSuccess={refreshCollections}
         />
 
+        {/* More-Vert Menu */}
         <Menu
-          id="branch-menu"
           anchorEl={state.anchorEl}
-          keepMounted
           open={Boolean(state.anchorEl)}
           onClose={handleMenuClose}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            sx: {
-              "& .MuiMenuItem-root": {
-                fontSize: isLargeScreen ? "0.875rem" : undefined,
-              },
-            },
-          }}
+          PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
         >
-          <MenuItem
-            onClick={handleEditOpen}           
-          >
+          <MenuItem onClick={handleEditOpen}>
             <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
             Edit
           </MenuItem>
         </Menu>
 
+        {/* EDIT DIALOG */}
         <Dialog
           open={state.editModalOpen}
           onClose={() => {
             handleStateChange("editModalOpen", false);
-            handleStateChange("currentBranch", null);
+            handleStateChange("currentCollection", null);
           }}
           maxWidth="sm"
           fullWidth
@@ -697,77 +738,149 @@ const ViewCollections: React.FC = () => {
             },
           }}
         >
-          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+          <DialogTitle>
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="h6" fontWeight={600}>
-                Edit Branch
+                Edit Collection
               </Typography>
               <IconButton
                 onClick={() => {
                   handleStateChange("editModalOpen", false);
-                  handleStateChange("currentBranch", null);
+                  handleStateChange("currentCollection", null);
                 }}
-                aria-label="Close edit modal"
               >
                 <Close className="text-gray-300" />
               </IconButton>
             </Box>
           </DialogTitle>
+
           <DialogContent>
             <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+              {/* Name */}
               <TextField
                 fullWidth
-                label="Branch Name"
+                label="Collection Name"
                 name="name"
-                value={state.editFormData.name}
+                value={state.editFormData.name ?? ""}
                 onChange={handleEditChange}
-                margin="normal"
                 variant="outlined"
                 InputProps={{
                   sx: {
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
-                InputLabelProps={{
-                  sx: {
-                    color: "#F6F4FE",
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                  },
-                }}
-                aria-label="Branch name"
+                InputLabelProps={{ sx: { color: "#F6F4FE" } }}
               />
+
+              {/* Level */}
+              <FormControl fullWidth variant="outlined">
+                <InputLabel sx={{ color: "#F6F4FE" }}>Scope</InputLabel>
+
+                <Select<"church" | "branch" | "department">
+                  value={state.editFormData.scopeType ?? ""}
+                  label="Scope"
+                  onChange={handleScopeChange}
+                  sx={{
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                  }}
+                >
+                  <MenuItem value="church">Church</MenuItem>
+                  <MenuItem value="branch">Branch</MenuItem>
+                  <MenuItem value="department">Department</MenuItem>
+                </Select>
+              </FormControl>
+
+
+              {/* Branch (shown for branch / department) */}
+              {(state.editFormData.scopeType === "branch" || state.editFormData.scopeType === "department") && (
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                    {state.loadingBranches ? "Loading…" : "Branch"}
+                  </InputLabel>
+                  <Select
+                    value={state.editFormData.branchId ?? ""}
+                    onChange={handleBranchChange}
+                    label={state.loadingBranches ? "Loading…" : "Branch"}
+                    disabled={state.loadingBranches}
+                    sx={{
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                      "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                    }}
+                  >
+                    {state.branches.map((b) => (
+                      <MenuItem key={b.id} value={b.id}>
+                        {b.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {state.loadingBranches && (
+                    <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                      <CircularProgress size={20} />
+                    </Box>
+                  )}
+                </FormControl>
+              )}
+
+              {/* Department (shown only for department) */}
+              {state.editFormData.scopeType === "department" && (
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                    {state.loadingDepartments ? "Loading…" : "Department"}
+                  </InputLabel>
+                  <Select
+                    value={state.editFormData.departmentId ?? ""}
+                    onChange={handleDepartmentChange}
+                    label={state.loadingDepartments ? "Loading…" : "Department"}
+                    disabled={state.loadingDepartments || !state.editFormData.branchId}
+                    sx={{
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                      "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                    }}
+                  >
+                    {state.departments.map((d) => (
+                      <MenuItem key={d.id} value={d.id}>
+                        {d.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {state.loadingDepartments && (
+                    <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                      <CircularProgress size={20} />
+                    </Box>
+                  )}
+                </FormControl>
+              )}
+
+              {/* Description */}
               <TextField
                 fullWidth
                 label="Description"
                 name="description"
-                value={state.editFormData.description}
+                value={state.editFormData.description ?? ""}
                 onChange={handleEditChange}
-                margin="normal"
-                variant="outlined"
                 multiline
                 rows={4}
+                variant="outlined"
                 InputProps={{
                   sx: {
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
-                InputLabelProps={{
-                  sx: {
-                    color: "#F6F4FE",
-                    fontSize: isLargeScreen ? "1rem" : undefined,
-                  },
-                }}
-                aria-label="Branch address"
+                InputLabelProps={{ sx: { color: "#F6F4FE" } }}
               />
             </Box>
           </DialogContent>
+
           <DialogActions>
             <Button
               onClick={handleEditSubmit}
+              disabled={state.loading}
               sx={{
                 py: 1,
                 backgroundColor: "#F6F4FE",
@@ -776,17 +889,10 @@ const ViewCollections: React.FC = () => {
                 color: "#2C2C2C",
                 fontWeight: "semibold",
                 textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": {
-                  backgroundColor: "#F6F4FE",
-                  opacity: 0.9,
-                },
+                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
               }}
-              variant="contained"
-              disabled={state.loading}
-              aria-label="Save branch changes"
             >
-              {state.loading ? <span className="text-gray-500">Saving..</span> : "Save Changes"}
+              {state.loading ? "Saving…" : "Save Changes"}
             </Button>
           </DialogActions>
         </Dialog>

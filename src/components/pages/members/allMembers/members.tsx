@@ -471,7 +471,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // Form Components
   const renderBasicInfo = () => (
     <Grid container spacing={4}>
-      {!authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
+      {authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
           <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
             Branch *
@@ -519,7 +519,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Full Name *"
+          label="Full Name"
           name="name"
           value={formData.name}
           onChange={handleChange}
@@ -601,7 +601,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Phone Number *"
+          label="Phone Number"
           name="phoneNo"
           type="tel"
           value={formData.phoneNo}
@@ -807,7 +807,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Date of Birth *"
+              label="Birth Day"
               variant="outlined"
               required
               InputLabelProps={{
@@ -882,7 +882,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Nationality *"
+              label="Nationality "
               variant="outlined"
               required
               InputProps={{
@@ -937,7 +937,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="State *"
+              label="State "
               variant="outlined"
               required
               InputProps={{

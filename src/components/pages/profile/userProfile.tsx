@@ -9,18 +9,15 @@ import {
   Container,
   useTheme,
   useMediaQuery,
-  Menu, MenuItem, Fade,
 } from "@mui/material";
 import { 
   Phone as PhoneIcon, 
   Email as EmailIcon, 
-  ArrowDownward,
   ArrowBack
 } from "@mui/icons-material";
 import DashboardManager from "../../shared/dashboardManager";
-import { useSelector , useDispatch} from "react-redux";
+import { useSelector} from "react-redux";
 import { RootState } from "../../reduxstore/redux";
-import { setAuthData } from "../../reduxstore/authstore";
 import axios from "axios";
 import Api from "../../shared/api/api";
 import { useNavigate } from "react-router-dom";
@@ -53,9 +50,6 @@ const ViewAdmin: React.FC = () => {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -110,43 +104,7 @@ const ViewAdmin: React.FC = () => {
     fetchAdminData();
   }, [authData]);
 
-  useEffect(() => {
-    // ✅ Sync initial branchId from Redux authData
-    if (authData?.branchId) {
-      setCurrentBranchId(authData.branchId);
-    }
-  }, [authData?.branchId]);
 
-  const open = Boolean(anchorEl);
-
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleBranchSelect = (branchId: string) => {
-    if (!authData) return; // 🚨 prevents spreading null
-
-    setCurrentBranchId(branchId);
-
-    dispatch(
-      setAuthData({
-        ...authData,
-        branchId,
-        backgroundImg: authData.backgroundImg ?? "",
-        church_name: authData.church_name ?? "",
-        churchId: authData.churchId ?? "", // 👈 fixes your error
-      })
-    );
-
-    handleClose();
-  };
-
-  const currentBranchName =
-  admin?.branches?.find((b) => b.id === currentBranchId)?.name || "Select Branch";
 
   const getAdminSince = () => {
     if (admin?.createdAt) {
@@ -290,45 +248,6 @@ const ViewAdmin: React.FC = () => {
                 Admin since: {getAdminSince()}
               </Typography>
               <Box sx={{ textAlign: "center", mt: 2, display: 'flex',gap: 1, flexDirection:'column', justifyContent: 'center', alignItems: 'center'}}>
-                <p className="text-gray-300">Switch Branch</p>
-                <ArrowDownward className="text-gray-200 text-base text-center" />
-                <Button
-                  id="fade-button"
-                  aria-controls={open ? "fade-menu" : undefined}
-                  aria-haspopup="true"
-                  aria-expanded={open ? "true" : undefined}
-                  onClick={handleClick}
-                  sx={{
-                    backgroundColor: "rgba(255, 255, 255, 0.06)",
-                    color: "#fff",
-                    "&:hover": { background: "rgba(255, 255, 255, 0.06)"},
-                    px: 3,
-                  }}
-                >
-                  {currentBranchName}
-                </Button>
-                <Menu
-                  id="fade-menu"
-                  anchorEl={anchorEl}
-                  open={open}
-                  onClose={handleClose}
-                  slots={{ transition: Fade }}
-                  slotProps={{
-                    list: { "aria-labelledby": "fade-button" },
-                  }}                  
-                >
-                  {admin?.branches?.map((branch) => (
-                    <MenuItem
-                      key={branch.id}
-                      onClick={() => handleBranchSelect(branch.id)}
-                      sx={{
-                        fontWeight: branch.id === currentBranchId ? "bold" : "normal",
-                      }}
-                    >
-                      {branch.name}
-                    </MenuItem>
-                  ))}
-                </Menu>
               </Box>
             </Box>
 
