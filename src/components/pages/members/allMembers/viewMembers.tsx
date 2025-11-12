@@ -427,6 +427,7 @@ const ViewMembers: React.FC = () => {
         if (authData?.role === "department" && authData?.department) {
           params.append("departmentId", authData.department);
         }
+        // params.append("isWorker", 'true');
         const apiUrl = url || `/member/all-members?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(apiUrl);
         const data = {
@@ -443,7 +444,7 @@ const ViewMembers: React.FC = () => {
         }));
         return data;
       } catch (error: any) {
-        console.error("Failed to fetch members:", {
+        console.error("Failed to load members:", {
           message: error.message,
           response: error.response?.data,
           status: error.response?.status,
@@ -547,6 +548,7 @@ const ViewMembers: React.FC = () => {
       }
       if (state.searchDepartment) params.append("departmentId", state.searchDepartment);
       if (state.searchBranch) params.append("branchId", state.searchBranch);
+      // params.append("isWorker", 'true');
       const response = await Api.get<FetchMembersResponse>(`/member/all-members?${params.toString()}`);
       setState((prev) => ({
         ...prev,
@@ -603,6 +605,7 @@ const ViewMembers: React.FC = () => {
         }
         if (searchDepartment) params.append("departmentId", searchDepartment);
         if (searchBranch) params.append("branchId", searchBranch);
+        // params.append("isWorker", 'true');
         const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(fullUrl);
         return {
@@ -848,6 +851,17 @@ const ViewMembers: React.FC = () => {
     handleStateChange("isModalOpen", true);
   };
 
+  // auto set the searchbranch with branchId for hq  and branches=1
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1 &&
+      authData.branchId
+    ) {
+      handleStateChange("searchBranch", authData.branchId);
+    }
+  }, [authData?.isHeadQuarter, authData?.branches, authData?.branchId, handleStateChange]);
+
   // UI Components
   const renderMobileFilters = () => (
     <Drawer
@@ -900,6 +914,10 @@ const ViewMembers: React.FC = () => {
             )}
           />
         </Box>
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && 
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Branch
@@ -924,7 +942,7 @@ const ViewMembers: React.FC = () => {
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              "& .MuiSelect-icon": { color: "#F6F4FE"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Branch";
@@ -948,7 +966,7 @@ const ViewMembers: React.FC = () => {
               ))
             )}
           </MuiSelect>
-        </Box>
+        </Box>}
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
@@ -973,7 +991,7 @@ const ViewMembers: React.FC = () => {
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              "& .MuiSelect-icon": { color: "#F6F4FE"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Department";
@@ -1060,54 +1078,59 @@ const ViewMembers: React.FC = () => {
             )}
           />
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Branch
-          </Typography>
-          <MuiSelect
-            value={state.searchBranch}
-            onChange={(e) => {
-              handleStateChange("searchBranch", e.target.value as string);
-              if (e.target.value) fetchDepartments();
-            }}
-            displayEmpty
-            onOpen={() => {
-              handleStateChange("isBranchSelectOpen", true);
-              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
-            }}
-            onClose={() => handleStateChange("isBranchSelectOpen", false)}
-            sx={{
-              color: state.searchBranch ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Branch";
-              const branch = state.branches.find((b) => b.id === selected);
-              return branch ? branch.name : "Select Branch";
-            }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {state.isBranchLoading ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.branchesError ? (
-              <MenuItem disabled>
-                {state.branchesError}
-                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.branches.length === 0 ? (
-              <MenuItem disabled>No branches available</MenuItem>
-            ) : (
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-              ))
-            )}
-          </MuiSelect>
-        </Box>
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && <>
+          <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+              Branch
+            </Typography>
+            <MuiSelect
+              value={state.searchBranch}
+              onChange={(e) => {
+                handleStateChange("searchBranch", e.target.value as string);
+                if (e.target.value) fetchDepartments();
+              }}
+              displayEmpty
+              onOpen={() => {
+                handleStateChange("isBranchSelectOpen", true);
+                if (!state.branchesLoaded && !state.branchesError) fetchBranches();
+              }}
+              onClose={() => handleStateChange("isBranchSelectOpen", false)}
+              sx={{
+                color: state.searchBranch ? "#F6F4FE" : "#777280",
+                fontWeight: 500,
+                fontSize: "14px",
+                ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                "& .MuiSelect-icon": { display: "none" },
+              }}
+              renderValue={(selected) => {
+                if (!selected) return "Select Branch";
+                const branch = state.branches.find((b) => b.id === selected);
+                return branch ? branch.name : "Select Branch";
+              }}
+            >
+              <MenuItem value="">None</MenuItem>
+              {state.isBranchLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : state.branchesError ? (
+                <MenuItem disabled>
+                  {state.branchesError}
+                  <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
+                </MenuItem>
+              ) : state.branches.length === 0 ? (
+                <MenuItem disabled>No branches available</MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                ))
+              )}
+            </MuiSelect>
+          </Box>
+        </>}
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
@@ -1201,10 +1224,10 @@ const ViewMembers: React.FC = () => {
       !state.loadingDepartments
     ) {
       fetchDepartments();
-    }
+    }    
   }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departmentsLoaded, state.departmentsError, state.loadingDepartments, fetchDepartments]);
 
-  // Main Render
+// Main Render
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
@@ -1215,11 +1238,11 @@ const ViewMembers: React.FC = () => {
               component="h4"
               fontWeight={600}
               gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
+              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
             >
-              <span className="text-[#777280]">Members</span>
+              <span className="text-[#777280]">Membership</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Worker</span>
+              <span className="text-[#F6F4FE]">Workers</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}  

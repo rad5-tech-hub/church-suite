@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -12,9 +11,6 @@ import {
   useMediaQuery,
   InputAdornment,
   MenuItem,
-  Stepper,
-  Step,
-  StepLabel,
   FormControl,
   InputLabel,
   Select,
@@ -23,18 +19,20 @@ import {
   DialogContent,
   IconButton,
   DialogTitle,
+  Step,
+  StepLabel,
+  Stepper,
 } from "@mui/material";
 import { BsPerson, BsCalendar, BsGeoAlt } from "react-icons/bs";
 import { IoCallOutline } from "react-icons/io5";
+import { Close } from "@mui/icons-material";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import Api from "../../../shared/api/api";
-import { RootState } from "../../../reduxstore/redux";
-import { Close } from "@mui/icons-material";
-// import { PiDownload } from "react-icons/pi";
 
 // Interfaces
 interface FormData {
+  id: string;
   name: string;
   address: string;
   whatappNo: string;
@@ -49,6 +47,8 @@ interface FormData {
   state: string;
   LGA: string;
   nationality: string;
+  departmentIds: string[];
+  unitIds: string[];
   comments: string;
   branchId: string;
 }
@@ -68,10 +68,11 @@ interface State {
   name: string;
 }
 
-interface MemberModalProps {
+interface EditMemberModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  memberId: string;
 }
 
 // Constants
@@ -102,9 +103,8 @@ const months = [
 
 const steps = ['Basic Information', 'Additional Details'];
 
-const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) => {
-  usePageToast("member-modal");
-  const authData = useSelector((state: RootState) => state.auth?.authData);
+const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModalProps) => {
+  usePageToast("edit-member");
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -112,26 +112,31 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // State Management
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
-    name: "",
-    address: "",
-    whatappNo: "",
-    phoneNo: "",
-    sex: "",
-    maritalStatus: "",
-    memberSince: "",
+    id: '',
+    name: '',
+    address: '',
+    whatappNo: '',
+    phoneNo: '',
+    sex: '',
+    maritalStatus: '',
+    memberSince: '',
     ageFrom: null,
     ageTo: null,
-    birthMonth: "",
-    birthDay: "",
-    state: "",
-    LGA: "",
-    nationality: "",
-    comments: "",
-    branchId: "",
+    birthMonth: '',
+    birthDay: '',
+    state: '',
+    LGA: '',
+    nationality: '',
+    departmentIds: [],
+    unitIds: [],
+    comments: '',
+    branchId: '',
   });
+  const [initialFormData, setInitialFormData] = useState<FormData>(formData);
   const [isLoading, setIsLoading] = useState(false);
-  // const [downLoading, setDownLoading] = useState(false);
-  const [selectedAgeRange, setSelectedAgeRange] = useState("");
+  const [isFetchingMember, setIsFetchingMember] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedAgeRange, setSelectedAgeRange] = useState('');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [countries, setCountries] = useState<Countries[]>([]);
   const [isFetchingCountries, setIsFetchingCountries] = useState(false);
@@ -141,6 +146,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   const [branchesError, setBranchesError] = useState("");
   const [states, setStates] = useState<State[]>([]);
   const [loadingStates, setLoadingStates] = useState(false);
+  const [lastFetchedNationality, setLastFetchedNationality] = useState<string>('');
 
   // Year started
   const currentYear = new Date().getFullYear();
@@ -149,47 +155,25 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // Fetch Branches
   const fetchBranches = useCallback(async () => {
     if (isFetchingBranches || hasFetchedBranches) return;
+
     setIsFetchingBranches(true);
     setBranchesError('');
+
     try {
       const response = await Api.get('/church/get-branches');
-      const branchList = response.data.branches || [];
-      setBranches(branchList);
+      setBranches(response.data.branches || []);
       setHasFetchedBranches(true);
-
-      // Auto-select user's branch
-      if (authData?.branchId && !formData.branchId) {
-        const userBranch = branchList.find((b: Branch) => b.id === authData.branchId);
-        if (userBranch) {
-          setFormData((prev) => ({ ...prev, branchId: userBranch.id }));
-        }
-      }
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
-      showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
-  }, [
-    isFetchingBranches,
-    hasFetchedBranches,
-    authData?.branchId,
-    formData.branchId,
-  ]);
+  }, [isFetchingBranches, hasFetchedBranches]);
 
+  // ✅ Run once on mount
   useEffect(() => {
-    if (!hasFetchedBranches && !isFetchingBranches) {
-      fetchBranches();
-    }
-
-    if ( authData?.branchId) {
-      setFormData((prev) => ({
-        ...prev,
-        branchId: authData.branchId || "",
-      }));
-
-    } 
-  }, [authData?.branchId, hasFetchedBranches, isFetchingBranches, fetchBranches]);
+    fetchBranches();
+  }, [fetchBranches]);
 
   // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
@@ -208,29 +192,113 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     }
   }, [isFetchingCountries, hasFetchedCountries]);
 
-  // Fetch States
+  // Fetch Member
+  const fetchMember = useCallback(async () => {
+    if (!memberId) {
+      setFetchError("No member ID provided");
+      setIsFetchingMember(false);
+      return;
+    }
+
+    setIsFetchingMember(true);
+    setFetchError(null);
+
+    try {
+      const response = await Api.get(`/member/a-member/${memberId}`);
+      const member = response.data.member;
+
+      if (!member) {
+        throw new Error("Member not found");
+      }
+
+      const memberData: FormData = {
+        id: member.id || "",
+        name: member.name || "",
+        address: member.address || "",
+        whatappNo: member.whatappNo || "",
+        phoneNo: member.phoneNo || "",
+        sex: member.sex || "",
+        maritalStatus: member.maritalStatus || "",
+        memberSince: member.memberSince
+          ? String(member.memberSince).split("-")[0]
+          : "",
+        ageFrom: member.ageFrom || null,
+        ageTo: member.ageTo || null,
+        birthMonth: member.birthMonth || "",
+        birthDay: member.birthDay || "",
+        state: member.state || "",
+        LGA: member.LGA || "",
+        nationality: member.nationality || "",
+        departmentIds: member.departments?.map((dept: { id: string }) => dept.id) || [],
+        unitIds: member.units?.map((unit: { id: string }) => unit.id) || [],
+        comments: member.comments || "",
+        branchId: member.branchId || "",
+      };
+
+      setFormData(memberData);
+      setInitialFormData(memberData);
+
+      setSelectedAgeRange(
+        ageRanges.find(
+          (range) =>
+            range.from === memberData.ageFrom && range.to === memberData.ageTo
+        )?.label || ""
+      );
+    } catch (error: any) {
+      console.error("Error fetching member:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to fetch member data. Please try again.";
+      setFetchError(errorMessage);
+    } finally {
+      setIsFetchingMember(false);
+    }
+  }, [memberId, ageRanges]);
+
+  // Fetch when modal opens
   useEffect(() => {
+    if (open && memberId) {
+      fetchMember();
+    }
+  }, [open, memberId, fetchMember]);
+
+  // Fetch states when nationality changes
+  useEffect(() => {
+    if (!formData.nationality || formData.nationality === lastFetchedNationality) return;
+
     const fetchStates = async () => {
-      if (!formData.nationality) return;
       setLoadingStates(true);
       try {
-        const response = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ country: formData.nationality }),
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/states",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ country: formData.nationality }),
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutId);
         const data = await response.json();
         setStates(data.data?.states || []);
-        setFormData((prev) => ({ ...prev, state: '' }));
-      } catch (error) {
-        console.error('Error fetching states:', error);
-        showPageToast('Failed to load states. Please try again.', 'error');
+        setLastFetchedNationality(formData.nationality);
+
+        if (!data.data?.states.some((s: State) => s.name === formData.state)) {
+          setFormData((prev) => ({ ...prev, state: "" }));
+        }
+      } catch (error: any) {
+        console.error("Error fetching states:", error);
       } finally {
         setLoadingStates(false);
       }
     };
+
     fetchStates();
-  }, [formData.nationality]);
+  }, [formData.nationality, lastFetchedNationality]);
 
   // Handlers
   const handleChange = (
@@ -252,44 +320,21 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         ageFrom: selectedRange.from,
         ageTo: selectedRange.to,
       }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        ageFrom: null,
+        ageTo: null,
+      }));
     }
   };
-
-  // const handleDownloadTemplate = async () => {
-  //   setDownLoading(true);
-  //   try {
-  //     const response = await Api.get(`/member/import-template/${authData?.branchId}`, { responseType: "blob" });
-  //     const contentDisposition = response.headers["content-disposition"];
-  //     let filename = "workers-template.xlsx";
-  //     if (contentDisposition) {
-  //       const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-  //       if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
-  //     }
-  //     const blob = new Blob([response.data], {
-  //       type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  //     });
-  //     const url = window.URL.createObjectURL(blob);
-  //     const link = document.createElement("a");
-  //     link.href = url;
-  //     link.download = filename;
-  //     document.body.appendChild(link);
-  //     link.click();
-  //     document.body.removeChild(link);
-  //     window.URL.revokeObjectURL(url);
-  //     showPageToast("Excel template downloaded successfully!", "success");
-  //   } catch (error: any) {
-  //     const errorMessage = error.response?.data?.message || "Failed to download Excel template. Please try again.";
-  //     showPageToast(errorMessage, "error");
-  //   } finally {
-  //     setDownLoading(false);
-  //   }
-  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
+      // Validate required fields
       if (
         !formData.name ||
         !formData.address ||
@@ -301,62 +346,52 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         !formData.branchId
       ) {
         throw new Error("Please fill in all required fields");
-      }
+      }      
 
-      // ✅ Remove branchId from payload body
-      const { branchId, ...payload } = formData;
+      // Determine changed fields
+      const changedFields: Partial<FormData> & Record<string, unknown> = {};
 
-      const params = new URLSearchParams();
-      params.append("churchId", authData?.churchId || "");
-      params.append("branchId", formData.branchId);
+      Object.keys(formData).forEach((key) => {
+        if (key !== "id" && key !== "activity" && key !== "branch") {
+          const k = key as keyof FormData;
+          const newValue = formData[k];
+          const oldValue = initialFormData[k];
 
-      await Api.post(`/member/non-worker?${params.toString()}`, payload);
-
-      showPageToast("Worker created successfully!", "success");
-
-      setFormData({
-        name: "",
-        address: "",
-        whatappNo: "",
-        phoneNo: "",
-        sex: "",
-        maritalStatus: "",
-        memberSince: "",
-        ageFrom: null,
-        ageTo: null,
-        birthMonth: "",
-        birthDay: "",
-        state: "",
-        LGA: "",
-        nationality: "",
-        comments: "",
-        branchId: "",
+          if (JSON.stringify(newValue) !== JSON.stringify(oldValue)) {
+            (changedFields as Record<string, unknown>)[k as string] = newValue;
+          }
+        }
       });
 
-      setSelectedAgeRange("");
-      onSuccess?.();
+      // If nothing changed
+      if (Object.keys(changedFields).length === 0) {
+        showPageToast("No changes detected", "warning");
+        setIsLoading(false);
+        return;
+      }
 
+      // Call API with only changed fields
+      await Api.patch(
+        `member/edit-member/${formData.id}/branch/${formData.branchId}`,
+        changedFields
+      );
+
+      showPageToast("Member updated successfully!", "success");
+
+      // Update initial form data to current after success
+      setInitialFormData(formData);
+
+      onSuccess?.();
       setTimeout(() => {
         setCurrentStep(0);
         onClose();
       }, 1500);
     } catch (error: any) {
-      console.error("Error creating worker:", error.response?.data || error.message);
-
-      let errorMessage = "Failed to create worker. Please try again.";
-
-      if (error.response?.data?.error?.message) {
-        errorMessage = `${error.response.data.error.message} Please try again.`;
-      } else if (error.response?.data?.message) {
-        if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
-          errorMessage = error.response.data.errors.join(", ");
-        } else {
-          errorMessage = `${error.response.data.message} Please try again.`;
-        }
-      } else if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors.join(", ");
-      }
-
+      console.error(error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update Member. Please try again.";
       showPageToast(errorMessage, "error");
     } finally {
       setIsLoading(false);
@@ -369,19 +404,97 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     return [1, 3, 5, 7, 8, 10, 12].includes(monthNumber) ? 31 : 30;
   };
 
+  // Loading State UI
+  if (isFetchingMember) {
+    return (
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: 2,
+            bgcolor: "#2C2C2C",
+            py: 3,
+            px: 2,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+              Edit Member
+            </Typography>
+            <IconButton onClick={onClose}>
+              <Close className="text-gray-300" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
+            <CircularProgress sx={{ color: "#F6F4FE" }} />
+            <Typography sx={{ ml: 2, color: "#F6F4FE" }}>Loading Member data...</Typography>
+          </Box>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Error State UI
+  if (fetchError) {
+    return (
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: 2,
+            bgcolor: "#2C2C2C",
+            py: 3,
+            px: 2,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+              Edit Worker
+            </Typography>
+            <IconButton onClick={onClose}>
+              <Close className="text-gray-300" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Typography color="error">{fetchError}</Typography>
+            <Button
+              variant="contained"
+              onClick={fetchMember}
+              sx={{ mt: 2, backgroundColor: "#F6F4FE", color: "#2C2C2C" }}
+              disabled={isFetchingMember}
+            >
+              Retry
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   // Form Components
   const renderBasicInfo = () => (
     <Grid container spacing={4}>
-      {authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
-            Branch *
-          </InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Branch *</InputLabel>
           <Select
             name="branchId"
             value={formData.branchId}
-            onChange={handleChange}
-            disabled={isLoading || isFetchingBranches}
+            onChange={handleChange}         
             label="Branch *"
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
@@ -390,37 +503,33 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               "& .MuiSelect-icon": { color: "#F6F4FE" },
               "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Branch";
-              const branch = branches.find(b => b.id === selected);
-              return branch ? branch.name : "Select Branch";
-            }}
           >
+            <MenuItem value="" disabled>Select Branch</MenuItem>
             {isFetchingBranches ? (
               <MenuItem disabled>
-                <CircularProgress size={16} sx={{ mr: 1 }} /> Loading...
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+                  <Typography variant="body2">Loading branches...</Typography>
+                </Box>
               </MenuItem>
-            ) : branches.length === 0 ? (
-              <MenuItem disabled>No branches available</MenuItem>
             ) : (
               branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>
-                  {branch.name}
-                </MenuItem>
+                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
               ))
             )}
           </Select>
           {branchesError && !isFetchingBranches && (
-            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-              Warning: {branchesError}
+            <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
+              <Box component="span" sx={{ mr: 1 }}>⚠️</Box>
+              {branchesError}
             </Typography>
           )}
         </FormControl>
-      </Grid>}
+      </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Full Name"
+          label="Full Name *"
           name="name"
           value={formData.name}
           onChange={handleChange}
@@ -502,36 +611,21 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Phone Number"
+          label="Phone Number *"
           name="phoneNo"
-          type="tel"
+          type="number"
           value={formData.phoneNo}
-          onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, ""); // Remove non-digits
-            if (value.length <= 11) {
-              handleChange({
-                target: {
-                  name: "phoneNo",
-                  value,
-                },
-              });
-            }
-          }}
+          onChange={handleChange}
           variant="outlined"
           placeholder="Enter phone number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <IoCallOutline style={{ color: '#F6F4FE' }} />
-              </InputAdornment>
-            ),
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
-            inputMode: "numeric", // ensures numeric keypad on mobile
           }}
           InputLabelProps={{
             sx: {
@@ -708,14 +802,14 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Birth Day"
+              label="Date of Birth *"
               variant="outlined"
               required
               InputLabelProps={{
                 sx: {
+                  fontSize: isLargeScreen ? "1rem" : undefined,
                   color: "#F6F4FE",
                   "&.Mui-focused": { color: "#F6F4FE" },
-                  fontSize: isLargeScreen ? "1rem" : undefined,
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 },
               }}
@@ -738,19 +832,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           )}
           disabled={isLoading}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-          '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
-          '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
-         }}
+          sx={{
+            '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
+            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+          }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <Autocomplete
+          loading={isFetchingCountries} // ✅ tell Autocomplete we're loading
+          loadingText="Loading..." // ✅ text to show while fetching
+          noOptionsText="No options available" // ✅ fallback after loading is done
           id="nationality"
           options={countries}
-          loading={isFetchingCountries}
-          loadingText="Loading..."
-          noOptionsText="No options available"
           onOpen={() => {
             if (!hasFetchedCountries && !isFetchingCountries) {
               fetchLocations();
@@ -763,19 +858,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
           filterOptions={(options, state) => {
-            return options.filter(option =>
-              option.name.toLowerCase().includes(state.inputValue.toLowerCase())
-            );
+            return options.filter(option => option.name.toLowerCase().includes(state.inputValue.toLowerCase()));
           }}
           renderOption={(props, option) => {
             const { key, ...otherProps } = props;
             return (
               <li key={key} {...otherProps} style={{ display: 'flex', alignItems: 'center' }}>
-                <img
-                  src={option.flag}
-                  alt={option.iso2}
-                  style={{ width: 24, height: 16, marginRight: 8, flexShrink: 0 }}
-                />
+                <img src={option.flag} alt={option.iso2} style={{ width: 24, height: 16, marginRight: 8, flexShrink: 0 }} />
                 <span>{option.name}</span>
               </li>
             );
@@ -783,11 +872,17 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Nationality "
+              label="Nationality *"
               variant="outlined"
               required
               InputProps={{
                 ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {isFetchingCountries && <CircularProgress color="inherit" size={20} />}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
@@ -800,14 +895,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   color: "#F6F4FE",
                   "&.Mui-focused": { color: "#F6F4FE" },
-                  transform: params.inputProps.value
-                    ? 'translate(14px, -9px) scale(0.75)'
-                    : undefined,
-                },
+                  transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
+                }
               }}
             />
           )}
-          disabled={isLoading}
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
@@ -838,7 +930,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="State "
+              label="State *"
               variant="outlined"
               required
               InputProps={{
@@ -869,7 +961,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           )}
           noOptionsText={!formData.nationality ? "Select a Nationality or Country first" : "No states found"}
           size="medium"
-          sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
+          sx={{
+            '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
             '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
             '& .MuiSvgIcon-root': { color: '#F6F4FE' },
           }}
@@ -934,9 +1027,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   );
 
   // Stepper Navigation
-  const handleNextStep = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleNextStep = () => {
     if (currentStep === 0) {
       if (!formData.name || !formData.address || !formData.phoneNo || !formData.sex || !formData.maritalStatus || !formData.branchId) {
         showPageToast("Please fill in all required fields", "error");
@@ -946,11 +1037,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     setCurrentStep((prev) => prev + 1);
   };
 
-  const handlePrevStep = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCurrentStep((prev) => prev - 1);
-  };
+  const handlePrevStep = () => setCurrentStep((prev) => prev - 1);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}
@@ -969,7 +1056,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             gutterBottom
             sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.5rem" : undefined }}
           >
-            Add New Member
+            Edit Member
           </Typography>
           <IconButton onClick={onClose}>
             <Close className="text-gray-300"/>
@@ -978,7 +1065,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </DialogTitle>
       <DialogContent sx={{ py: isMobile ? 1 : 2 }}>
         <Container>
-          <Box sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 2 }} >
+          <Box sx={{ display: "flex", flexDirection: {xs: 'column', md: 'row'}, justifyContent: { xs: "normal", md: 'space-between'}, alignItems: "center", my: 2 }}>
             <Box sx={{ width: { xs: "100%", sm: "75%", md: "40%", mb: 2 }}}>
               <Stepper activeStep={currentStep} alternativeLabel sx={{
                 "& .MuiStepLabel-label": {
@@ -1001,46 +1088,25 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 ))}
               </Stepper>
             </Box>
-            {/* {currentStep === 0 && (
-              <Tooltip title="Download Worker Form Template In Excel">
-                <Button
-                  variant="contained"
-                  onClick={handleDownloadTemplate}
-                  disabled={downLoading}
-                  sx={{
-                    py: 1,
-                    backgroundColor: "#F6F4FE",
-                    px: { xs: 3, sm: 3 },
-                    fontWeight: 500,
-                    textTransform: "none",
-                    color: "#2C2C2C",
-                    borderRadius: 50,
-                    fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-                    mt: 2,
-                  }}
-                >
-                  {downLoading ? (
-                    <span className="text-gray-300">
-                      <CircularProgress size={18} sx={{ mr: 1 , color: '#f6f4fe'}} />
-                      Downloading...
-                    </span>
-                  ) : (
-                    <span className="flex gap-1"> Download Template <PiDownload className="mt-1"/>
-                    </span>
-                  )}
-                </Button>
-              </Tooltip>
-            )} */}
           </Box>
-          {currentStep === 0 ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
-              {renderBasicInfo()}
-              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
+            {currentStep === 0 ? renderBasicInfo() : renderAdditionalDetails()}
+            <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
+              {currentStep === 1 ? (
+                <Button
+                  variant="outlined"
+                  onClick={handlePrevStep}
+                  disabled={isLoading}
+                  sx={{ py: 1, px: { xs: 2, sm: 2 }, borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
+                >
+                  Previous
+                </Button>
+              ) : <div />}
+              {currentStep === 0 ? (
                 <Button
                   variant="contained"
                   onClick={handleNextStep}
-                  disabled={isLoading}
+                  disabled={isLoading || isFetchingMember}
                   sx={{
                     py: 1,
                     backgroundColor: "#F6F4FE",
@@ -1055,20 +1121,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 >
                   Next
                 </Button>
-              </Box>
-            </Box>
-          ) : (
-            <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 4, mt: 4 }}>
-              {renderAdditionalDetails()}
-              <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  onClick={handlePrevStep}
-                  disabled={isLoading}
-                  sx={{ py: 1, px: { xs: 2, sm: 2 }, borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
-                >
-                  Previous
-                </Button>
+              ) : (
                 <Button
                   type="submit"
                   variant="contained"
@@ -1088,19 +1141,19 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   {isLoading ? (
                     <span className="text-gray-500">
                       <CircularProgress size={18} sx={{ color: "white", mr: 1 }} />
-                      Creating...
+                      Updating...
                     </span>
                   ) : (
-                    "Create Worker"
+                    "Update Member"
                   )}
                 </Button>
-              </Box>
+              )}
             </Box>
-          )}
+          </Box>
         </Container>
       </DialogContent>
     </Dialog>
   );
 };
 
-export default MemberModal;
+export default EditMemberModal;

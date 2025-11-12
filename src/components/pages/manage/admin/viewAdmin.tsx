@@ -30,6 +30,11 @@ import {
   Drawer,
   CircularProgress,
   Autocomplete,
+  FormControl,
+  InputLabel,
+  Select,
+  Checkbox,
+  ListItemText,
 } from "@mui/material";
 import {
   MoreVert as MoreVertIcon,
@@ -48,7 +53,7 @@ import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import EditAdminModal from "./editAdmin";
-
+import { PiUserSwitch } from "react-icons/pi";
 // Interfaces
 interface Branch {
   id: string | number;
@@ -95,6 +100,13 @@ interface Pagination {
   nextPage: string | null;
 }
 
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+  scopeLevel: "department" | "church" | "branch" | 'unit';
+}
+
 interface FetchAdminsResponse {
   message: string;
   pagination: Pagination;
@@ -107,15 +119,21 @@ interface State {
   currentPage: number;
   pageHistory: string[];
   loading: boolean;
+  roleLoading: boolean;
+  roleError: string | null;
+  selectedRoleIds: string[], 
+  selectedBranchId: string, 
   error: string | null;
   openModal: boolean;
   editModalOpen: boolean;
   confirmModalOpen: boolean;
+  assignRoleOpen: boolean;
   currentAdmin: Admin | null;
   actionType: string | null;
   anchorEl: HTMLElement | null;
   branches: Branch[];
   departments: Department[];
+  roles: Role[];
   units: Unit[];
   selectedBranch: string | number;
   selectedDepartment: string;
@@ -153,9 +171,15 @@ const initialState: State = {
   pageHistory: [],
   loading: false,
   error: null,
+  roleLoading: false,
+  roleError: null,
+  roles: [],
+  selectedRoleIds: [], 
+  selectedBranchId: '', 
   openModal: false,
   editModalOpen: false,
   confirmModalOpen: false,
+  assignRoleOpen: false,
   currentAdmin: null,
   actionType: null,
   anchorEl: null,
@@ -269,9 +293,6 @@ const ViewAdmins: React.FC = () => {
     authData?.isSuperAdmin || authRoleLevel > targetRoleLevel;
   const canDelete = authData?.isSuperAdmin;
 
-  // Debounce Ref to Prevent Rapid Fetch Calls
-  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // State Update Helper
   const handleStateChange = useCallback(<K extends keyof State>(key: K, value: State[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -296,26 +317,29 @@ const ViewAdmins: React.FC = () => {
   }, [loadingStates.branches]);
 
   const fetchDepartments = useCallback(async (branchId?: string | number) => {
-    if (loadingStates.departments || !branchId) return [];
-    setLoadingStates((prev) => ({ ...prev, departments: true }));
+    if (!branchId || loadingStates.departments) return [];
+    setLoadingStates(prev => ({ ...prev, departments: true }));
     try {
       const response = await Api.get("/church/get-departments", {
         params: { branchId },
       });
-      const departments = response?.data?.departments?.map((dept: Department) => ({
+
+      const departments = (response?.data?.departments || []).map((dept: Department) => ({
         ...dept,
         branchId,
-      })) || [];
-      setState((prev) => ({ ...prev, departments }));
+      }));
+
+      // Success → update state
+      setState(prev => ({ ...prev, departments }));
       return departments;
     } catch (error) {
       console.error("Error fetching departments:", error);
-      showPageToast("Failed to load departments", 'error');
+      showPageToast("Failed to load departments", "error");
       return [];
     } finally {
-      setLoadingStates((prev) => ({ ...prev, departments: false }));
+      setLoadingStates(prev => ({ ...prev, departments: false }));
     }
-  }, [loadingStates.departments]);
+  }, []);
 
   const fetchUnits = useCallback(async (departmentId?: string) => {
     if (loadingStates.units || !departmentId) return [];
@@ -339,47 +363,6 @@ const ViewAdmins: React.FC = () => {
     }
   }, [loadingStates.units]);
 
-  // Debounced Hierarchical Data Load
-  const loadHierarchicalData = useCallback(async () => {
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-
-    fetchTimeoutRef.current = setTimeout(async () => {
-      if (!state.accessLevel) return;
-
-      if (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") {
-        if (state.branches.length === 0 && !loadingStates.branches) {
-          await fetchBranches();
-        }
-      }
-
-      if (state.accessLevel === "department" && state.selectedBranch && !loadingStates.departments) {
-        if (state.departments.length === 0 || !state.departments.some((dept) => dept.branchId === state.selectedBranch)) {
-          await fetchDepartments(state.selectedBranch);
-        }
-      }
-
-      if (state.accessLevel === "unit" && state.selectedDepartment && !loadingStates.units) {
-        if (state.units.length === 0 || !state.units.some((unit) => unit.departmentId === state.selectedDepartment)) {
-          await fetchUnits(state.selectedDepartment);
-        }
-      }
-    }, 300); // Debounce for 300ms
-  }, [
-    state.accessLevel,
-    state.selectedBranch,
-    state.selectedDepartment,
-    state.branches,
-    state.departments,
-    state.units,
-    loadingStates.branches,
-    loadingStates.departments,
-    loadingStates.units,
-    fetchBranches,
-    fetchDepartments,
-    fetchUnits,
-  ]);
 
   // Initial Data Load
   const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
@@ -432,16 +415,6 @@ const ViewAdmins: React.FC = () => {
       isMounted = false;
     };
   }, [fetchAdmins]);
-
-  // Load Hierarchical Data
-  useEffect(() => {
-    loadHierarchicalData();
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-    };
-  }, [loadHierarchicalData]);
 
   // Search and Filter Logic
   const handleSearch = useCallback(async () => {
@@ -645,6 +618,149 @@ const ViewAdmins: React.FC = () => {
 
   }, [handleMenuClose, fetchAdmins]);
 
+  const openAssignRoleDialog = (admin: any) => {
+    handleStateChange("currentAdmin", admin);
+    handleStateChange("assignRoleOpen", true);
+    fetchRoles(); // <-- fetch roles when dialog opens
+  };
+
+  const fetchRoles = useCallback(async () => {
+    if (!authData?.branchId) return;
+    handleStateChange("roleLoading", true);
+    handleStateChange("roleError", null);
+    try {
+      const response = await Api.get<{ message: string; data: Role[] }>(
+        `/tenants/all-roles?branchId=${authData.branchId}`
+      );
+      handleStateChange("roles", response.data.data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch roles:", error);
+      const msg = error.response?.data?.message || "Failed to load roles";
+      handleStateChange("roleError", msg);
+    } finally {
+      handleStateChange("roleLoading", false);
+    }
+  }, [authData?.branchId, handleStateChange]);
+
+  const fetchCurrentAdminRoles = async () => {
+    if (!state.currentAdmin?.id) return;
+
+    try {
+      handleStateChange("roleLoading", true);
+
+      const res = await Api.get(`/church/admin-role/${state.currentAdmin.id}`);
+
+      const assignedRoles = res.data.data.roles || [];
+
+      // Extract only the role ids
+      const preSelected = assignedRoles.map((role: any) => role.id);
+
+      // ✅ Automatically check roles already assigned
+      handleStateChange("selectedRoleIds", preSelected);
+
+    } catch (error) {
+      console.error("Failed to fetch admin roles", error);
+    } finally {
+      handleStateChange("roleLoading", false);
+    }
+  };
+
+  // fetch assigned role
+  useEffect(() => {
+    if (state.assignRoleOpen) {
+      fetchRoles();              // fetch all roles to display
+      fetchCurrentAdminRoles();  // fetch roles already assigned
+    }
+  }, [state.assignRoleOpen]);
+
+  // sumbit form for assign role to admin
+  const handleSubmitAssignedRole = async () => {
+    if (!state.selectedBranchId) {
+      showPageToast("Branch is required", "error");
+      return;
+    }
+
+    if (state.selectedRoleIds.length === 0) {
+      showPageToast("Select at least one role", "error");
+      return;
+    }
+    try {
+      handleStateChange("loading", true);
+
+      const payload = {
+        adminId: state.currentAdmin?.id,
+        roleIds: state.selectedRoleIds,
+      };
+
+      await Api.post(`/tenants/assign-role?branchId=${state.selectedBranchId}`, payload);
+
+      showPageToast("Role(s) assigned successfully", "success");
+      handleStateChange("assignRoleOpen", false);
+      handleMenuClose();
+    } catch (error) {
+      showPageToast("Failed to assign role", "error");
+    } finally {
+      handleStateChange("loading", false);
+    }
+  };
+
+
+  // Automatically set selectedBranch if only 1 branch and not HQ
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1
+    ) {
+      const branchId = authData?.branchId || authData?.branches?.[0]; // string
+
+      if (branchId && state.selectedBranch !== branchId) {
+        setState(prev => ({
+          ...prev,
+          selectedBranch: branchId,
+          selectedDepartment: "",
+          selectedUnit: "",
+        }));
+        // DO NOT call fetchDepartments here
+      }
+    }
+  }, [
+    authData?.isHeadQuarter,
+    authData?.branches,
+    authData?.branchId,
+    state.selectedBranch,   // prevent re‑setting
+  ]);
+
+  // Add this ref at the top of your component (outside any useEffect)
+  const fetchedBranchIds = useRef<Set<string | number>>(new Set());
+
+  // Effect: Fetch departments only when needed
+  useEffect(() => {
+    // Reset conditions
+    if (!state.selectedBranch) return;
+    if (!["department", "unit"].includes(state.accessLevel)) return;
+    if (loadingStates.departments) return;
+
+    // CRITICAL: Only fetch if we haven't already fetched for this branch
+    if (fetchedBranchIds.current.has(state.selectedBranch)) {
+      return; // Already fetched (success or fail) → skip
+    }
+
+    // Mark as "fetching now"
+    fetchedBranchIds.current.add(state.selectedBranch);
+
+    // Now fetch
+    fetchDepartments(state.selectedBranch).finally(() => {
+      // Optional: keep the mark even on failure → prevents retry spam
+      // If you want to retry on fail, remove the line below
+      // fetchedBranchIds.current.delete(state.selectedBranch);
+    });
+  }, [
+    state.selectedBranch,
+    state.accessLevel,
+    loadingStates.departments,
+    fetchDepartments,
+  ]);
+
   // Helper Functions
   const truncateText = useCallback((text: string | null | undefined, maxLength = 30) => {
     if (!text) return "-";
@@ -776,12 +892,12 @@ const ViewAdmins: React.FC = () => {
             }}
           >
             <MenuItem value="">None</MenuItem>
-            <MenuItem value="branch">Branch</MenuItem>
+            <MenuItem value="branch">{(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) ? 'Church' : 'Branch'}</MenuItem>
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
           </TextField>
         </Box>
-        {(state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
+        {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography
@@ -803,9 +919,6 @@ const ViewAdmins: React.FC = () => {
                 handleStateChange("selectedBranch", branchId);
                 handleStateChange("selectedDepartment", "");
                 handleStateChange("selectedUnit", "");
-                if (state.accessLevel === "department" || state.accessLevel === "unit") {
-                  fetchDepartments(branchId);
-                }
               }}
               variant="outlined"
               size="small"
@@ -1081,17 +1194,16 @@ const ViewAdmins: React.FC = () => {
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => selected || "Select Level"}
+            }}            
           >
             <MenuItem value="">None</MenuItem>
-            <MenuItem value="branch">Branch</MenuItem>
+            <MenuItem value="branch">{(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) ? 'Church' : 'Branch'}</MenuItem>
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
           </MuiSelect>
         </Box>
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        {(state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
+        {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
           <>
             <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
@@ -1109,9 +1221,6 @@ const ViewAdmins: React.FC = () => {
                   handleStateChange("selectedBranch", branchId);
                   handleStateChange("selectedDepartment", "");
                   handleStateChange("selectedUnit", "");
-                  if (state.accessLevel === "department" || state.accessLevel === "unit") {
-                    fetchDepartments(branchId);
-                  }
                 }}
                 displayEmpty
                 sx={{
@@ -1601,7 +1710,11 @@ const ViewAdmins: React.FC = () => {
                       {admin.phone || "-"}
                     </TableCell>
                     <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
-                      {admin.scopeLevel || "-"}
+                      {admin.scopeLevel === "branch"
+                        ? authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1
+                          ? "Church"
+                          : "Branch"
+                        : admin.scopeLevel || "-"}
                     </TableCell>
                     <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {getAssignLevelText(admin)}
@@ -1651,12 +1764,18 @@ const ViewAdmins: React.FC = () => {
             sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } },
           }}
         >
-        {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
-          <MenuItem onClick={handleEditOpen} disabled={state.currentAdmin?.isDeleted}>
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
-            Edit
-          </MenuItem>
-        )}
+          {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
+            <MenuItem onClick={handleEditOpen} disabled={state.currentAdmin?.isDeleted}>
+              <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
+              Edit
+            </MenuItem>
+          )}
+          {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
+            <MenuItem onClick={() => openAssignRoleDialog(state.currentAdmin)} disabled={state.currentAdmin?.isDeleted}>
+              <PiUserSwitch style={{ marginRight: 8, fontSize: "1.2rem" }} />
+              Assign Role
+            </MenuItem>
+          )}
           <MenuItem
             onClick={() => showConfirmation("suspend")}
             disabled={state.loading || !canSuspend}
@@ -1686,6 +1805,129 @@ const ViewAdmins: React.FC = () => {
             Delete
           </MenuItem>
         </Menu>
+
+        <Dialog
+          open={state.assignRoleOpen}
+          onClose={() => handleStateChange("assignRoleOpen", false)}
+          maxWidth="xs"
+          fullWidth
+          sx={{ "& .MuiPaper-root": { bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+        >
+          <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+            Assign Role to {state.currentAdmin?.name}
+          </DialogTitle>
+
+          <DialogContent dividers>
+            {/* MULTIPLE SELECT ROLE INPUT */}
+            <FormControl fullWidth >
+              <InputLabel
+                id="branch-select-label"
+                sx={{
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                  color: "#F6F4FE",
+                  "&.Mui-focused": { color: "#F6F4FE" }
+                }}
+              >
+                Select Branch *
+              </InputLabel>
+
+              <Select
+                labelId="branch-select-label"
+                value={state.selectedBranchId}
+                onChange={(e) => handleStateChange('selectedBranchId', (e.target.value))}
+                label="Select Branch *"
+                sx={{
+                  color: "#F6F4FE",
+                  "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                  "& .MuiSelect-select": { color: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  fontSize: isLargeScreen ? "1rem" : undefined,
+                }}
+              >
+                {state.currentAdmin?.branches?.map((branch: Branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel
+                id="role-select-label"
+                sx={{ color: "#F6F4FE" }}
+              >
+                Select Role(s)
+              </InputLabel>
+
+              <Select
+                labelId="role-select-label"
+                multiple
+                value={state.selectedRoleIds}
+                onChange={(e) =>
+                  handleStateChange("selectedRoleIds", e.target.value as string[])
+                }
+                renderValue={(selected) =>
+                  state.roles
+                    .filter((item) => selected.includes(item.id))
+                    .map((item) => item.name)
+                    .join(", ")
+                }
+                sx={{
+                  color: "#F6F4FE",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#777280",
+                  },
+                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                }}
+              >
+                {/* 🔥 filter here → scopeLevel must match currentAdmin.scopeLevel */}
+                {state.roles
+                  .filter((role) => role.scopeLevel === state.currentAdmin?.scopeLevel)
+                  .map((role) => (
+                    <MenuItem key={role.id} value={role.id}>
+                      <Checkbox checked={state.selectedRoleIds.includes(role.id)} />
+
+                      <ListItemText
+                        primary={role.name}
+                        secondary={role.description || "No description provided"}
+                        primaryTypographyProps={{ sx: { fontWeight: 500 } }}
+                        secondaryTypographyProps={{ sx: { color: "#B5B5B5", fontSize: "0.8rem" } }}
+                      />
+                    </MenuItem>
+                  ))}
+
+                {/* Optional — if nothing matches */}
+                {state.roles.filter((role) => role.scopeLevel === state.currentAdmin?.scopeLevel).length === 0 && (
+                  <MenuItem disabled>
+                    <ListItemText primary="No matching roles available" />
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={() => handleStateChange("assignRoleOpen", false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmitAssignedRole}
+              disabled={state.loading}
+              sx={{
+                fontSize: isLargeScreen ? "0.875rem" : undefined,
+                backgroundColor: "#F6F4FE",
+                color: "#2c2c2c",
+                "&:hover": { backgroundColor: "#e0e0e0" },
+              }}
+            >
+              Assign
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Dialog
           open={state.confirmModalOpen}

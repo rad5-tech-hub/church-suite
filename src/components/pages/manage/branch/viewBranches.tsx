@@ -500,8 +500,8 @@ const ViewBranches: React.FC = () => {
     </Box>
   );
 
-  if (authData?.isHeadQuarter === false) {
-    return <Navigate to="/manage/view-admins" replace />;
+  if (authData?.isHeadQuarter === false || authData?.isSuperAdmin === false) {
+    return <Navigate to="/manage/view-departments" replace />;
   }
 
   const uniqueBranches = Array.from(
@@ -950,7 +950,7 @@ const ViewBranches: React.FC = () => {
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("suspend")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter}
           >
             {state.currentBranch?.isActive ? (
               <>
@@ -966,7 +966,7 @@ const ViewBranches: React.FC = () => {
           </MenuItem>
           <MenuItem
             onClick={() => showConfirmation("delete")}
-            disabled={state.loading || state.currentBranch?.isHeadQuarter || authData?.isSuperAdmin === false}
+            disabled={state.loading || state.currentBranch?.isHeadQuarter}
           >
             <AiOutlineDelete style={{ marginRight: 8 }} />
             Delete

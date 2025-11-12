@@ -477,7 +477,7 @@ const Dashboard: React.FC = () => {
               Welcome back, {authData?.name || "Admin"}
             </Typography>
             <Typography variant="body1">
-              Here's what's happening in your {dashboardData.scope}
+              Here's what's happening in your  {dashboardData.scope === "branch" ? authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1 ? "Church" : "Branch" : dashboardData.scope || "-"}
             </Typography>
           </Box>
         </Box>
@@ -485,7 +485,7 @@ const Dashboard: React.FC = () => {
         {/* KPI Summary Cards */}
         {isBranch && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            {dashboardData.structure.totalBranches !== undefined && (
+            {!authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) && dashboardData.structure.totalBranches !== undefined && (
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <StatCard
                   title="Total Branches"

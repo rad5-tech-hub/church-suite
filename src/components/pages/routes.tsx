@@ -21,6 +21,7 @@ const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSin
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
+const ViewRole = React.lazy(() => import("./manage/role/viewRole"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
@@ -93,7 +94,12 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <ViewUnit/>
             </PrivateRoute>
-          } />          
+          } /> 
+          <Route path="/manage/view-roles" element={
+            <PrivateRoute>
+              <ViewRole/>
+            </PrivateRoute>
+          } />         
           <Route path="/messages/sms" element={
             <PrivateRoute>
               <ViewMessageHistory/>

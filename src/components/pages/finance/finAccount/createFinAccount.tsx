@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
@@ -120,21 +120,32 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
   // ═══════════════════════════════════════════════════════════════════════════════
   // SCOPE LEVELS CONFIG
   // ═══════════════════════════════════════════════════════════════════════════════
-  const getScopeLevels = useCallback((role?: string) => {
-    switch (role) {
+  const getScopeLevels = useCallback(() => {
+    const isSingleBranch =
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1;
+
+    const branchOption = {
+      value: "branch",
+      label: isSingleBranch ? "Church" : "Branch",
+    };
+
+    switch (authData?.role) {
       case "branch":
-        return [
-          { value: "branch", label: "Branch" },
-          { value: "church", label: "Church" },
-        ];
+        return isSingleBranch
+          ? [branchOption] // only one option labeled "Church"
+          : [
+              branchOption,
+              { value: "church", label: "Church" },
+            ];
       case "department":
         return [{ value: "department", label: "Department" }];
       default:
         return [];
     }
-  }, []);
+  }, [authData?.isHeadQuarter, authData?.branches, authData?.role]);
 
-  const scopeLevels = getScopeLevels(authData?.role);
+  const scopeLevels = getScopeLevels();
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // API FUNCTIONS
@@ -196,7 +207,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
     const { name, value } = e.target as any;
     setFormData((prev) => ({
       ...prev, // Keep other fields intact
-      [name]: name === "amount" ? parseFloat(value.replace(/[^\d]/g, '')) || 0 : value,
+      [name]: name === "amount" ? parseFloat(value.replace(/[^\d]/g, '')) || '' : value,
     }));
     setErrors((prev) => ({ ...prev, [name]: "" }));
   }, []);
@@ -293,6 +304,27 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
       setLoading(false);
     }
   }, [formData, validateForm, onClose, onSuccess]);
+
+  // Automatically set branchIds if only 1 branch and not HQ
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1 &&
+      authData?.branchId
+    ) {
+      const branchId = authData.branchId;
+      setFormData((prev) => ({
+        ...prev,
+        branchIds: [branchId],
+        departmentIds: [],
+      }));
+
+      // Auto-fetch departments for department scope
+      if (formData.scopeLevel === "department") {
+        fetchDepartmentsForBranch(branchId);
+      }
+    }
+  }, [authData, formData.scopeLevel, fetchDepartmentsForBranch]);
 
   const handleCancel = useCallback(() => {
     setFormData(initialFormData);
@@ -438,37 +470,52 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
-            <FormControl fullWidth>
-                <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+              <FormControl fullWidth>
+                <InputLabel
+                  sx={{
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                    color: "#F6F4FE",
+                  }}
+                >
                   Transaction For
                 </InputLabel>
+
                 <Select
-                label="Level"
-                id="scopeLevel"
-                name="scopeLevel"
-                value={formData.scopeLevel}
-                onChange={handleScopeLevelChange}
-                disabled={loading}
-                sx={{
+                  label="Level"
+                  id="scopeLevel"
+                  name="scopeLevel"
+                  value={formData.scopeLevel}
+                  onChange={handleScopeLevelChange}
+                  disabled={loading}
+                  sx={{
                     color: "#F6F4FE",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#F6F4FE",
+                    },
                     "& .MuiSelect-select": { color: "#F6F4FE" },
                     "& .MuiSelect-icon": { color: "#F6F4FE" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                }}
+                  }}
                 >
-                {scopeLevels.map((level, index) => (
-                    <MenuItem key={index} value={level.value}>{level.label}</MenuItem>
-                ))}
+                  {scopeLevels.length > 0 ? (
+                    scopeLevels.map((level, index) => (
+                      <MenuItem key={index} value={level.value}>
+                        {level.label}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled>No available options</MenuItem>
+                  )}
                 </Select>
-            </FormControl>
+              </FormControl>
             </Grid>
+
 
             {/* ═══════════════════════════════════════════════════════════════════════════════ */}
             {/* BRANCH SELECTION */}
             {/* ═══════════════════════════════════════════════════════════════════════════════ */}
-            {(formData.scopeLevel === "branch" || formData.scopeLevel === "department") && (
+            {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (formData.scopeLevel === "branch" || formData.scopeLevel === "department") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth error={!!errors.branchIds}>
                   <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>

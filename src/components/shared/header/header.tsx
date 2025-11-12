@@ -243,9 +243,13 @@ const Header: React.FC<HeaderProps> = () => {
 // Handle navigation button click
   const handleButtonClick = (label: string) => {
     if (label === "Manage") {
-      if (authData?.role === "branch") {
+      if (authData?.role === "branch" && authData?.isHeadQuarter) {
         navigate("/manage/view-branches");
-      } else if (authData?.role === "department") {
+      } 
+     else if (authData?.role === 'branch' || authData?.isSuperAdmin === false) {
+        navigate("/manage/view-departments");
+      } 
+      else if (authData?.role === "department" || !authData?.isHeadQuarter) {
         navigate("/manage/view-departments");
       } else if (authData?.role === "unit") {
         navigate("/manage/view-units");

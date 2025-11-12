@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
@@ -39,7 +39,6 @@ interface FormData {
   endTime?: string;
   branchIds: string[];
   departmentIds: string[];
-  members: MemberSelection[];
   scopeLevel: string;
 }
 
@@ -57,46 +56,10 @@ interface Department {
   branchId: string;
 }
 
-interface Member {
-  id: string;
-  name: string;
-  address: string;
-  whatappNo: string;
-  phoneNo: string;
-  sex: string;
-  birthMonth: string;
-  birthDay: string;
-  ageFrom: number;
-  ageTo: number;
-  state: string;
-  LGA: string;
-  nationality: string;
-  maritalStatus: string;
-  activity: string;
-  memberSince: string;
-  comments: string;
-  branchId: string;
-  isActive: boolean;
-  tenantId: string;
-  churchId: string;
-  isDeleted: boolean;
-  createdAt: string;
-  updatedAt: string;
-  branch: { name: string };
-}
-
-interface MemberSelection {
-  memberId: string;
-  departmentId: string;
-}
-
 interface BranchDepartments {
   [branchId: string]: Department[];
 }
 
-interface DepartmentMembers {
-  [deptId: string]: Member[];
-}
 
 interface Errors {
   name: string;
@@ -120,7 +83,6 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     name: "",
     description: "",
     endTime: undefined,
-    members: [],
     scopeLevel: "branch",
     branchIds: [],
     departmentIds: [],
@@ -140,13 +102,10 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
   const [loading, setLoading] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchDepartments, setBranchDepartments] = useState<BranchDepartments>({});
-  const [departmentMembers, setDepartmentMembers] = useState<DepartmentMembers>({});
   const [hasFetchedBranches, setHasFetchedBranches] = useState(false);
   const [hasFetchedDepartments, setHasFetchedDepartments] = useState<{ [branchId: string]: boolean }>({});
-  const [hasFetchedMembers, setHasFetchedMembers] = useState<{ [deptId: string]: boolean }>({});
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isFetchingDepartments, setIsFetchingDepartments] = useState<{ [branchId: string]: boolean }>({});
-  const [isFetchingMembers, setIsFetchingMembers] = useState<{ [deptId: string]: boolean }>({});
   const [branchesError, setBranchesError] = useState("");
   const [departmentsError, setDepartmentsError] = useState<{ [branchId: string]: string }>({});
   const [, setMembersError] = useState<{ [deptId: string]: string }>({});
@@ -156,13 +115,18 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
   const authData = useSelector((state: RootState) => state?.auth?.authData);
   const [isScheduleChecked, setIsScheduleChecked] = useState(false);
 
-  const getScopeLevels = useCallback((role?: string) => {
+  const getScopeLevels = useCallback((role?: string, isHeadQuarter?: boolean, isSuperAdmin?: boolean) => {
+
+    const branchOption = {
+      value: "branch",
+      label: (authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) ? "Church" : "Branch",
+    };
     switch (role) {
       case "branch":
         return [
-          { value: "branch", label: "Branch" },
+          ...(isSuperAdmin ? [branchOption] : []),
           { value: "department", label: "Department" },
-          { value: "church", label: "Church" },
+          ...(isHeadQuarter ? [{ value: "church", label: "Church" }] : []),
         ];
       case "department":
         return [
@@ -173,7 +137,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     }
   }, []);
 
-  const scopeLevels = getScopeLevels(authData?.role);
+  const scopeLevels = getScopeLevels(authData?.role, authData?.isHeadQuarter, authData?.isSuperAdmin);
 
   const fetchBranches = useCallback(async () => {
     if (hasFetchedBranches || isFetchingBranches) return;
@@ -209,26 +173,6 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     }
   }, [hasFetchedDepartments, isFetchingDepartments]);
 
-  const fetchMembersForDepartment = useCallback(async (deptId: string) => {
-    if (hasFetchedMembers[deptId] || isFetchingMembers[deptId]) return;
-    setIsFetchingMembers((prev) => ({ ...prev, [deptId]: true }));
-    setMembersError((prev) => ({ ...prev, [deptId]: "" }));
-    try {
-      const response = await Api.get<{ message: string; data: Member[] }>(
-        `/member/all-members?departmentId=${deptId}`
-      );
-      const members = response.data.data || [];
-      setDepartmentMembers((prev) => ({ ...prev, [deptId]: members }));
-      setHasFetchedMembers((prev) => ({ ...prev, [deptId]: true }));
-    } catch (error: any) {
-      setMembersError((prev) => ({
-        ...prev,
-        [deptId]: "Failed to load members for this department.",
-      }));
-    } finally {
-      setIsFetchingMembers((prev) => ({ ...prev, [deptId]: false }));
-    }
-  }, [hasFetchedMembers, isFetchingMembers]);
 
   const handleScopeLevelChange = useCallback((e: SelectChangeEvent<string>) => {
     const value = e.target.value;
@@ -241,9 +185,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     }));
     setErrors(initialErrors);
     setBranchDepartments({});
-    setDepartmentMembers({});
     setHasFetchedDepartments({});
-    setHasFetchedMembers({});
     setDepartmentsError({});
     setMembersError({});
   }, []);
@@ -296,47 +238,9 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     setBranchDepartments({});
     setHasFetchedDepartments({});
     setDepartmentsError({});
-    setDepartmentMembers({});
-    setHasFetchedMembers({});
     setMembersError({});
   }, []);
 
-  const handleDepartmentSelectChange = useCallback((branchId: string) => (e: SelectChangeEvent<string[]>) => {
-    const selectedDepartmentIds = e.target.value as string[];
-    const otherDepartmentIds = formData.departmentIds.filter(
-      (deptId) => !branchDepartments[branchId]?.some((dept) => dept.id === deptId)
-    );
-    const deselectedDepts = formData.departmentIds.filter(
-      (deptId) => !selectedDepartmentIds.includes(deptId) && branchDepartments[branchId]?.some((dept) => dept.id === deptId)
-    );
-    const updatedMembers = formData.members.filter(
-      (member) => !deselectedDepts.includes(member.departmentId)
-    );
-
-    setFormData((prev) => ({
-      ...prev,
-      departmentIds: [...otherDepartmentIds, ...selectedDepartmentIds],
-      members: updatedMembers,
-    }));
-    setErrors((prev) => ({ ...prev, departmentIds: "", memberIds: "" }));
-    setHasFetchedMembers({});
-    setMembersError({});
-  }, [formData.departmentIds, formData.members, branchDepartments]);
-
-  const handleMemberSelectChange = useCallback((deptId: string) => (e: SelectChangeEvent<string[]>) => {
-    const selectedMemberIds = e.target.value as string[];
-    const updatedMembers = formData.members.filter((member) => member.departmentId !== deptId);
-    const newMembers = selectedMemberIds.map((memberId) => ({
-      memberId,
-      departmentId: deptId,
-    }));
-
-    setFormData((prev) => ({
-      ...prev,
-      members: [...updatedMembers, ...newMembers],
-    }));
-    setErrors((prev) => ({ ...prev, memberIds: "" }));
-  }, [formData.members]);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: Errors = { ...initialErrors };
@@ -369,23 +273,15 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
       }
     }
 
-    if (formData.scopeLevel === "church") {
-      const hasMembers = formData.members?.length > 0;
-      const hasDepartments = formData.departmentIds?.length > 0;
+    if (formData.scopeLevel === "church") {  
       const hasBranches = formData.branchIds?.length > 0;
 
-      if (hasMembers) {
-        // Case 1: Only validate members
-        if (formData.members.length === 0) newErrors.memberIds = "Please select at least one worker";
-      } else if (!hasMembers && hasDepartments) {
-        // Case 2: Only validate departments
-        if (formData.departmentIds.length === 0) newErrors.departmentIds = "Please select at least one department";
-      } else if (!hasMembers && !hasDepartments && hasBranches) {
+     if (hasBranches) {
         // Case 3: Only validate branches
         if (formData.branchIds.length === 0) newErrors.branchIds = "Please select at least one branch";
       } else {
         // No selection at all
-        newErrors.branchIds = "Please select branches, departments, or workers";
+        newErrors.branchIds = "Please select branches";
       }
     }
 
@@ -418,19 +314,12 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
         const deptId = formData.departmentIds[0];
         endpoint += `?branchId=${branchId}&departmentId=${deptId}`;
       } else if (formData.scopeLevel === "church") {
+        endpoint += `?branchId=${authData?.branchId}`;
         payload.scopeType = "church";
-        const hasMembers = formData.members?.length > 0;
-        const hasDepartments = formData.departmentIds?.length > 0;
         const hasBranches = formData.branchIds?.length > 0;
 
         // Apply church scope logic - EXACT MATCH
-        if (hasMembers) {
-          // Case 1: send only members
-          payload.members = formData.members;
-        } else if (!hasMembers && hasDepartments) {
-          // Case 2: send only departmentIds
-          payload.departmentIds = formData.departmentIds;
-        } else if (!hasMembers && !hasDepartments && hasBranches) {
+        if  (hasBranches) {
           // Case 3: send only branchIds
           payload.branchIds = formData.branchIds;
         }
@@ -445,13 +334,10 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
         setErrors(initialErrors);
         setBranches([]);
         setBranchDepartments({});
-        setDepartmentMembers({});
         setHasFetchedBranches(false);
         setHasFetchedDepartments({});
-        setHasFetchedMembers({});
         setIsFetchingBranches(false);
         setIsFetchingDepartments({});
-        setIsFetchingMembers({});
         setBranchesError("");
         setDepartmentsError({});
         setMembersError({});
@@ -476,15 +362,34 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
     }
   }, [formData, validateForm, onClose, onSuccess]);
 
+  // Automatically set branchIds if only 1 branch and not HQ
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1 &&
+      authData?.branchId
+    ) {
+      const branchId = authData.branchId;
+      setFormData((prev) => ({
+        ...prev,
+        branchIds: [branchId],
+        departmentIds: [],
+      }));
+
+      // Auto-fetch departments for department scope
+      if (formData.scopeLevel === "department") {
+        fetchDepartmentsForBranch(branchId);
+      }
+    }
+  }, [authData, formData.scopeLevel, fetchDepartmentsForBranch]);
+
   const handleCancel = useCallback(() => {
     setFormData(initialFormData);
     setErrors(initialErrors);
     setBranches([]);
     setBranchDepartments({});
-    setDepartmentMembers({});
     setHasFetchedBranches(false);
     setHasFetchedDepartments({});
-    setHasFetchedMembers({});
     setBranchesError("");
     setDepartmentsError({});
     setMembersError({});
@@ -631,7 +536,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
             </Grid>
 
             {/* SINGLE BRANCH SELECT - Branch & Department Scope */}
-            {(formData.scopeLevel === "branch" || formData.scopeLevel === "department") && (
+            {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (formData.scopeLevel === "branch" || formData.scopeLevel === "department") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth error={!!errors.branchIds}>
                   <InputLabel
@@ -830,159 +735,6 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                     {errors.branchIds && <FormHelperText>{errors.branchIds}</FormHelperText>}
                   </FormControl>
                 </Grid>
-
-                {/* CASE 2: MULTIPLE DEPARTMENT SELECT */}
-                {formData.branchIds.length > 0 &&
-                  formData.branchIds.map((branchId) => (
-                    <Grid size={{ xs: 12, md: 6 }} key={branchId}>
-                      <FormControl fullWidth error={!!errors.departmentIds}>
-                        <InputLabel
-                          id={`church-department-label-${branchId}`}
-                          sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
-                        >
-                          Departments for {branches.find((b) => b.id === branchId)?.name || "Branch"}
-                        </InputLabel>
-                        <Select
-                          labelId={`church-department-label-${branchId}`}
-                          multiple
-                          value={formData.departmentIds.filter((deptId) =>
-                            branchDepartments[branchId]?.some((dept) => dept.id === deptId)
-                          )}
-                          onChange={handleDepartmentSelectChange(branchId)}
-                          onOpen={() => fetchDepartmentsForBranch(branchId)}
-                          label={`Departments for ${branches.find((b) => b.id === branchId)?.name || "Branch"}`}
-                          disabled={loading}
-                          renderValue={(selected) =>
-                            (selected as string[])
-                              .map((id) => branchDepartments[branchId]?.find((dept) => dept.id === id)?.name || id)
-                              .join(", ")
-                          }
-                          sx={{
-                            color: "#F6F4FE",
-                            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                            "& .MuiSelect-select": { color: "#F6F4FE" },
-                            "& .MuiSelect-icon": { color: "#F6F4FE" },
-                            fontSize: isLargeScreen ? "1rem" : undefined,
-                          }}
-                          MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-                        >
-                          {isFetchingDepartments[branchId] ? (
-                            <MenuItem disabled>
-                              <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
-                                <CircularProgress size={20} sx={{ mr: 1 }} />
-                                <Typography variant="body2">Loading departments...</Typography>
-                              </Box>
-                            </MenuItem>
-                          ) : branchDepartments[branchId]?.length > 0 ? (
-                            branchDepartments[branchId].map((department) => (
-                              <MenuItem key={department.id} value={department.id}>
-                                <Checkbox checked={formData.departmentIds.includes(department.id)} />
-                                <ListItemText
-                                  primary={
-                                    department.type ? `${department.name} - (${department.type})` : department.name
-                                  }
-                                  sx={{ "& .MuiListItemText-primary": { fontWeight: 300 } }}
-                                />
-                              </MenuItem>
-                            ))
-                          ) : (
-                            <MenuItem disabled>No departments available</MenuItem>
-                          )}
-                        </Select>
-                        {errors.departmentIds && <FormHelperText>{errors.departmentIds}</FormHelperText>}
-                      </FormControl>
-                    </Grid>
-                  ))}
-
-                {/* CASE 1: MEMBERS SELECT */}
-                {formData.departmentIds.length > 0 &&
-                  formData.departmentIds.map((deptId) => {
-                    const branch = branches.find((b) =>
-                      branchDepartments[b.id]?.some((d) => d.id === deptId)
-                    );
-                    const branchName = branch?.name || "";
-                    const dept = Object.values(branchDepartments)
-                      .flat()
-                      .find((d) => d.id === deptId);
-                    const deptName = dept?.name || "";
-
-                    return (
-                      <Grid size={{ xs: 12, md: 6 }} key={deptId}>
-                        <FormControl fullWidth error={!!errors.memberIds}>
-                          <InputLabel
-                            id={`members-label-${deptId}`}
-                            sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
-                          >
-                            Workers - {branchName} / {deptName}
-                          </InputLabel>
-                          <Select
-                            labelId={`members-label-${deptId}`}
-                            multiple
-                            value={formData.members
-                              .filter((m) => m.departmentId === deptId)
-                              .map((m) => m.memberId)}
-                            onChange={handleMemberSelectChange(deptId)}
-                            onOpen={() => fetchMembersForDepartment(deptId)}
-                            label={`Workers - ${branchName} / ${deptName}`}
-                            disabled={loading}
-                            renderValue={(selected) =>
-                              (selected as string[])
-                                .map((id) => departmentMembers[deptId]?.find((member) => member.id === id)?.name || id)
-                                .join(", ")
-                            }
-                            sx={{
-                              color: "#F6F4FE",
-                              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                              "& .MuiSelect-select": { color: "#F6F4FE" },
-                              "& .MuiSelect-icon": { color: "#F6F4FE" },
-                              fontSize: isLargeScreen ? "1rem" : undefined,
-                            }}
-                            MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
-                          >
-                            {isFetchingMembers[deptId] ? (
-                              <MenuItem disabled>
-                                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "center" }}>
-                                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                                  <Typography variant="body2">Loading workers...</Typography>
-                                </Box>
-                              </MenuItem>
-                            ) : departmentMembers[deptId]?.length > 0 ? (
-                              departmentMembers[deptId].map((member) => (
-                                <MenuItem key={member.id} value={member.id}>
-                                  <Checkbox
-                                    checked={formData.members.some(
-                                      (m) => m.memberId === member.id && m.departmentId === deptId
-                                    )}
-                                  />
-                                  <ListItemText
-                                    primary={member.name}
-                                    secondary={`(${member.phoneNo})`}
-                                    sx={{
-                                      "& .MuiListItemText-primary": { fontWeight: 300 },
-                                      "& .MuiListItemText-secondary": { color: "#B0B0B0" },
-                                    }}
-                                  />
-                                </MenuItem>
-                              ))
-                            ) : (
-                              <MenuItem disabled>No workers available</MenuItem>
-                            )}
-                          </Select>
-                          {errors.memberIds && <FormHelperText>{errors.memberIds}</FormHelperText>}
-                        </FormControl>
-                      </Grid>
-                    );
-                  })}
-
-                {formData.scopeLevel === "church" && formData.members.length > 0 && (
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="body2" sx={{ color: "#B0B0B0", mb: 1 }}>
-                      Selected Workers: {formData.members.length}
-                    </Typography>
-                  </Grid>
-                )}
               </>
             )}
 

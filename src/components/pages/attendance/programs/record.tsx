@@ -76,9 +76,10 @@ export interface RecordDialogueProps {
   eventId: string;
   open: boolean;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose }) => {
+const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose, onSuccess }) => {
   const inputFields: InputField[] = [
     { label: 'Men', key: 'male' },
     { label: 'Women', key: 'female' },
@@ -233,6 +234,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose 
           children: '',
         });
       }, 3000);
+      onSuccess()
     } catch (err: any) {
       let errorMessage = 'Error saving records';
       if (err.response?.data?.error?.message) {
@@ -339,7 +341,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          onClose();          
+        }
+      }}
       fullWidth
       maxWidth="md"
       sx={{

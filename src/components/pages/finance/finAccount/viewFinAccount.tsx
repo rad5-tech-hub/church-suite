@@ -619,11 +619,34 @@ const ViewFinAccount: React.FC = () => {
   );
 
   const availableTabs = useMemo((): AppState["currentTab"][] => {
-    if (authData?.role === "super_admin" || !authData?.role) return ["church"];
-    if (authData.role === "branch") return ["church", "branch", "department"];
-    if (authData.role === "department") return ["department"];
+    const isHQ = authData?.isHeadQuarter;
+    const branchCount = authData?.branches?.length ?? 0;
+    const role = authData?.role;
+    const isSuperAdmin = authData?.isSuperAdmin;
+
+    // ✅ CASE 1: HQ SuperAdmin with branch role → show everything
+    if (isHQ && role === "branch" && isSuperAdmin) {
+      return ["church", "branch", "department"];
+    }
+
+    // 🟢 CASE 2: HQ user with 1 branch OR branch SuperAdmin → show branch & department
+    if ((isHQ && branchCount === 1 && role === "branch") || (!isHQ && branchCount === 1 && role === "branch")) {
+      return ["branch", "department"];
+    }
+
+    // 🟠 CASE 3: Department role → only department tab
+    if (role === "department") {
+      return ["department"];
+    }
+
+    // ⚫ Default → church
     return ["church"];
-  }, [authData?.role]);
+  }, [
+    authData?.role,
+    authData?.isHeadQuarter,
+    authData?.branches,
+    authData?.isSuperAdmin,
+  ]);
 
   const currentTabData = getCurrentTabData();
 
@@ -743,12 +766,19 @@ const ViewFinAccount: React.FC = () => {
                 flex: 1,
               }}
             >
-              {availableTabs.map((tab) => (
-                <Tab key={tab} value={tab} label={tab.charAt(0).toUpperCase() + tab.slice(1)} />
-              ))}
+              {availableTabs.map((tab) => {
+                const shouldChangeToChurch =
+                  authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1 && tab === "branch";
+
+                const label = shouldChangeToChurch
+                  ? "Church"
+                  : tab.charAt(0).toUpperCase() + tab.slice(1);
+
+                return <Tab key={tab} value={tab} label={label} />;
+              })}
             </Tabs>
 
-            {state.currentTab === "branch" && (
+            {!authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1 && state.currentTab === "branch" && (
               <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1, flexDirection: { xs: "column", sm: "row" } }}>
                 <TrendingFlat fontSize="large" sx={{ fontSize: 30, color: "#f6f4fe", display: { xs: "none", sm: "block" } }} />
                 <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 200 }, maxWidth: { sm: 250 } }}>

@@ -225,14 +225,26 @@ const ViewCollections: React.FC = () => {
     async (url?: string) => {
       handleStateChange("loading", true);
       handleStateChange("error", null);
-      try {
-        let finalUrl = url || "/church/get-collection-attributes";
 
-        if (authData?.role === "department") {
+      try {
+        let finalUrl = url; // allow overriding with parameter
+
+        // Build URL if not provided
+        if (!finalUrl && authData) {
           const params = new URLSearchParams();
-          if (authData?.department) params.append("departmentId", authData.department);
-          finalUrl = `/church/get-all-collections/${authData.branchId}?${params.toString()}`;
+
+          if (authData.role === "branch") {
+            params.append("branch", "true");
+            finalUrl = `/church/get-all-collections/${authData.branchId}?${params.toString()}`;
+          }
+
+          if (authData.role === "department") {
+            if (authData.department) params.append("departmentId", authData.department);
+            finalUrl = `/church/get-all-collections/${authData.branchId}?${params.toString()}`;
+          }
         }
+
+        if (!finalUrl) throw new Error("Invalid role or missing data for fetching collections");
 
         const response = await Api.get<FetchCollectionsResponse>(finalUrl);
         return response.data;
@@ -245,7 +257,7 @@ const ViewCollections: React.FC = () => {
         handleStateChange("loading", false);
       }
     },
-    [authData?.role, authData?.branchId, authData?.department, handleStateChange]
+    [authData, handleStateChange]
   );
 
   const refreshCollections = useCallback(async () => {
@@ -658,7 +670,15 @@ const ViewCollections: React.FC = () => {
                             textTransform: "uppercase",
                           }}
                         >
-                          {collection.scopeType}
+                        {(
+                          authData?.isHeadQuarter === false &&
+                          (authData?.branches?.length ?? 0) === 1 &&
+                          collection.scopeType === "branch"
+                        ) ? (
+                          "Church"
+                        ) : (
+                          collection.scopeType
+                        )}
                         </Box>
                       </Typography>
 

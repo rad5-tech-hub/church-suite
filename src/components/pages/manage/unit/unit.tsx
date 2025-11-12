@@ -313,7 +313,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               value={selectedDepartment}
               label="Select Department *"
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              disabled={loading || !selectedBranch}
+              disabled={!selectedBranch}
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
                 color: "#F6F4FE",

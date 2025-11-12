@@ -13,6 +13,7 @@ import { FaBoxTissue } from "react-icons/fa";
 import { CiWallet } from "react-icons/ci";
 import { MdOutlineAccountBalance } from "react-icons/md";
 import { IoIosPeople } from "react-icons/io";
+import { PiRankingFill } from "react-icons/pi";
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -26,6 +27,7 @@ const Sidebar: React.FC = () => {
     { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches" },
     { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments" },
     { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units" },
+    { to: "/manage/view-roles", icon: <PiRankingFill className="text-2xl" />, label: "Roles" },
     { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
   ];
 
@@ -53,7 +55,7 @@ const Sidebar: React.FC = () => {
   let filteredMembers = member;
 
   // Restrict "View Branches" if the user is NOT HeadQuarter or NOT Branch
-  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
+  if (authData?.isHeadQuarter === false || authData?.isSuperAdmin === false) {
     filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
   }
 

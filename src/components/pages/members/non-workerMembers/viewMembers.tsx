@@ -20,7 +20,6 @@ import {
   useTheme,
   useMediaQuery,
   Grid,
-  Tooltip,
   CircularProgress,
   TextField,
   Drawer,
@@ -41,36 +40,26 @@ import {
   SentimentVeryDissatisfied as EmptyIcon,
   Close as CloseIcon,
 } from "@mui/icons-material";
-import { MdOutlineEdit, MdOutlineFileUpload, MdRefresh } from "react-icons/md";
+import { MdOutlineEdit, MdRefresh } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
-import { PiDownloadThin } from "react-icons/pi";
+// import { PiDownloadThin } from "react-icons/pi";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import DashboardManager from "../../../shared/dashboardManager";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import { RootState } from "../../../reduxstore/redux";
-import MemberModal from "../../members/allMembers/members";
-import EditMemberModal from "../singleMember/editmember";
+import MemberModal from "../non-workerMembers/members";
+import EditMemberModal from "../non-workerMembers/editmember";
 
 // Type Definitions
 interface Member {
   id: string;
-  memberId: string;
+  email?: string;
   name: string;
-  branchId: string;
-  branch: { name: string };
   phoneNo: string;
   sex: string;
-  departments: {name: string}[];
-  units: {name: string}[];
-  whatappNo: string;
   isDeleted?: boolean;
-}
-
-interface Department {
-  id: string;
-  name: string;
 }
 
 interface Branch {
@@ -86,8 +75,11 @@ interface Pagination {
 
 interface FetchMembersResponse {
   success: boolean;
-  pagination: Pagination;
-  data: Member[];
+  message: string;
+  data: {
+    pagination: Pagination;
+    results: Member[];
+  };
 }
 
 interface CustomPaginationProps {
@@ -109,14 +101,11 @@ interface MemberRowProps {
 
 // Column Widths
 const columnWidths = {
-  snumber: "3%",
-  name: "25%",
-  contact: "13%",
-  branch: "12%",
-  whatsapp: "13%",
-  departments: "9%",
-  units: "8%",
-  actions: "17%",
+  snumber: "5%",
+  name: "45%",
+  contact: "20%",
+  sex: '10%',
+  actions: "20%",
 };
 
 // Custom Components
@@ -189,34 +178,13 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
       </Box>
       <Box>
         {member.name}
-        <br />
-        <span className="text-[13px] text-[#777280]">{member.sex || "-"}</span>
       </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.sex, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+      {member.sex || "N/A"}
     </TableCell>
     <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {member.phoneNo || "N/A"}
-    </TableCell>
-    <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
-      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {member.branch?.name || "N/A"}
-      </Box>
-    </TableCell>
-    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
-      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {member.departments?.length
-          ? member.departments.map(dept => dept.name).join(", ")
-          : "N/A"}
-      </Box>
-    </TableCell>
-    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
-      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {member.units?.length
-          ? member.units.map(unit => unit.name).join(", ")
-          : "N/A"}
-      </Box>
-    </TableCell>
-    <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
-      {member.whatappNo}
     </TableCell>
     <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
       <IconButton
@@ -236,7 +204,7 @@ const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAdd
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
     <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
     <Typography variant="h6" color="rgba(255, 255, 255, 0.5)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      {error || "No Workers found"}
+      {error || "No Member found"}
     </Typography>
     <Button
       variant="contained"
@@ -252,7 +220,7 @@ const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAdd
         "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
       }}
     >
-      Add New Worker
+      Add New Member
     </Button>
   </Box>
 );
@@ -318,7 +286,7 @@ const ConfirmationDialog: React.FC<{
     sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
   >
     <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
-      {actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
+      {actionType === "delete" ? "Delete Member" : "Suspend Member"}
     </DialogTitle>
     <DialogContent>
       <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
@@ -357,15 +325,13 @@ const ViewMembers: React.FC = () => {
     members: [] as Member[],
     filteredMembers: [] as Member[],
     filteredNames: [] as Member[],
-    departments: [] as Department[],
     branches: [] as Branch[],
     pagination: { hasNextPage: false, nextPage: null, nextCursor: null } as Pagination,
     pageHistory: [] as string[],
     currentPage: 1,
     page: 0,
     searchName: "",
-    searchDepartment: authData?.role === "department" && authData?.department ? authData.department : "",
-    searchBranch: authData?.branchId || "",
+    searchSex: "",
     loading: true,
     exportLoading: false,
     isLoading: false,
@@ -389,7 +355,6 @@ const ViewMembers: React.FC = () => {
     isBranchSelectOpen: false,
     isDepartmentSelectOpen: false,
     selectedBranchId: authData?.branchId || "",
-    selectedDepartmentId: authData?.role === "department" && authData?.department ? authData.department : "",
     editModalOpen: false,
   });
 
@@ -404,12 +369,6 @@ const ViewMembers: React.FC = () => {
             member.name.toLowerCase().includes(searchTerm)
           );
         }
-        if (key === "searchBranch") {
-          newState.searchDepartment = authData?.role === "department" && authData?.department ? authData.department : "";
-          newState.departments = [];
-          newState.departmentsLoaded = false;
-          newState.departmentsError = null;
-        }
         return newState;
       });
     },
@@ -423,16 +382,16 @@ const ViewMembers: React.FC = () => {
       handleStateChange("error", null);
       try {
         const params = new URLSearchParams();
-        if (authData?.branchId) params.append("branchId", authData.branchId);
-        if (authData?.role === "department" && authData?.department) {
-          params.append("departmentId", authData.department);
-        }
-        const apiUrl = url || `/member/all-members?${params.toString()}`;
+        if (authData?.branchId) params.append("branchId", authData.branchId);        
+        params.append("isWorker", 'false');
+        const apiUrl = url || `/member/all-church-member?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(apiUrl);
         const data = {
-          members: response.data.data || [],
-          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+          members: response.data.data.results || [],
+          pagination: response.data.data.pagination || { hasNextPage: false, nextPage: null },
         };
+
+        console.log(response)
         setState((prev) => ({
           ...prev,
           members: data.members,
@@ -461,62 +420,6 @@ const ViewMembers: React.FC = () => {
     [authData?.branchId, authData?.department, authData?.role, handleStateChange]
   );
 
-  const fetchDepartments = useCallback(async () => {
-    if (state.loadingDepartments || state.departmentsLoaded || state.departmentsError) return;
-    const branchId = state.searchBranch || authData?.branchId;
-    if (!branchId) {
-      handleStateChange("departments", []);
-      handleStateChange("loadingDepartments", false);
-      handleStateChange("departmentsError", "Please select a branch to load departments");
-      showPageToast("Please select a branch to load departments", "warning");
-      return;
-    }
-    handleStateChange("loadingDepartments", true);
-    try {
-      const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
-      handleStateChange("departments", response.data.departments || []);
-      handleStateChange("departmentsLoaded", true);
-      handleStateChange("departmentsError", null);
-    } catch (error: any) {
-      console.error("Error fetching departments:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again.";
-      handleStateChange("departmentsError", errorMessage);
-      handleStateChange("departments", []);
-      handleStateChange("loadingDepartments", false);
-      handleStateChange("departmentsLoaded", false);    
-    } finally {
-      handleStateChange("loadingDepartments", false);
-    }
-  }, [authData?.branchId, state.searchBranch, state.loadingDepartments, state.departmentsLoaded, state.departmentsError, handleStateChange]);
-
-  const fetchBranches = useCallback(async () => {
-    if (state.isBranchLoading || state.branchesLoaded || state.branchesError) return;
-    handleStateChange("isBranchLoading", true);
-    try {
-      const response = await Api.get("/church/get-branches");
-      handleStateChange("branches", response.data.branches || []);
-      handleStateChange("branchesLoaded", true);
-      handleStateChange("branchesError", null);
-    } catch (error: any) {
-      console.error("Error fetching branches:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      const errorMessage = error.response?.data?.message || "Failed to load branches. Please try again.";
-      handleStateChange("branchesError", errorMessage);
-      handleStateChange("branches", []);
-      handleStateChange("isBranchLoading", false);
-      handleStateChange("branchesLoaded", false);
-    } finally {
-      handleStateChange("isBranchLoading", false);
-    }
-  }, [state.isBranchLoading, state.branchesLoaded, state.branchesError, handleStateChange]);
-
   const refreshMembers = useCallback(async () => {
     try {
       const data = await fetchMembers();
@@ -541,17 +444,18 @@ const ViewMembers: React.FC = () => {
     handleStateChange("pageHistory", []);
     try {
       const params = new URLSearchParams();
+      if (authData?.branchId) params.append("branchId", authData.branchId);
+      params.append("isWorker", 'false');
       if (state.searchName) {
         params.append("search", state.searchName);
         params.append("searchField", "name");
       }
-      if (state.searchDepartment) params.append("departmentId", state.searchDepartment);
-      if (state.searchBranch) params.append("branchId", state.searchBranch);
-      const response = await Api.get<FetchMembersResponse>(`/member/all-members?${params.toString()}`);
+      if (state.searchSex) params.append("sex", state.searchSex);
+      const response = await Api.get<FetchMembersResponse>(`/member/all-church-member?${params.toString()}`);
       setState((prev) => ({
         ...prev,
-        filteredMembers: response.data.data || [],
-        pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+        filteredMembers: response.data.data.results || [],
+        pagination: response.data.data.pagination || { hasNextPage: false, nextPage: null },
         page: 0,
         isDrawerOpen: false,
         isSearching: false,
@@ -571,16 +475,6 @@ const ViewMembers: React.FC = () => {
           member.name.toLowerCase().includes(state.searchName.toLowerCase())
         );
       }
-      if (state.searchDepartment) {
-        filtered = filtered.filter((member) =>
-          state.departments.some(
-            (dept) => dept.id === state.searchDepartment && member.name.toLowerCase().includes(dept.name.toLowerCase())
-          )
-        );
-      }
-      if (state.searchBranch) {
-        filtered = filtered.filter((member) => member.branchId === state.searchBranch);
-      }
       setState((prev) => ({
         ...prev,
         filteredMembers: filtered,
@@ -591,23 +485,22 @@ const ViewMembers: React.FC = () => {
         isSearching: false,
       }));
     }
-  }, [state.members, state.searchName, state.searchDepartment, state.searchBranch, state.departments, handleStateChange]);
+  }, [state.members, state.searchName, handleStateChange]);
 
   const searchMembersWithPagination = useCallback(
-    async (url: string, searchName: string, searchDepartment: string, searchBranch: string) => {
+    async (url: string, searchName: string, searchSex: string) => {
       try {
         const params = new URLSearchParams();
         if (searchName) {
           params.append("search", searchName);
           params.append("searchField", "name");
-        }
-        if (searchDepartment) params.append("departmentId", searchDepartment);
-        if (searchBranch) params.append("branchId", searchBranch);
+        }      
+        if (searchSex) params.append("sex", searchSex);
         const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(fullUrl);
         return {
-          members: response.data.data || [],
-          pagination: response.data.pagination || { hasNextPage: false, nextPage: null },
+          members: response.data.data.results || [],
+          pagination: response.data.data.pagination || { hasNextPage: false, nextPage: null },
         };
       } catch (error) {
         console.error("Error searching members with pagination:", error);
@@ -627,11 +520,11 @@ const ViewMembers: React.FC = () => {
           direction === "next"
             ? state.pagination.nextPage
             : state.pageHistory.length > 0
-            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-members${(authData?.role === "branch" && authData?.branchId) ? `?branchId=${authData.branchId}` : ""}${(authData?.role === "department" && authData?.department) ? `&departmentId=${authData.department}` : ""}`
+            ? state.pageHistory[state.pageHistory.length - 2] || `/member/all-church-member${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`
             : null;
         if (!url) throw new Error(direction === "next" ? "No next page available" : "No previous page available");
-        const data = state.searchName || state.searchDepartment || state.searchBranch
-          ? await searchMembersWithPagination(url, state.searchName, state.searchDepartment, state.searchBranch)
+        const data = state.searchName || state.searchSex
+          ? await searchMembersWithPagination(url, state.searchName, state.searchSex)
           : await fetchMembers(url);
         setState((prev) => ({
           ...prev,
@@ -653,7 +546,7 @@ const ViewMembers: React.FC = () => {
         showPageToast(errorMessage, "error");
       }
     },
-    [authData?.branchId, authData?.department, authData?.role, state.pagination.nextPage, state.pageHistory, state.searchName, state.searchDepartment, state.searchBranch, fetchMembers, handleStateChange, searchMembersWithPagination]
+    [authData?.branchId, authData?.department, authData?.role, state.pagination.nextPage, state.pageHistory, state.searchName, fetchMembers, handleStateChange, searchMembersWithPagination]
   );
 
   // Action Handlers
@@ -722,44 +615,44 @@ const ViewMembers: React.FC = () => {
   };
 
   // File Import/Export Handlers
-  const handleExportExcel = useCallback(async () => {
-    handleStateChange("exportLoading", true);
-    try {
-      const response = await Api.get(`/member/export?branchId=${authData?.branchId}`, { responseType: "blob" });
-      const contentDisposition = response.headers["content-disposition"];
-      let filename = "members_export.xlsx";
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-        if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
-      }
-      const blob = new Blob([response.data], {
-        type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      showPageToast("Excel file exported successfully!", "success");
-    } catch (error: any) {
-      console.error("Failed to export members:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      const errorMessage = error.response?.data?.message || "Failed to export Excel file. Please try again.";
-      showPageToast(errorMessage, "error");
-    } finally {
-      handleStateChange("exportLoading", false);
-    }
-  }, [authData?.branchId, handleStateChange]);
+  // const handleExportExcel = useCallback(async () => {
+  //   handleStateChange("exportLoading", true);
+  //   try {
+  //     const response = await Api.get(`/member/export?branchId=${authData?.branchId}`, { responseType: "blob" });
+  //     const contentDisposition = response.headers["content-disposition"];
+  //     let filename = "members_export.xlsx";
+  //     if (contentDisposition) {
+  //       const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+  //       if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
+  //     }
+  //     const blob = new Blob([response.data], {
+  //       type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  //     });
+  //     const url = window.URL.createObjectURL(blob);
+  //     const link = document.createElement("a");
+  //     link.href = url;
+  //     link.download = filename;
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
+  //     window.URL.revokeObjectURL(url);
+  //     showPageToast("Excel file exported successfully!", "success");
+  //   } catch (error: any) {
+  //     console.error("Failed to export members:", {
+  //       message: error.message,
+  //       response: error.response?.data,
+  //       status: error.response?.status,
+  //     });
+  //     const errorMessage = error.response?.data?.message || "Failed to export Excel file. Please try again.";
+  //     showPageToast(errorMessage, "error");
+  //   } finally {
+  //     handleStateChange("exportLoading", false);
+  //   }
+  // }, [authData?.branchId, handleStateChange]);
 
-  const handleImportExcel = () => {
-    handleStateChange("openDialog", true);
-  };
+  // const handleImportExcel = () => {
+  //   handleStateChange("openDialog", true);
+  // };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -902,100 +795,32 @@ const ViewMembers: React.FC = () => {
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Branch
+            Gender
           </Typography>
           <MuiSelect
-            value={state.searchBranch}
+            value={state.searchSex}
             onChange={(e) => {
-              handleStateChange("searchBranch", e.target.value as string);
-              if (e.target.value) fetchDepartments();
+              handleStateChange("searchSex", e.target.value as string);              
             }}
             displayEmpty
-            onOpen={() => {
-              handleStateChange("isBranchSelectOpen", true);
-              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
-            }}
-            onClose={() => handleStateChange("isBranchSelectOpen", false)}
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
-              color: state.searchBranch ? "#F6F4FE" : "#777280",
+              color: state.searchSex ? "#F6F4FE" : "#777280",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
             }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Branch";
-              const branch = state.branches.find((b) => b.id === selected);
-              return branch ? branch.name : "Select Branch";
-            }}
+              renderValue={(selected) => {
+                if (!selected) return "Select Gender";
+                return selected === "male" ? "Male" : "Female";
+              }}
           >
             <MenuItem value="">None</MenuItem>
-            {state.isBranchLoading ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.branchesError ? (
-              <MenuItem disabled>
-                {state.branchesError}
-                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.branches.length === 0 ? (
-              <MenuItem disabled>No branches available</MenuItem>
-            ) : (
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-              ))
-            )}
-          </MuiSelect>
-        </Box>
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Department
-          </Typography>
-          <MuiSelect
-            value={state.searchDepartment}
-            onChange={(e) => {
-              handleStateChange("searchDepartment", e.target.value as string);
-            }}
-            displayEmpty
-            onOpen={() => {
-              handleStateChange("isDepartmentSelectOpen", true);
-              if ((state.searchBranch || authData?.branchId) && !state.departmentsLoaded && !state.departmentsError) fetchDepartments();
-            }}
-            onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
-            disabled={!state.searchBranch && !authData?.branchId}
-            sx={{
-              backgroundColor: "#4d4d4e8e",
-              borderRadius: "8px",
-              color: state.searchDepartment ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Department";
-              const dept = state.departments.find((d) => d.id === selected);
-              return dept ? dept.name : "Select Department";
-            }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {state.loadingDepartments ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.departmentsError ? (
-              <MenuItem disabled>
-                {state.departmentsError}
-                <Button onClick={() => { handleStateChange("departmentsError", null); fetchDepartments(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.departments.length === 0 ? (
-              <MenuItem disabled>No departments available</MenuItem>
-            ) : (
-              state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
-              ))
-            )}
+            <MenuItem value="male">Male</MenuItem>
+            <MenuItem value="female">Female</MenuItem>
           </MuiSelect>
         </Box>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
@@ -1063,22 +888,16 @@ const ViewMembers: React.FC = () => {
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Branch
+            Gender
           </Typography>
           <MuiSelect
-            value={state.searchBranch}
+            value={state.searchSex}
             onChange={(e) => {
-              handleStateChange("searchBranch", e.target.value as string);
-              if (e.target.value) fetchDepartments();
+              handleStateChange("searchSex", e.target.value as string);              
             }}
-            displayEmpty
-            onOpen={() => {
-              handleStateChange("isBranchSelectOpen", true);
-              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
-            }}
-            onClose={() => handleStateChange("isBranchSelectOpen", false)}
+            displayEmpty        
             sx={{
-              color: state.searchBranch ? "#F6F4FE" : "#777280",
+              color: state.searchSex ? "#F6F4FE" : "#777280",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1086,74 +905,13 @@ const ViewMembers: React.FC = () => {
               "& .MuiSelect-icon": { display: "none" },
             }}
             renderValue={(selected) => {
-              if (!selected) return "Select Branch";
-              const branch = state.branches.find((b) => b.id === selected);
-              return branch ? branch.name : "Select Branch";
+              if (!selected) return "Select Gender";
+              return selected === "male" ? "Male" : "Female";
             }}
           >
             <MenuItem value="">None</MenuItem>
-            {state.isBranchLoading ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.branchesError ? (
-              <MenuItem disabled>
-                {state.branchesError}
-                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.branches.length === 0 ? (
-              <MenuItem disabled>No branches available</MenuItem>
-            ) : (
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-              ))
-            )}
-          </MuiSelect>
-        </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Department
-          </Typography>
-          <MuiSelect
-            value={state.searchDepartment}
-            onChange={(e) => {
-              handleStateChange("searchDepartment", e.target.value as string);
-            }}
-            displayEmpty
-            onOpen={() => {
-              handleStateChange("isDepartmentSelectOpen", true);
-              if ((state.searchBranch || authData?.branchId) && !state.departmentsLoaded && !state.departmentsError) fetchDepartments();
-            }}
-            onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
-            disabled={!state.searchBranch && !authData?.branchId}
-            sx={{
-              color: state.searchDepartment ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Department";
-              const dept = state.departments.find((d) => d.id === selected);
-              return dept ? dept.name : "Select Department";
-            }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {state.loadingDepartments ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.departmentsError ? (
-              <MenuItem disabled>
-                {state.departmentsError}
-                <Button onClick={() => { handleStateChange("departmentsError", null); fetchDepartments(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.departments.length === 0 ? (
-              <MenuItem disabled>No departments available</MenuItem>
-            ) : (
-              state.departments.map((dept) => (
-                <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
-              ))
-            )}
+            <MenuItem value="male">Male</MenuItem>
+            <MenuItem value="female">Female</MenuItem>
           </MuiSelect>
         </Box>
         <Box sx={{ ml: "auto", pr: "8px" }}>
@@ -1185,24 +943,8 @@ const ViewMembers: React.FC = () => {
     if (!mountedRef.current) {
       mountedRef.current = true;
       fetchMembers();
-      if (!state.branchesLoaded && !state.branchesError) {
-        fetchBranches();
-      }
     }
   }, []); // Empty dependency array - runs only once on mount
-
-  useEffect(() => {
-    if (
-      authData?.role === "department" &&
-      authData?.department &&
-      (state.searchBranch || authData?.branchId) &&
-      !state.departmentsLoaded &&
-      !state.departmentsError &&
-      !state.loadingDepartments
-    ) {
-      fetchDepartments();
-    }
-  }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departmentsLoaded, state.departmentsError, state.loadingDepartments, fetchDepartments]);
 
   // Main Render
   return (
@@ -1215,11 +957,11 @@ const ViewMembers: React.FC = () => {
               component="h4"
               fontWeight={600}
               gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
+              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
             >
-              <span className="text-[#777280]">Members</span>
+              <span className="text-[#777280]">Membership</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Worker</span>
+              <span className="text-[#F6F4FE]">Members</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}  
@@ -1229,7 +971,7 @@ const ViewMembers: React.FC = () => {
             }}
           >
             <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
-              <Button
+              {/* <Button
                 variant="contained"
                 onClick={handleImportExcel}
                 disabled={state.isLoading}
@@ -1248,7 +990,7 @@ const ViewMembers: React.FC = () => {
                 }}
               >
                 Upload Workers <MdOutlineFileUpload className="ml-1" />
-              </Button>
+              </Button> */}
               <Button
                 variant="contained"
                 onClick={handleAddMember}
@@ -1267,7 +1009,7 @@ const ViewMembers: React.FC = () => {
                   minWidth: "max-content",
                 }}
               >
-                Add Worker +
+                Add Members +
               </Button>
             </Box>
           </Grid>
@@ -1361,23 +1103,20 @@ const ViewMembers: React.FC = () => {
               boxShadow: 2,
               borderRadius: 1,
               overflowX: "auto",
-              mb: 4,
-              maxHeight: "500px",
-              overflowY: "auto",
-              "&::-webkit-scrollbar": { width: "8px" },
-              "&::-webkit-scrollbar-thumb": { backgroundColor: "#777280", borderRadius: "4px" },
-              "&::-webkit-scrollbar-track": { backgroundColor: "#4d4d4e8e" },
+              // mb: 4,
+              // maxHeight: "500px",
+              // overflowY: "auto",
+              // "&::-webkit-scrollbar": { width: "8px" },
+              // "&::-webkit-scrollbar-thumb": { backgroundColor: "#777280", borderRadius: "4px" },
+              // "&::-webkit-scrollbar-track": { backgroundColor: "#4d4d4e8e" },
             }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
                   <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.snumber, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>#</TableCell>
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.name, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Branch</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Departments</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.units, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Units</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Whatsapp Number</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.sex, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Gender</TableCell>    
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>                    
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -1403,7 +1142,7 @@ const ViewMembers: React.FC = () => {
                 isLoading={state.loading}
               />
             </TableContainer>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+            {/* <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
               <Tooltip title="Download Workers Data" placement="top" arrow>
                 <Button
                   onClick={handleExportExcel}
@@ -1435,7 +1174,7 @@ const ViewMembers: React.FC = () => {
                   )}
                 </Button>
               </Tooltip>
-            </Box>
+            </Box> */}
           </>
         )}
 
@@ -1468,45 +1207,12 @@ const ViewMembers: React.FC = () => {
           sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
         >
           <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
-            <h3>Import Workers Data</h3>
+            <h3>Import Members Data</h3>
             <IconButton onClick={handleCloseDialog} disabled={state.isLoading} sx={{ color: "#F6F4FE" }}>
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
           <DialogContent sx={{mt: 3}}>
-            <Autocomplete
-              options={state.branches}
-              getOptionLabel={(option) => option.name}
-              value={state.branches.find((b) => b.id === state.selectedBranchId) || null}
-              onChange={(_, newValue) => handleStateChange("selectedBranchId", newValue ? newValue.id : "")}
-              onOpen={() => {
-                handleStateChange("isBranchSelectOpen", true);
-                if (!state.branchesLoaded && !state.branchesError) fetchBranches();
-              }}
-              clearIcon={null}
-              popupIcon={state.selectedBranchId ? (
-                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ""); }} />
-              ) : null}
-              loading={state.isBranchLoading}
-              loadingText="Loading branches..."
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Select Branch (optional)"
-                  variant="outlined"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {state.isBranchLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                  sx={{ mb: 3, "& .MuiInputBase-root": { color: "#F6F4FE" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" }, "& .MuiInputLabel-root": { color: "#F6F4FE" } }}
-                />
-              )}
-            />
             <Box
               sx={{
                 border: `2px dashed ${state.isDragging ? theme.palette.primary.main : "#777280"}`,
