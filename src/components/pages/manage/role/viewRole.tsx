@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
-import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import CreateRoleModel from "./createRole";
 import EditRoleModal from "./editRole"; // <-- New component
 import {
@@ -22,7 +22,7 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import { MoreVert as MoreVertIcon, Close } from "@mui/icons-material";
+import { MoreVert as MoreVertIcon, Close, Visibility } from "@mui/icons-material";
 import { MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
@@ -65,6 +65,7 @@ const initialState: State = {
 };
 
 const ViewRoles: React.FC = () => {
+  const navigate = useNavigate();
   const authData = useSelector((state: RootState) => state.auth?.authData);
   usePageToast("view-roles");
   const theme = useTheme();
@@ -155,9 +156,9 @@ const ViewRoles: React.FC = () => {
     </Box>
   );
 
-  if (!authData?.isSuperAdmin) {
-    return <Navigate to="/manage/view-admins" replace />;
-  }
+  // if (!authData?.isSuperAdmin) {
+  //   return <Navigate to="/manage/view-admins" replace />;
+  // }
 
   return (
     <DashboardManager>
@@ -271,7 +272,13 @@ const ViewRoles: React.FC = () => {
                         {role.name}
                       </Typography>
                       <Chip
-                        label={role.scopeLevel}
+                        label={role.scopeLevel === 'branch' 
+                          ? (!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) 
+                              ? 'Branch' 
+                              : 'Church'
+                            )
+                          : role.scopeLevel
+                        }
                         size="small"
                         sx={{
                           bgcolor: "#4d4d4e8e",
@@ -326,7 +333,13 @@ const ViewRoles: React.FC = () => {
             <MdOutlineEdit style={{ marginRight: 8, fontSize: 18 }} />
             Edit
           </MenuItem>
-
+          <MenuItem onClick={() => {
+            navigate(`/manage/view-role/${state.selectedRole?.id}`);
+            handleStateChange("anchorEl", null);
+          }}>
+              <Visibility sx={{ mr: 1, fontSize: 20 }} />
+              View
+          </MenuItem>
           <MenuItem
             onClick={() => {
               handleStateChange("confirmDeleteOpen", true);

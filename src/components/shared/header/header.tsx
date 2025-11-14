@@ -51,6 +51,7 @@ const Header: React.FC<HeaderProps> = () => {
     Messages: /^\/messages(\/|$)/,
     Finance: /^\/finance(\/|$)/,
     Programs: /^\/programs(\/|$)/,
+    Reports: /^\/reports(\/|$)/,
     Settings: /^\/settings(\/|$)/,
   };
 
@@ -61,10 +62,39 @@ const Header: React.FC<HeaderProps> = () => {
     Messages: "/messages/sms",
     Finance: "/finance/collections",
     Programs: "/programs",
+    Reports: "/reports",
     Settings: "/settings",
   };
 
   const buttons = Object.keys(defaultRoutes);
+
+  // Permission mapping for each button
+  const buttonPermissions: { [key: string]: string[] } = {
+    Dashboard: [],
+    Manage: ["Branch", "Department", "Unit", "Admin"],
+    Membership: ["Workers", "Members", "Followup"],
+    Messages: ["Messaging", "Wallet"],
+    Finance: ["Collection", "Finance"],
+    Programs: ["Programs", 'Attendance', 'Followup'],
+    Reports: ["Reports"],
+    Settings: [],
+  };
+
+// Filter buttons based on user permissions
+const availableButtons = buttons.filter((label) => {
+  const permissions = authData?.permission;
+
+  // If permissions is empty or undefined → allow everything
+  if (!permissions || permissions.length === 0) return true;
+
+  const requiredPermissions = buttonPermissions[label] || [];
+
+  // If no permission needed → allow
+  if (requiredPermissions.length === 0) return true;
+
+  // Otherwise check permission match
+  return permissions.some((p: string) => requiredPermissions.includes(p));
+});
 
   // State management
   const [activeButton, setActiveButton] = useState<string | null>(null);
@@ -240,24 +270,51 @@ const Header: React.FC<HeaderProps> = () => {
     navigate("/login");
   };
 
-// Handle navigation button click
-  const handleButtonClick = (label: string) => {
-    if (label === "Manage") {
-      if (authData?.role === "branch" && authData?.isHeadQuarter) {
-        navigate("/manage/view-branches");
-      } 
-     else if (authData?.role === 'branch' || authData?.isSuperAdmin === false) {
-        navigate("/manage/view-departments");
-      } 
-      else if (authData?.role === "department" || !authData?.isHeadQuarter) {
-        navigate("/manage/view-departments");
-      } else if (authData?.role === "unit") {
-        navigate("/manage/view-units");
-      } 
-    } else {
-      navigate(defaultRoutes[label]);
-    }
-  };
+  // Handle navigation button click
+const handleButtonClick = (label: string) => {
+  if (label === "Manage") {
+    const manageRoutes: { [key: string]: string } = {
+      Branch: "/manage/view-branches",
+      Department: "/manage/view-departments",
+      Unit: "/manage/view-units",
+      Admin: "/manage/view-admins",
+    };
+    const perm = authData?.permission?.find((p: string) => buttonPermissions.Manage.includes(p));
+    navigate(perm ? manageRoutes[perm] : "/manage/view-admins");
+  } else if (label === "Membership") {
+    const membershipRoutes: { [key: string]: string } = {
+      Workers: "/members/view-workers",
+      Members: "/members/view-members",
+      Followup: "/members/view-followup",
+    };
+    const perm = authData?.permission?.find((p: string) => buttonPermissions.Membership.includes(p));
+    navigate(perm ? membershipRoutes[perm] : "/members/view-workers");
+  } else if (label === "Messages") {
+    const messagesRoutes: { [key: string]: string } = {
+      Messaging: "/messages/sms",
+      Wallet: "/messages/wallets",
+    };
+    const perm = authData?.permission?.find((p: string) => buttonPermissions.Messages.includes(p));
+    navigate(perm ? messagesRoutes[perm] : "/messages/sms");
+  } else if (label === "Finance") {
+    const financeRoutes: { [key: string]: string } = {
+      Collection: "/finance/collections",
+      Finance: "/finance/accounts",
+    };
+    const perm = authData?.permission?.find((p: string) => buttonPermissions.Finance.includes(p));
+    navigate(perm ? financeRoutes[perm] : "/finance/collections");
+  } else if (label === "Programs") {
+    const programsRoutes: { [key: string]: string } = {
+      Programs: "/programs",
+      Attendance: "/programs",
+      Followup: "/programs",
+    };
+    const perm = authData?.permission?.find((p: string) => buttonPermissions.Programs.includes(p));
+    navigate(perm ? programsRoutes[perm] : "/programs");
+  } else {
+    navigate(defaultRoutes[label]);
+  }
+};
 
 
   return (
@@ -268,7 +325,7 @@ const Header: React.FC<HeaderProps> = () => {
             <img
               src={authData.logo}
               alt={`${authData?.church_name || "Church"} logo`}
-              className="h-15 object-contain rounded-full"
+              className="h-16 w-16 object-contain rounded-xl"
             />
           ) : (
             <div className="h-14 w-14 flex items-center justify-center bg-[var(--color-text-on-primary)] rounded-full text-[var(--color-primary)]  font-bold text-2xl">
@@ -277,7 +334,25 @@ const Header: React.FC<HeaderProps> = () => {
           )}
         </Tooltip>
 
-        <Box sx={{ display: { xs: "none", md: "block" } }}>
+        <Box
+            sx={{
+            display: { xs: "none", md: "block" },
+            overflowX: "auto",
+            whiteSpace: "nowrap",
+            scrollbarWidth: "thin",
+            msOverflowStyle: "none", // Hide scrollbar on Windows
+            "&::-webkit-scrollbar": {
+              height: "6px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "rgba(255, 255, 255, 0.3)",
+              borderRadius: "9999px",
+            },
+            "&::-webkit-scrollbar-track": {
+              backgroundColor: "transparent",
+            },
+          }}
+        >
           <ButtonGroup
             sx={{
               backgroundColor: "#4d4d4e8e",
@@ -289,7 +364,7 @@ const Header: React.FC<HeaderProps> = () => {
             size="large"
             aria-label="Navigation buttons"
           >
-            {buttons.map((label, index) => (
+            {availableButtons.map((label, index) => (
               <Button
                 key={label}
                 onClick={() => handleButtonClick(label)}

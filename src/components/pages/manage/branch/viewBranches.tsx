@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
-import { Navigate } from "react-router-dom";
 import BranchModal from "./branch";
 import {
   Box,
@@ -40,8 +39,8 @@ import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
-import { useSelector } from "react-redux";
-import { RootState } from "../../../reduxstore/redux";
+// import { useSelector } from "react-redux";
+// import { RootState } from "../../../reduxstore/redux";
 import { TbArrowFork } from "react-icons/tb";
 
 interface Branch {
@@ -188,7 +187,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 };
 
 const ViewBranches: React.FC = () => {
-  const authData = useSelector((state: RootState) => state.auth?.authData);
+  // const authData = useSelector((state: RootState) => state.auth?.authData);
   usePageToast('view-branch');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -499,10 +498,6 @@ const ViewBranches: React.FC = () => {
       </Button>
     </Box>
   );
-
-  if (authData?.isHeadQuarter === false || authData?.isSuperAdmin === false) {
-    return <Navigate to="/manage/view-departments" replace />;
-  }
 
   const uniqueBranches = Array.from(
     new Map(state.branches.map((b) => [b.address, b])).values()

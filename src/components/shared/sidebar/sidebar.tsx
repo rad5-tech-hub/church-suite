@@ -24,60 +24,45 @@ const Sidebar: React.FC = () => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
 
   const manage = [
-    { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches" },
-    { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments" },
-    { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units" },
-    { to: "/manage/view-roles", icon: <PiRankingFill className="text-2xl" />, label: "Roles" },
-    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
+    { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches", permissionGroup:'Branch' },
+    { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments", permissionGroup:'Department' },
+    { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units", permissionGroup: "Unit"},
+    { to: "/manage/view-roles", icon: <PiRankingFill className="text-2xl" />, label: "Roles", permissionGroup: "Admin"},
+    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins", permissionGroup: "Admin"},
   ];
 
   const member = [
-    { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
-    { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Member" },
-    { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
-    { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
+    { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers", permissionGroup: "Workers"},
+    { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Member", permissionGroup:'Members'},
+    { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers", permissionGroup: 'FollowUp' },
+    { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms", permissionGroup: 'FollowUp' },
   ];
 
   const message = [
-    { to: "/messages/sms", icon: <FaSms className="text-2xl" />, label: "SMS" },
-    { to: "/messages/wallets", icon: <CiWallet className="text-2xl" />, label: "SMS Wallets" },
+    { to: "/messages/sms", icon: <FaSms className="text-2xl" />, label: "SMS", permissionGroup: 'Messaging'},
+    { to: "/messages/wallets", icon: <CiWallet className="text-2xl" />, label: "SMS Wallets", permissionGroup: 'Wallet' },
   ];
 
   const finance = [
-    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections" }, 
-    { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account" },
+    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections", permissionGroup: 'Collection' }, 
+    { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account", permissionGroup: 'Finance' },
   ];
 
 
+  const permissions = authData?.permission || [];
 
-  // Filter manage items
-  let filteredManage = manage;
-  let filteredMembers = member;
+  const filterByPermission = (items: typeof manage) => {
+    if (!permissions.length) return items; // Show all if no permissions
+    return items.filter((item) => permissions.includes(item.permissionGroup));
+  };
 
-  // Restrict "View Branches" if the user is NOT HeadQuarter or NOT Branch
-  if (authData?.isHeadQuarter === false || authData?.isSuperAdmin === false) {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
-  }
-
-  // Restrict "View Admins" if the user is NOT HeadQuarter
-  // if (authData?.isSuperAdmin === false) {
-  //   filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-admins");
-  // }
-
-    // 🔹 If not superadmin → remove branches
-  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/members/view-forms"];
-    filteredMembers = filteredMembers.filter((item: any) => !restrictedRoutes.includes(item.to));
-  }
-
-  // 🔹 If role is unit → remove departments
-  if (authData?.role === "unit") {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-departments");
-  }
-
+  const filteredManage = filterByPermission(manage);
+  const filteredMembers = filterByPermission(member);
+  const filteredMessages = filterByPermission(message);
+  const filteredFinance = filterByPermission(finance);
 
   return (
-    <div className={`flex-shrink-0 h-screen ${isManageRoute || isMemberRoute || isFinanceRoute ? 'w-23' : ''}    bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col z-40`}>
+    <div className={`flex-shrink-0 h-screen ${isManageRoute || isMemberRoute || isFinanceRoute || isMessageRoute ? 'w-23' : ''}    bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col z-40`}>
       <nav className="flex-1 flex flex-col items-center mt-12">
         {isManageRoute && (
           <ul className="space-y-8">
@@ -86,7 +71,7 @@ const Sidebar: React.FC = () => {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block py-4 px-2 rounded-full text-center ${
+                    `block py-4 px-3 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#4d4d4e8e] text-[var(--color-text-on-primary)]"
                     }`
                   }
@@ -108,7 +93,7 @@ const Sidebar: React.FC = () => {
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block px-2 py-4 rounded-full text-center ${
+                    `block px-3 py-4 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
                     }`
                   }
@@ -124,12 +109,12 @@ const Sidebar: React.FC = () => {
         )}
         {isMessageRoute && (
           <ul className="space-y-8">
-            {message.map((item) => (
+            {filteredMessages.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block px-2 py-4 rounded-full text-center ${
+                    `block px-3 py-4 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
                     }`
                   }
@@ -145,12 +130,12 @@ const Sidebar: React.FC = () => {
         )}
         {isFinanceRoute && (
           <ul className="space-y-8">
-            {finance.map((item) => (
+            {filteredFinance.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   className={({ isActive }) =>
-                    `block px-2 py-4 rounded-full text-center ${
+                    `block px-3 py-4 rounded-full text-center ${
                       isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
                     }`
                   }

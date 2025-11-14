@@ -663,12 +663,13 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
             </Accordion>            
           </Box>
 
-          <Box sx={{ mb: 4}}>
+          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
             <Button
               onClick={handleDeleteClick}
               sx={{
                 mt: 2,
-                px: 4, // gives some horizontal padding
+                px: 8, // increased horizontal padding
+                minWidth: '250px', // ensures a minimum width
                 backgroundColor: "rgba(183, 28, 28, 0.3)", // transparent red
                 color: "#f0f0f0", // white text
                 border: "1px solid rgba(183, 28, 28, 0.4)", // subtle red border

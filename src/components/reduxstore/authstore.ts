@@ -1,6 +1,11 @@
 // authstore.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
+export interface RolePermission {
+  permissionGroupName: string;
+  permissionNames: string[];
+}
+
 export interface AuthData {
   backgroundImg?: string;
   churchId: string;
@@ -17,8 +22,10 @@ export interface AuthData {
   department: string | null;
   token: string;
   branchId: string;
-  role: string;          // ✅ added
-  branches: string[];   // ✅ fixed spelling
+  role: string;
+  branches: string[];
+  roles?: RolePermission[]; // ✅ added roles structure
+  permission?: string[];
 }
 
 // Export AuthState interface
@@ -40,8 +47,13 @@ const authSlice = createSlice({
     clearAuth: (state) => {
       state.authData = null;
     },
+    setUserRoles: (state, action: PayloadAction<RolePermission[]>) => {
+      if (state.authData) {
+        state.authData.roles = action.payload;
+      }
+    },
   },
 });
 
-export const { setAuthData, clearAuth } = authSlice.actions;
+export const { setAuthData, clearAuth, setUserRoles } = authSlice.actions;
 export default authSlice.reducer;

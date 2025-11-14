@@ -417,8 +417,7 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             fontSize: isLargeScreen ? "1rem" : undefined,
             }}
         >
-            <MenuItem value="church">Church</MenuItem>
-            <MenuItem value="branch">Branch</MenuItem>
+            {authData.role === 'branch' &&<MenuItem value="branch">{!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1)  ? 'Branch' : 'Church'}</MenuItem>}
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
         </Select>

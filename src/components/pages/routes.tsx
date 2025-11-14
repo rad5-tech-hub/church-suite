@@ -22,10 +22,12 @@ const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
 const ViewRole = React.lazy(() => import("./manage/role/viewRole"));
+const ViewARole = React.lazy(() => import("./manage/role/viewArole"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
 const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
+const ViewReports = React.lazy(() => import("./reports/viewReports"));
 const FinanceWallets = React.lazy(() => import("./messages/wallet/viewWallet"));
 const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
 const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
@@ -37,16 +39,29 @@ const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 // Private Route Component
 interface PrivateRouteProps {
   children: React.ReactNode;
+  requiredPermissions?: string[]; 
 }
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const token = useSelector((state: RootState) => state?.auth?.authData?.token);
-  
-  return token ? (
-    <>{children}</>
-  ) : (
-    <Navigate to="/" replace />
-  );
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredPermissions  }) => {
+ const authData = useSelector((state: RootState) => state.auth.authData);
+
+  // If not logged in, redirect to login
+  if (!authData?.token) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If permissions are required, check if user has at least one
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    const hasPermission = authData.permission?.some((p: string) =>
+      requiredPermissions.includes(p)
+    );
+    if (!hasPermission) {
+      // Optional: redirect to dashboard or show "Not Authorized" page
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  return <>{children}</>;
 };
 
 const AppRoutes: React.FC = () => {
@@ -94,12 +109,17 @@ const AppRoutes: React.FC = () => {
             <PrivateRoute>
               <ViewUnit/>
             </PrivateRoute>
-          } /> 
+          } />
           <Route path="/manage/view-roles" element={
             <PrivateRoute>
               <ViewRole/>
             </PrivateRoute>
-          } />         
+          } />
+          <Route path="/manage/view-role/:roleId" element={
+            <PrivateRoute>
+              <ViewARole/>
+            </PrivateRoute>
+          } />       
           <Route path="/messages/sms" element={
             <PrivateRoute>
               <ViewMessageHistory/>
@@ -148,6 +168,11 @@ const AppRoutes: React.FC = () => {
           <Route path="/programs" element={
             <PrivateRoute>
               <ViewServices/>
+            </PrivateRoute>
+          } />
+          <Route path="/reports" element={
+            <PrivateRoute>
+              <ViewReports/>
             </PrivateRoute>
           } />
            <Route path="/qrcodes" element={
