@@ -25,12 +25,16 @@ import {
   Edit as EditIcon,
   PhotoCamera as CameraIcon,
   CloudUpload as UploadIcon,
+  CheckCircle,
+  Cancel,
 } from "@mui/icons-material";
 import DashboardManager from "../../shared/dashboardManager";
 import Api from "../../shared/api/api";
 import { useNavigate } from "react-router-dom";
 import { showPageToast } from "../../util/pageToast";
 import ChangeColorButton from "./setting";
+import { useDispatch, useSelector } from "react-redux";
+import { setAuthData, AuthState } from "../../reduxstore/authstore"; // ← YOUR STORE
 
 interface Church {
   id: string;
@@ -41,11 +45,15 @@ interface Church {
   churchPhone: string;
   churchEmail: string;
   isHeadQuarter: boolean;
+  smsActive: boolean;
   createdAt: string;
 }
 
 /* ------------------------------------------------------------------ */
 export default function ViewChurch() {
+  const dispatch = useDispatch();
+  const authData = useSelector((state: { auth: AuthState }) => state.auth.authData);
+
   const [church, setChurch] = useState<Church | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +85,7 @@ export default function ViewChurch() {
     const fetch = async () => {
       try {
         setLoading(true);
-        const res = await Api.get<{ data: Church }>("/church/get-church");
+        const res = await Api.get<{ data: any }>("/church/get-church");
         const d = res.data.data;
 
         const data: Church = {
@@ -89,6 +97,7 @@ export default function ViewChurch() {
           churchPhone: d.churchPhone,
           churchEmail: d.churchEmail,
           isHeadQuarter: d.isHeadQuarter,
+          smsActive: d.smsActive ?? false,
           createdAt: d.createdAt,
         };
 
@@ -118,7 +127,24 @@ export default function ViewChurch() {
   };
 
   /* ---------------------------------------------------------------- */
-  /*  FILE UPLOAD (logo / background) – immediate update               */
+  /*  UPDATE AUTH DATA HELPER                                         */
+  /* ---------------------------------------------------------------- */
+  const updateAuthData = (updatedChurch: Partial<Church>) => {
+    if (!authData) return;
+
+    const newAuthData = {
+      ...authData,
+      church_name: updatedChurch.name ?? authData.church_name,
+      logo: updatedChurch.logo ?? authData.logo,
+      backgroundImg: updatedChurch.backgroundImage ?? authData.backgroundImg,
+      // Add more fields if needed
+    };
+
+    dispatch(setAuthData(newAuthData));
+  };
+
+  /* ---------------------------------------------------------------- */
+  /*  FILE UPLOAD – updates church + auth                             */
   /* ---------------------------------------------------------------- */
   const upload = async (file: File, type: "logo" | "backgroundImage") => {
     const fd = new FormData();
@@ -126,12 +152,16 @@ export default function ViewChurch() {
 
     try {
       type === "logo" ? setUploadingLogo(true) : setUploadingBg(true);
-      const ep = '/church/edit-church';
-      const r = await Api.patch(ep, fd, {
+      const r = await Api.patch("/church/edit-church", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setChurch((p) => p && { ...p, [type]: r.data.url ?? r.data[type] });
+      const updatedChurch = r.data.church;
+      setChurch((p) => p && { ...p, ...updatedChurch });
+
+      // UPDATE AUTH DATA
+      updateAuthData(updatedChurch);
+
       showPageToast(`${type === "logo" ? "Logo" : "Background"} updated`, "success");
     } catch (e: any) {
       showPageToast(e?.response?.data?.message ?? `Failed to upload ${type}`, "error");
@@ -152,13 +182,45 @@ export default function ViewChurch() {
   };
 
   /* ---------------------------------------------------------------- */
-  /*  TEXT EDIT                                                       */
+  /*  TEXT EDIT – updates church + auth                                */
   /* ---------------------------------------------------------------- */
   const saveText = async () => {
+    // 1. Build payload with ONLY changed fields
+    const payload: Record<string, string> = {};
+
+    if (editForm.churchName !== church?.name) {
+      payload.churchName = editForm.churchName;
+    }
+    if (editForm.address !== church?.address) {
+      payload.address = editForm.address;
+    }
+    if (editForm.phone !== church?.churchPhone) {
+      payload.churchPhone = editForm.phone;
+    }
+    if (editForm.email !== church?.churchEmail) {
+      payload.churchEmail = editForm.email;
+    }
+
+    // 2. If nothing changed → just close dialog
+    if (Object.keys(payload).length === 0) {
+      setEditOpen(false);
+      return;
+    }
+
     try {
       setEditLoading(true);
-      await Api.patch("/church/edit-church", editForm);
-      setChurch((p) => p && { ...p, ...editForm });
+
+      // 3. Send only the changed fields
+      const r = await Api.patch("/church/edit-church", payload);
+
+      const updatedChurch = r.data.church;
+
+      // 4. Update local UI state
+      setChurch((p) => p && { ...p, ...updatedChurch });
+
+      // 5. Update Redux authData
+      updateAuthData(updatedChurch);
+
       setEditOpen(false);
       showPageToast("Church info updated", "success");
     } catch (e: any) {
@@ -237,7 +299,7 @@ export default function ViewChurch() {
             </Grid>
           </Grid>
 
-          {/* ----- COVER + LOGO (no clipping) ----- */}
+          {/* ----- COVER + LOGO ----- */}
           <Box
             sx={{
               position: "relative",
@@ -248,7 +310,6 @@ export default function ViewChurch() {
               bgcolor: "rgba(255,255,255,0.06)",
             }}
           >
-            {/* background */}
             {church.backgroundImage ? (
               <Box
                 component="img"
@@ -277,7 +338,6 @@ export default function ViewChurch() {
               </Box>
             )}
 
-            {/* edit background */}
             <IconButton
               onClick={() => bgRef.current?.click()}
               sx={{
@@ -294,7 +354,6 @@ export default function ViewChurch() {
             </IconButton>
             <input ref={bgRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, "backgroundImage")} />
 
-            {/* LOGO – full rounded */}
             <Avatar
               src={church.logo || undefined}
               alt={church.name}
@@ -315,16 +374,15 @@ export default function ViewChurch() {
               {(!church.logo) && church.name[0].toUpperCase()}
             </Avatar>
 
-            {/* edit logo */}
             <IconButton
               onClick={() => logoRef.current?.click()}
               sx={{
                 position: "absolute",
-                bottom: "-15%",
+                bottom: "-17%",
                 left: { xs: "50%", sm: 42 },
                 transform: { xs: "translateX(-50%)", sm: "none" },
                 bgcolor: "var(--color-primary)",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-text-light-primary)",
                 width: 36,
                 height: 36,
                 "&:hover": { opacity: 0.9 },
@@ -378,7 +436,7 @@ export default function ViewChurch() {
 
           <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.1)" }} />
 
-          {/* ----- ACCOUNT INFO + COLOR PICKER ----- */}
+          {/* ----- ACCOUNT INFO + SMS + COLOR PICKER ----- */}
           <Box sx={{ bgcolor: "rgba(255,255,255,0.06)", borderRadius: 2, p: { xs: 3, sm: 4 } }}>
             <Typography variant="h6" fontWeight="bold" color="#f6f4fe" sx={{ mb: 3 }}>
               Account Information
@@ -387,13 +445,18 @@ export default function ViewChurch() {
             <Grid container spacing={4}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <InfoRow label="Created On" value={since()} />
+                <InfoRow
+                  label="SMS Service"
+                  value={church.smsActive ? "Active" : "Inactive"}
+                  icon={church.smsActive ? <CheckCircle sx={{ color: "#10B981" }} /> : <Cancel sx={{ color: "#EF4444" }} />}
+                  color={church.smsActive ? "#10B981" : "#EF4444"}
+                />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <InfoRow label="Status" value="Active" color="#10B981" />
               </Grid>
             </Grid>
 
-            {/* COLOR PICKER – **never removed** */}
             <Box sx={{ mt: 4 }}>
               <ChangeColorButton />
             </Box>
@@ -402,152 +465,36 @@ export default function ViewChurch() {
       </Container>
 
       {/* ----- EDIT TEXT DIALOG ----- */}
-      <Dialog open={editOpen} onClose={() => !editLoading && setEditOpen(false)} maxWidth="sm" fullWidth         sx={{
-        '& .MuiDialog-paper': {
-          borderRadius: 2,
-          bgcolor: '#2C2C2C',
-        },
+      <Dialog open={editOpen} onClose={() => !editLoading && setEditOpen(false)} maxWidth="sm" fullWidth sx={{
+        '& .MuiDialog-paper': { borderRadius: 2, bgcolor: '#2C2C2C' },
       }}>
         <DialogTitle sx={{ color: "#f6f4fe", fontWeight: 600 }}>Edit Church</DialogTitle>
         <DialogContent dividers>
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Church Name"            
-            InputProps={{
-              sx: {
-                color: '#F6F4FE',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-              },
-            }}
-            InputLabelProps={{
-              sx: {
-                color: '#F6F4FE',
-                '&.Mui-focused': {
-                  color: '#F6F4FE',
-                },
-              },
-            }}
+          <TextField fullWidth margin="normal" label="Church Name"
             value={editForm.churchName}
             onChange={(e) => setEditForm({ ...editForm, churchName: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Address"                        
-            InputProps={{
-              sx: {
-                color: '#F6F4FE',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-              },
-            }}
-            InputLabelProps={{
-              sx: {
-                color: '#F6F4FE',
-                '&.Mui-focused': {
-                  color: '#F6F4FE',
-                },
-              },
-            }}
+            InputProps={{ sx: textFieldSx }} InputLabelProps={{ sx: labelSx }} />
+          <TextField fullWidth margin="normal" label="Address"
             value={editForm.address}
             onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Phone"                        
-            InputProps={{
-              sx: {
-                color: '#F6F4FE',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-              },
-            }}
-            InputLabelProps={{
-              sx: {
-                color: '#F6F4FE',
-                '&.Mui-focused': {
-                  color: '#F6F4FE',
-                },
-              },
-            }}
+            InputProps={{ sx: textFieldSx }} InputLabelProps={{ sx: labelSx }} />
+          <TextField fullWidth margin="normal" label="Phone"
             value={editForm.phone}
             onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Email"
-            type="email"        
-            InputProps={{
-              sx: {
-                color: '#F6F4FE',
-                '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&:hover .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                  borderColor: '#777280',
-                },
-              },
-            }}
-            InputLabelProps={{
-              sx: {
-                color: '#F6F4FE',
-                '&.Mui-focused': {
-                  color: '#F6F4FE',
-                },
-              },
-            }}
+            InputProps={{ sx: textFieldSx }} InputLabelProps={{ sx: labelSx }} />
+          <TextField fullWidth margin="normal" label="Email" type="email"
             value={editForm.email}
             onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-          />
+            InputProps={{ sx: textFieldSx }} InputLabelProps={{ sx: labelSx }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)} disabled={editLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={saveText}
-            variant="contained"
-            disabled={editLoading}
+          <Button onClick={() => setEditOpen(false)} disabled={editLoading}>Cancel</Button>
+          <Button onClick={saveText} variant="contained" disabled={editLoading}
             sx={{
-              py: 1,
-              backgroundColor: '#F6F4FE',
-              px: { xs: 2, sm: 2 },
-              borderRadius: 50,
-              color: '#2C2C2C',
-              fontWeight: 'semibold',
-              textTransform: 'none',
-              fontSize: { xs: '1rem', sm: '1rem' },
+              py: 1, backgroundColor: '#F6F4FE', px: 2, borderRadius: 50,
+              color: '#2C2C2C', fontWeight: 'semibold', textTransform: 'none',
               '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
-            }}
-          >
+            }}>
             {editLoading ? <CircularProgress size={20} /> : "Save"}
           </Button>
         </DialogActions>
@@ -560,20 +507,25 @@ export default function ViewChurch() {
 /*  REUSABLE INFO ROW                                                 */
 /* ------------------------------------------------------------------ */
 const InfoRow: React.FC<{ icon?: React.ReactNode; label: string; value: string; color?: string }> = ({
-  icon,
-  label,
-  value,
-  color,
+  icon, label, value, color,
 }) => (
   <Box sx={{ mb: 3 }}>
-    <Typography variant="subtitle2" color="gray" sx={{ mb: 0.5 }}>
-      {label}
-    </Typography>
+    <Typography variant="subtitle2" color="gray" sx={{ mb: 0.5 }}>{label}</Typography>
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      {icon && <Box sx={{ color: "#f6f4fe" }}>{icon}</Box>}
-      <Typography variant="body1" sx={{ color: color ?? "#f6f4fe" }}>
-        {value}
-      </Typography>
+      {icon && <Box sx={{ color: color ?? "#f6f4fe" }}>{icon}</Box>}
+      <Typography variant="body1" sx={{ color: color ?? "#f6f4fe" }}>{value}</Typography>
     </Box>
   </Box>
 );
+
+/* Shared TextField Styles */
+const textFieldSx = {
+  color: '#F6F4FE',
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
+};
+const labelSx = {
+  color: '#F6F4FE',
+  '&.Mui-focused': { color: '#F6F4FE' },
+};

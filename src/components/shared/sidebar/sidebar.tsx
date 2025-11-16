@@ -62,7 +62,7 @@ const Sidebar: React.FC = () => {
   const filteredFinance = filterByPermission(finance);
 
   return (
-    <div className={`flex-shrink-0 h-screen ${isManageRoute || isMemberRoute || isFinanceRoute || isMessageRoute ? 'w-23' : ''}    bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col z-40`}>
+    <div className={`w-24 flex-shrink-0 h-full overflow-y-auto bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col`}>
       <nav className="flex-1 flex flex-col items-center mt-12">
         {isManageRoute && (
           <ul className="space-y-8">

@@ -1466,7 +1466,7 @@ const ViewAdmins: React.FC = () => {
   // Render
   return (
     <DashboardManager>
-      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%", width: '100%'}}>
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography

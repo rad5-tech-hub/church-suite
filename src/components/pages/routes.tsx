@@ -28,6 +28,7 @@ const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"))
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
 const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
 const ViewReports = React.lazy(() => import("./reports/viewReports"));
+const ViewAReports = React.lazy(() => import("./reports/viewAReport"));
 const FinanceWallets = React.lazy(() => import("./messages/wallet/viewWallet"));
 const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
 const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
@@ -173,6 +174,11 @@ const AppRoutes: React.FC = () => {
           <Route path="/reports" element={
             <PrivateRoute>
               <ViewReports/>
+            </PrivateRoute>
+          } />
+          <Route path="/reports/:reportId" element={
+            <PrivateRoute>
+              <ViewAReports/>
             </PrivateRoute>
           } />
            <Route path="/qrcodes" element={

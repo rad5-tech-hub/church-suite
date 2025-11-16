@@ -325,7 +325,7 @@ const handleButtonClick = (label: string) => {
             <img
               src={authData.logo}
               alt={`${authData?.church_name || "Church"} logo`}
-              className="h-16 w-16 object-contain rounded-xl"
+              className="h-16 w-16 object-contain rounded-3xl"
             />
           ) : (
             <div className="h-14 w-14 flex items-center justify-center bg-[var(--color-text-on-primary)] rounded-full text-[var(--color-primary)]  font-bold text-2xl">

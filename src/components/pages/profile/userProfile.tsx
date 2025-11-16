@@ -104,8 +104,6 @@ const ViewAdmin: React.FC = () => {
     fetchAdminData();
   }, [authData]);
 
-
-
   const getAdminSince = () => {
     if (admin?.createdAt) {
       const joinDate = new Date(admin.createdAt);
