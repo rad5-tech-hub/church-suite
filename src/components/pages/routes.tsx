@@ -72,6 +72,7 @@ const AppRoutes: React.FC = () => {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Login />} />
+          <Route path="/admin-login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-church" element={<SetupChurch />} />
           <Route path="/setup-logo" element={<SetupStep2 />} />
