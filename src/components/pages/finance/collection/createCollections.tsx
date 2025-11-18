@@ -754,44 +754,44 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
               {isScheduleChecked && (
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
-                    label="Select Date"
+                    label="Collection End Date"
                     value={formData.endTime ? dayjs(formData.endTime) : null}
-                    onChange={(newValue) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        endTime: newValue ? newValue.toISOString() : undefined,
-                      }))
-                    }
+                    onChange={(newValue) => {
+                      if (!newValue) {
+                        setFormData(prev => ({ ...prev, endTime: undefined }));
+                        return;
+                      }
+
+                      // Only save if the date is valid
+                      if (newValue.isValid()) {
+                        setFormData(prev => ({
+                          ...prev,
+                          endTime: newValue.toISOString(),
+                        }));
+                      }
+                      // If invalid → do nothing (user still typing)
+                    }}
                     minDate={dayjs()}
+                    format="DD/MM/YYYY"
                     slotProps={{
                       textField: {
                         fullWidth: true,
                         variant: "outlined",
-                        placeholder: "Select date",
+                        error: !!errors.endTime,
+                        helperText: errors.endTime,
+                        InputLabelProps: {
+                          sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                        },
                         InputProps: {
                           sx: {
                             color: "#F6F4FE",
-                            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
-                            fontSize: "0.9rem",
-                            borderColor: "#777280 !important",
-                          },
-                        },
-                        InputLabelProps: {
-                          sx: {
-                            color: "#F6F4FE",
-                            "&.Mui-focused": { color: "#F6F4FE" },
-                            fontSize: "0.9rem",
+                            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
                           },
                         },
                         sx: {
                           "& .MuiSvgIcon-root": { color: "#F6F4FE" },
-                          color: "#F6F4FE",
-                          "& fieldset": { borderColor: "#777280 !important" },
-                          "&:hover fieldset": { borderColor: "#777280 !important" },
-                          "&.Mui-focused fieldset": { borderColor: "#777280 !important" },
-                          fontSize: "0.9rem",
                         },
                       },
                     }}

@@ -39,9 +39,10 @@ import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
-// import { useSelector } from "react-redux";
-// import { RootState } from "../../../reduxstore/redux";
+import { useSelector } from "react-redux";
+import { RootState } from "../../../reduxstore/redux";
 import { TbArrowFork } from "react-icons/tb";
+import { Navigate } from "react-router-dom";
 
 interface Branch {
   id: string;
@@ -187,7 +188,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
 };
 
 const ViewBranches: React.FC = () => {
-  // const authData = useSelector((state: RootState) => state.auth?.authData);
+  const authData = useSelector((state: RootState) => state.auth?.authData);
   usePageToast('view-branch');
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -503,9 +504,10 @@ const ViewBranches: React.FC = () => {
     new Map(state.branches.map((b) => [b.address, b])).values()
   );
 
-  /* ------------------------------------------------------------------ */
-  /*  RENDER                                                             */
-  /* ------------------------------------------------------------------ */
+  
+  if (authData?.isHeadQuarter === false || authData?.role !== 'branch') {
+    return <Navigate to="/manage/view-departments" replace />;
+  }
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>        
