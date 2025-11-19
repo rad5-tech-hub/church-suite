@@ -59,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         <nav className="flex-1 px-4 py-6 overflow-y-auto">
           <ul className="space-y-2">
             {[
-              { to: "/dashboard", icon: LuLayoutDashboard, label: "Dashboard" },
+              { to: "/admin-dashboard", icon: LuLayoutDashboard, label: "Dashboard" },
               { to: "/manage/churches", icon: LuChurch, label: "Manage Churches" },
               { to: "/billing/subscriptions", icon: LuCreditCard, label: "Subscriptions & Plans" },
               { to: "/activation", icon: LuCircleCheck, label: "Activation Center" },
