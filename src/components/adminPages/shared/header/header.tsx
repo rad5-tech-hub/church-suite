@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const getPageTitle = () => {
     const path = location.pathname;
 
-    if (path.startsWith("/dashboard")) return "Dashboard";
+    if (path.startsWith("/admin-dashboard")) return "Dashboard";
     if (path.startsWith("/manage/churches")) return "Manage Churches";
     if (path.startsWith("/billing") || path.startsWith("/subscriptions")) return "Billing & Plans";
     if (path.startsWith("/activation")) return "Activation Center";
