@@ -1,9 +1,8 @@
 import React from "react";
 import AdminDashboardManager from "../shared/dashboardManager";
-import {HiOutlineClock } from "react-icons/hi";
 import { BsGraphUpArrow, BsChatSquareText, BsCurrencyDollar } from "react-icons/bs";
 import { FiDownload } from "react-icons/fi";
-import { LuChurch } from "react-icons/lu";
+import { LuChurch, LuClock } from "react-icons/lu";
 
 const AdminDashboard: React.FC = () => {
   return (
@@ -26,7 +25,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
           {/* Total Registered Churches */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
@@ -41,8 +40,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Active Churches */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
-              <BsGraphUpArrow className="text-2xl text-green-600 dark:text-green-400" />
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                    <BsGraphUpArrow className="text-2xl text-green-600 dark:text-green-400" />
+                </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Active Churches</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">42</p>
@@ -51,8 +52,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Pending Activations */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
-              <HiOutlineClock className="text-2xl text-orange-600 dark:text-orange-400" />
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
+                    <LuClock className="text-2xl text-orange-600 dark:text-orange-400" />
+                </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Pending Activations</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">5</p>
@@ -60,8 +63,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Total Wallet Funding */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
-              <BsCurrencyDollar className="text-2xl text-purple-600 dark:text-purple-400" />
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                    <BsCurrencyDollar className="text-2xl text-purple-600 dark:text-purple-400" />
+                </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Total Wallet Funding</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">₦8.8M</p>
@@ -70,8 +75,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Total SMS Sent */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-              <BsChatSquareText className="text-2xl text-indigo-600 dark:text-indigo-400" />
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                    <BsChatSquareText className="text-2xl text-indigo-600 dark:text-indigo-400" />
+                </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Total SMS Sent</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">125,430</p>
@@ -80,8 +87,10 @@ const AdminDashboard: React.FC = () => {
 
           {/* Monthly Revenue */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
-              <BsCurrencyDollar className="text-2xl text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center justify-between">
+                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl">
+                    <BsCurrencyDollar className="text-2xl text-emerald-600 dark:text-emerald-400" />
+                </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Monthly Revenue</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">₦2.34M</p>
