@@ -3,7 +3,7 @@ import { IoNotificationsOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { TbMenuDeep } from "react-icons/tb";
 import { FiLogOut } from "react-icons/fi";
-import { ChevronDownIcon } from "@heroicons/react/24/outline"; // Optional: for better dropdown arrow
+import { IoChevronDownCircleOutline } from "react-icons/io5"; // Optional: for better dropdown arrow
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -46,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
               JD
             </div>
             <span className="hidden lg:block font-medium text-gray-800">John Doe</span>
-            <ChevronDownIcon className={`w-4 h-4 text-gray-600 hidden lg:block transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+            <IoChevronDownCircleOutline className={`w-4 h-4 text-gray-600 hidden lg:block transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
           </button>
 
           {/* Dropdown Menu */}
