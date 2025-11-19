@@ -1,156 +1,101 @@
 import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import { People } from "@mui/icons-material";
-import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
-import { LuNotebookPen } from "react-icons/lu";
-import { MdOutlineHub } from "react-icons/md";
-import { FaPeopleCarry, FaSms } from "react-icons/fa";
-// import { IoIosPeople } from "react-icons/io";
-import { FaPeopleGroup } from "react-icons/fa6";
-import { useSelector } from "react-redux";
-import { RootState } from "../../reduxstore/redux";
-import { FaBoxTissue } from "react-icons/fa";
-import { CiWallet } from "react-icons/ci";
-import { MdOutlineAccountBalance } from "react-icons/md";
-import { IoIosPeople } from "react-icons/io";
-import { PiRankingFill } from "react-icons/pi";
+import { Link, useLocation } from "react-router-dom"; // Added useLocation for active state
+import { MdOutlineClose } from "react-icons/md";
+import {
+  LuLayoutDashboard,
+  LuChurch,
+  LuSettings,
+  LuHistory,
+  LuCreditCard,
+  LuCircleCheck,
+  LuMessageCircleQuestion,
+} from "react-icons/lu";
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen: boolean;
+  toggleSidebar: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const location = useLocation();
-  const isManageRoute = location.pathname.startsWith("/manage");
-  const isMemberRoute = location.pathname.startsWith("/members");
-  const isMessageRoute = location.pathname.startsWith("/messages");
-  const isFinanceRoute = location.pathname.startsWith("/finance");
-  const authData = useSelector((state: RootState) => state?.auth?.authData);
 
-  const manage = [
-    { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches", permissionGroup:'Branch' },
-    { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments", permissionGroup:'Department' },
-    { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units", permissionGroup: "Unit"},
-    { to: "/manage/view-roles", icon: <PiRankingFill className="text-2xl" />, label: "Roles", permissionGroup: "Admin"},
-    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins", permissionGroup: "Admin"},
-  ];
-
-  const member = [
-    { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers", permissionGroup: "Workers"},
-    { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Member", permissionGroup:'Members'},
-    { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers", permissionGroup: 'FollowUp' },
-    { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms", permissionGroup: 'FollowUp' },
-  ];
-
-  const message = [
-    { to: "/messages/sms", icon: <FaSms className="text-2xl" />, label: "SMS", permissionGroup: 'Messaging'},
-    { to: "/messages/wallets", icon: <CiWallet className="text-2xl" />, label: "SMS Wallets", permissionGroup: 'Wallet' },
-  ];
-
-  const finance = [
-    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections", permissionGroup: 'Collection' }, 
-    { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account", permissionGroup: 'Finance' },
-  ];
-
-
-  const permissions = authData?.permission || [];
-
-  const filterByPermission = (items: typeof manage) => {
-    if (!permissions.length) return items; // Show all if no permissions
-    return items.filter((item) => permissions.includes(item.permissionGroup));
-  };
-
-  const filteredManage = filterByPermission(manage);
-  const filteredMembers = filterByPermission(member);
-  const filteredMessages = filterByPermission(message);
-  const filteredFinance = filterByPermission(finance);
+  const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <div className={`w-24 flex-shrink-0 h-full overflow-y-auto bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col`}>
-      <nav className="flex-1 flex flex-col items-center mt-12">
-        {isManageRoute && (
-          <ul className="space-y-8">
-            {filteredManage.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `block py-4 px-3 rounded-full text-center ${
-                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#4d4d4e8e] text-[var(--color-text-on-primary)]"
-                    }`
-                  }
-                >
-              
-                  <div className="flex flex-col items-center justify-center">
-                    <div>{item.icon}</div>
-                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
-                  </div>                
-                </NavLink>
-              </li>
-            ))}
+    <>
+      {/* Sidebar - Light Theme */}
+      <div
+        className={`fixed top-0 left-0 h-screen w-64 bg-white text-gray-800 flex flex-col shadow-xl transform ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        } transition-transform duration-300 lg:translate-x-0 lg:static z-40`}
+      >
+        {/* Logo / Name Section */}
+        <div className="flex items-center justify-between py-6 px-6 border-b border-gray-200">
+          <div className="flex items-center gap-4">
+            {/* Logo */}
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                <LuChurch className="text-white text-2xl" />
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900">churchset</h1>
+              <span className="text-xs text-gray-500 -mt-0.5">Rad5 Venture</span>
+            </div>
+          </div>
+
+          {/* Mobile Close Button */}
+          <button
+            className="text-gray-500 hover:text-gray-700 lg:hidden"
+            onClick={toggleSidebar}
+          >
+            <MdOutlineClose className="text-2xl" />
+          </button>
+        </div>
+
+        {/* Navigation Links */}
+        <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          <ul className="space-y-2">
+            {[
+              { to: "/dashboard", icon: LuLayoutDashboard, label: "Dashboard" },
+              { to: "/manage/churches", icon: LuChurch, label: "Manage Churches" },
+              { to: "/billing/subscriptions", icon: LuCreditCard, label: "Subscriptions & Plans" },
+              { to: "/activation", icon: LuCircleCheck, label: "Activation Center" },
+              { to: "/support", icon: LuMessageCircleQuestion, label: "Support Center" },
+              { to: "/logs", icon: LuHistory, label: "Activity Logs" },
+              { to: "/settings", icon: LuSettings, label: "Settings" },
+            ].map((item) => {
+              const active = isActive(item.to);
+              return (
+                <li key={item.to}>
+                  <Link
+                    to={item.to}
+                    className={`flex items-center gap-3 font-medium px-4 py-3 rounded-xl transition-all duration-200 ${
+                      active
+                        ? "text-white shadow-md bg-gradient-to-br from-purple-500 to-indigo-600"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    }`}
+                  >
+                    <item.icon className="text-xl flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
-        )}
-        {isMemberRoute && (
-          <ul className="space-y-8">
-            {filteredMembers.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `block px-3 py-4 rounded-full text-center ${
-                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
-                    }`
-                  }
-                >                  
-                  <div className="flex flex-col items-center justify-center">
-                    <div>{item.icon}</div>
-                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
-                  </div>                
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        )}
-        {isMessageRoute && (
-          <ul className="space-y-8">
-            {filteredMessages.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `block px-3 py-4 rounded-full text-center ${
-                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
-                    }`
-                  }
-                >                  
-                  <div className="flex flex-col items-center justify-center">
-                    <div>{item.icon}</div>
-                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
-                  </div>                
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        )}
-        {isFinanceRoute && (
-          <ul className="space-y-8">
-            {filteredFinance.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `block px-3 py-4 rounded-full text-center ${
-                      isActive ? "bg-[#F6F4FE] text-[#160F38]" : "bg-[#363740] text-[#777280]"
-                    }`
-                  }
-                >                  
-                  <div className="flex flex-col items-center justify-center">
-                    <div>{item.icon}</div>
-                    <p className="text-[10px]">{item.label}</p> {/* Reduced font size */}
-                  </div>                
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        )}
-      </nav>
-    </div>
+        </nav>
+      </div>
+
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+    </>
   );
 };
 
