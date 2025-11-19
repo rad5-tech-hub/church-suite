@@ -1,8 +1,9 @@
 import React from "react";
 import AdminDashboardManager from "../shared/dashboardManager";
-import { HiOutlineChurch, HiOutlineCheckCircle, HiOutlineClock } from "react-icons/hi";
+import {HiOutlineClock } from "react-icons/hi";
 import { BsGraphUpArrow, BsChatSquareText, BsCurrencyDollar } from "react-icons/bs";
 import { FiDownload } from "react-icons/fi";
+import { LuChurch } from "react-icons/lu";
 
 const AdminDashboard: React.FC = () => {
   return (
@@ -30,7 +31,7 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                <HiOutlineChurch className="text-2xl text-blue-600 dark:text-blue-400" />
+                <LuChurch className="text-2xl text-blue-600 dark:text-blue-400" />
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Total Registered Churches</p>
