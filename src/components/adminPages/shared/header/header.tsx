@@ -19,10 +19,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     const path = location.pathname;
 
     if (path.startsWith("/admin-dashboard")) return "Dashboard";
-    if (path.startsWith("/manage/churches")) return "Manage Churches";
+    if (path.startsWith("/admin-manage/churches")) return "Manage Churches";
     if (path.startsWith("/billing") || path.startsWith("/subscriptions")) return "Billing & Plans";
-    if (path.startsWith("/activation")) return "Activation Center";
-    if (path.startsWith("/support")) return "Support Center";
+    if (path.startsWith("/admin-activations")) return "Activation Center";
+    if (path.startsWith("/admin-supports")) return "Support Center";
     if (path.startsWith("/logs")) return "Activity Logs";
     if (path.startsWith("/settings")) return "Settings";
 

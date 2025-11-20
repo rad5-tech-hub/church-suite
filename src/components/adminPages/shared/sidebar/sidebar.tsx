@@ -60,10 +60,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
           <ul className="space-y-2">
             {[
               { to: "/admin-dashboard", icon: LuLayoutDashboard, label: "Dashboard" },
-              { to: "/manage/churches", icon: LuChurch, label: "Manage Churches" },
+              { to: "/admin-manage/churches", icon: LuChurch, label: "Manage Churches" },
               { to: "/billing/subscriptions", icon: LuCreditCard, label: "Subscriptions & Plans" },
-              { to: "/activation", icon: LuCircleCheck, label: "Activation Center" },
-              { to: "/support", icon: LuMessageCircleQuestion, label: "Support Center" },
+              { to: "/admin-activations", icon: LuCircleCheck, label: "Activation Center" },
+              { to: "/admin-supports", icon: LuMessageCircleQuestion, label: "Support Center" },
               { to: "/logs", icon: LuHistory, label: "Activity Logs" },
               { to: "/settings", icon: LuSettings, label: "Settings" },
             ].map((item) => {

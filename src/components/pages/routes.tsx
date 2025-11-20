@@ -13,6 +13,9 @@ const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const AdminDashboard = React.lazy(() => import("../adminPages/dashboard/dashboard"));
+const AdminSupports = React.lazy(() => import("../adminPages/supports/supports"));
+const AdminActivation = React.lazy(() => import("../adminPages/activations/activation"));
+const AdminManagingChurches = React.lazy(() => import("../adminPages/manageChurches/manageChurches"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
 const ViewWorker = React.lazy(() => import("./members/allMembers/viewMembers"));
@@ -83,6 +86,9 @@ const AppRoutes: React.FC = () => {
           <Route path="/church-settings" element={<ChangeColorButton />} />
 
           <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin-supports" element={<AdminSupports />} />
+          <Route path="/admin-activations" element={<AdminActivation />} />
+          <Route path="/admin-manage/churches" element={<AdminManagingChurches />} />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={
