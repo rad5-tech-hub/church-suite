@@ -4,7 +4,6 @@ import { BsGraphUpArrow, BsCurrencyDollar, BsGraphDownArrow } from "react-icons/
 import { FiDownload } from "react-icons/fi";
 import { LuChurch, LuClock } from "react-icons/lu";
 import Api from "../shared/api/api";
-import { CircularProgress } from "@mui/material";
 import {
   LineChart,
   Line,
@@ -143,8 +142,11 @@ const AdminDashboard: React.FC = () => {
   if (loading) {
     return (
       <AdminDashboardManager>
-        <div className="flex items-center justify-center min-h-screen">
-          <CircularProgress size={60} />
+        <div className="p-6 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading churches...</p>
+          </div>
         </div>
       </AdminDashboardManager>
     );

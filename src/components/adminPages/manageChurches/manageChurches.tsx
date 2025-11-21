@@ -62,13 +62,7 @@ const ManageChurches: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const getStatus = (church: Church): "active" | "inactive" | "expired" => {
-    if (!church.isActive) return "inactive";
-    if (church.subscriptionEndDate && new Date(church.subscriptionEndDate) < new Date()) return "expired";
-    return "active";
-  };
-
+  
   const filteredChurches = churches.filter((church) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "active") return church.isActive;
