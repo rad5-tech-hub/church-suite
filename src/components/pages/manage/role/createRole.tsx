@@ -223,7 +223,6 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
     });
   };
 
-
   const handleAddDepartment = async () => {
     if (!validateForm()) return;
 
@@ -234,11 +233,52 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
         name: formData.name.trim(),
         description: formData.description?.trim() || undefined,
         scopeLevel: formData.type,
-        permissionGroup: formData.permissionGroup,
-        permissions: formData.permissions,
       };
 
-      if (formData.branchId) payload.branchId = formData.branchId;
+      if (formData.branchId) {
+        payload.branchId = formData.branchId;
+      }
+
+      // === ALWAYS send all selected groups ===
+      if (formData.permissionGroup.length > 0) {
+        payload.permissionGroup = [...formData.permissionGroup];
+      }
+
+      // === Collect permissions ONLY from PARTIAL groups ===
+      const partialGroupPermissions: string[] = [];
+
+      for (const groupId of formData.permissionGroup) {
+        const group = permissionGroups.find((g) => g.id === groupId);
+        if (!group) continue;
+
+        const groupPermissionIds = group.permissions.map((p) => p.id);
+
+        // Count how many permissions are checked in THIS group
+        const checkedPermsInGroup = groupPermissionIds.filter((id) =>
+          formData.permissions.includes(id)
+        );
+
+        const isFullyChecked = checkedPermsInGroup.length === groupPermissionIds.length;
+
+        // SKIP if fully checked - don't add its permissions
+        if (isFullyChecked) {
+          continue; // ← Skip this group entirely
+        }
+
+        // PARTIAL: Add only the checked permissions from this group
+        partialGroupPermissions.push(...checkedPermsInGroup);
+      }
+
+      // Only add permissions array if there are partial groups
+      if (partialGroupPermissions.length > 0) {
+        payload.permissions = partialGroupPermissions;
+      }
+
+      console.log("=== DEBUG ===");
+      console.log("Selected Groups:", formData.permissionGroup);
+      console.log("All Checked Permissions:", formData.permissions);
+      console.log("Partial Group Permissions Only:", partialGroupPermissions);
+      console.log("Final Payload:", JSON.stringify(payload, null, 2));
 
       const response = await Api.post("/tenants/create-role", payload);
 
@@ -253,18 +293,10 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       onSuccess?.();
       setTimeout(onClose, 3000);
     } catch (error: any) {
-      console.error("Role creation error:", error);
-
-      if (error.response?.status === 422 || error.response?.status === 400) {
-        const serverErrors = error.response?.data?.errors;
-        if (serverErrors) {
-          if (serverErrors.name) setErrors((prev) => ({ ...prev, name: serverErrors.name[0] }));
-          if (serverErrors.branchId) setErrors((prev) => ({ ...prev, branchId: serverErrors.branchId[0] }));
-          return;
-        }
-      }
-
-      const msg = error.response?.data?.error?.message || "Failed to create role.";
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to create role";
       showPageToast(msg, "error");
     } finally {
       setLoading(false);

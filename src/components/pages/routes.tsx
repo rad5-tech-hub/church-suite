@@ -69,6 +69,17 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredPermissio
   return <>{children}</>;
 };
 
+const SupportRoute: React.FC<PrivateRouteProps> = ({ children}) => {
+ const authData = useSelector((state: RootState) => state.auth.authData);
+
+  // If not logged in or not a support user, redirect to admin login
+  if (!authData?.token || authData?.role !== 'Support') {
+    return <Navigate to="/admin-login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Router>
@@ -85,10 +96,10 @@ const AppRoutes: React.FC = () => {
           <Route path="/members" element={<MemberQrcodepage />} />
           <Route path="/church-settings" element={<ChangeColorButton />} />
 
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-          <Route path="/admin-supports" element={<AdminSupports />} />
-          <Route path="/admin-activations" element={<AdminActivation />} />
-          <Route path="/admin-manage/churches" element={<AdminManagingChurches />} />
+          <Route path="/admin-dashboard" element={<SupportRoute><AdminDashboard /> </SupportRoute> } />
+          <Route path="/admin-supports" element={<SupportRoute> <AdminSupports /></SupportRoute> } />
+          <Route path="/admin-activations" element={<SupportRoute> <AdminActivation /> </SupportRoute> } />
+          <Route path="/admin-manage/churches" element={<SupportRoute> <AdminManagingChurches /> </SupportRoute> } />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={

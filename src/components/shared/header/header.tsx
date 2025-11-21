@@ -267,7 +267,7 @@ const availableButtons = buttons.filter((label) => {
   const handleConfirmLogout = () => {
     handleCloseLogoutModal();
     store.dispatch(clearAuth());
-    navigate("/login");
+    navigate("/");
   };
 
   // Handle navigation button click

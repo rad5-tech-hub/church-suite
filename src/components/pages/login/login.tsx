@@ -98,7 +98,7 @@ const Login: React.FC<LoginFormProps> = () => {
 
     try {
       // Different endpoints and request body based on route
-      const endpoint = isAdminLogin ? '/admins/login' : '/church/login';
+      const endpoint = isAdminLogin ? '/admin/support-login' : '/church/login';
       
       // Different request body structure for admin login
       const requestBody = isAdminLogin 
@@ -127,7 +127,7 @@ const Login: React.FC<LoginFormProps> = () => {
       }
 
       // Handle different response structures
-      const accessToken = isAdminLogin ? data.token : data.accessToken;
+      const accessToken = isAdminLogin ? data.accessToken : data.accessToken;
       const decodedToken = jwtDecode(accessToken) as any;
 
       const authPayload: AuthPayload = {
@@ -160,7 +160,7 @@ const Login: React.FC<LoginFormProps> = () => {
       
       // Show success toast
       const successMessage = isAdminLogin 
-        ? 'Admin login successful! Redirecting...'
+        ? 'Churchset Support login successful! Redirecting...'
         : 'Login successful! Redirecting to Dashboard...';
         
       toast.success(successMessage, {
@@ -173,9 +173,11 @@ const Login: React.FC<LoginFormProps> = () => {
         progress: undefined,
       });
 
+      const route = isAdminLogin ? '/admin-dashboard' : '/dashboard';
+
       // Navigate to verify-email after a short delay
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate(route);
       }, 2000);
 
       // Clear form
@@ -184,7 +186,7 @@ const Login: React.FC<LoginFormProps> = () => {
         password: "",
       });
           
-      persistor.flush().then(() => navigate("/dashboard"));
+      persistor.flush().then(() => navigate(route));
             
     } catch (err) {
       const errorMessage =
@@ -223,7 +225,7 @@ const Login: React.FC<LoginFormProps> = () => {
     try {
       // Different endpoints for forgot password
       const endpoint = isAdminLogin 
-        ? '/admins/forgot-password' 
+        ? '/admin/forgot-pass' 
         : '/church/forgot-password';
       
       const response = await fetch(

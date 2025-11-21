@@ -185,8 +185,8 @@ const ManageChurches: React.FC = () => {
         {/* ================== CHURCH DETAILS MODAL ================== */}
         <Dialog open={!!selectedChurch} onClose={() => setSelectedChurch(null)} className="relative z-50">
           <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-          <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
-            <Dialog.Panel className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-4xl bg-white  max-h-[90vh] overflow-y-auto dark:bg-gray-800 rounded-2xl shadow-2xl">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white">

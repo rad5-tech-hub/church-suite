@@ -1,6 +1,5 @@
 import React from "react";
 import AdminDashboardManager from "../shared/dashboardManager";
-import { HiOutlineTicket } from "react-icons/hi";
 import { FiSearch, FiEye } from "react-icons/fi";
 
 const SupportCenter: React.FC = () => {
@@ -20,37 +19,34 @@ const SupportCenter: React.FC = () => {
         {/* Status Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {/* Open Tickets */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-red-500 flex items-center gap-5">
-            <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-xl">
-              <HiOutlineTicket className="text-3xl text-red-600 dark:text-red-400" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-red-500 flex flex-col gap-5">
+            <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Open Tickets</p>
             </div>
             <div>
               <p className="text-4xl font-bold text-gray-900 dark:text-white">3</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Open Tickets</p>
               <p className="text-xs text-gray-500 dark:text-gray-500">Awaiting response</p>
             </div>
           </div>
 
           {/* In Progress */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-blue-500 flex items-center gap-5">
-            <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-              <HiOutlineTicket className="text-3xl text-blue-600 dark:text-blue-400" />
-            </div>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-blue-500 flex flex-col gap-5">
+            <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">In Progress</p>
+            </div>            
             <div>
               <p className="text-4xl font-bold text-gray-900 dark:text-white">2</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">In Progress</p>
               <p className="text-xs text-gray-500 dark:text-gray-500">Being handled</p>
             </div>
           </div>
 
           {/* Resolved */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-green-500 flex items-center gap-5">
-            <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-xl">
-              <HiOutlineTicket className="text-3xl text-green-600 dark:text-green-400" />
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border-l-4 border-green-500 flex flex-col gap-5">
+            <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Resolved</p>
             </div>
             <div>
               <p className="text-4xl font-bold text-gray-900 dark:text-white">1</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Resolved</p>
               <p className="text-xs text-gray-500 dark:text-gray-500">This week</p>
             </div>
           </div>

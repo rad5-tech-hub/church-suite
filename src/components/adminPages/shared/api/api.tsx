@@ -1,9 +1,9 @@
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import "react-toastify/dist/ReactToastify.css";
-import { store } from "../../reduxstore/redux";
-import { clearAuth } from "../../reduxstore/authstore";
-import { showPageToast } from "../../util/pageToast";
+import { store } from "../../../reduxstore/redux";
+import { clearAuth } from "../../../reduxstore/authstore";
+import { showPageToast } from "../../../util/pageToast";
 
 // ✅ Prevent duplicate session/network toasts
 let hasShownSessionExpiredToast = false;

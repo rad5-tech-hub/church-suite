@@ -285,13 +285,47 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
 
     setLoading(true);
     try {
-      const payload = {
+      const payload: any = {
         name: formData.name.trim(),
         description: formData.description?.trim() || undefined,
         scopeLevel: formData.type,
-        permissionGroup: formData.permissionGroup,
-        permissions: formData.permissions,
       };
+
+      // === ALWAYS send all selected groups ===
+      if (formData.permissionGroup.length > 0) {
+        payload.permissionGroup = [...formData.permissionGroup];
+      }
+
+      // === Only collect permissions from PARTIAL groups ===
+      const partialGroupPermissions: string[] = [];
+
+      for (const groupId of formData.permissionGroup) {
+        const group = permissionGroups.find((g) => g.id === groupId);
+        if (!group) continue;
+
+        const groupPermissionIds = group.permissions.map((p) => p.id);
+
+        // Get checked permissions for THIS group
+        const checkedPermsInGroup = groupPermissionIds.filter((id) =>
+          formData.permissions.includes(id)
+        );
+
+        const isFullyChecked =
+          checkedPermsInGroup.length === groupPermissionIds.length;
+
+        // SKIP if fully checked - don't add its permissions
+        if (isFullyChecked) {
+          continue;
+        }
+
+        // PARTIAL: Add only the checked permissions from this group
+        partialGroupPermissions.push(...checkedPermsInGroup);
+      }
+
+      // Only add permissions array if there are partial groups
+      if (partialGroupPermissions.length > 0) {
+        payload.permissions = partialGroupPermissions;
+      }    
 
       await Api.patch(`/tenants/edit-role/${role.id}?branchId=${branchId}`, payload);
 
@@ -300,7 +334,10 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
       setTimeout(onClose, 1500);
     } catch (error: any) {
       console.error("Role update error:", error);
-      const msg = error.response?.data?.error?.message || "Failed to update role.";
+      const msg =
+        error.response?.data?.error?.message ||
+        error.response?.data?.message ||
+        "Failed to update role.";
       showPageToast(msg, "error");
     } finally {
       setLoading(false);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "./sidebar/sidebar";
 import Header from "./header/header";
-import { LuMoon, LuSun } from "react-icons/lu";
+// import { LuMoon, LuSun } from "react-icons/lu";
 
 interface DashboardManagerProps {
   children: React.ReactNode;
@@ -23,19 +23,19 @@ const AdminDashboardManager: React.FC<DashboardManagerProps> = ({ children }) =>
   }, []);
 
   // Toggle theme
-  const toggleTheme = () => {
-    setIsDarkMode((prev) => {
-      const newMode = !prev;
-      if (newMode) {
-        document.documentElement.classList.add("dark");
-        localStorage.setItem("theme", "dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-        localStorage.setItem("theme", "light");
-      }
-      return newMode;
-    });
-  };
+  // const toggleTheme = () => {
+  //   setIsDarkMode((prev) => {
+  //     const newMode = !prev;
+  //     if (newMode) {
+  //       document.documentElement.classList.add("dark");
+  //       localStorage.setItem("theme", "dark");
+  //     } else {
+  //       document.documentElement.classList.remove("dark");
+  //       localStorage.setItem("theme", "light");
+  //     }
+  //     return newMode;
+  //   });
+  // };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -59,7 +59,7 @@ const AdminDashboardManager: React.FC<DashboardManagerProps> = ({ children }) =>
       </div>
 
       {/* Theme Toggle Button - Fixed Bottom Right */}
-      <button
+      {/* <button
         onClick={toggleTheme}
         className="fixed bottom-6 right-6 z-50 p-4 bg-white dark:bg-gray-800 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 hover:scale-110 transition-all duration-300"
         aria-label="Toggle theme"
@@ -69,7 +69,7 @@ const AdminDashboardManager: React.FC<DashboardManagerProps> = ({ children }) =>
         ) : (
           <LuMoon className="w-6 h-6 text-indigo-600" />
         )}
-      </button>
+      </button> */}
     </>
   );
 };
