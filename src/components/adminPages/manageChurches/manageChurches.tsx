@@ -1,38 +1,116 @@
 // src/pages/ManageChurches.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminDashboardManager from "../shared/dashboardManager";
 import { Menu, Dialog, Tab, Transition } from "@headlessui/react";
-import { HiOutlineXMark} from "react-icons/hi2";
+import { HiOutlineXMark } from "react-icons/hi2";
 import { MoreVert } from "@mui/icons-material";
+import Api from "../shared/api/api";
 
 interface Church {
-  id: number;
+  id: string;
   name: string;
-  hq: boolean;
-  location: string;
-  status: "active" | "pending" | "disabled";
-  balance: string;
-  plan: "Premium" | "Standard" | "Basic";
-  branches: number;
-  members: number;
-  smsActivated: boolean;
-  walletActivated: boolean;
-  subscriptionActive: boolean;
+  address: string;
+  isActive: boolean;
+  smsActive: boolean;
+  isHeadQuarter: boolean;
+  subscriptionEndDate: string | null;
+  subscriptionId: string | null;
+  createdAt: string;
+  branchCount: string;
+  totalMemberCount: string;
+  workerCount: string;
+  subscription: any | null;
 }
 
-const churches: Church[] = [
-  { id: 1, name: "Grace Assembly", hq: true, location: "Lagos, Nigeria", status: "active", balance: "₦250,000", plan: "Premium", branches: 5, members: 1200, smsActivated: true, walletActivated: true, subscriptionActive: true },
-  { id: 2, name: "Victory Chapel", hq: false, location: "Abuja, Nigeria", status: "active", balance: "₦180,000", plan: "Standard", branches: 3, members: 850, smsActivated: true, walletActivated: true, subscriptionActive: true },
-  { id: 3, name: "Faith Centre", hq: true, location: "Port Harcourt, Nigeria", status: "active", balance: "₦320,000", plan: "Premium", branches: 8, members: 2100, smsActivated: true, walletActivated: true, subscriptionActive: true },
-  { id: 4, name: "Pentecost International", hq: false, location: "Ibadan, Nigeria", status: "active", balance: "₦95,000", plan: "Basic", branches: 2, members: 450, smsActivated: false, walletActivated: true, subscriptionActive: true },
-  { id: 5, name: "Living Word Church", hq: false, location: "Enugu, Nigeria", status: "pending", balance: "₦0", plan: "Standard", branches: 1, members: 200, smsActivated: false, walletActivated: false, subscriptionActive: false },
-  { id: 6, name: "Blessed Hope Ministry", hq: false, location: "Kano, Nigeria", status: "disabled", balance: "₦45,000", plan: "Basic", branches: 1, members: 180, smsActivated: false, walletActivated: false, subscriptionActive: false },
-];
+interface ApiResponse {
+  message: string;
+  counts: {
+    total: number;
+    active: number;
+    inactive: number;
+    smsInactive: number;
+    subscriptionExpired: number;
+  };
+  data: Church[];
+}
 
 const ManageChurches: React.FC = () => {
+  const [churches, setChurches] = useState<Church[]>([]);
+  const [counts, setCounts] = useState<ApiResponse["counts"] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [churchToDisable, setChurchToDisable] = useState<Church | null>(null);
   const [confirmName, setConfirmName] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    fetchChurches();
+  }, []);
+
+  const fetchChurches = async () => {
+    try {
+      setLoading(true);
+      const response = await Api.get("/admin/all-church");
+      if (!response.data) throw new Error("Failed to fetch churches");
+      const data: ApiResponse = await response.data;
+      setChurches(data.data);
+      setCounts(data.counts);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatus = (church: Church): "active" | "inactive" | "expired" => {
+    if (!church.isActive) return "inactive";
+    if (church.subscriptionEndDate && new Date(church.subscriptionEndDate) < new Date()) return "expired";
+    return "active";
+  };
+
+  const filteredChurches = churches.filter((church) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "active") return church.isActive;
+    if (statusFilter === "inactive") return !church.isActive;
+    return true;
+  });
+
+  const handleDisableChurch = async () => {
+    if (!churchToDisable) return;
+    // API call to disable church would go here
+    alert(`Church "${churchToDisable.name}" has been ${churchToDisable.isActive ? "disabled" : "enabled"}.`);
+    setChurchToDisable(null);
+    fetchChurches(); // Refresh data
+  };
+
+  if (loading) {
+    return (
+      <AdminDashboardManager>
+        <div className="p-6 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading churches...</p>
+          </div>
+        </div>
+      </AdminDashboardManager>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminDashboardManager>
+        <div className="p-6 flex items-center justify-center min-h-screen">
+          <div className="text-center text-red-600">
+            <p>Error: {error}</p>
+            <button onClick={fetchChurches} className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg">
+              Retry
+            </button>
+          </div>
+        </div>
+      </AdminDashboardManager>
+    );
+  }
 
   return (
     <AdminDashboardManager>
@@ -45,13 +123,42 @@ const ManageChurches: React.FC = () => {
           </div>
         </div>
 
+        {/* Stats Cards */}
+        {counts && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{counts.total}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Active</p>
+              <p className="text-2xl font-bold text-green-600">{counts.active}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Inactive</p>
+              <p className="text-2xl font-bold text-red-600">{counts.inactive}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">SMS Inactive</p>
+              <p className="text-2xl font-bold text-yellow-600">{counts.smsInactive}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Subscription Expired</p>
+              <p className="text-2xl font-bold text-orange-600">{counts.subscriptionExpired}</p>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <select className="px-5 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
-            <option>All Status</option>
-          </select>
-          <select className="px-5 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500">
-            <option>All Plans</option>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-5 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
 
@@ -61,7 +168,7 @@ const ManageChurches: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                 <tr>
-                  {["Church Name", "Location", "Status", "Wallet Balance", "Plan", "Branches", "Members", "Actions"].map((h) => (
+                  {["Church Name", "Address", "Status", "SMS", "Branches", "Members", "Workers", "Created", "Actions"].map((h) => (
                     <th key={h} className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       {h}
                     </th>
@@ -69,48 +176,47 @@ const ManageChurches: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {churches.map((church) => (
+                {filteredChurches.map((church) => (
                   <tr key={church.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <span className="font-medium text-gray-900 dark:text-white">{church.name}</span>
-                        {church.hq && (
+                        {church.isHeadQuarter && (
                           <span className="px-3 py-1 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
                             HQ
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{church.location}</td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{church.address}</td>
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex px-4 py-1.5 text-xs font-semibold rounded-full ${
-                          church.status === "active"
+                          church.isActive
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : church.status === "pending"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
                             : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                         }`}
                       >
-                        {church.status}
+                        {church.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">{church.balance}</td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex px-4 py-1.5 text-xs font-medium rounded-full ${
-                          church.plan === "Premium"
-                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                            : church.plan === "Standard"
-                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                        className={`inline-flex px-4 py-1.5 text-xs font-semibold rounded-full ${
+                          church.smsActive
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                         }`}
                       >
-                        {church.plan}
+                        {church.smsActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-gray-700 dark:text-gray-300">{church.branches}</td>
-                    <td className="px-6 py-4 text-center text-gray-700 dark:text-gray-300">{church.members.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-gray-700 dark:text-gray-300">{church.branchCount}</td>
+                    <td className="px-6 py-4 text-center text-gray-700 dark:text-gray-300">{parseInt(church.totalMemberCount).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-center text-gray-700 dark:text-gray-300">{church.workerCount}</td>
+                    <td className="px-6 py-4 text-gray-600 dark:text-gray-300 text-sm">
+                      {new Date(church.createdAt).toLocaleDateString()}
+                    </td>
                     <td className="px-6 py-4">
                       <Menu as="div" className="relative">
                         <Menu.Button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
@@ -137,40 +243,21 @@ const ManageChurches: React.FC = () => {
                                 </button>
                               )}
                             </Menu.Item>
-                            {church.status !== "disabled" && (
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => {
-                                      setChurchToDisable(church);
-                                      setConfirmName("");
-                                    }}
-                                    className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
-                                      active ? "bg-red-50 dark:bg-red-900/20" : ""
-                                    } text-red-600 dark:text-red-400`}
-                                  >
-                                    Disable Church
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            )}
-                            {church.status === "disabled" && (
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => {
-                                      setChurchToDisable(church);
-                                      setConfirmName("");
-                                    }}
-                                    className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
-                                      active ? "bg-red-50 dark:bg-red-900/20" : ""
-                                    } text-green-600 dark:text-green-400`}
-                                  >
-                                    Enable Church
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            )}
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => {
+                                    setChurchToDisable(church);
+                                    setConfirmName("");
+                                  }}
+                                  className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
+                                    active ? "bg-red-50 dark:bg-red-900/20" : ""
+                                  } ${church.isActive ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                                >
+                                  {church.isActive ? "Disable Church" : "Enable Church"}
+                                </button>
+                              )}
+                            </Menu.Item>
                           </Menu.Items>
                         </Transition>
                       </Menu>
@@ -186,7 +273,7 @@ const ManageChurches: React.FC = () => {
         <Dialog open={!!selectedChurch} onClose={() => setSelectedChurch(null)} className="relative z-50">
           <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="w-full max-w-4xl bg-white  max-h-[90vh] overflow-y-auto dark:bg-gray-800 rounded-2xl shadow-2xl">
+            <Dialog.Panel className="w-full max-w-4xl bg-white max-h-[90vh] overflow-y-auto dark:bg-gray-800 rounded-2xl shadow-2xl">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <Dialog.Title className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -203,23 +290,23 @@ const ManageChurches: React.FC = () => {
 
               <Tab.Group>
                 <div className="flex justify-center mt-2">
-                    <Tab.List className="flex bg-gray-100 dark:bg-gray-700/50 rounded-full p-1 overflow-hidden">
-                        {["Info", "Wallet & Transactions", "Status"].map((tab) => (
-                            <Tab key={tab}>
-                            {({ selected }) => (
-                                <button
-                                className={`flex-1 px-6 py-3 text-sm font-medium transition-all rounded-full ${
-                                    selected
-                                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm"
-                                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                }`}
-                                >
-                                {tab}
-                                </button>
-                            )}
-                            </Tab>
-                        ))}
-                    </Tab.List>
+                  <Tab.List className="flex bg-gray-100 dark:bg-gray-700/50 rounded-full p-1 overflow-hidden">
+                    {["Info", "Status"].map((tab) => (
+                      <Tab key={tab}>
+                        {({ selected }) => (
+                          <button
+                            className={`flex-1 px-6 py-3 text-sm font-medium transition-all rounded-full ${
+                              selected
+                                ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm"
+                                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                            }`}
+                          >
+                            {tab}
+                          </button>
+                        )}
+                      </Tab>
+                    ))}
+                  </Tab.List>
                 </div>
 
                 <Tab.Panels className="p-8">
@@ -231,60 +318,48 @@ const ManageChurches: React.FC = () => {
                         <p className="text-xl font-semibold text-gray-900 dark:text-white">{selectedChurch?.name}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Location</p>
-                        <p className="text-xl font-medium text-gray-900 dark:text-white">{selectedChurch?.location}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Address</p>
+                        <p className="text-xl font-medium text-gray-900 dark:text-white">{selectedChurch?.address}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Total Branches</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChurch?.branches}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChurch?.branchCount}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Total Members</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChurch?.members.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {parseInt(selectedChurch?.totalMemberCount || "0").toLocaleString()}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Subscription Plan</p>
-                        <span className="inline-flex px-4 py-2 text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
-                          {selectedChurch?.plan}
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Workers</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{selectedChurch?.workerCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Created</p>
+                        <p className="text-xl font-medium text-gray-900 dark:text-white">
+                          {selectedChurch?.createdAt && new Date(selectedChurch.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Church Type</p>
+                        <span className={`inline-flex px-4 py-2 text-sm font-medium rounded-full ${
+                          selectedChurch?.isHeadQuarter
+                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                        }`}>
+                          {selectedChurch?.isHeadQuarter ? "Headquarters" : "Branch"}
                         </span>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                        <span className="inline-flex px-4 py-2 text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                          Active
+                        <span className={`inline-flex px-4 py-2 text-sm font-medium rounded-full ${
+                          selectedChurch?.isActive
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                        }`}>
+                          {selectedChurch?.isActive ? "Active" : "Inactive"}
                         </span>
-                      </div>
-                    </div>
-                  </Tab.Panel>
-
-                  {/* === WALLET & TRANSACTIONS TAB === */}
-                  <Tab.Panel className="space-y-8">
-                    <div className="text-center py-12 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-2xl">
-                      <p className="text-5xl font-bold text-gray-900 dark:text-white">{selectedChurch?.balance}</p>
-                      <p className="text-lg text-gray-600 dark:text-gray-400 mt-2">Current Wallet Balance</p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Recent Transactions</h3>
-                      <div className="space-y-4">
-                        {[
-                          { date: "2025-11-15", desc: "SMS Purchase - 50,000 units", amount: "-₦45,000", status: "completed" },
-                          { date: "2025-11-10", desc: "Wallet Top-up", amount: "+₦100,000", status: "completed" },
-                          { date: "2025-11-05", desc: "Subscription Renewal", amount: "-₦150,000", status: "completed" },
-                        ].map((t, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{t.desc}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{t.date}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className={`font-semibold ${t.amount.startsWith("+") ? "text-green-600" : "text-red-600"}`}>
-                                {t.amount}
-                              </p>
-                              <span className="text-xs text-gray-500">Completed</span>
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   </Tab.Panel>
@@ -296,38 +371,48 @@ const ManageChurches: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-lg font-medium text-gray-900 dark:text-white">SMS Services</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Sender ID: {selectedChurch?.name.split(" ")[0]}Asm</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedChurch?.smsActive ? "SMS messaging enabled" : "SMS messaging not configured"}
+                          </p>
                         </div>
                         <span className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium ${
-                          selectedChurch?.smsActivated
+                          selectedChurch?.smsActive
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                             : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
                         }`}>
-                          {selectedChurch?.smsActivated ? <>Activated</> : "Not Activated"}
+                          {selectedChurch?.smsActive ? "Activated" : "Not Activated"}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-lg font-medium text-gray-900 dark:text-white">Wallet Services</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Bank verified</p>
+                          <p className="text-lg font-medium text-gray-900 dark:text-white">Church Status</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedChurch?.isActive ? "Church is currently active" : "Church is currently disabled"}
+                          </p>
                         </div>
                         <span className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium ${
-                          selectedChurch?.walletActivated
+                          selectedChurch?.isActive
                             ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                            : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                         }`}>
-                          {selectedChurch?.walletActivated ? <>Activated</> : "Not Activated"}
+                          {selectedChurch?.isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-lg font-medium text-gray-900 dark:text-white">Subscription</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{selectedChurch?.plan} Plan Active</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedChurch?.subscription ? `Expires: ${selectedChurch.subscriptionEndDate}` : "No active subscription"}
+                          </p>
                         </div>
-                        <span className="inline-flex px-6 py-3 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full text-sm font-medium">
-                          Active
+                        <span className={`inline-flex px-6 py-3 rounded-full text-sm font-medium ${
+                          selectedChurch?.subscription
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        }`}>
+                          {selectedChurch?.subscription ? "Active" : "No Subscription"}
                         </span>
                       </div>
                     </div>
@@ -338,16 +423,18 @@ const ManageChurches: React.FC = () => {
           </div>
         </Dialog>
 
-        {/* ================== DISABLE CONFIRMATION ================== */}
+        {/* ================== DISABLE/ENABLE CONFIRMATION ================== */}
         <Dialog open={!!churchToDisable} onClose={() => setChurchToDisable(null)} className="relative z-50">
           <div className="fixed inset-0 bg-black/40" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
               <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-white">
-                Disable {churchToDisable?.name}?
+                {churchToDisable?.isActive ? "Disable" : "Enable"} {churchToDisable?.name}?
               </Dialog.Title>
               <p className="mt-3 text-gray-600 dark:text-gray-400">
-                This action cannot be undone. Type the church name to confirm:
+                {churchToDisable?.isActive
+                  ? "This will disable the church and restrict access. Type the church name to confirm:"
+                  : "This will re-enable the church. Type the church name to confirm:"}
               </p>
               <input
                 type="text"
@@ -365,13 +452,14 @@ const ManageChurches: React.FC = () => {
                 </button>
                 <button
                   disabled={confirmName !== churchToDisable?.name}
-                  onClick={() => {
-                    alert(`Church "${churchToDisable?.name}" has been disabled.`);
-                    setChurchToDisable(null);
-                  }}
-                  className="px-6 py-3 bg-red-600 disabled:bg-gray-400 text-white rounded-xl hover:bg-red-700 disabled:cursor-not-allowed transition"
+                  onClick={handleDisableChurch}
+                  className={`px-6 py-3 disabled:bg-gray-400 text-white rounded-xl disabled:cursor-not-allowed transition ${
+                    churchToDisable?.isActive
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
                 >
-                  Disable Church
+                  {churchToDisable?.isActive ? "Disable Church" : "Enable Church"}
                 </button>
               </div>
             </Dialog.Panel>
