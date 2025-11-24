@@ -43,6 +43,8 @@ const ManageChurches: React.FC = () => {
   const [churchToDisable, setChurchToDisable] = useState<Church | null>(null);
   const [confirmName, setConfirmName] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [actionType, setActionType] = useState<"sms-enable"|"sms-disable"|"church-enable"|"church-disable"|null>(null);
+
 
   useEffect(() => {
     fetchChurches();
@@ -62,7 +64,7 @@ const ManageChurches: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   const filteredChurches = churches.filter((church) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "active") return church.isActive;
@@ -70,13 +72,27 @@ const ManageChurches: React.FC = () => {
     return true;
   });
 
-  const handleDisableChurch = async () => {
-    if (!churchToDisable) return;
-    // API call to disable church would go here
-    alert(`Church "${churchToDisable.name}" has been ${churchToDisable.isActive ? "disabled" : "enabled"}.`);
-    setChurchToDisable(null);
-    fetchChurches(); // Refresh data
+
+  const handleToggleStatus = async (church: Church, type: string) => {
+    try {
+      let payload: any = {};
+
+      if (type === "sms-enable") payload.sms = true;
+      if (type === "sms-disable") payload.sms = false;
+      if (type === "church-enable") payload.active = true;
+      if (type === "church-disable") payload.active = false;
+
+      await Api.patch(`/admin/activate-church/${church.id}`, payload);
+
+      await fetchChurches();
+      setChurchToDisable(null);
+      setActionType(null);
+
+    } catch (e) {
+      alert("Failed to update status");
+    }
   };
+
 
   if (loading) {
     return (
@@ -108,7 +124,7 @@ const ManageChurches: React.FC = () => {
 
   return (
     <AdminDashboardManager>
-      <div className="p-6 space-y-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="p-6 space-y-8 bg-gray-50  min-h-screen">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -241,12 +257,40 @@ const ManageChurches: React.FC = () => {
                               {({ active }) => (
                                 <button
                                   onClick={() => {
-                                    setChurchToDisable(church);
-                                    setConfirmName("");
+                                    if (church.smsActive) {
+                                      // DISABLE SMS
+                                      setActionType("sms-disable");
+                                      setChurchToDisable(church);
+                                    } else {
+                                      // ENABLE SMS instantly
+                                      handleToggleStatus(church, "sms-enable");
+                                    }
                                   }}
                                   className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
                                     active ? "bg-red-50 dark:bg-red-900/20" : ""
-                                  } ${church.isActive ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                                  } ${church.smsActive ? "text-red-600" : "text-green-600"}`}
+                                >
+                                  {church.smsActive ? "Disable SMS" : "Enable SMS"}
+                                </button>
+                              )}
+                            </Menu.Item>
+
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  onClick={() => {
+                                    if (church.isActive) {
+                                      // DISABLE CHURCH
+                                      setActionType("church-disable");
+                                      setChurchToDisable(church);
+                                    } else {
+                                      // ENABLE CHURCH instantly
+                                      handleToggleStatus(church, "church-enable");
+                                    }
+                                  }}
+                                  className={`w-full text-left px-4 py-3 text-sm font-medium transition ${
+                                    active ? "bg-red-50 dark:bg-red-900/20" : ""
+                                  } ${church.isActive ? "text-red-600" : "text-green-600"}`}
                                 >
                                   {church.isActive ? "Disable Church" : "Enable Church"}
                                 </button>
@@ -423,7 +467,8 @@ const ManageChurches: React.FC = () => {
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
               <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-white">
-                {churchToDisable?.isActive ? "Disable" : "Enable"} {churchToDisable?.name}?
+                  {actionType === "sms-disable" && `Disable ${churchToDisable?.name} SMS?`}
+                  {actionType === "church-disable" && `Disable ${churchToDisable?.name}?`}
               </Dialog.Title>
               <p className="mt-3 text-gray-600 dark:text-gray-400">
                 {churchToDisable?.isActive
@@ -446,14 +491,12 @@ const ManageChurches: React.FC = () => {
                 </button>
                 <button
                   disabled={confirmName !== churchToDisable?.name}
-                  onClick={handleDisableChurch}
-                  className={`px-6 py-3 disabled:bg-gray-400 text-white rounded-xl disabled:cursor-not-allowed transition ${
-                    churchToDisable?.isActive
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-green-600 hover:bg-green-700"
+                  onClick={() => handleToggleStatus(churchToDisable!, actionType!)}
+                  className={`px-6 py-3 text-white rounded-xl transition ${
+                    "bg-red-600 hover:bg-red-700"
                   }`}
                 >
-                  {churchToDisable?.isActive ? "Disable Church" : "Enable Church"}
+                  Confirm Disable
                 </button>
               </div>
             </Dialog.Panel>

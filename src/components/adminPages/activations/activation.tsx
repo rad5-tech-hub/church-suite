@@ -5,7 +5,7 @@ import  {LuCircleCheck, LuCircleX, LuChurch } from "react-icons/lu";
 const ActivationCenter: React.FC = () => {
   return (
     <AdminDashboardManager>
-      <div className="p-6 space-y-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
         {/* Header */}
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
