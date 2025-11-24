@@ -46,6 +46,7 @@ interface FormData {
   ageTo: number | null;
   birthMonth: string;
   birthDay: string;
+  nationalityCode: string;
   state: string;
   LGA: string;
   nationality: string;
@@ -122,6 +123,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     ageFrom: null,
     ageTo: null,
     birthMonth: "",
+    nationalityCode: '',
     birthDay: "",
     state: "",
     LGA: "",
@@ -192,13 +194,19 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   }, [authData?.branchId, hasFetchedBranches, isFetchingBranches, fetchBranches]);
 
   // Fetch Locations (Countries)
+  // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
     if (isFetchingCountries || hasFetchedCountries) return;
     setIsFetchingCountries(true);
     try {
-      const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
+      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,flags');
       const result = await response.json();
-      setCountries(result.data || []);
+      const formattedCountries = result.map((country: any) => ({
+        iso2: country.cca2,
+        name: country.name.common,
+        flag: country.flags.svg || country.flags.png,
+      })).sort((a: Countries, b: Countries) => a.name.localeCompare(b.name));
+      setCountries(formattedCountries);
       setHasFetchedCountries(true);
     } catch (error: any) {
       console.error('Error fetching locations:', error);
@@ -210,27 +218,34 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
 
   // Fetch States
   useEffect(() => {
+    if (!formData.nationalityCode) {
+      setStates([]);
+      setFormData(prev => ({ ...prev, state: "" }));
+      return;
+    }
+
     const fetchStates = async () => {
-      if (!formData.nationality) return;
       setLoadingStates(true);
       try {
-        const response = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ country: formData.nationality }),
-        });
-        const data = await response.json();
-        setStates(data.data?.states || []);
-        setFormData((prev) => ({ ...prev, state: '' }));
+        const res = await fetch(
+          `https://country-api.drnyeinchan.com/v1/countries/${formData.nationalityCode}/states`
+        );
+        const data = await res.json();
+
+        // API returns array directly → perfect!
+        const stateList = Array.isArray(data) ? data : [];
+        setStates(stateList.map((s: any) => ({ name: s.name })));
       } catch (error) {
-        console.error('Error fetching states:', error);
-        showPageToast('Failed to load states. Please try again.', 'error');
+        console.error("Error fetching states:", error);
+        showPageToast("Failed to load states.", "error");
+        setStates([]);
       } finally {
         setLoadingStates(false);
       }
     };
+
     fetchStates();
-  }, [formData.nationality]);
+  }, [formData.nationalityCode]);
 
   // Handlers
   const handleChange = (
@@ -304,7 +319,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       }
 
       // ✅ Remove branchId from payload body
-      const { branchId, ...payload } = formData;
+      const { branchId, nationalityCode, ...payload } = formData;
 
       const params = new URLSearchParams();
       params.append("churchId", authData?.churchId || "");
@@ -327,6 +342,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         birthMonth: "",
         birthDay: "",
         state: "",
+        nationalityCode: '',
         LGA: "",
         nationality: "",
         comments: "",
@@ -759,7 +775,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           getOptionLabel={(option: Countries) => option.name}
           value={countries.find(c => c.name === formData.nationality) || null}
           onChange={(_event, newValue: Countries | null) => {
-            handleChange({ target: { name: "nationality", value: newValue?.name || "" } });
+            setFormData(prev => ({
+              ...prev,
+              nationality: newValue?.name || "",
+              nationalityCode: newValue?.iso2 || "",  // ← Store ISO2 code here
+              state: "",        // ← Reset state when country changes
+              LGA: ""           // ← Optional: reset LGA too
+            }));
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
           filterOptions={(options, state) => {
@@ -1091,7 +1113,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                       Creating...
                     </span>
                   ) : (
-                    "Create Worker"
+                    "Create Member"
                   )}
                 </Button>
               </Box>

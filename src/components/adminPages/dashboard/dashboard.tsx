@@ -154,7 +154,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <AdminDashboardManager>
-      <div className="p-6 space-y-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <div className="p-6 space-y-8 bg-gray-50  min-h-screen">
         {/* Error Banner */}
         {errors.length > 0 && (
           <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-xl p-4">
