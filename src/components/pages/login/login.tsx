@@ -1,9 +1,37 @@
+import { createPusherClient } from "../../util/pusherClient";
+import { toast } from "react-toastify";
+
+// 🔔 Setup real-time notification listener
+function setupLiveNotifications(user: any, token: string) {
+  const pusher = createPusherClient(token);
+
+  const channel = pusher.subscribe(`private-user-${user.id}`);
+
+  // When a notification arrives
+  channel.bind("notification", (data: any) => {
+    console.log("🔥 New Notification:", data);
+    toast.info(data.title || "New notification received");
+
+    // If you have a redux store for notifications, push it here
+    // dispatch(addNotification(data));
+  });
+
+  // When backend says a notification was read
+  channel.bind("notification-read", (data: any) => {
+    console.log("📘 Notification marked as read:", data);
+  });
+
+  return channel;
+}
+
+
+
 import React, { useState } from "react";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { store } from "../../reduxstore/redux";
 import { clearChurchData } from "../../reduxstore/datamanager";
-import { toast, ToastContainer } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useDispatch } from "react-redux";
 import { persistor } from '../../reduxstore/redux';
@@ -127,7 +155,12 @@ const Login: React.FC<LoginFormProps> = () => {
       }
 
       // Handle different response structures
-      const accessToken = isAdminLogin ? data.accessToken : data.accessToken;
+     
+      const accessToken = data.accessToken;
+      if (!accessToken) {
+        throw new Error("No access token returned from API");
+      }
+
       const decodedToken = jwtDecode(accessToken) as any;
 
       const authPayload: AuthPayload = {
@@ -157,6 +190,10 @@ const Login: React.FC<LoginFormProps> = () => {
 
       dispatch(setAuthData(authPayload));
       await new Promise(resolve => setTimeout(resolve, PERSIST_DELAY));
+
+      // ⭐ Start Real-Time Notification Subscription
+      setupLiveNotifications(authPayload, accessToken);
+
       
       // Show success toast
       const successMessage = isAdminLogin 
@@ -188,32 +225,34 @@ const Login: React.FC<LoginFormProps> = () => {
           
       persistor.flush().then(() => navigate(route));
             
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Login failed. Please try again.";    
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-      });
-      
-      // Only redirect to verify-email for non-admin routes
-      if (!isAdminLogin) {
-        setTimeout(() => {
-          if (
-            errorMessage.toLowerCase().includes("verify your email") ||
-            errorMessage.toLowerCase().includes("please verify your email")
-          ) {          
-            sessionStorage.setItem('email', formData.email);
-            navigate("/verify-email");
-          }
-        }, 1200);
-      }
-    } finally {
+    } catch (err: any) {
+    // Default message
+    let errorMessage = "Login failed. Please try again.";
+
+    // If the error came from your fetch API response
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (err?.error) {
+      // Handle { "error": "..." } structure
+      errorMessage = typeof err.error === "string" ? err.error : err.error.message || errorMessage;
+    }
+
+    toast.error(errorMessage, {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+
+    // Only redirect to verify-email for non-admin routes
+    if (!isAdminLogin && errorMessage.toLowerCase().includes("verify your email")) {
+      sessionStorage.setItem('email', formData.email);
+      setTimeout(() => navigate("/verify-email"), 1200);
+    }
+  } finally {
       setIsLoading(false);
     }
   };
