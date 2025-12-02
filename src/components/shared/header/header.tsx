@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {  IoPersonOutline } from "react-icons/io5";
+import {  IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { FiLogOut } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,6 +18,10 @@ import {
   Select,
   MenuItem,
   SelectChangeEvent,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
 } from "@mui/material";
 import Api from "../api/api";
 import MobileNav from "../mobileNav/mobilenav";
@@ -35,6 +39,14 @@ interface Branch {
 interface Department {
   id: string;
   name: string;
+}
+
+interface NotificationType {
+  id: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
 }
 
 const Header: React.FC<HeaderProps> = () => {
@@ -99,6 +111,8 @@ const availableButtons = buttons.filter((label) => {
   // State management
   const [activeButton, setActiveButton] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
+ const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
+  const notifOpen = Boolean(notifAnchor);
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranchId, setCurrentBranchId] = useState<string>("");
@@ -108,6 +122,8 @@ const availableButtons = buttons.filter((label) => {
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [errorBranches, setErrorBranches] = useState<string>("");
   const [errorDepartments, setErrorDepartments] = useState<string>("");
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  const [loadingNotif, setLoadingNotif] = useState(false);
 
   const open = Boolean(anchorEl);
   const id = open ? "profile-popover" : undefined;
@@ -271,51 +287,79 @@ const availableButtons = buttons.filter((label) => {
   };
 
   // Handle navigation button click
-const handleButtonClick = (label: string) => {
-  if (label === "Manage") {
-    const manageRoutes: { [key: string]: string } = {
-      Branch: "/manage/view-branches",
-      Department: "/manage/view-departments",
-      Unit: "/manage/view-units",
-      Admin: "/manage/view-admins",
-    };
-    const perm = authData?.permission?.find((p: string) => buttonPermissions.Manage.includes(p));
-    navigate(perm ? manageRoutes[perm] : "/manage/view-admins");
-  } else if (label === "Membership") {
-    const membershipRoutes: { [key: string]: string } = {
-      Workers: "/members/view-workers",
-      Members: "/members/view-members",
-      Followup: "/members/view-followup",
-    };
-    const perm = authData?.permission?.find((p: string) => buttonPermissions.Membership.includes(p));
-    navigate(perm ? membershipRoutes[perm] : "/members/view-workers");
-  } else if (label === "Messages") {
-    const messagesRoutes: { [key: string]: string } = {
-      Messaging: "/messages/sms",
-      Wallet: "/messages/wallets",
-    };
-    const perm = authData?.permission?.find((p: string) => buttonPermissions.Messages.includes(p));
-    navigate(perm ? messagesRoutes[perm] : "/messages/sms");
-  } else if (label === "Finance") {
-    const financeRoutes: { [key: string]: string } = {
-      Collection: "/finance/collections",
-      Finance: "/finance/accounts",
-    };
-    const perm = authData?.permission?.find((p: string) => buttonPermissions.Finance.includes(p));
-    navigate(perm ? financeRoutes[perm] : "/finance/collections");
-  } else if (label === "Programs") {
-    const programsRoutes: { [key: string]: string } = {
-      Programs: "/programs",
-      Attendance: "/programs",
-      Followup: "/programs",
-    };
-    const perm = authData?.permission?.find((p: string) => buttonPermissions.Programs.includes(p));
-    navigate(perm ? programsRoutes[perm] : "/programs");
-  } else {
-    navigate(defaultRoutes[label]);
-  }
-};
+  const handleButtonClick = (label: string) => {
+    if (label === "Manage") {
+      const manageRoutes: { [key: string]: string } = {
+        Branch: "/manage/view-branches",
+        Department: "/manage/view-departments",
+        Unit: "/manage/view-units",
+        Admin: "/manage/view-admins",
+      };
+      const perm = authData?.permission?.find((p: string) => buttonPermissions.Manage.includes(p));
+      navigate(perm ? manageRoutes[perm] : "/manage/view-admins");
+    } else if (label === "Membership") {
+      const membershipRoutes: { [key: string]: string } = {
+        Workers: "/members/view-workers",
+        Members: "/members/view-members",
+        Followup: "/members/view-followup",
+      };
+      const perm = authData?.permission?.find((p: string) => buttonPermissions.Membership.includes(p));
+      navigate(perm ? membershipRoutes[perm] : "/members/view-workers");
+    } else if (label === "Messages") {
+      const messagesRoutes: { [key: string]: string } = {
+        Messaging: "/messages/sms",
+        Wallet: "/messages/wallets",
+      };
+      const perm = authData?.permission?.find((p: string) => buttonPermissions.Messages.includes(p));
+      navigate(perm ? messagesRoutes[perm] : "/messages/sms");
+    } else if (label === "Finance") {
+      const financeRoutes: { [key: string]: string } = {
+        Collection: "/finance/collections",
+        Finance: "/finance/accounts",
+      };
+      const perm = authData?.permission?.find((p: string) => buttonPermissions.Finance.includes(p));
+      navigate(perm ? financeRoutes[perm] : "/finance/collections");
+    } else if (label === "Programs") {
+      const programsRoutes: { [key: string]: string } = {
+        Programs: "/programs",
+        Attendance: "/programs",
+        Followup: "/programs",
+      };
+      const perm = authData?.permission?.find((p: string) => buttonPermissions.Programs.includes(p));
+      navigate(perm ? programsRoutes[perm] : "/programs");
+    } else {
+      navigate(defaultRoutes[label]);
+    }
+  };
 
+  // Unread count
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotif(true);
+
+      const res = await Api.get("/tenants/get-notifications"); // Adjust your endpoint
+
+      setNotifications(res.data.notifications || []);
+    } catch (error) {
+      console.log("Notification Error:", error);
+    } finally {
+      setLoadingNotif(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const handleNotifClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setNotifAnchor(event.currentTarget);
+  };
+
+  const handleNotifClose = () => {
+    setNotifAnchor(null);
+  };
 
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
@@ -399,12 +443,71 @@ const handleButtonClick = (label: string) => {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* <button className="relative bg-[#4d4d4e8e] p-2 rounded-full" aria-label="Notifications">
+   {/* 🔔 Notification Button */}
+        <button
+          className="relative bg-[#4d4d4e8e] p-2 rounded-full"
+          onClick={handleNotifClick}
+        >
           <IoNotificationsOutline className="text-2xl" />
-          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-            3
-          </span>
-        </button> */}
+
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-4 w-4 rounded-full flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+
+        {/* NOTIFICATION POPOVER */}
+        <Popover
+          open={notifOpen}
+          anchorEl={notifAnchor}
+          onClose={handleNotifClose}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+          PaperProps={{ sx: { width: 340, p: 1 } }}
+        >
+          <Typography sx={{ fontWeight: 600, mb: 1, pl: 1 }}>
+            Notifications
+          </Typography>
+          <Divider />
+
+          {loadingNotif ? (
+            <Box sx={{ p: 2, textAlign: "center" }}>
+              <CircularProgress size={20} />
+            </Box>
+          ) : notifications.length === 0 ? (
+            <Box sx={{ p: 2, textAlign: "center" }}>
+              <Typography>No notifications</Typography>
+            </Box>
+          ) : (
+            <List sx={{ maxHeight: 300, overflowY: "auto" }}>
+              {notifications.map((n) => (
+                <ListItem
+                  key={n.id}
+                  sx={{
+                    backgroundColor: n.isRead ? "transparent" : "#f1edff",
+                    borderRadius: 1,
+                    mb: 0.5,
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography sx={{ fontWeight: 600 }}>{n.title}</Typography>
+                    }
+                    secondary={
+                      <>
+                        <Typography>{n.message}</Typography>
+                        <Typography sx={{ fontSize: "10px", mt: 0.5 }}>
+                          {new Date(n.createdAt).toLocaleString()}
+                        </Typography>
+                      </>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Popover>
 
         <div className="relative text-[var(--color-text-on-primary)]">
           <div
