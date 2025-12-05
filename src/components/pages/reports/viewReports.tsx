@@ -62,6 +62,7 @@ export interface FetchReportsResponse {
 interface UIState {
   reports: Report[];
   loading: boolean;
+  message?: string
   error: string | null;
   isModalOpen: boolean;
   anchorEl: HTMLElement | null;
@@ -70,6 +71,7 @@ interface UIState {
 const init: UIState = {
   reports: [],
   loading: false,
+  message: "",
   error: null,
   isModalOpen: false,
   anchorEl: null,
@@ -94,18 +96,46 @@ const ViewReports: React.FC = () => {
   const fetchReports = useCallback(async () => {
     set("loading", true);
     set("error", null);
+
     try {
       const { data } = await Api.get<FetchReportsResponse>("/tenants/get-report");
-      if (!data?.reports) throw new Error("Invalid response – no reports");
+
+      if (!data?.reports) {
+        throw new Error("No reports data received from server");
+      }
+
       set("reports", data.reports);
+      set("error", null);
     } catch (e: any) {
-      const msg = e?.message ?? "Failed to load reports.";
-      set("error", msg);
-      showPageToast(msg, "error");
+      // Extract meaningful error message
+      let errorMessage = "Failed to load reports.";
+
+      if (e.response) {
+        // Server responded with error status (4xx, 5xx)
+        const serverMsg = e.response.data?.error?.message 
+                      || e.response.data?.message 
+                      || e.response.data?.error;
+
+        if (serverMsg && typeof serverMsg === "string") {
+          errorMessage = serverMsg; // e.g. "Access denied: insufficient permission"
+        } else if (e.response.status === 403) {
+          errorMessage = "You don't have permission to view reports";
+        } else if (e.response.status === 401) {
+          errorMessage = "Please log in again";
+        }
+      } else if (e.request) {
+        // Network error (no response)
+        errorMessage = "Network error. Please check your connection.";
+      } else {
+        errorMessage = e.message || errorMessage;
+      }
+
+      set("error", errorMessage);
+      showPageToast(errorMessage, "error");
     } finally {
       set("loading", false);
     }
-  }, [set]);
+  }, [set, showPageToast]);
 
   const refresh = () => fetchReports();
 
@@ -134,27 +164,73 @@ const ViewReports: React.FC = () => {
   const closeModal = () => set("isModalOpen", false);
 
   const Empty = () => (
-    <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255,255,255,0.5)", mb: 2 }} />
-      <Typography variant="h6" color="rgba(255,255,255,0.5)" gutterBottom>
-        {s.error ? "Failed to load reports" : "No reports found"}
+    <Box
+      sx={{
+        textAlign: "center",
+        py: 8,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+      }}
+    >
+      <EmptyIcon sx={{ fontSize: 70, color: "rgba(255,255,255,0.4)" }} />
+
+      <Typography variant="h6" color="rgba(255,255,255,0.7)">
+        {s.error 
+          ? "Unable to load reports" 
+          : "No reports yet"
+        }
       </Typography>
+
       {s.error && (
-        <Typography variant="body2" sx={{ color: "#ff6b6b", mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "#ff6b6b",
+            backgroundColor: "rgba(255,107,107,0.1)",
+            px: 3,
+            py: 1.5,
+            borderRadius: 2,
+            maxWidth: 400,
+            border: "1px solid rgba(255,107,107,0.3)",
+          }}
+        >
           {s.error}
         </Typography>
       )}
-      <Button
-        variant="contained"
-        onClick={openModal}
-        sx={{
-          mt: 2,
-          bgcolor: "#4d4d4e8e",
-          "&:hover": { bgcolor: "#4d4d4e8e", opacity: 0.9 },
-        }}
-      >
-        Write Report
-      </Button>
+
+      {/* Only show "Write Report" button if user likely has permission */}
+      {!s.error?.includes("permission") && !s.error?.includes("Access denied") && (
+        <Button
+          variant="contained"
+          onClick={openModal}
+          size="large"
+          sx={{
+            mt: 2,
+            bgcolor: "#6C5CE7",
+            px: 4,
+            "&:hover": { bgcolor: "#5A4FCF" },
+          }}
+        >
+          Write New Report
+        </Button>
+      )}
+
+      {/* Optional: Retry button on network/server errors */}
+      {s.error && (
+        <Button
+          variant="outlined"
+          onClick={refresh}
+          sx={{
+            mt: 1,
+            borderColor: "rgba(255,255,255,0.3)",
+            color: "white",
+          }}
+        >
+          Try Again
+        </Button>
+      )}
     </Box>
   );
 

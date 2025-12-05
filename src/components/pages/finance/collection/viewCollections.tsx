@@ -573,13 +573,13 @@ const ViewCollections: React.FC = () => {
               onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
                 backgroundColor: "#363740",
-                px: { xs: 2, sm: 2, md: 4 },
-                py: {xs: 1, sm: 1, md: 1.5},
+                px: { xs: 2, sm: 2, md: 3 },
+                py: {xs: 1, sm: 1, md: 1},
                 borderRadius: 50,
                 color: "#F6F4FE",
                 fontWeight: 600,
                 textTransform: "none",
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
+                fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
               }}
             >

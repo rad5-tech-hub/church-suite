@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -14,8 +14,12 @@ import {
   IconButton,
   FormHelperText,
   Chip,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
-import { Close, AttachFile, Title as TitleIcon } from "@mui/icons-material";
+import { Close, AttachFile, Title as TitleIcon, Send } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import Api from "../../shared/api/api";
 import { showPageToast } from "../../util/pageToast";
@@ -28,14 +32,34 @@ interface ReportModalProps {
   onSuccess?: () => void;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+}
+
+type SubmitToType = "church" | "branch" | "department";
+
 const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) => {
   const authData = useSelector((state: RootState) => state.auth?.authData);
 
   const [title, setTitle] = useState("");
   const [comments, setComments] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [submitTo, setSubmitTo] = useState<SubmitToType>("branch");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({ title: "", files: "" });
+  const [errors, setErrors] = useState({ title: "", files: "", submitTo: "", branch: "", department: "" });
+  // Dynamic branch & department
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
 
   usePageToast("write-report");
 
@@ -43,38 +67,136 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
   const churchId = authData?.churchId;
   const branchId = authData?.branchId;
   const role = authData?.role;
+  const isHeadQuarter = authData?.isHeadQuarter;
   const departmentId = role === "department" ? authData?.department : undefined;
+
+  // Determine available submit options based on role
+  const getAvailableOptions = (): SubmitToType[] => {
+    const options: SubmitToType[] = [];
+
+    if (role === "department") {
+      // Department users can submit to branch or department
+      options.push("branch", "department");
+    } else if (isHeadQuarter) {
+      // Headquarters can submit to church or branch
+      options.push("church", "branch");
+    } else {
+      // Regular users can only submit to branch
+      options.push("branch");
+    }
+
+    return options;
+  };
+
+  // Fetch branches when modal opens or when "branch" or "church" is selected
+  const fetchBranches = async () => {
+    if (!churchId) return;
+    setLoadingBranches(true);
+    try {
+      const res = await Api.get("/church/get-branches");
+      const branchList = res.data.branches || [];
+      setBranches(branchList);
+
+      // Pre-select current branch if available
+      if (branchId && branchList.some((b: Branch) => b.id === branchId)) {
+        setSelectedBranchId(branchId);
+      } else if (branchList.length > 0) {
+        setSelectedBranchId(branchList[0].id);
+      }
+    } catch (err) {
+      showPageToast("Failed to load branches", "error");
+      setBranches([]);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  // Fetch departments when a branch is selected and needed
+  const fetchDepartments = async (branchId: string) => {
+    if (!branchId) return;
+    setLoadingDepartments(true);
+    try {
+      const res = await Api.get(`/church/get-departments?branchId=${branchId}`);
+      const deptList = res.data.departments || [];
+      setDepartments(deptList);
+
+      // Pre-select current department if available
+      if (departmentId && deptList.some((d: Department) => d.id === departmentId)) {
+        setSelectedDepartmentId(departmentId);
+      } else if (deptList.length > 0) {
+        setSelectedDepartmentId(deptList[0].id);
+      } else {
+        setSelectedDepartmentId("");
+      }
+    } catch (err) {
+      showPageToast("Failed to load departments", "error");
+      setDepartments([]);
+      setSelectedDepartmentId("");
+    } finally {
+      setLoadingDepartments(false);
+    }
+  };
+
+  // Determine what fields to show
+  const showBranchSelect = submitTo === "branch" && isHeadQuarter;
+  const showDepartmentSelect = submitTo === "department";
+
+  // Load branches when modal opens (only if needed)
+  useEffect(() => {
+    if (open && (isHeadQuarter || showBranchSelect)) {
+      fetchBranches();
+    }
+  }, [open, isHeadQuarter]);
+
+  // Load departments when branch changes and department is needed
+  useEffect(() => {
+    if (showDepartmentSelect && selectedBranchId) {
+      fetchDepartments(selectedBranchId);
+    }
+  }, [selectedBranchId, showDepartmentSelect]);
+
+  const availableOptions = getAvailableOptions();
+
+  // Set default submitTo based on available options
+  React.useEffect(() => {
+    if (availableOptions.length > 0 && !availableOptions.includes(submitTo)) {
+      setSubmitTo(availableOptions[0]);
+    }
+  }, [availableOptions, submitTo]);
 
   // Validation
   const validate = () => {
-    const newErrors = { title: "", files: "" };
+    const newErrors = { title: "", files: "", submitTo: "", branch: "", department: "" };
     if (!title.trim()) newErrors.title = "Report title is required";
     else if (title.trim().length > 200) newErrors.title = "Title too long (max 200 chars)";
+    
+    if (!submitTo) newErrors.submitTo = "Please select where to submit";
+    
     setErrors(newErrors);
-    return !newErrors.title;
+    return !newErrors.title && !newErrors.submitTo;
   };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selected = Array.from(e.target.files || []);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
 
-        // Combine old + new files
-        const combined = [...files, ...selected];
+    // Combine old + new files
+    const combined = [...files, ...selected];
 
-        // Limit to 3 files
-        if (combined.length > 10) {
-            setErrors((prev) => ({
-            ...prev,
-            files: "Max 10 files allowed",
-            }));
-            return;
-        }
+    // Limit to 10 files
+    if (combined.length > 10) {
+      setErrors((prev) => ({
+        ...prev,
+        files: "Max 10 files allowed",
+      }));
+      return;
+    }
 
-        setFiles(combined);
-        setErrors((prev) => ({ ...prev, files: "" }));
+    setFiles(combined);
+    setErrors((prev) => ({ ...prev, files: "" }));
 
-        // Reset input value so user can re-select same file again if needed
-        e.target.value = "";
-    };
+    // Reset input value so user can re-select same file again if needed
+    e.target.value = "";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +215,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
     formData.append("comments", comments.trim());
     formData.append("churchId", churchId);
     formData.append("branchId", branchId);
+    formData.append("submitTo", submitTo);
 
-    // Department only if role is department
-    if (departmentId) {
+    // Department only if role is department and submitTo is department
+    if (departmentId && submitTo === "department") {
       formData.append("departmentId", departmentId);
     }
 
@@ -127,12 +250,27 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
     setTitle("");
     setComments("");
     setFiles([]);
-    setErrors({ title: "", files: "" });
+    setSubmitTo(availableOptions[0] || "branch");
+    setErrors({ title: "", files: "", submitTo: "", branch: "", department: "" });
   };
 
   const handleCancel = () => {
     resetForm();
     onClose();
+  };
+
+  // Get label for submit option
+  const getSubmitLabel = (option: SubmitToType) => {
+    switch (option) {
+      case "church":
+        return "Church (Headquarters)";
+      case "branch":
+        return "Branch";
+      case "department":
+        return "Department";
+      default:
+        return option;
+    }
   };
 
   return (
@@ -163,6 +301,137 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
       <DialogContent dividers>
         <Box component="form" onSubmit={handleSubmit} sx={{ py: 2 }}>
           <Grid container spacing={3}>
+            {/* Submit To */}
+            {availableOptions.length > 1 && (
+              <Grid size={{ xs: 12 }}>
+                <FormControl
+                  fullWidth
+                  error={!!errors.submitTo}
+                  disabled={loading}
+                >
+                  <InputLabel
+                    sx={{
+                      color: "#F6F4FE",
+                      "&.Mui-focused": { color: "#F6F4FE" },
+                    }}
+                  >
+                    Submit To *
+                  </InputLabel>
+                  <Select
+                    value={submitTo}
+                    onChange={(e) => {
+                      setSubmitTo(e.target.value as SubmitToType);
+                      setErrors((prev) => ({ ...prev, submitTo: "" }));
+                    }}
+                    label="Submit To *"
+                    startAdornment={
+                      <InputAdornment position="start">
+                        <Send sx={{ color: "#F6F4FE" }} />
+                      </InputAdornment>
+                    }
+                    sx={{
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#777280",
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#F6F4FE",
+                      },
+                      "& .MuiSvgIcon-root": {
+                        color: "#F6F4FE",
+                      },
+                    }}
+                  >
+                    {availableOptions.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {getSubmitLabel(option)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.submitTo && (
+                    <FormHelperText error>{errors.submitTo}</FormHelperText>
+                  )}
+                  <FormHelperText sx={{ color: "rgba(255,255,255,0.6)" }}>
+                    {submitTo === "church" && "Report will be submitted to Church Headquarters"}
+                    {submitTo === "branch" && "Report will be submitted to your Branch"}
+                    {submitTo === "department" && "Report will be submitted to your Department"}
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
+            )}
+
+            {/* Branch Selector - shown when needed */}
+            {showBranchSelect && (
+              <Grid size={12}>
+                <FormControl fullWidth error={!!errors.branch}>
+                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                    Select Branch 
+                  </InputLabel>
+                  <Select
+                    value={selectedBranchId}
+                    label='Select Branch'
+                    onOpen={fetchBranches}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    disabled={loadingBranches}
+                    sx={{
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "& .MuiSvgIcon-root": {
+                        color: "#F6F4FE",
+                      },
+                    }}
+                  >
+                    {loadingBranches ? (
+                      <MenuItem disabled><CircularProgress size={20} /> Loading branches...</MenuItem>
+                    ) : branches.length === 0 ? (
+                      <MenuItem disabled>No branches available</MenuItem>
+                    ) : (
+                      branches.map((b) => (
+                        <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                      ))
+                    )}
+                  </Select>
+                  {errors.branch && <FormHelperText error>{errors.branch}</FormHelperText>}
+                </FormControl>
+              </Grid>
+            )}
+
+            {/* Department Selector */}
+            {showDepartmentSelect && (
+              <Grid size={12}>
+                <FormControl fullWidth error={!!errors.department}>
+                  <InputLabel sx={{ color: "#F6F4FE" }}>Select Department *</InputLabel>
+                  <Select
+                    value={selectedDepartmentId}
+                    label="Select Department *"
+                    onOpen={() => selectedBranchId && fetchDepartments(selectedBranchId)}
+                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                    disabled={loadingDepartments || !selectedBranchId}
+                    sx={{
+                      color: "#F6F4FE",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "& .MuiSvgIcon-root": {
+                        color: "#F6F4FE",
+                      },
+                    }}
+                  >
+                    {loadingDepartments ? (
+                      <MenuItem disabled><CircularProgress size={20} /> Loading departments...</MenuItem>
+                    ) : departments.length === 0 ? (
+                      <MenuItem disabled>No departments in this branch</MenuItem>
+                    ) : (
+                      departments.map((d) => (
+                        <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                      ))
+                    )}
+                  </Select>
+                  {errors.department && <FormHelperText error>{errors.department}</FormHelperText>}
+                </FormControl>
+              </Grid>
+            )}
+
             {/* Title */}
             <Grid size={{ xs: 12 }}>
               <TextField
@@ -294,7 +563,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
           type="submit"
           variant="contained"
           onClick={handleSubmit}
-          disabled={loading || !title.trim() || !churchId || !branchId}
+          disabled={loading || !title.trim() || !churchId || !branchId || !submitTo}
           sx={{
             py: 1.2,
             minWidth: 140,
