@@ -22,7 +22,7 @@ const AdminDashboardManager: React.FC<DashboardManagerProps> = ({ children }) =>
         <Header toggleSidebar={toggleSidebar} />
 
         {/* Page Content - This is the only place that should scroll vertically */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 text-gray-900">
           <div className="p-6"> {/* ← Move padding here so it doesn't cause overflow */}
             {children}
           </div>

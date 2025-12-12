@@ -466,15 +466,18 @@ const ManageChurches: React.FC = () => {
           <div className="fixed inset-0 bg-black/40" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+              
               <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-white">
-                  {actionType === "sms-disable" && `Disable ${churchToDisable?.name} SMS?`}
-                  {actionType === "church-disable" && `Disable ${churchToDisable?.name}?`}
+                {actionType === "sms-disable" && `Disable ${churchToDisable?.name} SMS?`}
+                {actionType === "church-disable" && `Disable ${churchToDisable?.name}?`}
               </Dialog.Title>
+
               <p className="mt-3 text-gray-600 dark:text-gray-400">
                 {churchToDisable?.isActive
                   ? "This will disable the church and restrict access. Type the church name to confirm:"
                   : "This will re-enable the church. Type the church name to confirm:"}
               </p>
+
               <input
                 type="text"
                 value={confirmName}
@@ -482,6 +485,7 @@ const ManageChurches: React.FC = () => {
                 placeholder={churchToDisable?.name}
                 className="mt-4 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
               />
+
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   onClick={() => setChurchToDisable(null)}
@@ -489,16 +493,22 @@ const ManageChurches: React.FC = () => {
                 >
                   Cancel
                 </button>
+
                 <button
-                  disabled={confirmName !== churchToDisable?.name}
+                  disabled={confirmName.trim() !== churchToDisable?.name?.trim()}
                   onClick={() => handleToggleStatus(churchToDisable!, actionType!)}
-                  className={`px-6 py-3 text-white rounded-xl transition ${
-                    "bg-red-600 hover:bg-red-700"
-                  }`}
+                  className={`px-6 py-3 rounded-xl transition text-white 
+                    ${
+                      confirmName.trim() === churchToDisable?.name?.trim()
+                        ? "bg-red-600 hover:bg-red-700"
+                        : "bg-red-300 cursor-not-allowed"
+                    }
+                  `}
                 >
                   Confirm Disable
                 </button>
               </div>
+
             </Dialog.Panel>
           </div>
         </Dialog>

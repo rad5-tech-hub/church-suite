@@ -910,7 +910,7 @@ const ViewBranches: React.FC = () => {
                             variant="body2"
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#4d4d4e8e",
+                              color: branch.isDeleted ? "gray" : "#777280",
                             }}
                           >
                             {branch.address}

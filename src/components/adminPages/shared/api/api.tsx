@@ -1,3 +1,4 @@
+// src/api/api.ts
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import "react-toastify/dist/ReactToastify.css";
@@ -5,12 +6,12 @@ import { store } from "../../../reduxstore/redux";
 import { clearAuth } from "../../../reduxstore/authstore";
 import { showPageToast } from "../../../util/pageToast";
 
-// ✅ Prevent duplicate session/network toasts
+// Prevent duplicate toasts across app lifetime
 let hasShownSessionExpiredToast = false;
 let hasShownNetworkErrorToast = false;
 
 /**
- * ✅ Check if a JWT token is expired
+ * Check if JWT token is expired
  */
 const isTokenExpired = (token: string): boolean => {
   try {
@@ -22,7 +23,7 @@ const isTokenExpired = (token: string): boolean => {
 };
 
 /**
- * ✅ Axios instance
+ * Axios Instance
  */
 const Api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -34,8 +35,8 @@ const Api = axios.create({
 });
 
 /**
- * ✅ Request Interceptor
- * - If token is expired → logout immediately
+ * Request Interceptor
+ * Adds Bearer token + checks for expired token before sending
  */
 Api.interceptors.request.use(
   async (config) => {
@@ -43,11 +44,10 @@ Api.interceptors.request.use(
 
     if (token) {
       if (isTokenExpired(token)) {
-        // 🔥 Clear session & logout
+        // Token expired → force logout immediately
         store.dispatch(clearAuth());
-        window.location.href = "/";
+        window.location.href = "/admin-login";
 
-        // Optional toast (only once)
         if (!hasShownSessionExpiredToast) {
           hasShownSessionExpiredToast = true;
           showPageToast("Session expired. Please log in again.", "error");
@@ -65,30 +65,43 @@ Api.interceptors.request.use(
 );
 
 /**
- * ✅ Response Interceptor
- * - Still catches 401 from backend and logs out (if token manually invalidated)
+ * Response Interceptor - FIXED
+ * Ignores 401 from /admin/change-pass so user isn't logged out on wrong old password
  */
 Api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response) {
-      if (error.response.status === 401 && !hasShownSessionExpiredToast) {
-        hasShownSessionExpiredToast = true;
+    // Detect if this request was to change password
+    const isChangePasswordRequest = error.config?.url?.includes("/admin/change-pass");
 
-        // 🔥 Force logout
-        store.dispatch(clearAuth());
-        showPageToast("Unauthorized access. Please log in again.", "error");
-        window.location.href = "/";
+    if (error.response) {
+      // Only trigger full logout on 401 if it's NOT the change-password endpoint
+      if (error.response.status === 401 && !isChangePasswordRequest) {
+        if (!hasShownSessionExpiredToast) {
+          hasShownSessionExpiredToast = true;
+          store.dispatch(clearAuth());
+          showPageToast("Session expired or unauthorized. Please log in again.", "error");
+          window.location.href = "/admin-login";
+        }
       }
+      // For change-password 401 (wrong old password), we do NOT logout → just reject
     } else if (error.request) {
+      // Network error (no response)
       if (!hasShownNetworkErrorToast) {
         hasShownNetworkErrorToast = true;
-        showPageToast("Network error. Please check your connection.", "error");
+        showPageToast("Network error. Please check your internet connection.", "error");
       }
     }
 
+    // Always reject the error so component can handle it
     return Promise.reject(error);
   }
 );
+
+// Optional: Reset toast flags when user logs in again (call this in your login success)
+export const resetApiToastFlags = () => {
+  hasShownSessionExpiredToast = false;
+  hasShownNetworkErrorToast = false;
+};
 
 export default Api;
