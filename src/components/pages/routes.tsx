@@ -49,10 +49,15 @@ interface PrivateRouteProps {
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredPermissions  }) => {
  const authData = useSelector((state: RootState) => state.auth.authData);
+ 
 
   // If not logged in, redirect to login
   if (!authData?.token) {
     return <Navigate to="/" replace />;
+  }
+
+  if (authData.role === "support") {
+    return <Navigate to="/admin-login" replace />;
   }
 
   // If permissions are required, check if user has at least one
@@ -64,17 +69,6 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredPermissio
       // Optional: redirect to dashboard or show "Not Authorized" page
       return <Navigate to="/dashboard" replace />;
     }
-  }
-
-  return <>{children}</>;
-};
-
-const SupportRoute: React.FC<PrivateRouteProps> = ({ children}) => {
- const authData = useSelector((state: RootState) => state.auth.authData);
-
-  // If not logged in or not a support user, redirect to admin login
-  if (!authData?.token || authData?.role !== 'support') {
-    return <Navigate to="/admin-login" replace />;
   }
 
   return <>{children}</>;
@@ -96,10 +90,10 @@ const AppRoutes: React.FC = () => {
           <Route path="/members" element={<MemberQrcodepage />} />
           <Route path="/church-settings" element={<ChangeColorButton />} />
 
-          <Route path="/admin-dashboard" element={<SupportRoute><AdminDashboard /> </SupportRoute> } />
-          <Route path="/admin-supports" element={<SupportRoute> <AdminSupports /></SupportRoute> } />
-          <Route path="/admin-activations" element={<SupportRoute> <AdminActivation /> </SupportRoute> } />
-          <Route path="/admin-manage/churches" element={<SupportRoute> <AdminManagingChurches /> </SupportRoute> } />
+          <Route path="/admin-dashboard" element={<PrivateRoute><AdminDashboard /> </PrivateRoute> } />
+          <Route path="/admin-supports" element={<PrivateRoute> <AdminSupports /></PrivateRoute> } />
+          <Route path="/admin-activations" element={<PrivateRoute> <AdminActivation /> </PrivateRoute> } />
+          <Route path="/admin-manage/churches" element={<PrivateRoute> <AdminManagingChurches /> </PrivateRoute> } />
 
           {/* Private Routes */}
           <Route path="/dashboard" element={
