@@ -94,7 +94,7 @@ const Login: React.FC<LoginFormProps> = () => {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   // Check if current route is admin login
-  const isAdminLogin = location.pathname === '/admin-login';
+  const isAdminLogin = location.pathname.startsWith("/admin-login");
 
   // Reset form data on component mount
   React.useEffect(() => {
