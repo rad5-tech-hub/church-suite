@@ -82,21 +82,22 @@ const ActivationCenter: React.FC = () => {
         <div className="p-6 flex items-center justify-center min-h-screen bg-gray-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading activation center...</p>
+            <p className="mt-4 text-gray-600">Loading activation center...</p>
           </div>
         </div>
-      </AdminDashboardManager>);
+      </AdminDashboardManager>
+    );
   }
 
   return (
     <AdminDashboardManager>
-      <ToastContainer/>
-      <div className="p-6 space-y-8 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <ToastContainer />
+      <div className="p-6 space-y-8 bg-gray-50 min-h-screen">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-gray-900">
             Activation Center
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-gray-600 mt-2">
             Activate churches and enable SMS services
           </p>
         </div>
@@ -108,23 +109,23 @@ const ActivationCenter: React.FC = () => {
             churches.map((church) => (
               <div
                 key={church.id}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden"
               >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+                <div className="p-6 border-b border-gray-100">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
                       <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl text-white">
                         <LuChurch className="w-7 h-7" />
                       </div>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        <h3 className="text-xl font-bold text-gray-900">
                           {church.name}
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-gray-500">
                           Registered: {formatDate(church.createdAt)}
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        <p className="text-sm text-gray-600 mt-1">
                           {church.address || "No address provided"}
                         </p>
                       </div>
@@ -133,11 +134,11 @@ const ActivationCenter: React.FC = () => {
                     {/* Church Status Badge */}
                     <div>
                       {church.isActive ? (
-                        <span className="px-3 py-1 text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                        <span className="px-3 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
                           Active
                         </span>
                       ) : (
-                        <span className="px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">
+                        <span className="px-3 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
                           Inactive
                         </span>
                       )}
@@ -151,15 +152,15 @@ const ActivationCenter: React.FC = () => {
                     {/* Church Activation */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                        <span className="font-medium text-gray-700">
                           Church Status
                         </span>
                         {church.isActive ? (
-                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          <span className="text-sm font-medium text-green-600">
                             Activated
                           </span>
                         ) : (
-                          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                          <span className="text-sm font-medium text-red-600">
                             Not Activated
                           </span>
                         )}
@@ -187,15 +188,15 @@ const ActivationCenter: React.FC = () => {
                     {/* SMS Activation */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                        <span className="font-medium text-gray-700">
                           SMS Service
                         </span>
                         {church.smsActive ? (
-                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          <span className="text-sm font-medium text-green-600">
                             Activated
                           </span>
                         ) : church.isActive ? (
-                          <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                          <span className="text-sm font-medium text-yellow-600">
                             Ready to Activate
                           </span>
                         ) : (
@@ -225,7 +226,7 @@ const ActivationCenter: React.FC = () => {
                       )}
 
                       {church.smsActive && (
-                        <p className="text-sm text-green-600 dark:text-green-400">
+                        <p className="text-sm text-green-600">
                           SMS service is fully active
                         </p>
                       )}

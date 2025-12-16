@@ -76,9 +76,6 @@ interface AuthPayload {
 }
 
 
-// const CODE_LENGTH = 6;
-const PERSIST_DELAY = 100;
-
 // Main Component
 const Login: React.FC<LoginFormProps> = () => {
   const navigate = useNavigate();
@@ -189,42 +186,32 @@ const Login: React.FC<LoginFormProps> = () => {
       };
 
       dispatch(setAuthData(authPayload));
-      await new Promise(resolve => setTimeout(resolve, PERSIST_DELAY));
 
-      // ⭐ Start Real-Time Notification Subscription
-      setupLiveNotifications(authPayload, accessToken);
+      // ✅ Wait for persist to finish
+      await persistor.flush();
 
-      
+        // ⭐ Start Pusher ONLY for non-admin users
+        if (!isAdminLogin) {
+          setupLiveNotifications(authPayload, accessToken);
+        }
+
+
       // Show success toast
-      const successMessage = isAdminLogin 
-        ? 'Churchset Support login successful! Redirecting...'
-        : 'Login successful! Redirecting to Dashboard...';
-        
-      toast.success(successMessage, {
-        position: "top-center",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
+      toast.success(
+        isAdminLogin
+          ? "Churchset Support login successful! Redirecting..."
+          : "Login successful! Redirecting to Dashboard...",
+        {
+          position: "top-center",
+          autoClose: 2000,
+        }
+      );
+
+      // ✅ Navigate ONCE
+      navigate(isAdminLogin ? "/admin-dashboard" : "/dashboard", {
+        replace: true,
       });
-
-      const route = isAdminLogin ? '/admin-dashboard' : '/dashboard';
-
-      // Navigate to verify-email after a short delay
-      setTimeout(() => {
-        navigate(route);
-      }, 2000);
-
-      // Clear form
-      setFormData({
-        email: "",
-        password: "",
-      });
-          
-      persistor.flush().then(() => navigate(route));
-            
+                  
     } catch (err: any) {
     // Default message
     let errorMessage = "Login failed. Please try again.";

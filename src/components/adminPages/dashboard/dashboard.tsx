@@ -124,7 +124,7 @@ const AdminDashboard: React.FC = () => {
         <div className="p-6 flex items-center justify-center min-h-screen bg-gray-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+            <p className="mt-4 text-gray-600">Loading dashboard...</p>
           </div>
         </div>
       </AdminDashboardManager>
@@ -139,13 +139,13 @@ const AdminDashboard: React.FC = () => {
 
         {/* Global Empty State - When Nothing Has Started */}
         {hasNoData && (
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800 rounded-2xl p-10 text-center">
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-10 text-center">
             <div className="max-w-2xl mx-auto">
-              <LuChurch className="text-7xl text-purple-600 dark:text-purple-400 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              <LuChurch className="text-7xl text-purple-600 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
                 Welcome to ChurchSet Admin Dashboard
               </h2>
-              <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
+              <p className="text-gray-600 text-lg leading-relaxed">
                 Your platform is ready and waiting for churches to join. Once registrations begin,
                 revenue flows in, and SMS messages are sent — all analytics will appear here automatically.
               </p>
@@ -161,8 +161,8 @@ const AdminDashboard: React.FC = () => {
 
         {/* Error Banner */}
         {errors.length > 0 && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-xl p-4">
-            <p className="text-red-800 dark:text-red-300 text-sm font-medium">
+          <div className="bg-red-100 border border-red-300 rounded-xl p-4">
+            <p className="text-red-800 text-sm font-medium">
               Warning: Some data failed to load: {errors.join(", ")}
             </p>
           </div>
@@ -171,10 +171,10 @@ const AdminDashboard: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Dashboard Overview
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
               Monitor and manage all ChurchSet activities
             </p>
           </div>
@@ -187,39 +187,39 @@ const AdminDashboard: React.FC = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           <StatCard
-            icon={<LuChurch className="text-2xl text-blue-600 dark:text-blue-400" />}
-            iconBg="bg-blue-100 dark:bg-blue-900/30"
+            icon={<LuChurch className="text-2xl text-blue-600" />}
+            iconBg="bg-blue-100"
             label="Total Registered Churches"
             value={counts?.total ?? 0}
           />
           <StatCard
-            icon={<BsGraphUpArrow className="text-2xl text-green-600 dark:text-green-400" />}
-            iconBg="bg-green-100 dark:bg-green-900/30"
+            icon={<BsGraphUpArrow className="text-2xl text-green-600" />}
+            iconBg="bg-green-100"
             label="Active Churches"
             value={counts?.active ?? 0}
           />
           <StatCard
-            icon={<BsGraphDownArrow className="text-2xl text-orange-600 dark:text-orange-400" />}
-            iconBg="bg-orange-100 dark:bg-orange-900/30"
+            icon={<BsGraphDownArrow className="text-2xl text-orange-600" />}
+            iconBg="bg-orange-100"
             label="Inactive Churches"
             value={counts?.inactive ?? 0}
           />
           <StatCard
-            icon={<LuClock className="text-2xl text-yellow-600 dark:text-yellow-400" />}
-            iconBg="bg-yellow-100 dark:bg-yellow-900/30"
+            icon={<LuClock className="text-2xl text-yellow-600" />}
+            iconBg="bg-yellow-100"
             label="Pending SMS Activation"
             value={counts?.smsInactive ?? 0}
           />
           <StatCard
-            icon={<BsCurrencyDollar className="text-2xl text-emerald-600 dark:text-emerald-400" />}
-            iconBg="bg-emerald-100 dark:bg-emerald-900/30"
+            icon={<BsCurrencyDollar className="text-2xl text-emerald-600" />}
+            iconBg="bg-emerald-100"
             label="Revenue This Month"
             value={formatCurrency(revenue?.totalThisMonth ?? 0)}
             change={revenue?.percentageChange}
           />
           <StatCard
-            icon={<BsGraphUpArrow className="text-2xl text-purple-600 dark:text-purple-400" />}
-            iconBg="bg-purple-100 dark:bg-purple-900/30"
+            icon={<BsGraphUpArrow className="text-2xl text-purple-600" />}
+            iconBg="bg-purple-100"
             label="SMS Sent This Month"
             value={formatNumber(smsData?.totalThisMonth ?? 0)}
             change={smsData?.percentageChange}
@@ -229,11 +229,11 @@ const AdminDashboard: React.FC = () => {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Church Growth & Revenue Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">
               Church Growth & Revenue Trend
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 mb-4">
               Monthly churches registered and revenue earned
             </p>
             {growthData.length > 0 ? (
@@ -255,10 +255,10 @@ const AdminDashboard: React.FC = () => {
             ) : (
               <div className="h-80 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <div className="bg-gray-200 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                     <BsGraphUpArrow className="text-3xl text-gray-400" />
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">No growth data yet</p>
+                  <p className="text-gray-500 font-medium">No growth data yet</p>
                   <p className="text-xs text-gray-400 mt-1">Data will appear after first church registrations</p>
                 </div>
               </div>
@@ -266,11 +266,11 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           {/* SMS Usage Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">
               SMS Usage Trend
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-500 mb-4">
               Total messages sent per month
             </p>
             {smsChartData.length > 0 ? (
@@ -289,10 +289,10 @@ const AdminDashboard: React.FC = () => {
             ) : (
               <div className="h-80 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="bg-gray-200 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <div className="bg-gray-200 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                     <LuClock className="text-3xl text-gray-400" />
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">No SMS activity</p>
+                  <p className="text-gray-500 font-medium">No SMS activity</p>
                   <p className="text-xs text-gray-400 mt-1">Messages will appear when churches start sending</p>
                 </div>
               </div>
@@ -301,55 +301,55 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Recent Activities Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900">
               Recent Activities
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500">
               Latest actions across all churches
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Church
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Time
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-100">
                 {recentChurches.length > 0 ? (
                   recentChurches.map((church) => (
                     <tr
                       key={church.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
+                      className="hover:bg-gray-50 transition"
                     >
-                      <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-200">
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {church.name}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                      <td className="px-6 py-4 text-sm text-gray-700">
                         New church registered
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 text-sm text-gray-500">
                         {new Date(church.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
                             church.isActive
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
                           {church.isActive ? "completed" : "pending"}
@@ -383,10 +383,10 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ icon, iconBg, label, value, change }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 transition hover:shadow-md">
+  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 transition hover:shadow-md">
     <div className={`p-3 ${iconBg} rounded-xl w-fit mb-4`}>{icon}</div>
-    <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
-    <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
+    <p className="text-sm text-gray-600">{label}</p>
+    <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
     {change !== undefined && change !== 0 && (
       <p className={`text-sm mt-2 font-medium ${change > 0 ? "text-green-600" : "text-red-600"}`}>
         {change > 0 ? "↑" : "↓"} {Math.abs(change)}% vs last month
