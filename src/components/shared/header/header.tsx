@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { IoNotificationsOutline, IoPersonOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
-import { FiLogOut, FiSend } from "react-icons/fi";
+import { FiLogOut } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, store } from "../../reduxstore/redux";
 import { clearAuth, setAuthData } from "../../reduxstore/authstore";
@@ -22,13 +22,10 @@ import {
   ListItem,
   ListItemText,
   Divider,
-  TextField,
-  Chip,
 } from "@mui/material";
 import Api from "../api/api";
 import MobileNav from "../mobileNav/mobilenav";
 import axios from "axios";
-import { HelpOutlineRounded } from "@mui/icons-material";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -51,17 +48,6 @@ interface NotificationType {
   createdAt: string;
   isRead: boolean;
 }
-
-const issueTypes = [
-  "Technical",
-  "Financial",
-  "Setup",
-  "Billing",
-  "Messaging",
-  "Membership",
-  "Reports",
-  "Other",
-];
 
 const Header: React.FC<HeaderProps> = () => {
   const navigate = useNavigate();
@@ -94,6 +80,7 @@ const Header: React.FC<HeaderProps> = () => {
 
   const buttons = Object.keys(defaultRoutes);
 
+  // Permission mapping for each button
   const buttonPermissions: { [key: string]: string[] } = {
     Dashboard: [],
     Manage: ["Branch", "Department", "Unit", "Admin"],
@@ -105,11 +92,19 @@ const Header: React.FC<HeaderProps> = () => {
     Settings: [],
   };
 
+  // Filter buttons based on user permissions
   const availableButtons = buttons.filter((label) => {
     const permissions = authData?.permission;
+
+    // If permissions is empty or undefined → allow everything
     if (!permissions || permissions.length === 0) return true;
+
     const requiredPermissions = buttonPermissions[label] || [];
+
+    // If no permission needed → allow
     if (requiredPermissions.length === 0) return true;
+
+    // Otherwise check permission match
     return permissions.some((p: string) => requiredPermissions.includes(p));
   });
 
@@ -117,9 +112,7 @@ const Header: React.FC<HeaderProps> = () => {
   const [activeButton, setActiveButton] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLDivElement | null>(null);
   const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
-  const [helpAnchor, setHelpAnchor] = useState<HTMLElement | null>(null);
   const notifOpen = Boolean(notifAnchor);
-  const helpOpen = Boolean(helpAnchor);
   const [openLogoutModal, setOpenLogoutModal] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranchId, setCurrentBranchId] = useState<string>("");
@@ -133,12 +126,6 @@ const Header: React.FC<HeaderProps> = () => {
   const [loadingNotif, setLoadingNotif] = useState(false);
   const [tab, setTab] = useState<"unread" | "read">("unread");
 
-  // Support form state
-  const [selectedIssues, setSelectedIssues] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
   const open = Boolean(anchorEl);
   const id = open ? "profile-popover" : undefined;
 
@@ -150,7 +137,7 @@ const Header: React.FC<HeaderProps> = () => {
     setActiveButton(activeLabel);
   }, [location.pathname, buttons]);
 
-  // Fetch branches
+  // Fetch branches when popover opens
   const fetchBranches = useCallback(async () => {
     if (!authData?.id || !open) return;
 
@@ -171,6 +158,7 @@ const Header: React.FC<HeaderProps> = () => {
       const newBranchId = authData.branchId || branchesData[0]?.id || "";
       setCurrentBranchId(newBranchId);
 
+      // Update authData with the selected branch and reset department if changed
       if (authData && newBranchId !== authData.branchId) {
         dispatch(
           setAuthData({
@@ -193,7 +181,7 @@ const Header: React.FC<HeaderProps> = () => {
     }
   }, [authData, open, dispatch]);
 
-  // Fetch departments
+  // Fetch departments when branch or role changes
   const fetchDepartments = useCallback(async () => {
     if (!currentBranchId || authData?.role !== "department") return;
 
@@ -208,6 +196,7 @@ const Header: React.FC<HeaderProps> = () => {
       const newDepartmentId = authData?.department || departmentsData[0]?.id || "";
       setCurrentDepartmentId(newDepartmentId);
 
+      // Update authData with the selected department if changed
       if (authData && newDepartmentId && newDepartmentId !== authData.department) {
         dispatch(
           setAuthData({
@@ -243,16 +232,27 @@ const Header: React.FC<HeaderProps> = () => {
     }
   }, []);
 
-  useEffect(() => { fetchBranches(); }, [fetchBranches]);
-  useEffect(() => { fetchDepartments(); }, [fetchDepartments]);
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+  // Trigger branch fetching when popover opens
+  useEffect(() => {
+    fetchBranches();
+  }, [fetchBranches]);
 
-  // Handlers
+  // Trigger department fetching when branch or role changes
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
+
+  // Fetch notifications on mount
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // Handle branch selection
   const handleBranchSelect = (event: SelectChangeEvent<string>) => {
     const branchId = event.target.value;
     setCurrentBranchId(branchId);
-    setCurrentDepartmentId("");
-    setDepartments([]);
+    setCurrentDepartmentId(""); // Reset department when branch changes
+    setDepartments([]); // Clear departments until new ones are fetched
 
     if (authData) {
       dispatch(
@@ -265,11 +265,13 @@ const Header: React.FC<HeaderProps> = () => {
     }
   };
 
+  // Handle department selection
   const handleDepartmentSelect = (event: SelectChangeEvent<string>) => {
     const departmentId = event.target.value;
     if (!authData || departmentId === currentDepartmentId) return;
 
     setCurrentDepartmentId(departmentId);
+
     dispatch(
       setAuthData({
         ...authData,
@@ -278,6 +280,7 @@ const Header: React.FC<HeaderProps> = () => {
     );
   };
 
+  // Handle profile popover
   const handleProfileClick = (event: React.MouseEvent<HTMLDivElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -288,6 +291,7 @@ const Header: React.FC<HeaderProps> = () => {
     setErrorDepartments("");
   };
 
+  // Handle logout modal
   const handleOpenLogoutModal = () => {
     setOpenLogoutModal(true);
     handleClose();
@@ -303,6 +307,7 @@ const Header: React.FC<HeaderProps> = () => {
     navigate("/");
   };
 
+  // Handle navigation button click
   const handleButtonClick = (label: string) => {
     if (label === "Manage") {
       const manageRoutes: { [key: string]: string } = {
@@ -344,17 +349,28 @@ const Header: React.FC<HeaderProps> = () => {
       );
       navigate(perm ? financeRoutes[perm] : "/finance/collections");
     } else if (label === "Programs") {
-      navigate("/programs");
+      const programsRoutes: { [key: string]: string } = {
+        Programs: "/programs",
+        Attendance: "/programs",
+        Followup: "/programs",
+      };
+      const perm = authData?.permission?.find((p: string) =>
+        buttonPermissions.Programs.includes(p)
+      );
+      navigate(perm ? programsRoutes[perm] : "/programs");
     } else {
       navigate(defaultRoutes[label]);
     }
   };
 
+  // Separate notifications by read status
   const unreadNotifications = notifications.filter((n) => !n.isRead);
   const readNotifications = notifications.filter((n) => n.isRead);
-  const filteredNotifications = tab === "unread" ? unreadNotifications : readNotifications;
+  const filteredNotifications =
+    tab === "unread" ? unreadNotifications : readNotifications;
   const unreadCount = unreadNotifications.length;
 
+  // Mark single notification as read
   const markAsRead = async (notificationId: string) => {
     try {
       await Api.patch(`/tenants/mark-read/${notificationId}`);
@@ -366,12 +382,14 @@ const Header: React.FC<HeaderProps> = () => {
     }
   };
 
+  // Mark all as read
   const markAllAsRead = async () => {
     try {
       const promises = unreadNotifications.map((n) =>
         Api.patch(`/tenants/mark-read/${n.id}`)
       );
       await Promise.all(promises);
+
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (error) {
       console.error("Failed to mark all as read:", error);
@@ -386,50 +404,9 @@ const Header: React.FC<HeaderProps> = () => {
     setNotifAnchor(null);
   };
 
-  const handleHelpClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setHelpAnchor(event.currentTarget);
-  };
-
-  const handleHelpClose = () => {
-    setHelpAnchor(null);
-    setSelectedIssues([]);
-    setMessage("");
-    setSubmitSuccess(false);
-  };
-
-  const toggleIssue = (issue: string) => {
-    setSelectedIssues((prev) =>
-      prev.includes(issue) ? prev.filter((i) => i !== issue) : [...prev, issue]
-    );
-  };
-
-  const handleSubmitFeedback = async () => {
-    if (selectedIssues.length === 0 || !message.trim()) return;
-
-    setSubmitting(true);
-    try {
-      await Api.post("/support/ticket", {
-        issues: selectedIssues,
-        message: message.trim(),
-        churchId: authData?.churchId,
-        userId: authData?.id,
-      });
-
-      setSubmitSuccess(true);
-      setTimeout(() => {
-        handleHelpClose();
-      }, 2000);
-    } catch (error) {
-      console.error("Failed to submit support ticket:", error);
-      alert("Failed to send message. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex items-center justify-between px-6 shadow-md">
-      <div className="flex items-center gap-4 lg:gap-14 w-full lg:w-auto justify-between lg:justify-start">
+      <div className="flex items-center gap-4 lg:gap-17">
         <Tooltip title={authData?.church_name || ""} arrow>
           {authData?.logo ? (
             <img
@@ -451,11 +428,16 @@ const Header: React.FC<HeaderProps> = () => {
             whiteSpace: "nowrap",
             scrollbarWidth: "thin",
             msOverflowStyle: "none",
-            "&::-webkit-scrollbar": { height: "6px" },
-            "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(255, 255, 255, 0.3)", borderRadius: "9999px" },
-            "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
-            flexGrow: 1,
-            maxWidth: { lg: "calc(100vw - 500px)" },
+            "&::-webkit-scrollbar": {
+              height: "6px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "rgba(255, 255, 255, 0.3)",
+              borderRadius: "9999px",
+            },
+            "&::-webkit-scrollbar-track": {
+              backgroundColor: "transparent",
+            },
           }}
         >
           <ButtonGroup
@@ -474,8 +456,10 @@ const Header: React.FC<HeaderProps> = () => {
                 key={label}
                 onClick={() => handleButtonClick(label)}
                 sx={{
-                  color: activeButton === label ? "#160F38" : "[var(--color-primary)]",
-                  backgroundColor: activeButton === label ? "#F6F4FE" : "[var(--color-text-on-primary)]",
+                  color:
+                    activeButton === label ? "#160F38" : "[var(--color-primary)]",
+                  backgroundColor:
+                    activeButton === label ? "#F6F4FE" : "[var(--color-text-on-primary)]",
                   textTransform: "none",
                   padding: "12px 18px",
                   fontSize: "0.875rem",
@@ -504,29 +488,21 @@ const Header: React.FC<HeaderProps> = () => {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* Help / Support Button */}
+        {/* Notification Button */}
         <button
-          className="relative bg-[#4d4d4e8e] p-2.5 sm:p-3 rounded-full hover:bg-[#5d5d6e8e] transition flex-shrink-0"
-          onClick={handleHelpClick}
-          title="Get Help / Submit Feedback"
-        >
-          <HelpOutlineRounded className="text-xl sm:text-2xl text-[#cfcfdb8e]" />
-        </button>
-
-        {/* Notifications Button */}
-        <button
-          className="relative bg-[#4d4d4e8e] p-2.5 sm:p-3 rounded-full hover:bg-[#5d5d6e8e] transition flex-shrink-0"
+          className="relative bg-[#4d4d4e8e] p-2 rounded-full"
           onClick={handleNotifClick}
         >
-          <IoNotificationsOutline className="text-xl sm:text-2xl" />
+          <IoNotificationsOutline className="text-2xl" />
+
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-5 w-5 rounded-full flex items-center justify-center font-medium">
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs h-4 w-4 rounded-full flex items-center justify-center">
               {unreadCount}
             </span>
           )}
         </button>
 
-        {/* Notifications Popover */}
+        {/* NOTIFICATION POPOVER */}
         <Popover
           open={notifOpen}
           anchorEl={notifAnchor}
@@ -535,20 +511,48 @@ const Header: React.FC<HeaderProps> = () => {
           transformOrigin={{ vertical: "top", horizontal: "right" }}
           PaperProps={{ sx: { width: 380, maxHeight: 500, p: 0 } }}
         >
+          {/* Tabs Header */}
           <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
             <Box sx={{ display: "flex", bgcolor: "background.paper" }}>
-              <Button fullWidth onClick={() => setTab("unread")} sx={{ py: 1.5, borderRadius: 0, color: tab === "unread" ? "primary.main" : "text.secondary", fontWeight: tab === "unread" ? 600 : 400, borderBottom: tab === "unread" ? 2 : 0, borderColor: "primary.main" }}>
+              <Button
+                fullWidth
+                sx={{
+                  py: 1.5,
+                  borderRadius: 0,
+                  color: tab === "unread" ? "primary.main" : "text.secondary",
+                  fontWeight: tab === "unread" ? 600 : 400,
+                  borderBottom: tab === "unread" ? 2 : 0,
+                  borderColor: "primary.main",
+                }}
+                onClick={() => setTab("unread")}
+              >
                 Unread {unreadCount > 0 && `(${unreadCount})`}
               </Button>
-              <Button fullWidth onClick={() => setTab("read")} sx={{ py: 1.5, borderRadius: 0, color: tab === "read" ? "primary.main" : "text.secondary", fontWeight: tab === "read" ? 600 : 400, borderBottom: tab === "read" ? 2 : 0, borderColor: "primary.main" }}>
+              <Button
+                fullWidth
+                sx={{
+                  py: 1.5,
+                  borderRadius: 0,
+                  color: tab === "read" ? "primary.main" : "text.secondary",
+                  fontWeight: tab === "read" ? 600 : 400,
+                  borderBottom: tab === "read" ? 2 : 0,
+                  borderColor: "primary.main",
+                }}
+                onClick={() => setTab("read")}
+              >
                 Read
               </Button>
             </Box>
           </Box>
 
+          {/* Mark All as Read Button (only on Unread tab) */}
           {tab === "unread" && unreadCount > 0 && (
             <Box sx={{ px: 2, py: 1, textAlign: "right" }}>
-              <Button size="small" onClick={markAllAsRead} sx={{ textTransform: "none", fontSize: "0.8rem" }}>
+              <Button
+                size="small"
+                onClick={markAllAsRead}
+                sx={{ textTransform: "none", fontSize: "0.8rem" }}
+              >
                 Mark all as read
               </Button>
             </Box>
@@ -557,38 +561,82 @@ const Header: React.FC<HeaderProps> = () => {
           <Divider />
 
           {loadingNotif ? (
-            <Box sx={{ p: 4, textAlign: "center" }}><CircularProgress size={24} /></Box>
+            <Box sx={{ p: 4, textAlign: "center" }}>
+              <CircularProgress size={24} />
+            </Box>
           ) : (
             <List sx={{ maxHeight: 360, overflowY: "auto", p: 0 }}>
               {filteredNotifications.length === 0 ? (
                 <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>
                   <Typography variant="body2">
-                    {tab === "unread" ? "No unread notifications" : "No read notifications yet"}
+                    {tab === "unread"
+                      ? "No unread notifications"
+                      : "No read notifications yet"}
                   </Typography>
                 </Box>
               ) : (
                 filteredNotifications.map((n) => (
-                  <ListItem key={n.id} component="div" onClick={() => !n.isRead && markAsRead(n.id)}
+                  <ListItem
+                    key={n.id}
+                    component="div"
+                    onClick={() => !n.isRead && markAsRead(n.id)}
                     sx={{
-                      py: 1.5, px: 2, backgroundColor: n.isRead ? "transparent" : "#f5f0ff",
-                      borderLeft: n.isRead ? "none" : "3px solid", borderColor: "primary.main",
+                      py: 1.5,
+                      px: 2,
+                      backgroundColor: n.isRead ? "transparent" : "#f5f0ff",
+                      borderLeft: n.isRead ? "none" : "3px solid",
+                      borderColor: "primary.main",
                       cursor: n.isRead ? "default" : "pointer",
-                      "&:hover": { backgroundColor: n.isRead ? "transparent" : "#ede7ff" },
+                      "&:hover": {
+                        backgroundColor: n.isRead ? "transparent" : "#ede7ff",
+                      },
                       transition: "background 0.2s",
                     }}
                   >
                     <ListItemText
-                      primary={<Typography sx={{ fontWeight: n.isRead ? 500 : 700, color: n.isRead ? "text.secondary" : "text.primary" }}>{n.title}</Typography>}
+                      primary={
+                        <Typography
+                          sx={{
+                            fontWeight: n.isRead ? 500 : 700,
+                            color: n.isRead ? "text.secondary" : "text.primary",
+                          }}
+                        >
+                          {n.title}
+                        </Typography>
+                      }
                       secondary={
                         <>
-                          <Typography variant="body2" sx={{ color: n.isRead ? "text.disabled" : "text.primary", mt: 0.5 }}>{n.message}</Typography>
-                          <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "text.disabled" }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: n.isRead ? "text.disabled" : "text.primary",
+                              mt: 0.5,
+                            }}
+                          >
+                            {n.message}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{ display: "block", mt: 0.5, color: "text.disabled" }}
+                          >
                             {new Date(n.createdAt).toLocaleString()}
                           </Typography>
                         </>
                       }
                     />
-                    {!n.isRead && <Box sx={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "primary.main", alignSelf: "flex-start", mt: 1.5 }} />}
+                    {/* Unread dot indicator */}
+                    {!n.isRead && (
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: "primary.main",
+                          alignSelf: "flex-start",
+                          mt: 1.5,
+                        }}
+                      />
+                    )}
                   </ListItem>
                 ))
               )}
@@ -596,99 +644,14 @@ const Header: React.FC<HeaderProps> = () => {
           )}
         </Popover>
 
-        {/* Help / Support Form Popover */}
-        <Popover
-          open={helpOpen}
-          anchorEl={helpAnchor}
-          onClose={handleHelpClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{ sx: { width: 420, p: 3, borderRadius: 3, boxShadow: 8 } }}
-        >
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Need Help?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Tell us what you're experiencing. We'll get back to you as soon as possible.
-          </Typography>
-
-          <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 500 }}>
-            Issue Type (select all that apply)
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 3 }}>
-            {issueTypes.map((issue) => (
-              <Chip
-                key={issue}
-                label={issue}
-                onClick={() => toggleIssue(issue)}
-                variant={selectedIssues.includes(issue) ? "filled" : "outlined"}
-                sx={{
-                  borderRadius: "16px",
-                  fontWeight: selectedIssues.includes(issue) ? 600 : 400,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor: selectedIssues.includes(issue) ? "#4d4d4e8e" : "transparent",
-                  color: selectedIssues.includes(issue) ? "white" : "inherit",
-                  "&:hover": {
-                    backgroundColor: selectedIssues.includes(issue) ? "#5d5d6e" : "#f0f0f0",
-                  },
-                }}
-              />
-            ))}
-          </Box>
-
-          <TextField
-            multiline
-            rows={4}
-            fullWidth
-            placeholder="Describe your issue or feedback in detail..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            variant="outlined"
-            sx={{ mb: 3 }}
-          />
-
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button onClick={handleHelpClose} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmitFeedback}
-              sx={{
-                py: 1,
-                backgroundColor: "#161616",
-                px: { xs: 5, sm: 2 },
-                borderRadius: 50,
-                fontWeight: "semibold",
-                color: "#F6F4FE",
-                textTransform: "none",
-                fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#2C2C2C", opacity: 0.9 },
-              }}
-              disabled={submitting || selectedIssues.length === 0 || !message.trim()}
-              startIcon={submitting ? <CircularProgress size={16} /> : submitSuccess ? null : <FiSend />}
-            >
-              {submitSuccess ? "Sent!" : submitting ? "Sending..." : "Send Request"}
-            </Button>
-          </Box>
-
-          {submitSuccess && (
-            <Typography variant="body2" color="success.main" sx={{ mt: 2, textAlign: "center" }}>
-              Thank you! Your message has been sent.
-            </Typography>
-          )}
-        </Popover>
-
-        {/* Profile Section */}
         <div className="relative text-[var(--color-text-on-primary)]">
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={handleProfileClick}
             title={`${authData?.name || ""} ${authData?.email || ""}`}
           >
-            <div className="p-2 border border-[var(--color-text-on-primary)] rounded-full flex-shrink-0">
-              <BsPerson className="text-lg sm:text-xl" aria-label="Person" />
+            <div className="p-2 border border-[var(--color-text-on-primary)] rounded-full">
+              <BsPerson className="text-xl" aria-label="Person" />
             </div>
             <span className="hidden xl:block text-sm font-medium">
               <span className="block">{authData?.name || "User"}</span>
@@ -747,7 +710,10 @@ const Header: React.FC<HeaderProps> = () => {
 
               {((authData?.branches?.length ?? 0) > 1 || authData?.isHeadQuarter) && (
                 <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "gray", fontWeight: 500 }}
+                  >
                     Switch Branch
                   </Typography>
                   <Select
@@ -789,12 +755,20 @@ const Header: React.FC<HeaderProps> = () => {
                       ))
                     )}
                   </Select>
+                  {errorBranches && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                      {errorBranches}
+                    </Typography>
+                  )}
                 </Box>
               )}
 
               {authData?.role === "department" && (
                 <Box sx={{ px: 2, py: 1, borderTop: "1px solid #eee", mt: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1, color: "gray", fontWeight: 500 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ mb: 1, color: "gray", fontWeight: 500 }}
+                  >
                     Select Department
                   </Typography>
                   <Select
@@ -807,7 +781,8 @@ const Header: React.FC<HeaderProps> = () => {
                     displayEmpty
                     renderValue={(value) =>
                       value
-                        ? departments.find((d) => d.id === value)?.name || "Select Department"
+                        ? departments.find((d) => d.id === value)?.name ||
+                          "Select Department"
                         : "Select Department"
                     }
                   >
@@ -836,6 +811,11 @@ const Header: React.FC<HeaderProps> = () => {
                       ))
                     )}
                   </Select>
+                  {errorDepartments && (
+                    <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                      {errorDepartments}
+                    </Typography>
+                  )}
                 </Box>
               )}
             </Box>
@@ -843,7 +823,6 @@ const Header: React.FC<HeaderProps> = () => {
         </div>
       </div>
 
-      {/* Logout Confirmation Modal */}
       <Modal
         open={openLogoutModal}
         onClose={handleCloseLogoutModal}
@@ -863,7 +842,7 @@ const Header: React.FC<HeaderProps> = () => {
             bgcolor: "background.paper",
             boxShadow: 24,
             p: { xs: 2, sm: 4 },
-            borderRadius: 2,
+            borderRadius: 1,
           }}
         >
           <Typography id="logout-modal-title" variant="h6" component="h2">
@@ -874,7 +853,7 @@ const Header: React.FC<HeaderProps> = () => {
           </Typography>
           <Box
             sx={{
-              mt: 4,
+              mt: 3,
               display: "flex",
               justifyContent: "flex-end",
               gap: 2,
@@ -884,15 +863,23 @@ const Header: React.FC<HeaderProps> = () => {
             <Button
               variant="outlined"
               onClick={handleCloseLogoutModal}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
+              sx={{
+                borderColor: "gray",
+                color: "#111827",
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="contained"
-              color="error"
               onClick={handleConfirmLogout}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
+              sx={{
+                backgroundColor: "#FB2C36",
+                color: "white",
+                "&:hover": { backgroundColor: "#FF6467" },
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
               Logout
             </Button>
@@ -900,7 +887,10 @@ const Header: React.FC<HeaderProps> = () => {
         </Box>
       </Modal>
 
-      <MobileNav activeButton={activeButton} handleButtonClick={handleButtonClick} />
+      <MobileNav
+        activeButton={activeButton}
+        handleButtonClick={handleButtonClick}
+      />
     </header>
   );
 };
