@@ -73,7 +73,7 @@ const SupportRoute: React.FC<PrivateRouteProps> = ({ children}) => {
  const authData = useSelector((state: RootState) => state.auth.authData);
 
   // If not logged in or not a support user, redirect to admin login
-  if (!authData?.token || authData?.role !== 'Support') {
+  if (!authData?.token || authData?.role !== 'support') {
     return <Navigate to="/admin-login" replace />;
   }
 
