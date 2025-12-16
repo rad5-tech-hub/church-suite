@@ -326,7 +326,12 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={(_, reason) => {
+        if (reason !== "backdropClick") {
+          onClose();
+          onSuccess()
+        }
+      }}
       fullWidth
       maxWidth="md"
       sx={{

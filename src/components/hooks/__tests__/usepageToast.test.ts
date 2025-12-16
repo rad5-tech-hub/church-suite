@@ -1,9 +1,9 @@
 import { renderHook } from "@testing-library/react";
-import { usePageToast } from "./usePageToast";
-import { setActivePage, getActivePage } from "../util/pageToast";
+import { usePageToast } from "../usePageToast";
+import { setActivePage, getActivePage} from '../../util/pageToast';
 
 // Mock the utility functions
-jest.mock("../util/pageToast", () => ({
+jest.mock("../../util/pageToast", () => ({
   setActivePage: jest.fn(),
   getActivePage: jest.fn(),
 }));

@@ -80,12 +80,15 @@ interface Branch {
 interface Collection {
   id: string;
   name: string;
+  description: string;
+  scopeType?: "church" | "branch" | "department";
   collection: collectionData;
 }
 
 interface collectionData {
   id: string;
   name: string;
+  description: string;
 }
 
 interface Event {
@@ -148,9 +151,11 @@ const fetchCollections = async (
   try {
     setFetchingCollections(true);
     setFetchCollectionsError(null);
+    const params = new URLSearchParams();
+    params.append("branch", "true");
 
     // ✅ Fetch collections
-    const response = await Api.get(`/church/get-all-collections/${branchId}`);
+    const response = await Api.get(`/church/get-all-collections/${branchId}?${params.toString()}`);
 
     // ✅ Response now returns: response.data.collections = [ { id, name, ... } ]
     const rawCollections = response.data.collections || [];
@@ -160,6 +165,8 @@ const fetchCollections = async (
       .map((item: any) => ({
         id: item.id,
         name: item.name,
+        description: item.description,
+        scopeType: item.scopeType
       }));
 
     // ✅ Set the cleaned collection data
@@ -182,7 +189,6 @@ const fetchCollections = async (
     setFetchingCollections(false);
   }
 };
-
 
 const fetchDepartments = async (
   setDepartments: React.Dispatch<React.SetStateAction<Department[]>>,
@@ -440,13 +446,16 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
 
   const handleCollectionChange = (event: SelectChangeEvent<string[]>) => {
     const { value } = event.target;
-    const cleanedValue = Array.isArray(value) ? value.filter((id) => id) : [];
-    setFormData((prev) => ({
+    const cleanedValue = Array.isArray(value) ? value.filter(id => id) : [];
+    
+    setFormData(prev => ({
       ...prev,
-      collectionIds: cleanedValue,
+      collectionIds: cleanedValue, // store only the IDs
     }));
+    
     setCreateProgramError(null);
   };
+
 
   const handleWeekdayChange = (event: SelectChangeEvent<unknown>) => {
     const value = event.target.value as number[];
@@ -1578,16 +1587,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           label="Collections"
           open={selectOpen}
           onOpen={() => setSelectOpen(true)}
-          onClose={() => {
-            setSelectOpen(false);         
-          }}
+          onClose={() => setSelectOpen(false)}
           renderValue={(selected) => {
             const selectedNames = selected
-              .map((id) => {
-                const collection = collections.find((col) => col.id === id);
-                return collection ? collection.name : null;
-              })
-              .filter((name) => name != null)
+              .map((id) => collections.find((col) => col.id === id)?.name)
+              .filter(Boolean)
               .join(", ");
             return selectedNames || "No collections selected";
           }}
@@ -1595,19 +1599,15 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             fontSize: isLargeScreen ? "1rem" : undefined,
             color: "#F6F4FE",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
+            "& .MuiSelect-select": { color: "#F6F4FE" },
             "& .MuiSelect-icon": { color: "#F6F4FE" },
           }}
           MenuProps={{
             disableAutoFocus: true,
             disableEnforceFocus: true,
-            onKeyDown: (e) => {
-              if ((e.target as HTMLElement).tagName === "INPUT") {
-                e.stopPropagation();
-              }
-            },
           }}
         >
+          {/* Header / Close button */}
           <Box
             sx={{
               position: "sticky",
@@ -1617,19 +1617,14 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               justifyContent: "flex-end",
               p: 1,
               borderBottom: "1px solid #777280",
-              width: "100%",
-              boxSizing: "border-box",
             }}
           >
-            <IconButton
-              size="small"
-              onClick={() => setSelectOpen(false)}
-              sx={{ color: "#2C2C2C", backgroundColor: "transparent !important" }}
-              aria-label="Close menu"
-            >
+            <IconButton size="small" onClick={() => setSelectOpen(false)} sx={{ color: "#2C2C2C" }}>
               <Close fontSize="small" />
             </IconButton>
           </Box>
+
+          {/* Loading / Error / Items */}
           {fetchingCollections ? (
             <MenuItem disabled>
               <CircularProgress size={24} />
@@ -1637,9 +1632,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             </MenuItem>
           ) : fetchCollectionsError ? (
             <MenuItem sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                {fetchCollectionsError}
-              </Typography>
+              <Typography variant="body2" sx={{ mr: 1 }}>{fetchCollectionsError}</Typography>
               <IconButton
                 size="small"
                 color="inherit"
@@ -1650,7 +1643,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     setFetchingCollections,
                     setFetchCollectionsError,
                     setFormData,
-                    formData.branchId || authData?.branchId,                    
+                    formData.branchId || authData?.branchId,
                   );
                 }}
               >
@@ -1659,19 +1652,20 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             </MenuItem>
           ) : collections.length > 0 ? (
             collections.map((col) => (
-              <MenuItem key={col.id} value={col.id} sx={{ width: "100%", boxSizing: "border-box" }}>
-                <Checkbox
-                  checked={formData.collectionIds.includes(col.id)}
-                  sx={{
-                    color: "var(--color-primary)",
-                    "&.Mui-checked": { color: "var(--color-primary)" },
-                  }}
-                />
-                <ListItemText primary={col.name} />
+              <MenuItem key={col.id} value={col.id}>
+                <Checkbox checked={formData.collectionIds.includes(col.id)} sx={{
+                  color: "var(--color-primary)",
+                  "&.Mui-checked": { color: "var(--color-primary)" },
+                }}/>
+                <ListItemText primary={<>{col.name} - {col.scopeType && `(${col.scopeType})`}</>}   secondary={
+                <>
+                  {col.description}
+                </>
+              } />
               </MenuItem>
             ))
           ) : (
-            <MenuItem disabled sx={{ width: "100%", boxSizing: "border-box" }}>
+            <MenuItem disabled>
               <Typography>No collections available</Typography>
             </MenuItem>
           )}
@@ -1836,8 +1830,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     formData.departmentIds.length < departments.length
                   }
                   sx={{
-                    color: "var(--color-primary)",
-                    "&.Mui-checked": { color: "var(--color-primary)" },
+                    color: "var(--color-primary)",                   
                   }}
                 />
                 <ListItemText primary="Select All" />
@@ -1988,7 +1981,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               </Grid>
               {!isEdit && renderProgramType()}
               {renderDateTimeInputs()}
-              {renderBranchInput()}
+              {(authData?.isHeadQuarter ||
+              ((authData?.branches ?? "").length > 1 && authData?.role === "branch")
+              ) && renderBranchInput()}
               {renderDepartmentInput()}
               {renderCollectionInput()}
               {createProgramError && (

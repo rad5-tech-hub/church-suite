@@ -1,9 +1,37 @@
+import { createPusherClient } from "../../util/pusherClient";
+import { toast } from "react-toastify";
+
+// 🔔 Setup real-time notification listener
+function setupLiveNotifications(user: any, token: string) {
+  const pusher = createPusherClient(token);
+
+  const channel = pusher.subscribe(`private-user-${user.id}`);
+
+  // When a notification arrives
+  channel.bind("notification", (data: any) => {
+    console.log("🔥 New Notification:", data);
+    toast.info(data.title || "New notification received");
+
+    // If you have a redux store for notifications, push it here
+    // dispatch(addNotification(data));
+  });
+
+  // When backend says a notification was read
+  channel.bind("notification-read", (data: any) => {
+    console.log("📘 Notification marked as read:", data);
+  });
+
+  return channel;
+}
+
+
+
 import React, { useState } from "react";
 import { PiEye, PiEyeClosed } from "react-icons/pi";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { store } from "../../reduxstore/redux";
 import { clearChurchData } from "../../reduxstore/datamanager";
-import { toast, ToastContainer } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useDispatch } from "react-redux";
 import { persistor } from '../../reduxstore/redux';
@@ -44,6 +72,7 @@ interface AuthPayload {
   tenantId: string;
   token: string;
   department: string;
+  permission: string[];
 }
 
 
@@ -53,7 +82,8 @@ const PERSIST_DELAY = 100;
 // Main Component
 const Login: React.FC<LoginFormProps> = () => {
   const navigate = useNavigate();
-    const dispatch = useDispatch();
+  const location = useLocation();
+  const dispatch = useDispatch();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginData>({
     email: "",
@@ -62,6 +92,9 @@ const Login: React.FC<LoginFormProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+
+  // Check if current route is admin login
+  const isAdminLogin = location.pathname === '/admin-login';
 
   // Reset form data on component mount
   React.useEffect(() => {
@@ -77,7 +110,7 @@ const Login: React.FC<LoginFormProps> = () => {
     return () => {
       // Cleanup logic
     };
-  }, [location.pathname, clearChurchData]);
+  }, [location.pathname]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -92,14 +125,25 @@ const Login: React.FC<LoginFormProps> = () => {
     setIsLoading(true);
 
     try {
+      // Different endpoints and request body based on route
+      const endpoint = isAdminLogin ? '/admin/support-login' : '/church/login';
+      
+      // Different request body structure for admin login
+      const requestBody = isAdminLogin 
+        ? { 
+            email: formData.email, 
+            password: formData.password 
+          }
+        : formData;
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/church/login`,
+        `${import.meta.env.VITE_API_BASE_URL}${endpoint}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -109,7 +153,15 @@ const Login: React.FC<LoginFormProps> = () => {
         const apiError = data as ApiError;
         throw new Error(apiError.error?.message || "Login failed");
       }
-      const decodedToken = jwtDecode(data.accessToken) as any;
+
+      // Handle different response structures
+     
+      const accessToken = data.accessToken;
+      if (!accessToken) {
+        throw new Error("No access token returned from API");
+      }
+
+      const decodedToken = jwtDecode(accessToken) as any;
 
       const authPayload: AuthPayload = {
         backgroundImg: decodedToken.backgroundImg || "",
@@ -119,7 +171,7 @@ const Login: React.FC<LoginFormProps> = () => {
           : decodedToken.branchIds || "", 
         branches: Array.isArray(decodedToken.branchIds) 
           ? decodedToken.branchIds
-          : [decodedToken.branchIds || ""], // ✅ ensure array
+          : [decodedToken.branchIds || ""], 
         churchId: decodedToken.churchId || "",
         church_name: decodedToken.church_name || "",
         email: decodedToken.email || "",
@@ -131,15 +183,24 @@ const Login: React.FC<LoginFormProps> = () => {
         logo: decodedToken.logo || "",
         name: decodedToken.name || "",
         tenantId: decodedToken.tenantId || "",
-        token: data.accessToken || "",
-        department: decodedToken?.department || ''
+        token: accessToken || "",
+        department: decodedToken?.department || '',
+        permission: decodedToken?.permission || []
       };
 
       dispatch(setAuthData(authPayload));
       await new Promise(resolve => setTimeout(resolve, PERSIST_DELAY));
+
+      // ⭐ Start Real-Time Notification Subscription
+      setupLiveNotifications(authPayload, accessToken);
+
       
       // Show success toast
-      toast.success('Login successful! Redirecting to Dashboard...', {
+      const successMessage = isAdminLogin 
+        ? 'Churchset Support login successful! Redirecting...'
+        : 'Login successful! Redirecting to Dashboard...';
+        
+      toast.success(successMessage, {
         position: "top-center",
         autoClose: 3000,
         hideProgressBar: false,
@@ -149,9 +210,11 @@ const Login: React.FC<LoginFormProps> = () => {
         progress: undefined,
       });
 
+      const route = isAdminLogin ? '/admin-dashboard' : '/dashboard';
+
       // Navigate to verify-email after a short delay
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate(route);
       }, 2000);
 
       // Clear form
@@ -160,31 +223,36 @@ const Login: React.FC<LoginFormProps> = () => {
         password: "",
       });
           
-      persistor.flush().then(() => navigate("/dashboard"));
+      persistor.flush().then(() => navigate(route));
             
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Login failed. Please try again.";    
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-      });
-      setTimeout(() => {
-        if (
-          errorMessage.toLowerCase().includes("verify your email") ||
-          errorMessage.toLowerCase().includes("please verify your email")
-        ) {          
-          // Store email in session storage for verification
-          sessionStorage.setItem('email', formData.email);
-          navigate("/verify-email");
-        }
-      }, 1200);
-    } finally {
+    } catch (err: any) {
+    // Default message
+    let errorMessage = "Login failed. Please try again.";
+
+    // If the error came from your fetch API response
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (err?.error) {
+      // Handle { "error": "..." } structure
+      errorMessage = typeof err.error === "string" ? err.error : err.error.message || errorMessage;
+    }
+
+    toast.error(errorMessage, {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+
+    // Only redirect to verify-email for non-admin routes
+    if (!isAdminLogin && errorMessage.toLowerCase().includes("verify your email")) {
+      sessionStorage.setItem('email', formData.email);
+      setTimeout(() => navigate("/verify-email"), 1200);
+    }
+  } finally {
       setIsLoading(false);
     }
   };
@@ -194,8 +262,13 @@ const Login: React.FC<LoginFormProps> = () => {
     setIsLoading(true);
 
     try {
+      // Different endpoints for forgot password
+      const endpoint = isAdminLogin 
+        ? '/admin/forgot-pass' 
+        : '/church/forgot-password';
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/church/forgot-password`,
+        `${import.meta.env.VITE_API_BASE_URL}${endpoint}`,
         {
           method: "POST",
           headers: {
@@ -282,6 +355,9 @@ const Login: React.FC<LoginFormProps> = () => {
       <div className="max-w-md mx-auto px-4 -mt-55 relative z-10">
         <div className="text-center mb-5">
           <p className="text-3xl font-bold text-gray-200">ChurchSet</p>
+          {isAdminLogin && (
+            <p className="text-sm text-gray-400 mt-1">Admin Portal</p>
+          )}
         </div>
         <div className="bg-[#F6F4FE] rounded-lg shadow-md p-8">
           {/* Forgot Password Modal */}
@@ -344,9 +420,14 @@ const Login: React.FC<LoginFormProps> = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-800">Log in</h1>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {isAdminLogin ? 'Admin Login' : 'Log in'}
+              </h1>
               <p className="text-gray-600 mt-2">
-                Welcome, Kindly login to your account to continue <br className="sm:hidden"/> with your church
+                {isAdminLogin 
+                  ? 'Welcome Admin, login to access the admin dashboard'
+                  : 'Welcome, Kindly login to your account to continue with your church'
+                }
               </p>
             </div>
 
@@ -405,12 +486,14 @@ const Login: React.FC<LoginFormProps> = () => {
               {isLoading ? "Logging in..." : "Log in"}
             </button>
 
-            <div className="text-center text-sm">
-              <span>Don't have an Account? </span>
-              <Link to="/setup-church" className="text-[#120B1B] font-medium hover:underline">
-                Sign Up
-              </Link>
-            </div>
+            {!isAdminLogin && (
+              <div className="text-center text-sm">
+                <span>Don't have an Account? </span>
+                <Link to="/setup-church" className="text-[#120B1B] font-medium hover:underline">
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </form>
         </div>
       </div>

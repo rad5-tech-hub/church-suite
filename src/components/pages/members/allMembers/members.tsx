@@ -51,6 +51,7 @@ interface FormData {
   birthMonth: string;
   birthDay: string;
   state: string;
+  nationalityCode: string;
   LGA: string;
   nationality: string;
   departmentIds: string[];
@@ -145,6 +146,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     birthDay: "",
     state: "",
     LGA: "",
+    nationalityCode: "",  
     nationality: "",
     departmentIds: [],
     unitIds: [],
@@ -183,15 +185,34 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     setBranchesError('');
     try {
       const response = await Api.get('/church/get-branches');
-      setBranches(response.data.branches || []);
+      const branchList = response.data.branches || [];
+      setBranches(branchList);
       setHasFetchedBranches(true);
+
+      // Auto-select user's branch
+      if (authData?.branchId && !formData.branchId) {
+        const userBranch = branchList.find((b: Branch) => b.id === authData.branchId);
+        if (userBranch) {
+          setFormData((prev) => ({ ...prev, branchId: userBranch.id }));
+          // Auto-load departments
+          if (!hasFetchedDepartments) {
+            fetchDepartments(userBranch.id);
+          }
+        }
+      }
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
       showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
-  }, [isFetchingBranches, hasFetchedBranches]);
+  }, [
+    isFetchingBranches,
+    hasFetchedBranches,
+    authData?.branchId,
+    formData.branchId,
+    hasFetchedDepartments,
+  ]);
 
   // Fetch Departments
   const fetchDepartments = useCallback(async (branchId: string) => {
@@ -213,35 +234,58 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   }, [isFetchingDepartments]);
 
   // Fetch Units
-    const fetchUnits = useCallback(async (deptId: string) => {
-      // require a selected branch before fetching units
-      if (!formData.branchId) return;
-      if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
-      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
-      setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
-      try {
-        const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
-        const units = (response.data.department?.units || []).map((unit: Unit) => ({
-          ...unit,
-          departmentId: deptId,
-        }));
-        setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
-        setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
-      } catch (error: any) {
-        setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
-      } finally {
-        setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+  const fetchUnits = useCallback(async (deptId: string) => {
+    // require a selected branch before fetching units
+    if (!formData.branchId) return;
+    if (hasFetchedUnits[deptId] || isFetchingUnits[deptId]) return;
+    setIsFetchingUnits((prev) => ({ ...prev, [deptId]: true }));
+    setUnitsError((prev) => ({ ...prev, [deptId]: '' }));
+    try {
+      const response = await Api.get(`/church/a-department/${deptId}/branch/${formData.branchId}`);
+      const units = (response.data.department?.units || []).map((unit: Unit) => ({
+        ...unit,
+        departmentId: deptId,
+      }));
+      setDepartmentUnits((prev) => ({ ...prev, [deptId]: units }));
+      setHasFetchedUnits((prev) => ({ ...prev, [deptId]: true }));
+    } catch (error: any) {
+      setUnitsError((prev) => ({ ...prev, [deptId]: 'Failed to load units for this department.' }));
+    } finally {
+      setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
+    }
+  }, [hasFetchedUnits, isFetchingUnits, formData.branchId]);
+
+  useEffect(() => {
+    if (!hasFetchedBranches && !isFetchingBranches) {
+      fetchBranches();
+    }
+
+    if ( authData?.branchId) {
+      setFormData((prev) => ({
+        ...prev,
+        branchId: authData.branchId || "",
+      }));
+
+      // Auto-fetch departments for the default branch
+      if (authData.branchId && !hasFetchedDepartments) {
+        fetchDepartments(authData.branchId);
       }
-    }, [hasFetchedUnits, isFetchingUnits, formData.branchId]);
+    } 
+  }, [authData?.branchId, hasFetchedDepartments, hasFetchedBranches, isFetchingBranches, fetchBranches]);
 
   // Fetch Locations (Countries)
   const fetchLocations = useCallback(async () => {
     if (isFetchingCountries || hasFetchedCountries) return;
     setIsFetchingCountries(true);
     try {
-      const response = await fetch('https://countriesnow.space/api/v0.1/countries/flag/images');
+      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,flags');
       const result = await response.json();
-      setCountries(result.data || []);
+      const formattedCountries = result.map((country: any) => ({
+        iso2: country.cca2,
+        name: country.name.common,
+        flag: country.flags.svg || country.flags.png,
+      })).sort((a: Countries, b: Countries) => a.name.localeCompare(b.name));
+      setCountries(formattedCountries);
       setHasFetchedCountries(true);
     } catch (error: any) {
       console.error('Error fetching locations:', error);
@@ -253,27 +297,34 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
 
   // Fetch States
   useEffect(() => {
+    if (!formData.nationalityCode) {
+      setStates([]);
+      setFormData(prev => ({ ...prev, state: "" }));
+      return;
+    }
+
     const fetchStates = async () => {
-      if (!formData.nationality) return;
       setLoadingStates(true);
       try {
-        const response = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ country: formData.nationality }),
-        });
-        const data = await response.json();
-        setStates(data.data?.states || []);
-        setFormData((prev) => ({ ...prev, state: '' }));
+        const res = await fetch(
+          `https://country-api.drnyeinchan.com/v1/countries/${formData.nationalityCode}/states`
+        );
+        const data = await res.json();
+
+        // API returns array directly → perfect!
+        const stateList = Array.isArray(data) ? data : [];
+        setStates(stateList.map((s: any) => ({ name: s.name })));
       } catch (error) {
-        console.error('Error fetching states:', error);
-        showPageToast('Failed to load states. Please try again.', 'error');
+        console.error("Error fetching states:", error);
+        showPageToast("Failed to load states.", "error");
+        setStates([]);
       } finally {
         setLoadingStates(false);
       }
     };
+
     fetchStates();
-  }, [formData.nationality]);
+  }, [formData.nationalityCode]);
 
   // Handlers
   const handleChange = (
@@ -370,7 +421,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       ) {
         throw new Error("Please fill in all required fields");
       }
-      const payload = { ...formData, departmentIds: formData.departmentIds };
+      const { nationalityCode, ...payload } = { ...formData, departmentIds: formData.departmentIds };
       const params = new URLSearchParams();
       params.append("churchId", authData?.churchId || "");
       params.append("branchId", formData.branchId);
@@ -394,6 +445,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         state: "",
         LGA: "",
         nationality: "",
+        nationalityCode: "", 
         departmentIds: [],
         unitIds: [],
         comments: "",
@@ -434,18 +486,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   // Form Components
   const renderBasicInfo = () => (
     <Grid container spacing={4}>
-      <Grid size={{ xs: 12, md: 6 }}>
+      {authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Branch *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+            Branch *
+          </InputLabel>
           <Select
             name="branchId"
             value={formData.branchId}
             onChange={handleChange}
-            onOpen={() => {
-              if (!hasFetchedBranches && !isFetchingBranches) {
-                fetchBranches();
-              }
-            }}
             disabled={isLoading || isFetchingBranches}
             label="Branch *"
             sx={{
@@ -455,28 +504,37 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               "& .MuiSelect-icon": { color: "#F6F4FE" },
               "& .MuiSelect-select": { color: "#F6F4FE" },
             }}
+            renderValue={(selected) => {
+              if (!selected) return "Select Branch";
+              const branch = branches.find(b => b.id === selected);
+              return branch ? branch.name : "Select Branch";
+            }}
           >
-            <MenuItem value="" disabled>Select Branch</MenuItem>
             {isFetchingBranches ? (
-              <MenuItem disabled>Loading...</MenuItem>
+              <MenuItem disabled>
+                <CircularProgress size={16} sx={{ mr: 1 }} /> Loading...
+              </MenuItem>
+            ) : branches.length === 0 ? (
+              <MenuItem disabled>No branches available</MenuItem>
             ) : (
               branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                <MenuItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </MenuItem>
               ))
             )}
           </Select>
           {branchesError && !isFetchingBranches && (
-            <Typography variant="body2" color="error" sx={{ mt: 1, display: "flex", alignItems: "center" }}>
-              <Box component="span" sx={{ mr: 1 }}>⚠️</Box>
-              {branchesError}
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              Warning: {branchesError}
             </Typography>
           )}
         </FormControl>
-      </Grid>
+      </Grid>}
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Full Name *"
+          label="Full Name"
           name="name"
           value={formData.name}
           onChange={handleChange}
@@ -558,21 +616,36 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       <Grid size={{ xs: 12, md: 6 }}>
         <TextField
           fullWidth
-          label="Phone Number *"
+          label="Phone Number"
           name="phoneNo"
-          type="number"
+          type="tel"
           value={formData.phoneNo}
-          onChange={handleChange}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, ""); // Remove non-digits
+            if (value.length <= 11) {
+              handleChange({
+                target: {
+                  name: "phoneNo",
+                  value,
+                },
+              });
+            }
+          }}
           variant="outlined"
           placeholder="Enter phone number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: (
+              <InputAdornment position="start">
+                <IoCallOutline style={{ color: '#F6F4FE' }} />
+              </InputAdornment>
+            ),
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
               color: "#F6F4FE",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
+            inputMode: "numeric", // ensures numeric keypad on mobile
           }}
           InputLabelProps={{
             sx: {
@@ -749,7 +822,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Date of Birth *"
+              label="Birth Day"
               variant="outlined"
               required
               InputLabelProps={{
@@ -800,7 +873,13 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           getOptionLabel={(option: Countries) => option.name}
           value={countries.find(c => c.name === formData.nationality) || null}
           onChange={(_event, newValue: Countries | null) => {
-            handleChange({ target: { name: "nationality", value: newValue?.name || "" } });
+            setFormData(prev => ({
+              ...prev,
+              nationality: newValue?.name || "",
+              nationalityCode: newValue?.iso2 || "",  // ← Store ISO2 code here
+              state: "",        // ← Reset state when country changes
+              LGA: ""           // ← Optional: reset LGA too
+            }));
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
           filterOptions={(options, state) => {
@@ -824,7 +903,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Nationality *"
+              label="Nationality "
               variant="outlined"
               required
               InputProps={{
@@ -879,7 +958,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           renderInput={(params) => (
             <TextField
               {...params}
-              label="State *"
+              label="State "
               variant="outlined"
               required
               InputProps={{
@@ -944,7 +1023,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
-        <FormControl fullWidth>
+        <FormControl fullWidth required>
           <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Departments</InputLabel>
           <Select
             name="departmentIds"

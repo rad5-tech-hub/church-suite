@@ -12,19 +12,28 @@ const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupst
 const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
+const AdminDashboard = React.lazy(() => import("../adminPages/dashboard/dashboard"));
+const AdminSupports = React.lazy(() => import("../adminPages/supports/supports"));
+const AdminActivation = React.lazy(() => import("../adminPages/activations/activation"));
+const AdminManagingChurches = React.lazy(() => import("../adminPages/manageChurches/manageChurches"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
-const ViewMember = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewWorker = React.lazy(() => import("./members/allMembers/viewMembers"));
+const ViewMember = React.lazy(() => import("./members/non-workerMembers/viewMembers"));
 const ViewNewcomersForm = React.lazy(() => import("./members/viewNewcomersForms/viewforms"));
 const ViewSingleMember = React.lazy(() => import("./members/singleMember/viewSingleMember"));
 const ViewFollowUp = React.lazy(() => import("./members/new-comers/viewFollowUp"));
 const ViewUnit = React.lazy(() => import("./manage/unit/viewUnit"));
 const ViewAdmin = React.lazy(() => import("./manage/admin/viewAdmin"));
+const ViewRole = React.lazy(() => import("./manage/role/viewRole"));
+const ViewARole = React.lazy(() => import("./manage/role/viewArole"));
 const CreateAccount = React.lazy(() => import("./setupAccount/createAccount/createAccount"));
 const ResetPassword = React.lazy(() => import("./reset-password/resetPassword"));
 const SettingProfile = React.lazy(() => import("./profile/userProfile"));
 const FinanceCollections = React.lazy(() => import("./finance/collection/viewCollections"));
-const FinanceWallets = React.lazy(() => import("./finance/wallet/viewWallet"));
+const ViewReports = React.lazy(() => import("./reports/viewReports"));
+const ViewAReports = React.lazy(() => import("./reports/viewAReport"));
+const FinanceWallets = React.lazy(() => import("./messages/wallet/viewWallet"));
 const FinanceAccounts = React.lazy(() => import("./finance/finAccount/viewFinAccount"));
 const ViewMessageHistory = React.lazy(()=>import('./messages/viewMessage/viewMessage'));
 const FollowUpQrcodepage = React.lazy(() => import("./members/new-comers/qrcodePageFollowUp"));
@@ -35,16 +44,40 @@ const Qrcode = React.lazy(() => import("./qrcode/qrcode"));
 // Private Route Component
 interface PrivateRouteProps {
   children: React.ReactNode;
+  requiredPermissions?: string[]; 
 }
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
-  const token = useSelector((state: RootState) => state?.auth?.authData?.token);
-  
-  return token ? (
-    <>{children}</>
-  ) : (
-    <Navigate to="/" replace />
-  );
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiredPermissions  }) => {
+ const authData = useSelector((state: RootState) => state.auth.authData);
+
+  // If not logged in, redirect to login
+  if (!authData?.token) {
+    return <Navigate to="/" replace />;
+  }
+
+  // If permissions are required, check if user has at least one
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    const hasPermission = authData.permission?.some((p: string) =>
+      requiredPermissions.includes(p)
+    );
+    if (!hasPermission) {
+      // Optional: redirect to dashboard or show "Not Authorized" page
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  return <>{children}</>;
+};
+
+const SupportRoute: React.FC<PrivateRouteProps> = ({ children}) => {
+ const authData = useSelector((state: RootState) => state.auth.authData);
+
+  // If not logged in or not a support user, redirect to admin login
+  if (!authData?.token || authData?.role !== 'Support') {
+    return <Navigate to="/admin-login" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 const AppRoutes: React.FC = () => {
@@ -54,6 +87,7 @@ const AppRoutes: React.FC = () => {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Login />} />
+          <Route path="/admin-login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-church" element={<SetupChurch />} />
           <Route path="/setup-logo" element={<SetupStep2 />} />
@@ -62,13 +96,18 @@ const AppRoutes: React.FC = () => {
           <Route path="/members" element={<MemberQrcodepage />} />
           <Route path="/church-settings" element={<ChangeColorButton />} />
 
+          <Route path="/admin-dashboard" element={<SupportRoute><AdminDashboard /> </SupportRoute> } />
+          <Route path="/admin-supports" element={<SupportRoute> <AdminSupports /></SupportRoute> } />
+          <Route path="/admin-activations" element={<SupportRoute> <AdminActivation /> </SupportRoute> } />
+          <Route path="/admin-manage/churches" element={<SupportRoute> <AdminManagingChurches /> </SupportRoute> } />
+
           {/* Private Routes */}
           <Route path="/dashboard" element={
             <PrivateRoute>
               <Dashboard />
             </PrivateRoute>
           } />
-          <Route path="/settings" element={
+          <Route path="/profile" element={
             <PrivateRoute>
               <SettingProfile/>
             </PrivateRoute>
@@ -93,12 +132,32 @@ const AppRoutes: React.FC = () => {
               <ViewUnit/>
             </PrivateRoute>
           } />
-          <Route path="/messages" element={
+          <Route path="/manage/view-roles" element={
+            <PrivateRoute>
+              <ViewRole/>
+            </PrivateRoute>
+          } />
+          <Route path="/manage/view-role/:roleId" element={
+            <PrivateRoute>
+              <ViewARole/>
+            </PrivateRoute>
+          } />       
+          <Route path="/messages/sms" element={
             <PrivateRoute>
               <ViewMessageHistory/>
             </PrivateRoute>
           } />
+          <Route path="/messages/wallets" element={
+            <PrivateRoute>
+              <FinanceWallets/>
+            </PrivateRoute>
+          } />
           <Route path="/members/view-workers" element={
+            <PrivateRoute>
+              <ViewWorker />
+            </PrivateRoute>
+          } />
+          <Route path="/members/view-members" element={
             <PrivateRoute>
               <ViewMember />
             </PrivateRoute>
@@ -123,11 +182,6 @@ const AppRoutes: React.FC = () => {
               <FinanceCollections/>
             </PrivateRoute>
           } />
-          <Route path="/finance/wallets" element={
-            <PrivateRoute>
-              <FinanceWallets/>
-            </PrivateRoute>
-          } />
           <Route path="/finance/accounts" element={
             <PrivateRoute>
               <FinanceAccounts/>
@@ -138,6 +192,16 @@ const AppRoutes: React.FC = () => {
               <ViewServices/>
             </PrivateRoute>
           } />
+          <Route path="/reports" element={
+            <PrivateRoute>
+              <ViewReports/>
+            </PrivateRoute>
+          } />
+          <Route path="/reports/:reportId" element={
+            <PrivateRoute>
+              <ViewAReports/>
+            </PrivateRoute>
+          } />
            <Route path="/qrcodes" element={
             <PrivateRoute>
               <Qrcode/>
@@ -146,7 +210,7 @@ const AppRoutes: React.FC = () => {
            <Route path="/verify-email" element={
             <EmailVerification/>
           } />
-           <Route path="/church/settings" element={
+           <Route path="/settings" element={
             <PrivateRoute>
               <ViewChurch/>
             </PrivateRoute>

@@ -439,7 +439,7 @@ const ViewSingleMember: React.FC = () => {
                 fontWeight="bold"
                 sx={{ mb: 2, color: "#E1E1E1" }}
               >
-                Branch / Department - Units Information
+                Branch {(member.departments?.length ?? 0) > 0 && "/ Department - Units"} Information
               </Typography>
 
               <Grid container spacing={4}>
@@ -452,18 +452,16 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>
 
-                  {member.departments && (
+                  {member.departments?.length! > 0 && (
                     <Box sx={{ mb: 3, color: "#E1E1E1" }}>
                       <Typography variant="subtitle2">Departments</Typography>
                       <Typography variant="body1">
-                        {member.departments.length > 0
-                          ? member.departments.map((dept, index) => (
-                              <span key={index}>
-                                {dept.name}
-                                {member.departments && index < member.departments.length - 1 ? ", " : ""}
-                              </span>
-                            ))
-                          : "N/A"}
+                        {member.departments!.map((dept, index) => (
+                          <span key={index}>
+                            {dept.name}
+                            {index < member.departments!.length - 1 ? ", " : ""}
+                          </span>
+                        ))}
                       </Typography>
                     </Box>
                   )}
@@ -471,7 +469,7 @@ const ViewSingleMember: React.FC = () => {
 
                 {/* Right Column */}
                 <Grid size={{ xs: 12, md: 6 }}>
-                  {member.units && (
+                  {member.units && member.units?.length > 0 && (
                     <Box sx={{ mb: 3, color: "#E1E1E1" }}>
                       <Typography variant="subtitle2">Units</Typography>
                       <Typography variant="body1">

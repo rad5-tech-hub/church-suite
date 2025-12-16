@@ -223,7 +223,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeSc
   >
     <EmptyIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
     <Typography variant="h6" color="gray" sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
-      {error || 'Newcomers Not Available'}
+      {error || 'No Newcomer Found '}
     </Typography>
     <Button
       variant="contained"
@@ -1023,6 +1023,17 @@ const ViewFollowUp: React.FC = () => {
     fetchFollowUps();
   }, [fetchFollowUps]);
 
+  // auto set the searchbranch with branchId for hq  and branches=1
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1 &&
+      authData.branchId
+    ) {
+      handleStateChange("selectedBranchId", authData.branchId);
+    }
+  }, [authData?.isHeadQuarter, authData?.branches, authData?.branchId, handleStateChange]);
+
   // Updated renderMobileFilters function
   const renderMobileFilters = () => (
     <Drawer
@@ -1102,6 +1113,10 @@ const ViewFollowUp: React.FC = () => {
             )}
           />
         </Box>
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && 
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px' }}>
             Branch
@@ -1119,7 +1134,7 @@ const ViewFollowUp: React.FC = () => {
               fontSize: '14px',
               '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
               '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-              '& .MuiSelect-icon': { display: 'none' },
+               '& .MuiSelect-icon': {color: '#F6F4FE' },
             }}
             renderValue={(selected) =>
               selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
@@ -1136,7 +1151,7 @@ const ViewFollowUp: React.FC = () => {
               ))
             )}
           </Select>
-        </Box>
+        </Box>}
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', mb: 1 }}>
             Program
@@ -1155,7 +1170,7 @@ const ViewFollowUp: React.FC = () => {
               fontSize: '14px',
               '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
               '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-              '& .MuiSelect-icon': { display: 'none' },
+              '& .MuiSelect-icon': {color: '#F6F4FE' },
               '&.Mui-disabled': { backgroundColor: '#4d4d4e4d', color: '#777280' },
             }}
             renderValue={(selected) => {
@@ -1311,45 +1326,51 @@ const ViewFollowUp: React.FC = () => {
             )}
           />
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
-        <Box
-          sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
-        >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
-            Branch
-          </Typography>
-          <FormControl fullWidth>
-            <Select
-              value={state.selectedBranchId}
-              onChange={(e) => handleBranchChange(e)}
-              onOpen={handleBranchOpen}
-              displayEmpty
-              sx={{
-                color: state.selectedBranchId ? '#F6F4FE' : '#777280',
-                fontWeight: 500,
-                fontSize: '14px',
-                '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
-                '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
-                '& .MuiSelect-icon': { display: 'none' },
-              }}
-              renderValue={(selected) =>
-                selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
-              }
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && <>
+            <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+            <Box
+              sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
             >
-              <MenuItem value="">None</MenuItem>
-              {branchesLoading ? (
-                <MenuItem disabled>Loading...</MenuItem>
-              ) : branchesError ? (
-                <MenuItem disabled>Error loading branches</MenuItem>
-              ) : (
-                state.branches.map((branch) => (
-                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
-        </Box>
+              <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+                Branch
+              </Typography>
+              <FormControl fullWidth>
+                <Select
+                  value={state.selectedBranchId}
+                  onChange={(e) => handleBranchChange(e)}
+                  onOpen={handleBranchOpen}
+                  displayEmpty
+                  sx={{
+                    color: state.selectedBranchId ? '#F6F4FE' : '#777280',
+                    fontWeight: 500,
+                    fontSize: '14px',
+                    '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
+                    '.MuiOutlinedInput-notchedOutline': { border: 'none' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+                    '& .MuiSelect-icon': { display: 'none' },
+                  }}
+                  renderValue={(selected) =>
+                    selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
+                  }
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {branchesLoading ? (
+                    <MenuItem disabled>Loading...</MenuItem>
+                  ) : branchesError ? (
+                    <MenuItem disabled>Error loading branches</MenuItem>
+                  ) : (
+                    state.branches.map((branch) => (
+                      <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            </Box>
+          </>
+        }
         <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
         <Box
           sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
@@ -1479,9 +1500,9 @@ const ViewFollowUp: React.FC = () => {
             <Typography
               variant={isMobile ? 'h5' : 'h5'}
               component="h4"
-              sx={{ fontWeight: 600, display: 'flex', mb: 3, alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.1rem' : undefined }}
+              sx={{ fontWeight: 600, display: 'flex', mb: 3, alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.5rem' : undefined }}
             >
-              <span className="text-[#777280]">Members</span>
+              <span className="text-[#777280]">Membership</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
               <span className="text-[#F6F4FE]">Newcomers</span>
             </Typography>

@@ -62,6 +62,8 @@ interface Member {
   branch: { name: string };
   phoneNo: string;
   sex: string;
+  departments: {name: string}[];
+  units: {name: string}[];
   whatappNo: string;
   isDeleted?: boolean;
 }
@@ -109,9 +111,11 @@ interface MemberRowProps {
 const columnWidths = {
   snumber: "3%",
   name: "25%",
-  contact: "15%",
-  branch: "25%",
-  whatsapp: "15%",
+  contact: "13%",
+  branch: "12%",
+  whatsapp: "13%",
+  departments: "9%",
+  units: "8%",
   actions: "17%",
 };
 
@@ -195,6 +199,20 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
     <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
       <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {member.branch?.name || "N/A"}
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {member.departments?.length
+          ? member.departments.map(dept => dept.name).join(", ")
+          : "N/A"}
+      </Box>
+    </TableCell>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+      <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        {member.units?.length
+          ? member.units.map(unit => unit.name).join(", ")
+          : "N/A"}
       </Box>
     </TableCell>
     <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
@@ -409,6 +427,7 @@ const ViewMembers: React.FC = () => {
         if (authData?.role === "department" && authData?.department) {
           params.append("departmentId", authData.department);
         }
+        // params.append("isWorker", 'true');
         const apiUrl = url || `/member/all-members?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(apiUrl);
         const data = {
@@ -425,7 +444,7 @@ const ViewMembers: React.FC = () => {
         }));
         return data;
       } catch (error: any) {
-        console.error("Failed to fetch members:", {
+        console.error("Failed to load members:", {
           message: error.message,
           response: error.response?.data,
           status: error.response?.status,
@@ -529,6 +548,7 @@ const ViewMembers: React.FC = () => {
       }
       if (state.searchDepartment) params.append("departmentId", state.searchDepartment);
       if (state.searchBranch) params.append("branchId", state.searchBranch);
+      // params.append("isWorker", 'true');
       const response = await Api.get<FetchMembersResponse>(`/member/all-members?${params.toString()}`);
       setState((prev) => ({
         ...prev,
@@ -585,6 +605,7 @@ const ViewMembers: React.FC = () => {
         }
         if (searchDepartment) params.append("departmentId", searchDepartment);
         if (searchBranch) params.append("branchId", searchBranch);
+        // params.append("isWorker", 'true');
         const fullUrl = url.includes("?") ? `${url}&${params.toString()}` : `${url}?${params.toString()}`;
         const response = await Api.get<FetchMembersResponse>(fullUrl);
         return {
@@ -830,6 +851,17 @@ const ViewMembers: React.FC = () => {
     handleStateChange("isModalOpen", true);
   };
 
+  // auto set the searchbranch with branchId for hq  and branches=1
+  useEffect(() => {
+    if (
+      authData?.isHeadQuarter === false &&
+      (authData?.branches?.length ?? 0) === 1 &&
+      authData.branchId
+    ) {
+      handleStateChange("searchBranch", authData.branchId);
+    }
+  }, [authData?.isHeadQuarter, authData?.branches, authData?.branchId, handleStateChange]);
+
   // UI Components
   const renderMobileFilters = () => (
     <Drawer
@@ -882,6 +914,10 @@ const ViewMembers: React.FC = () => {
             )}
           />
         </Box>
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && 
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Branch
@@ -906,7 +942,7 @@ const ViewMembers: React.FC = () => {
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              "& .MuiSelect-icon": { color: "#F6F4FE"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Branch";
@@ -930,7 +966,7 @@ const ViewMembers: React.FC = () => {
               ))
             )}
           </MuiSelect>
-        </Box>
+        </Box>}
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
@@ -955,7 +991,7 @@ const ViewMembers: React.FC = () => {
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
+              "& .MuiSelect-icon": { color: "#F6F4FE"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Department";
@@ -1042,54 +1078,59 @@ const ViewMembers: React.FC = () => {
             )}
           />
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Branch
-          </Typography>
-          <MuiSelect
-            value={state.searchBranch}
-            onChange={(e) => {
-              handleStateChange("searchBranch", e.target.value as string);
-              if (e.target.value) fetchDepartments();
-            }}
-            displayEmpty
-            onOpen={() => {
-              handleStateChange("isBranchSelectOpen", true);
-              if (!state.branchesLoaded && !state.branchesError) fetchBranches();
-            }}
-            onClose={() => handleStateChange("isBranchSelectOpen", false)}
-            sx={{
-              color: state.searchBranch ? "#F6F4FE" : "#777280",
-              fontWeight: 500,
-              fontSize: "14px",
-              ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
-              ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { display: "none" },
-            }}
-            renderValue={(selected) => {
-              if (!selected) return "Select Branch";
-              const branch = state.branches.find((b) => b.id === selected);
-              return branch ? branch.name : "Select Branch";
-            }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {state.isBranchLoading ? (
-              <MenuItem disabled>Loading...</MenuItem>
-            ) : state.branchesError ? (
-              <MenuItem disabled>
-                {state.branchesError}
-                <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
-              </MenuItem>
-            ) : state.branches.length === 0 ? (
-              <MenuItem disabled>No branches available</MenuItem>
-            ) : (
-              state.branches.map((branch) => (
-                <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
-              ))
-            )}
-          </MuiSelect>
-        </Box>
+        {!(
+          authData?.isHeadQuarter === false &&
+          (authData?.branches?.length ?? 0) === 1
+        ) && <>
+          <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+              Branch
+            </Typography>
+            <MuiSelect
+              value={state.searchBranch}
+              onChange={(e) => {
+                handleStateChange("searchBranch", e.target.value as string);
+                if (e.target.value) fetchDepartments();
+              }}
+              displayEmpty
+              onOpen={() => {
+                handleStateChange("isBranchSelectOpen", true);
+                if (!state.branchesLoaded && !state.branchesError) fetchBranches();
+              }}
+              onClose={() => handleStateChange("isBranchSelectOpen", false)}
+              sx={{
+                color: state.searchBranch ? "#F6F4FE" : "#777280",
+                fontWeight: 500,
+                fontSize: "14px",
+                ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
+                ".MuiOutlinedInput-notchedOutline": { border: "none" },
+                "& .MuiSelect-icon": { display: "none" },
+              }}
+              renderValue={(selected) => {
+                if (!selected) return "Select Branch";
+                const branch = state.branches.find((b) => b.id === selected);
+                return branch ? branch.name : "Select Branch";
+              }}
+            >
+              <MenuItem value="">None</MenuItem>
+              {state.isBranchLoading ? (
+                <MenuItem disabled>Loading...</MenuItem>
+              ) : state.branchesError ? (
+                <MenuItem disabled>
+                  {state.branchesError}
+                  <Button onClick={() => { handleStateChange("branchesError", null); fetchBranches(); }} sx={{ ml: 1 }}>Retry</Button>
+                </MenuItem>
+              ) : state.branches.length === 0 ? (
+                <MenuItem disabled>No branches available</MenuItem>
+              ) : (
+                state.branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
+                ))
+              )}
+            </MuiSelect>
+          </Box>
+        </>}
         <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
           <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
@@ -1149,7 +1190,7 @@ const ViewMembers: React.FC = () => {
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#E61E4D" },
+              "&:hover": { backgroundColor: "#777280" },
             }}
             disabled={state.isSearching}
           >
@@ -1183,26 +1224,77 @@ const ViewMembers: React.FC = () => {
       !state.loadingDepartments
     ) {
       fetchDepartments();
-    }
+    }    
   }, [authData?.role, authData?.department, authData?.branchId, state.searchBranch, state.departmentsLoaded, state.departmentsError, state.loadingDepartments, fetchDepartments]);
 
-  // Main Render
+// Main Render
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%" }}>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, lg: 7 }}>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
               variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
               component="h4"
               fontWeight={600}
               gutterBottom
-              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.1rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
+              sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
             >
-              <span className="text-[#777280]">Members</span>
+              <span className="text-[#777280]">Membership</span>
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Worker</span>
+              <span className="text-[#F6F4FE]">Workers</span>
             </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}  
+            sx={{
+              display: "flex",
+              justifyContent: { xs: "center", md: "flex-end" },
+            }}
+          >
+            <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
+              <Button
+                variant="contained"
+                onClick={handleImportExcel}
+                disabled={state.isLoading}
+                sx={{
+                  py: 1,
+                  backgroundColor: "#363740",
+                  px: { xs: 3, sm: 3 },
+                  borderRadius: 50,
+                  fontWeight: "semibold",
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: "max-content",
+                }}
+              >
+                Upload Workers <MdOutlineFileUpload className="ml-1" />
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleAddMember}
+                size="medium"
+                sx={{
+                  backgroundColor: "#363740",
+                  px: { xs: 2, sm: 2 },
+                  py: 1,
+                  borderRadius: 50,
+                  fontWeight: 500,
+                  textTransform: "none",
+                  color: "var(--color-text-on-primary)",
+                  fontSize: { xs: "1rem", sm: "1rem" },
+                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: "max-content",
+                }}
+              >
+                Add Worker +
+              </Button>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
@@ -1256,7 +1348,7 @@ const ViewMembers: React.FC = () => {
                           minWidth: "48px",
                           height: "48px",
                           padding: 0,
-                          "&:hover": { backgroundColor: "#E61E4D" },
+                          "&:hover": { backgroundColor: "#777280" },
                         }}
                         disabled={state.isSearching}
                       >
@@ -1269,50 +1361,6 @@ const ViewMembers: React.FC = () => {
               ) : (
                 renderDesktopFilters()
               )}
-            </Box>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 5 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", mt: { xs: 2, md: 0 } }}>
-            <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
-              <Button
-                variant="contained"
-                onClick={handleImportExcel}
-                disabled={state.isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#363740",
-                  px: { xs: 3, sm: 3 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content",
-                }}
-              >
-                Upload Workers <MdOutlineFileUpload className="ml-1" />
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleAddMember}
-                size="medium"
-                sx={{
-                  backgroundColor: "#363740",
-                  px: { xs: 2, sm: 2 },
-                  py: 1,
-                  borderRadius: 50,
-                  fontWeight: 500,
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content",
-                }}
-              >
-                Add Worker +
-              </Button>
             </Box>
           </Grid>
         </Grid>
@@ -1350,6 +1398,8 @@ const ViewMembers: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600, width: columnWidths.name, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Name</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Branch</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Departments</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.units, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Units</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Whatsapp Number</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Actions</TableCell>
                   </TableRow>
@@ -1446,7 +1496,7 @@ const ViewMembers: React.FC = () => {
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
-          <DialogContent>
+          <DialogContent sx={{mt: 3}}>
             <Autocomplete
               options={state.branches}
               getOptionLabel={(option) => option.name}

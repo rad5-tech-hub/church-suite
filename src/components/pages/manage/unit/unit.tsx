@@ -254,7 +254,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
 
       <DialogContent dividers>
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 4, pt: 1 }}>
-          <FormControl fullWidth>
+          {authData.isHeadQuarter && <FormControl fullWidth>
             <InputLabel 
               id="branch-select-label" 
               sx={{ 
@@ -295,7 +295,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                 <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>
               )))}
             </Select>
-          </FormControl>
+          </FormControl>}
 
           <FormControl fullWidth>
             <InputLabel 
@@ -313,7 +313,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               value={selectedDepartment}
               label="Select Department *"
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              disabled={loading || !selectedBranch || fetchingDepartments}
+              disabled={!selectedBranch}
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
                 color: "#F6F4FE",

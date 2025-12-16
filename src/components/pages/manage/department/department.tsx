@@ -268,7 +268,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       <DialogContent dividers>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, py: 2 }}>
           {/* Branch Autocomplete */}
-          <FormControl fullWidth size="medium" error={!!errors.branchId}>
+          {authData.isHeadQuarter && <FormControl fullWidth size="medium" error={!!errors.branchId}>
             <Autocomplete
               disablePortal
               options={branches.map((branch) => ({
@@ -348,7 +348,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
               )}
             />
             {errors.branchId && <FormHelperText error>{errors.branchId}</FormHelperText>}
-          </FormControl>
+          </FormControl>}
 
           {/* Department Name */}
           <TextField

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { IoMailOutline, IoCallOutline } from "react-icons/io5";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
@@ -40,6 +40,7 @@ interface FormData {
   isSuperAdmin: boolean;
   scopeLevel: string;
   branchIds: string[];
+  roleIds: string[];
   departmentIds: string[];
   unitIds: string[];
 }
@@ -99,6 +100,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     isSuperAdmin: false,
     scopeLevel: "branch",
     branchIds: [],
+    roleIds:[],
     departmentIds: [],
     unitIds: [],
   };
@@ -116,6 +118,9 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Errors>(initialErrors);
   const [loading, setLoading] = useState(false);
+  const [roleLoading, setRoleLoading] = useState(false);
+  const [roleError, setRoleError] = useState(null);
+  const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchDepartments, setBranchDepartments] = useState<BranchDepartments>({});
   const [departmentUnits, setDepartmentUnits] = useState<DepartmentUnits>({});
@@ -133,27 +138,34 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
 
-  const getScopeLevels = (role?: string) => {
+  const getScopeLevels = (role?: string, isSuperAdmin?: boolean) => {
+    // branch option dynamically changes label based on isHeadQuarter
+    const branchOption = {
+      value: "branch",
+      label: (authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) ? "Church" : "Branch",
+    };
+
     switch (role) {
       case "branch":
         return [
-          { value: "branch", label: "Branch" },
+          ...(isSuperAdmin ? [branchOption] : []),
           { value: "department", label: "Department" },
           { value: "unit", label: "Unit" },
         ];
+
       case "department":
-        return [
-          { value: "unit", label: "Unit" },
-        ];
-      case "unit ":
         return [{ value: "unit", label: "Unit" }];
+
+      case "unit":
+        return [{ value: "unit", label: "Unit" }];
+
       default:
         return [];
     }
   };
 
-  const scopeLevels = getScopeLevels(authData?.role);
-
+  // ✅ Usage
+  const scopeLevels = getScopeLevels(authData?.role, authData?.isSuperAdmin);
 
   const fetchBranches = async () => {
     if (hasFetchedBranches || isFetchingBranches) return;
@@ -218,6 +230,40 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     } finally {
       setIsFetchingUnits((prev) => ({ ...prev, [deptId]: false }));
     }
+  };
+
+  const fetchRoles = useCallback(async () => {
+    if (!authData?.branchId) return;
+    setRoleLoading(true);
+    setRoleError(null);
+    try {
+      const response = await Api.get(
+        `/tenants/all-roles?branchId=${authData.branchId}`
+      );
+      setRoles(response.data.data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch roles:", error);
+      const msg = error.response?.data?.message || "Failed to load roles";
+      setRoleError(msg);
+    } finally {
+     setRoleLoading(false);
+    }
+  }, [authData?.branchId]);
+
+  useEffect(() => {
+    if (open && formData.scopeLevel) {
+      fetchRoles();
+    } else {
+      setRoles([]);
+      setFormData((prev) => ({ ...prev, roleIds: [] }));
+    }
+  }, [formData.scopeLevel, open, fetchRoles]);
+
+
+  const handleRoleChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value as string[];
+    setFormData((prev) => ({ ...prev, roleIds: value }));
+    setErrors((prev) => ({ ...prev, roleIds: "" }));
   };
 
   const handleScopeLevelChange = (e: SelectChangeEvent<string>) => {
@@ -329,14 +375,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
       }
     }
 
-    if (!formData.title.trim()) {
-      newErrors.title = "Title is required";
-    } else if (formData.title.trim().length < 2) {
-      newErrors.title = "Title must be at least 2 characters long";
-    } else if (formData.title.trim().length > 100) {
-      newErrors.title = "Title must be less than 100 characters";
-    }
-
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!validateEmail(formData.email)) {
@@ -391,7 +429,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     try {
       const payload = {
         name: formData.name.trim(),
-        title: formData.title.trim(),
+        ...(formData.title.trim() !== "" && { title: formData.title.trim() }),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),        
         // ✅ Only pass isSuperAdmin when scopeLevel is "branch" AND checkbox is checked
@@ -399,6 +437,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
           isSuperAdmin: true,
         }),
         scopeLevel: formData.scopeLevel,
+        roleIds: formData.roleIds.length > 0 ? formData.roleIds : undefined,
         branchIds: formData.branchIds.length > 0 ? formData.branchIds : undefined,
         departmentIds: formData.departmentIds.length > 0 ? formData.departmentIds : undefined,
         unitIds: formData.unitIds.length > 0 ? formData.unitIds : undefined,
@@ -406,7 +445,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
       await Api.post("church/create-admin", payload);
 
-      showPageToast("Admin created successfully!",'success');
+      showPageToast("Admin created successfully! - Use the password in the email to log in.",'success');
 
       setTimeout(() => {
         setFormData(initialFormData);
@@ -472,6 +511,25 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
     setUnitsError({});
     onClose();
   };
+
+  const filteredRoles = roles.filter((role: any) => role.scopeLevel === formData.scopeLevel);
+
+  // Automatically set branchIds if only 1 branch and not HQ
+  useEffect(() => {
+    if (authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) {
+      // Get branchId from the branches array if branchId is not directly available
+      const branchId = authData?.branchId || authData?.branches?.[0];
+      
+      if (branchId) {
+        setFormData((prev) => ({
+          ...prev,
+          branchIds: [branchId],
+          departmentIds: [],
+          unitIds: [],
+        }));
+      }
+    }
+  }, [authData?.isHeadQuarter, authData?.branches, authData?.branchId]);
 
   return (
     <Dialog
@@ -684,7 +742,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
               </FormControl>
             </Grid>
 
-            {(formData.scopeLevel === "branch" ||
+            {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (formData.scopeLevel === "branch" ||
               formData.scopeLevel === "department" ||
               formData.scopeLevel === "unit") && (
               <Grid size={{ xs: 12, md: 6 }}>
@@ -1002,32 +1060,94 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   </Grid>
                 );
               })}
-              {formData.scopeLevel === "branch" && (
-                <Grid size={{ xs: 12 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.isSuperAdmin}
-                        onChange={handleChange}
-                        name="isSuperAdmin"
-                        sx={{
-                          color: "#f6f4fe", // Unchecked color
-                          "&.Mui-checked": {
-                            color: "#f6f4fe", // Checked color
-                          },
-                        }}
-                      />
-                    }
-                    label="Is Super Admin?"
-                    sx={{
-                      "& .MuiTypography-root": {
-                        fontSize: isLargeScreen ? "1rem" : undefined,
-                        color: "#F6F4FE",
-                      },
-                    }}
-                  />
-                </Grid>
-              )}
+
+            <Grid size={{ xs: 12, md: 6 }} >
+              <FormControl fullWidth error={!!roleError}>
+                <InputLabel id="role-select-label" sx={{ color: "#F6F4FE" }}>
+                  Select Role(s)
+                </InputLabel>
+
+                <Select
+                  labelId="role-select-label"
+                  multiple
+                  value={formData.roleIds}
+                  onOpen={() => formData.scopeLevel ? fetchRoles() : null}
+                  onChange={handleRoleChange}
+                  renderValue={(selected: string[]) =>
+                    roles
+                      .filter((r: any) => selected.includes(r.id))
+                      .map((r: any) => r.name)
+                      .join(", ")
+                  }
+                  sx={{
+                    color: "#F6F4FE",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                  }}
+                >
+                  {roleLoading ? (
+                    <MenuItem disabled>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+                        <CircularProgress size={20} sx={{ mr: 1 }} />
+                        <Typography variant="body2">Loading roles...</Typography>
+                      </Box>
+                    </MenuItem>
+                  ) : filteredRoles.length > 0 ? (
+                    filteredRoles.map((role: any) => (
+                      <MenuItem key={role.id} value={role.id}>
+                        <Checkbox checked={formData.roleIds.includes(role.id)} />
+                        <ListItemText
+                          primary={role.name}
+                          secondary={role.description || "No description provided"}
+                          primaryTypographyProps={{ sx: { fontWeight: 500 } }}
+                          secondaryTypographyProps={{ sx: { color: "#B5B5B5", fontSize: "0.8rem" } }}
+                        />
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled>
+                      <ListItemText primary="No role matches this Access Level" />
+                    </MenuItem>
+                  )}
+                </Select>
+
+                {roleError && !roleLoading && (
+                  <FormHelperText error>
+                    <Box component="span" sx={{ mr: 1 }}>⚠️</Box>
+                    {roleError}
+                  </FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+
+            {formData.scopeLevel === "branch" && (
+              <Grid size={{ xs: 12 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.isSuperAdmin}
+                      onChange={handleChange}
+                      name="isSuperAdmin"
+                      sx={{
+                        color: "#f6f4fe", // Unchecked color
+                        "&.Mui-checked": {
+                          color: "#f6f4fe", // Checked color
+                        },
+                      }}
+                    />
+                  }
+                  label="Is Super Admin?"
+                  sx={{
+                    "& .MuiTypography-root": {
+                      fontSize: isLargeScreen ? "1rem" : undefined,
+                      color: "#F6F4FE",
+                    },
+                  }}
+                />
+              </Grid>
+            )}
+                      
           </Grid>
         </Box>
       </DialogContent>

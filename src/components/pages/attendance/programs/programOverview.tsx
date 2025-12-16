@@ -42,6 +42,7 @@ import { EditProgramModal } from './services';
 import WorkerAttendanceDialogue from './workersAttendance';
 import MembersCountDialogue from './memberAttendance';
 import CollectionsDialogue from './recordCollections';
+import { showPageToast } from '../../../util/pageToast';
 
 ChartJS.register(
   CategoryScale,
@@ -135,6 +136,8 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
   const [workersPercentage, setWorkersPercentage] = useState<number>(0);
   const [nonWorkersPercentage, setNonWorkersPercentage] = useState<number>(0);
   const [eventStatus, setEventStatus] = useState<string>('');
+  const [delloading, setDelLoading] = useState(false);
+  const [confirmDelOpen, setConfirmDelOpen] = useState(false);
 
   const getEventStatus = (
     evDate: string,
@@ -206,6 +209,30 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
       setError('Failed to fetch event or attendance data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Open confirmation
+  const handleDeleteClick = () => {
+    setConfirmDelOpen(true);
+  };
+
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!eventId) return;
+
+    setDelLoading(true);
+    try {
+      await Api.patch(`/church/soft-delete-event/${eventData?.event.id}`);
+      showPageToast(`${eventData?.event.title} deleted successfully`, "success");
+      setConfirmDelOpen(false);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      showPageToast(err?.response?.data?.message || "Failed to delete event", "error");
+    } finally {
+      setConfirmDelOpen(false);
+      setDelLoading(false);
     }
   };
 
@@ -633,8 +660,32 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
                   )}
                 </Box>
               </AccordionDetails>
-            </Accordion>
+            </Accordion>            
           </Box>
+
+          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'center' }}>
+            <Button
+              onClick={handleDeleteClick}
+              sx={{
+                mt: 2,
+                px: 8, // increased horizontal padding
+                minWidth: '250px', // ensures a minimum width
+                backgroundColor: "rgba(183, 28, 28, 0.3)", // transparent red
+                color: "#f0f0f0", // white text
+                border: "1px solid rgba(183, 28, 28, 0.4)", // subtle red border
+                fontWeight: 600,
+                textTransform: "none",
+                "&:hover": {
+                  backgroundColor: "rgba(183, 28, 28, 0.2)", // slightly deeper red on hover
+                  borderColor: "#b71c1c",
+                },
+              }}
+            >
+              Delete
+            </Button>
+          </Box>
+
+
         </DialogContent>
 
         <DialogActions
@@ -718,6 +769,51 @@ const EventSummaryDialog: React.FC<EventSummaryDialogProps> = ({ eventId, open, 
               Record Newcomers
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={confirmDelOpen}
+        onClose={() => !delloading && setConfirmDelOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            borderRadius: 2,
+            bgcolor: '#2C2C2C',
+            color: 'white',
+            p: 2,
+          },
+        }}
+      >
+        <DialogTitle sx={{ color: "#F6F4FE", fontWeight: 600 }}>
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete{" "}
+            <strong>{eventData.event.title}</strong> program?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmDelOpen(false)}
+            disabled={!eventId}
+            sx={{ color: "#E4F4EC" }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDelete}
+            disabled={!eventId}
+            variant="contained"
+            sx={{
+              bgcolor: "#EF4444",
+              "&:hover": { bgcolor: "#DC2626" },
+            }}
+          >
+            {delloading ? <CircularProgress size={20} color="inherit" /> : "Delete"}
+          </Button>
         </DialogActions>
       </Dialog>
 

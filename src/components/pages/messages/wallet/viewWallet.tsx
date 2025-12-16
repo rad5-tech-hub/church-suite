@@ -11,6 +11,7 @@ import {
   Grid,
   IconButton,
 } from "@mui/material";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { 
   ChevronLeft,
@@ -18,8 +19,9 @@ import {
 } from "@mui/icons-material";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
-import CreateAndFundWallet from "./wallet";
+import CreateWalletDialog from "./createWallet";
 import { CiWallet } from "react-icons/ci";
+import FundWalletDialog from "./fundWallets";
 
 interface Wallet {
   id: string;
@@ -58,6 +60,7 @@ interface State {
   pageHistory: string[];
   loading: boolean;
   isModalOpen: boolean;
+  isFundWallet: boolean;
 }
 
 const initialState: State = {
@@ -72,6 +75,7 @@ const initialState: State = {
   pageHistory: [],
   loading: false,
   isModalOpen: false,
+  isFundWallet: false,
 };
 
 const CustomPagination: React.FC<CustomPaginationProps> = ({
@@ -162,6 +166,20 @@ const ViewCollections: React.FC = () => {
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
   const [state, setState] = useState<State>(initialState);
+  // Track visibility per collection ID
+  const [visibleBalances, setVisibleBalances] = useState<Record<string, boolean>>({});
+  const [selectedWallet, setSelectedWallet] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+
+  const toggleBalance = (id: string) => {
+    setVisibleBalances((prev) => ({
+      ...prev,
+      [id]: prev[id] === undefined ? false : !prev[id],
+    }));
+  };
 
   const handleStateChange = useCallback(
     <K extends keyof State>(key: K, value: State[K]) => {
@@ -367,9 +385,9 @@ const fetchCollections = useCallback(
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Finance</span>{" "}
+              <span className="text-[#777280]">Messages</span>{" "}
               <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]"> Wallets</span>
+              <span className="text-[#F6F4FE]"> SMS Wallets</span>
             </Typography>
           </Grid>
           <Grid
@@ -400,7 +418,7 @@ const fetchCollections = useCallback(
               }}
               aria-label="Create new wallet"
             >
-              Create & Fund Wallet
+              Create New Wallet
             </Button>
           </Grid>
         </Grid>
@@ -416,65 +434,153 @@ const fetchCollections = useCallback(
         {state.fillteredCollection.length > 0 && (
           <>
             <Grid container spacing={2}>
-              {state.fillteredCollection.map((collection) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={collection.id}>
-                  <Card
-                    sx={{
-                      borderRadius: "10.267px",
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",                    
-                      "&:hover": {
-                        backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Box sx={{ marginBottom: 3, display: "flex", justifyContent: "space-between" }}>
-                        <Box>
+              {state.fillteredCollection.map((collection) => {
+                const showBalance = visibleBalances[collection.id] ?? true;
+
+                return (
+                  <Grid key={collection.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                    <Card
+                      sx={{
+                        borderRadius: "10.267px",
+                        backgroundColor: "rgba(255, 255, 255, 0.06)",
+                        boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        "&:hover": {
+                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        },
+                      }}
+                    >
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Box
+                          sx={{
+                            marginBottom: 3,
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
                           <IconButton
                             sx={{
                               backgroundColor: "rgba(255, 255, 255, 0.06)",
                               color: "#777280",
-                              display: "flex",
                               flexDirection: "column",
-                              padding: "15px",
+                              padding: "10px",
                               borderRadius: 1,
                               textAlign: "center",
                             }}
-                            aria-label={`Wallet icon for ${collection.branchWallet?.name || collection.deptWallet?.name || "Personal"}`}
                           >
                             <span className="border-2 rounded-md border-[#777280] p-1">
-                              <CiWallet size={30} />
+                              <CiWallet size={20} />
                             </span>
                           </IconButton>
                         </Box>
-                      </Box>
-                      <Box display="flex" flexDirection="column" justifyContent="space-between" alignItems="flex-start">
-                        <Typography
-                          variant="h6"
-                          fontWeight={600}
-                          sx={{
-                            color: "#E1E1E1",
-                          }}                          
-                        >
-                          {collection.branchWallet?.name || collection.deptWallet?.name || "Personal"}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{                             
-                            color:  "#777280",
-                          }}
-                        >
-                          Balance: ₦{parseFloat(collection.balance).toLocaleString()}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+
+                        <Box display="flex" flexDirection="column" gap="8px">
+                          <Typography
+                            variant="h6"
+                            fontWeight={600}
+                            sx={{
+                              color: "#E1E1E1",
+                              fontSize: "20px",
+                            }}
+                          >
+                            {collection.branchWallet?.name ||
+                              collection.deptWallet?.name ||
+                              "Personal"}
+                          </Typography>
+
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginTop: "4px",
+                            }}
+                          >
+
+                            <Typography variant="body2" sx={{ color: "#F6F4FE", display: "flex", flexDirection: "column" }}>                              
+                              <span className="text-[19px] font-semibold">
+                                ₦ {showBalance ? parseFloat(collection.balance).toLocaleString() : "****"}
+                              </span>
+
+                              {/* ✅ Converted (Balance ÷ 6) */}
+                              {showBalance && (
+                                <span style={{ fontSize: "0.85rem", color: "#B0AEE8" }}>
+                                  Unit Value: ₦{(parseFloat(collection.balance) / 6).toLocaleString()}
+                                </span>
+                              )}
+                            </Typography>
+                            
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleBalance(collection.id)}
+                              sx={{ color: "#777280" }}
+                            >
+                              {showBalance ? <FiEye size={20} /> : <FiEyeOff size={20} />}
+                            </IconButton>
+                          </Box>
+                        </Box>
+
+                        <Box sx={{display: 'flex', gap: 4, mt: 3, flexDirection: {xs: 'column', sm: 'row',}, alignItems: 'center' }}>
+                          <Button
+                            variant="contained"
+                            onClick={() => {
+                              const walletId = collection.id || collection.id || collection.id;
+                              const walletName = collection.branchWallet?.name || collection.deptWallet?.name || "Personal";
+
+                              setSelectedWallet({ id: walletId, name: walletName });
+                              handleStateChange("isFundWallet", true);
+                            }}
+                            size="medium"
+                            sx={{
+                              backgroundColor: "#F6F4FE",
+                              px: { xs: 2, sm: 2 },
+                              py: 1,
+                              borderRadius: 50,
+                              fontWeight: 500,
+                              width: '100%',
+                              textTransform: "none",
+                              color: "#363740",
+                              fontSize: isLargeScreen ? "1rem" : undefined,
+                              "&:hover": {
+                                backgroundColor: "#F6F4FE",
+                                opacity: 0.9,
+                              },
+                            }}
+                            aria-label="Create new wallet"
+                          >
+                            Top Up
+                          </Button>
+                          {/* <Button
+                            variant="contained"
+                            onClick={() => handleStateChange("isModalOpen", true)}
+                            size="medium"
+                            sx={{
+                              backgroundColor: "#363740",
+                              px: { xs: 2, sm: 2 },
+                              py: 1,
+                              borderRadius: 50,
+                              fontWeight: 500,
+                              width: '100%',
+                              textTransform: "none",
+                              color: "var(--color-text-on-primary)",
+                              fontSize: isLargeScreen ? "1rem" : undefined,
+                              "&:hover": {
+                                backgroundColor: "#363740",
+                                opacity: 0.9,
+                              },
+                            }}
+                            aria-label="Create new wallet"
+                          >
+                            History
+                          </Button> */}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
 
             <CustomPagination
@@ -488,11 +594,19 @@ const fetchCollections = useCallback(
           </>
         )}
 
-        <CreateAndFundWallet 
+        <CreateWalletDialog 
           open={state.isModalOpen}
           onClose={() => handleStateChange("isModalOpen", false)}
           onSuccess={refreshCollections}
         />
+        <FundWalletDialog 
+          open={state.isFundWallet}
+          onClose={() => handleStateChange("isFundWallet", false)}
+          onSuccess={refreshCollections}
+          walletId={selectedWallet?.id || ""}
+          walletName={selectedWallet?.name || ""}
+        />
+
       </Box>
     </DashboardManager>
   );

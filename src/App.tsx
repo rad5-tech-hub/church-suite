@@ -5,8 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 function App() {
   return (
     <>
-      <AppRoutes />
-      <ToastContainer
+        <ToastContainer
         position="top-right"   // 👈 you can change position
         autoClose={3000}       // 👈 default auto close in ms
         hideProgressBar={false}
@@ -18,6 +17,7 @@ function App() {
         pauseOnHover
         theme="light"        // 👈 you can switch to "light" or "dark"
       />
+      <AppRoutes />
     </>
   );
 }

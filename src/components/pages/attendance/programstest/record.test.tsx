@@ -40,6 +40,7 @@ const mockEventResponse = {
 
 describe("RecordDialogue Component", () => {
   const onClose = jest.fn();
+  const onSuccess = jest.fn();
 
   const renderComponent = (storeOverrides = {}) => {
     const store = createMockStore({
@@ -49,7 +50,7 @@ describe("RecordDialogue Component", () => {
 
     return render(
       <Provider store={store}>
-        <RecordDialogue eventId="event-123" open={true} onClose={onClose} />
+        <RecordDialogue eventId="event-123" open={true} onClose={onClose} onSuccess={onSuccess} />
       </Provider>
     );
   };

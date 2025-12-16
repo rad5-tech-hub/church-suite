@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { setAuthData } from "../../reduxstore/authstore"; // Adjust path as needed
+import { setAuthData, setUserRoles, RolePermission } from "../../reduxstore/authstore";
 import DashboardManager from "../../shared/dashboardManager";
 import { RootState } from "../../reduxstore/redux";
 import { useNavigate } from "react-router-dom";
@@ -50,19 +50,11 @@ import { FaPeopleGroup } from "react-icons/fa6";
 import { CiMoneyBill } from "react-icons/ci";
 import { IoCalendarOutline, IoPersonAddOutline } from "react-icons/io5";
 
-// Define API response type for dashboard data
+// === Types ===
 interface ApiResponse {
   followUps?: {
-    weekly: {
-      thisWeek: number;
-      lastWeek: number;
-      change: number;
-    };
-    monthly: {
-      thisMonth: number;
-      lastMonth: number;
-      change: number;
-    };
+    weekly: { thisWeek: number; lastWeek: number; change: number };
+    monthly: { thisMonth: number; lastMonth: number; change: number };
   };
   collections?: {
     weekly: number;
@@ -82,88 +74,37 @@ interface ApiResponse {
     date: string;
     startTime: string;
     endTime: string;
-    event: {
-      id: string;
-      title: string;
-      branchId: string;
-    };
+    event: { id: string; title: string; branchId: string };
   }>;
   scope: string;
 }
 
 interface DashboardData {
-  followUps?: {
-    weekly: {
-      thisWeek: number;
-      lastWeek: number;
-      change: number;
-    };
-    monthly: {
-      thisMonth: number;
-      lastMonth: number;
-      change: number;
-    };
-  };
+  followUps?: ApiResponse["followUps"];
   collections: {
-    weekly: {
-      thisWeek: number;
-      lastWeek: number;
-      change: number;
-    };
-    monthly: {
-      thisMonth: number;
-      lastMonth: number;
-      change: number;
-    };
+    weekly: { thisWeek: number; lastWeek: number; change: number };
+    monthly: { thisMonth: number; lastMonth: number; change: number };
   };
-  structure: {
-    totalBranches?: number;
-    totalDepartments: number;
-    totalUnits: number;
-    totalWorkers: number;
-  };
-  upcomingPrograms: Array<{
-    date: string;
-    startTime: string;
-    endTime: string;
-    event: {
-      id: string;
-      title: string;
-      branchId: string;
-    };
-  }>;
+  structure: ApiResponse["structure"];
+  upcomingPrograms: ApiResponse["upcomingPrograms"];
   scope: string;
-}
-
-interface FetchDepartmentsResponse {
-  message?: string;
-  pagination: {
-    total: number;
-    page: number;
-    pageSize: number;
-  };
-  departments: Department[];
 }
 
 interface Department {
   id: string;
   name: string;
-  description: string | null;
-  type: "Department" | "Outreach";
   isActive: boolean;
   isDeleted?: boolean;
-  branch?: { name: string; id: string };
 }
 
-interface StatCardProps {
+// === Components ===
+const StatCard: React.FC<{
   title: string;
   value: string | number;
   change?: number;
   icon: React.ReactNode;
   color?: string;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon, color = "#F6F4FE" }) => {
+}> = ({ title, value, change, icon, color = "#F6F4FE" }) => {
   const theme = useTheme();
   const isPositive = change === undefined || change >= 0;
 
@@ -176,9 +117,6 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon, color =
         borderRadius: "16px",
         p: 3,
         height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
         transition: "all 0.3s ease",
         "&:hover": {
           transform: "translateY(-4px)",
@@ -239,7 +177,6 @@ const QuickActionButton: React.FC<{ title: string; icon: React.ReactNode; onClic
       color: "#F6F4FE",
       textTransform: "none",
       fontWeight: "medium",
-      justifyContent: "flex-center",
       "&:hover": {
         background: "rgba(255,255,255,0.1)",
         transform: "translateY(-2px)",
@@ -258,98 +195,133 @@ const EventItem: React.FC<{ activity: string; time: string; icon: React.ReactNod
 }) => (
   <ListItem sx={{ py: 1.5, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
     <ListItemAvatar>
-      <Avatar
-        sx={{
-          background: "rgba(255,255,255,0.1)",
-          color: "#F6F4FE",
-          width: 40,
-          height: 40,
-        }}
-      >
+      <Avatar sx={{ background: "rgba(255,255,255,0.1)", color: "#F6F4FE", width: 40, height: 40 }}>
         {icon}
       </Avatar>
     </ListItemAvatar>
     <ListItemText
-      primary={
-        <Typography variant="body2" sx={{ color: "#F6F4FE", fontWeight: 500 }}>
-          {activity}
-        </Typography>
-      }
-      secondary={
-        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>
-          {time}
-        </Typography>
-      }
+      primary={<Typography variant="body2" sx={{ color: "#F6F4FE", fontWeight: 500 }}>{activity}</Typography>}
+      secondary={<Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>{time}</Typography>}
     />
   </ListItem>
 );
 
+// === Main Component ===
 const Dashboard: React.FC = () => {
-  const authData = useSelector((state: RootState) => state?.auth?.authData);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"weekly" | "monthly">("monthly");
-  const navigate = useNavigate();
+  const [rolesFetched, setRolesFetched] = useState(false);
 
-  const fetchDepartments = useCallback(
-    async (): Promise<FetchDepartmentsResponse> => {
-      try {
-        const response = await Api.get<FetchDepartmentsResponse>(
-          `/church/get-departments${authData?.branchId ? `?branchId=${authData.branchId}` : ""}`
-        );
-        return response.data;
-      } catch (error) {
-        console.error("Fetch departments error:", error);
-        throw error;
-      }
-    },
-    [authData?.branchId]
-  );
+  // === Stable auth values ===
+  const authId = authData?.id;
+  const branchId = authData?.branchId;
+  const role = authData?.role;
+  const department = authData?.department;
+  const hasRoles = authData?.roles && authData.roles.length > 0;
 
+// === 1. Fetch & Dispatch User Roles (Once) ===
+useEffect(() => {
+  if (!authId || rolesFetched || hasRoles) return;
+
+  const fetchAndDispatchRoles = async () => {
+    try {
+      setRolesFetched(true);
+
+      // Fetch roles from API
+      const response = await Api.get(`/church/admin-role/${authId}`);
+      const rolesData = response.data.data.roles;
+
+      const transformed: RolePermission[] = [];
+
+      rolesData.forEach((role: any) => {
+        const groupMap = new Map<string, { groupName: string; permissions: string[] }>();
+
+        // Add groups
+        role.permissionGroups.forEach((g: any) => {
+          groupMap.set(g.id, { groupName: g.name, permissions: [] });
+        });
+
+        // Add permissions to corresponding groups
+        role.permissions.forEach((p: any) => {
+          const groupId = p.permissionGroupId;
+          if (!groupMap.has(groupId)) {
+            groupMap.set(groupId, { groupName: "Unknown", permissions: [p.name] });
+          } else {
+            groupMap.get(groupId)!.permissions.push(p.name);
+          }
+        });
+
+        // Flatten map to array
+        groupMap.forEach((value) => {
+          transformed.push({
+            permissionGroupName: value.groupName,
+            permissionNames: value.permissions,
+          });
+        });
+      });
+
+      // Dispatch transformed roles to Redux
+      dispatch(setUserRoles(transformed));
+
+      // Update authData with permissionGroupNames
+      const permissionGroups = transformed.map((e) => e.permissionGroupName);
+      dispatch(setAuthData({ ...authData, permission: permissionGroups }));
+
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      setRolesFetched(false); // Retry on next render
+    }
+  };
+
+  fetchAndDispatchRoles();
+}, [authId, hasRoles, rolesFetched, dispatch, authData]);
+
+
+  // === 2. Fetch Departments (Only for department role) ===
+  const fetchDepartments = useCallback(async (): Promise<Department[] | undefined> => {
+    if (!branchId) return undefined;
+    try {
+      const res = await Api.get(`/church/get-departments?branchId=${branchId}`);
+      return res.data.departments;
+    } catch (error) {
+      console.error("Fetch departments failed:", error);
+      return undefined;
+    }
+  }, [branchId]);
+
+  // === 3. Fetch Dashboard Data ===
   const fetchDashboardData = useCallback(async () => {
-    if (!authData?.branchId) {
+    if (!branchId) {
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      let params = new URLSearchParams();
-      params.append("branchId", authData.branchId);
-      let departmentId = authData.department;
+      const params = new URLSearchParams({ branchId });
 
-      // If role is department and departmentId is empty, fetch departments and update authData
-      if (authData.role === "department" && !departmentId) {
-        const departmentsResponse = await fetchDepartments();
-        const departmentsData: Department[] = departmentsResponse.departments || [];
-        const activeDepartment = departmentsData.find(
-          (dept) => dept.isActive && !dept.isDeleted
-        );
-        if (!activeDepartment) {
-          throw new Error("No active department found");
-        }
-        departmentId = activeDepartment.id;
+      let deptId = department;
 
-        // Update authData with the new departmentId
-        if (authData && departmentId !== authData.department) {
-          dispatch(
-            setAuthData({
-              ...authData,
-              department: departmentId,
-            })
-          );
+      // Auto-assign department if missing
+      if (role === "department" && !deptId) {
+        const depts = await fetchDepartments();
+        const activeDept = depts?.find((d) => d.isActive && !d.isDeleted);
+        if (activeDept) {
+          deptId = activeDept.id;
+          dispatch(setAuthData({ ...authData, department: deptId }));
         }
-        params.append("departmentId", departmentId);
-      } else if (authData.role === "department" && departmentId) {
-        params.append("departmentId", departmentId);
+        if (deptId) params.append("departmentId", deptId);
+      } else if (role === "department" && deptId) {
+        params.append("departmentId", deptId);
       }
 
-      const url = `/member/get-dashboard?${params.toString()}`;
-      const response = await Api.get<ApiResponse>(url);
-
-      // Defensive mapping with fallback values
-      const collections = response.data.collections || {
+      const res = await Api.get<ApiResponse>(`/member/get-dashboard?${params.toString()}`);
+      const c = res.data.collections || {
         weekly: 0,
         lastWeek: 0,
         weeklyChange: 0,
@@ -359,27 +331,26 @@ const Dashboard: React.FC = () => {
       };
 
       setData({
-        followUps: response.data.followUps,
+        followUps: res.data.followUps,
         collections: {
           weekly: {
-            thisWeek: Number(collections.weekly) || 0,
-            lastWeek: Number(collections.lastWeek) || 0,
-            change: Number(collections.weeklyChange) || 0,
+            thisWeek: Number(c.weekly) || 0,
+            lastWeek: Number(c.lastWeek) || 0,
+            change: Number(c.weeklyChange) || 0,
           },
           monthly: {
-            thisMonth: Number(collections.monthly) || 0,
-            lastMonth: Number(collections.lastMonth) || 0,
-            change: Number(collections.monthlyChange) || 0,
+            thisMonth: Number(c.monthly) || 0,
+            lastMonth: Number(c.lastMonth) || 0,
+            change: Number(c.monthlyChange) || 0,
           },
         },
-        structure: response.data.structure || {
-          totalBranches: 0,
+        structure: res.data.structure || {
           totalDepartments: 0,
           totalUnits: 0,
           totalWorkers: 0,
         },
-        upcomingPrograms: response.data.upcomingPrograms || [],
-        scope: response.data.scope || authData.role || "branch",
+        upcomingPrograms: res.data.upcomingPrograms || [],
+        scope: res.data.scope || role || "branch",
       });
     } catch (error) {
       console.error("Dashboard fetch error:", error);
@@ -387,48 +358,31 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [authData, dispatch, fetchDepartments]);
+  }, [branchId, department, role, fetchDepartments, dispatch, authData]);
 
   useEffect(() => {
-    if (authData?.branchId) {
-      fetchDashboardData();
-    } else {
-      setLoading(false);
-    }
+    fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleViewChange = (event: SelectChangeEvent) => {
-    setView(event.target.value as "weekly" | "monthly");
-  };
+  // === Handlers ===
+  const handleViewChange = (e: SelectChangeEvent) => setView(e.target.value as "weekly" | "monthly");
+  const handleQuickAction = (path: string) => navigate(path);
 
-  const handleQuickAction = (action: string) => {
-    navigate(action);
-  };
-
-  const defaultDashboardData: DashboardData = {
-    collections: {
-      weekly: { thisWeek: 0, lastWeek: 0, change: 0 },
-      monthly: { thisMonth: 0, lastMonth: 0, change: 0 },
-    },
-    structure: {
-      totalBranches: 0,
-      totalDepartments: 0,
-      totalUnits: 0,
-      totalWorkers: 0,
-    },
+  // === Computed Values ===
+  const defaultData: DashboardData = {
+    collections: { weekly: { thisWeek: 0, lastWeek: 0, change: 0 }, monthly: { thisMonth: 0, lastMonth: 0, change: 0 } },
+    structure: { totalDepartments: 0, totalUnits: 0, totalWorkers: 0 },
     upcomingPrograms: [],
-    scope: authData?.role || "branch",
+    scope: role || "branch",
   };
 
-  const dashboardData: DashboardData = data || defaultDashboardData;
-
-  const isBranch = authData?.role === "branch";
-  const isHOD = authData?.role === "department";
-  const isUnit = authData?.role === "unit";
+  const dashboardData = data || defaultData;
+  const isBranch = role === "branch";
+  const isHOD = role === "department";
+  const isUnit = role === "unit";
 
   const collectionsTitle = isHOD ? "Department Collections" : isUnit ? "Unit Collections" : "Church Collections";
 
-  const followUpsTitle = view === "monthly" ? "This Month Newcomers" : "This Week Newcomers";
   const followUpsValue = dashboardData.followUps
     ? view === "monthly"
       ? dashboardData.followUps.monthly.thisMonth
@@ -439,321 +393,190 @@ const Dashboard: React.FC = () => {
       ? dashboardData.followUps.monthly.change
       : dashboardData.followUps.weekly.change
     : 0;
-  const collectionsData = view === "monthly"
+
+  const collectionsValue = view === "monthly"
+    ? dashboardData.collections.monthly.thisMonth
+    : dashboardData.collections.weekly.thisWeek;
+  const collectionsChange = view === "monthly"
+    ? dashboardData.collections.monthly.change
+    : dashboardData.collections.weekly.change;
+
+  const chartData = view === "monthly"
     ? [
-        { period: "This Month", amount: Number(dashboardData.collections.monthly.thisMonth) || 0 },
-        { period: "Last Month", amount: Number(dashboardData.collections.monthly.lastMonth) || 0 },
+        { period: "This Month", amount: dashboardData.collections.monthly.thisMonth },
+        { period: "Last Month", amount: dashboardData.collections.monthly.lastMonth },
       ]
     : [
-        { period: "This Week", amount: Number(dashboardData.collections.weekly.thisWeek) || 0 },
-        { period: "Last Week", amount: Number(dashboardData.collections.weekly.lastWeek) || 0 },
+        { period: "This Week", amount: dashboardData.collections.weekly.thisWeek },
+        { period: "Last Week", amount: dashboardData.collections.weekly.lastWeek },
       ];
-  const collectionsValue = view === "monthly"
-    ? Number(dashboardData.collections.monthly.thisMonth) || 0
-    : Number(dashboardData.collections.weekly.thisWeek) || 0;
-  const collectionsChange = view === "monthly"
-    ? Number(dashboardData.collections.monthly.change) || 0
-    : Number(dashboardData.collections.weekly.change) || 0;
 
+  // === Loading State ===
   if (loading || !authData) {
     return (
       <DashboardManager>
         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
-          </Box>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
         </Box>
       </DashboardManager>
     );
   }
 
+  // === Render ===
   return (
     <DashboardManager>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
-        {/* Header with View Toggle */}
-        <Box sx={{ mb: 4, gap: 2 }}>
-          <Box>
-            <Typography variant="h5" sx={{ color: "#F6F4FE", fontWeight: "bold", mb: 1 }}>
-              Welcome back, {authData?.name || "Admin"}
-            </Typography>
-            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.7)" }}>
-              Here's what's happening in your {dashboardData.scope}
-            </Typography>
-          </Box>
+        {/* Header */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h5" sx={{ color: "#F6F4FE", fontWeight: "bold", mb: 1 }}>
+            Welcome back, {authData.name || "Admin"}
+          </Typography>
+          <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.7)" }}>
+            Here's what's happening in your {dashboardData.scope}
+          </Typography>
         </Box>
 
-        {/* KPI Summary Cards */}
+        {/* Structure Cards */}
         {isBranch && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {dashboardData.structure.totalBranches !== undefined && (
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <StatCard
-                  title="Total Branches"
-                  value={dashboardData.structure.totalBranches}
-                  icon={<TbArrowFork className="text-[24px] font-black text-[#F6F4FE]" />}
-                  color="#2196F3"
-                />
+                <StatCard title="Total Branches" value={dashboardData.structure.totalBranches} icon={<TbArrowFork className="text-[24px] text-[#F6F4FE]" />} color="#2196F3" />
               </Grid>
             )}
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <StatCard
-                title="Total Departments"
-                value={dashboardData.structure.totalDepartments}
-                icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#FF9800"
-              />
+              <StatCard title="Total Departments" value={dashboardData.structure.totalDepartments} icon={<TbArrowBearRight2 className="text-[24px] text-[#F6F4FE]" />} color="#FF9800" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <StatCard
-                title="Total Units"
-                value={dashboardData.structure.totalUnits}
-                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#607D8B"
-              />
+              <StatCard title="Total Units" value={dashboardData.structure.totalUnits} icon={<MdOutlineHub className="text-[24px] text-[#F6F4FE]" />} color="#607D8B" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <StatCard
-                title="Total Workers"
-                value={dashboardData.structure.totalWorkers}
-                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#9C27B0"
-              />
+              <StatCard title="Total Workers" value={dashboardData.structure.totalWorkers} icon={<FaPeopleCarry className="text-[24px] text-[#F6F4FE]" />} color="#9C27B0" />
             </Grid>
           </Grid>
         )}
 
+        {/* HOD & Unit Cards */}
         {isHOD && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Total Departments"
-                value={dashboardData.structure.totalDepartments}
-                icon={<TbArrowBearRight2 className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#FF9800"
-              />
+              <StatCard title="Total Departments" value={dashboardData.structure.totalDepartments} icon={<TbArrowBearRight2 className="text-[24px] text-[#F6F4FE]" />} color="#FF9800" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Total Units"
-                value={dashboardData.structure.totalUnits}
-                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#607D8B"
-              />
+              <StatCard title="Total Units" value={dashboardData.structure.totalUnits} icon={<MdOutlineHub className="text-[24px] text-[#F6F4FE]" />} color="#607D8B" />
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <StatCard
-                title="Total Workers"
-                value={dashboardData.structure.totalWorkers}
-                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#9C27B0"
-              />
+              <StatCard title="Total Workers" value={dashboardData.structure.totalWorkers} icon={<FaPeopleCarry className="text-[24px] text-[#F6F4FE]" />} color="#9C27B0" />
             </Grid>
           </Grid>
         )}
 
         {isUnit && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
-              <StatCard
-                title="Total Units"
-                value={dashboardData.structure.totalUnits}
-                icon={<MdOutlineHub className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#607D8B"
-              />
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <StatCard title="Total Units" value={dashboardData.structure.totalUnits} icon={<MdOutlineHub className="text-[24px] text-[#F6F4FE]" />} color="#607D8B" />
             </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
-              <StatCard
-                title="Total Workers"
-                value={dashboardData.structure.totalWorkers}
-                icon={<FaPeopleCarry className="text-[24px] font-black text-[#F6F4FE]" />}
-                color="#9C27B0"
-              />
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <StatCard title="Total Workers" value={dashboardData.structure.totalWorkers} icon={<FaPeopleCarry className="text-[24px] text-[#F6F4FE]" />} color="#9C27B0" />
             </Grid>
           </Grid>
         )}
 
-        {/* Secondary Metrics */}
-        <Grid
-          container
-          spacing={3}
-          sx={{
-            mb: 4,
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "16px",
-            p: 3,
-          }}
-        >
-          <Grid size={{ xs: 12 }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-              }}
-            >
-              <FormControl sx={{ minWidth: 120 }}>
-                <InputLabel sx={{ color: "#F6F4FE" }}>View</InputLabel>
-                <Select
-                  value={view}
-                  onChange={handleViewChange}
-                  label="View"
-                  sx={{
-                    color: "#F6F4FE",
-                    background: "rgba(255,255,255,0.06)",
-                    borderRadius: "8px",
-                    ".MuiSvgIcon-root": { color: "#F6F4FE" },
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.1)",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                  }}
-                >
-                  <MenuItem value="monthly">Monthly</MenuItem>
-                  <MenuItem value="weekly">Weekly</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+        {/* Follow-ups + Collections */}
+        <Grid container spacing={3} sx={{ mb: 4, p: 3, background: "rgba(255,255,255,0.06)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <Grid size={12} sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <FormControl sx={{ minWidth: 120 }}>
+              <InputLabel sx={{ color: "#F6F4FE" }}>View</InputLabel>
+              <Select value={view} onChange={handleViewChange} label="View" sx={{ color: "#F6F4FE", ".MuiSvgIcon-root": { color: "#F6F4FE" } }}>
+                <MenuItem value="monthly">Monthly</MenuItem>
+                <MenuItem value="weekly">Weekly</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
 
           {isBranch && dashboardData.followUps && (
-            <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <StatCard
-                title={followUpsTitle}
+                title={view === "monthly" ? "This Month Newcomers" : "This Week Newcomers"}
                 value={followUpsValue}
                 change={followUpsChange}
-                icon={<FaPeopleGroup className="text-[24px] font-black text-[#F6F4FE]" />}
+                icon={<FaPeopleGroup className="text-[24px] text-[#F6F4FE]" />}
                 color="#00BCD4"
               />
             </Grid>
           )}
 
-          <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <StatCard
               title={collectionsTitle}
               value={`₦${collectionsValue.toLocaleString()}`}
               change={collectionsChange}
-              icon={<CiMoneyBill className="text-[30px] font-black text-[#F6F4FE]" />}
+              icon={<CiMoneyBill className="text-[30px] text-[#F6F4FE]" />}
               color="#795548"
             />
           </Grid>
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
-          <Paper
-            sx={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "16px",
-              p: 3,
-            }}
-          >
+        {/* Chart */}
+        <Grid size={12} sx={{ mb: 4 }}>
+          <Paper sx={{ p: 3, background: "rgba(255,255,255,0.06)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)" }}>
             <Typography variant="h6" sx={{ color: "#F6F4FE", mb: 2, fontWeight: "bold" }}>
-              {collectionsTitle} ({view === "monthly" ? "Monthly" : "Weekly"} Progression)
+              {collectionsTitle} ({view === "monthly" ? "Monthly" : "Weekly"})
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={collectionsData}>
+              <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                 <XAxis dataKey="period" stroke="#F6F4FE" />
                 <YAxis stroke="#F6F4FE" />
-                <Tooltip
-                  formatter={(value: number) => [`₦${value.toLocaleString()}`, "Amount"]}
-                  contentStyle={{
-                    background: "rgba(0,0,0,0.8)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    color: "#F6F4FE",
-                  }}
-                />
+                <Tooltip contentStyle={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.1)", color: "#F6F4FE" }} />
                 <Bar dataKey="amount" fill="#795548" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
 
-        <Grid container spacing={3} sx={{ mt: 3 }}>
+        {/* Quick Actions & Events */}
+        <Grid container spacing={3}>
           {isBranch && (
             <Grid size={{ xs: 12, md: 8 }}>
-              <Paper
-                sx={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "16px",
-                  p: 3,
-                  height: 400,
-                  overflow: "auto",
-                }}
-              >
-                <Typography variant="h6" sx={{ color: "#F6F4FE", mb: 3, fontWeight: "bold" }}>
-                  Quick Actions
-                </Typography>
+              <Paper sx={{ p: 3, background: "rgba(255,255,255,0.06)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", height: 400, overflow: "auto" }}>
+                <Typography variant="h6" sx={{ color: "#F6F4FE", mb: 3, fontWeight: "bold" }}>Quick Actions</Typography>
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }} sx={{ textAlign: "center" }}>
-                    <QuickActionButton
-                      title="Admins"
-                      icon={<People />}
-                      onClick={() => handleQuickAction("/manage/view-admins")}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <QuickActionButton
-                      title="Manage Programs"
-                      icon={<IoCalendarOutline />}
-                      onClick={() => handleQuickAction("/programs")}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <QuickActionButton
-                      title="Workers"
-                      icon={<FaPeopleCarry />}
-                      onClick={() => handleQuickAction("/members/view-workers")}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <QuickActionButton
-                      title="Newcomers"
-                      icon={<IoPersonAddOutline />}
-                      onClick={() => handleQuickAction("/members/view-followup")}
-                    />
-                  </Grid>
+                  {[
+                    { title: "Admins", icon: <People />, path: "/manage/view-admins" },
+                    { title: "Manage Programs", icon: <IoCalendarOutline />, path: "/programs" },
+                    { title: "Workers", icon: <FaPeopleCarry />, path: "/members/view-workers" },
+                    { title: "Newcomers", icon: <IoPersonAddOutline />, path: "/members/view-followup" },
+                  ].map((a) => (
+                    <Grid size={{ xs: 12, sm: 6 }} key={a.title}>
+                      <QuickActionButton title={a.title} icon={a.icon} onClick={() => handleQuickAction(a.path)} />
+                    </Grid>
+                  ))}
                 </Grid>
               </Paper>
             </Grid>
           )}
 
           <Grid size={{ xs: 12, md: isBranch ? 4 : 12 }}>
-            <Paper
-              sx={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "16px",
-                p: 3,
-                height: 400,
-              }}
-            >
+            <Paper sx={{ p: 3, background: "rgba(255,255,255,0.06)", borderRadius: "16px", border: "1px solid rgba(255,255,255,0.1)", height: 400 }}>
               <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
                 <CalendarIcon sx={{ color: "#F6F4FE", mr: 1 }} />
-                <Typography variant="h6" sx={{ color: "#F6F4FE", fontWeight: "bold" }}>
-                  Upcoming Events
-                </Typography>
+                <Typography variant="h6" sx={{ color: "#F6F4FE", fontWeight: "bold" }}>Upcoming Events</Typography>
               </Box>
               <List sx={{ maxHeight: 300, overflow: "auto" }}>
                 {dashboardData.upcomingPrograms.length > 0 ? (
-                  dashboardData.upcomingPrograms.slice(0, 5).map((program) => (
+                  dashboardData.upcomingPrograms.slice(0, 5).map((p) => (
                     <EventItem
-                      key={program.event.id}
-                      activity={program.event.title}
-                      time={`${moment(program.date).format("MMM DD, YYYY")} | ${program.startTime} - ${program.endTime}`}
+                      key={p.event.id}
+                      activity={p.event.title}
+                      time={`${moment(p.date).format("MMM DD, YYYY")} | ${p.startTime} - ${p.endTime}`}
                       icon={<ProgramIcon />}
                     />
                   ))
                 ) : (
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                    <Typography sx={{ color: "rgba(255,255,255,0.6)" }}>
-                      No upcoming events
-                    </Typography>
-                  </Box>
+                  <Typography sx={{ color: "rgba(255,255,255,0.6)", textAlign: "center", py: 4 }}>
+                    No upcoming events
+                  </Typography>
                 )}
               </List>
             </Paper>

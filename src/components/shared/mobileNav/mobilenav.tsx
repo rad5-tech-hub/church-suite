@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { VscReport } from "react-icons/vsc";
 import {
   IoGridOutline,
   IoListOutline,
   IoPeopleOutline,
-  IoWalletOutline,
   IoCalendarOutline,
   IoSettingsOutline,
 } from "react-icons/io5";
@@ -17,13 +17,15 @@ import {
 } from "@mui/icons-material";
 import { TbArrowFork, TbArrowBearRight2 } from "react-icons/tb";
 import { MdOutlineAccountBalance, MdOutlineHub } from "react-icons/md";
-import { FaBoxTissue, FaPeopleCarry } from "react-icons/fa";
+import { FaBoxTissue, FaPeopleCarry, FaSms } from "react-icons/fa";
 import { FaPeopleGroup } from "react-icons/fa6";
 import { LuNotebookPen } from "react-icons/lu";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { RootState } from "../../reduxstore/redux";
 import { CiWallet } from "react-icons/ci";
+import { IoIosPeople } from "react-icons/io";
+import { PiRankingFill } from "react-icons/pi";
 
 interface MobileNavProps {
   activeButton: string | null;
@@ -36,7 +38,8 @@ const buttons = [
   "Membership",
   "Messages",
   "Finance",
-  "Programs",
+  "Programs",  
+  "Reports",  
   "Settings",
 ];
 
@@ -45,29 +48,37 @@ const buttonIcons: { [key: string]: React.ReactNode } = {
   Manage: <IoListOutline className="text-2xl" />,
   Membership: <IoPeopleOutline className="text-2xl" />,
   Messages: <Chat className="text-2xl" />,
-  Finance: <IoWalletOutline className="text-2xl" />,
+  Finance: <MdOutlineAccountBalance className="text-2xl" />,
   Programs: <IoCalendarOutline className="text-2xl" />,
+  Reports: <VscReport className="text-2xl" />,
   Settings: <IoSettingsOutline className="text-2xl" />,
 };
 
-const manage = [
-  { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches" },
-  { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments" },
-  { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units" },
-  { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins" },
-];
+  const manage = [
+    { to: "/manage/view-branches", icon: <TbArrowFork className="text-2xl" />, label: "Branches", permissionGroup:'Branch' },
+    { to: "/manage/view-departments", icon: <TbArrowBearRight2 className="text-2xl" />, label: "Departments", permissionGroup:'Department' },
+    { to: "/manage/view-units", icon: <MdOutlineHub className="text-2xl" />, label: "Units", permissionGroup: "Unit"},
+    { to: "/manage/view-roles", icon: <PiRankingFill className="text-2xl" />, label: "Roles", permissionGroup: "Admin"},
+    { to: "/manage/view-admins", icon: <People className="text-2xl" />, label: "Admins", permissionGroup: "Admin"},
+  ];
 
-const member = [
-  { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers" },
-  { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers" },
-  { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms" },
-];
+  const member = [
+    { to: "/members/view-workers", icon: <FaPeopleCarry className="text-2xl" />, label: "Workers", permissionGroup: "Workers"},
+    { to: "/members/view-members", icon: <IoIosPeople className="text-2xl" />, label: "Member", permissionGroup:'Members'},
+    { to: "/members/view-followup", icon: <FaPeopleGroup className="text-2xl" />, label: "Newcomers", permissionGroup: 'FollowUp' },
+    { to: "/members/view-forms", icon: <LuNotebookPen className="text-2xl" />, label: "Forms", permissionGroup: 'FollowUp' },
+  ];
 
-const finance = [
-  { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections" },
-  { to: "/finance/wallets", icon: <CiWallet className="text-2xl" />, label: "Wallets" },
-  { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account" },
-];
+  const message = [
+    { to: "/messages/sms", icon: <FaSms className="text-2xl" />, label: "SMS", permissionGroup: 'Messaging'},
+    { to: "/messages/wallets", icon: <CiWallet className="text-2xl" />, label: "SMS Wallets", permissionGroup: 'Wallet' },
+  ];
+
+  const finance = [
+    { to: "/finance/collections", icon: <FaBoxTissue className="text-2xl" />, label: "Collections", permissionGroup: 'Collection' }, 
+    { to: "/finance/accounts", icon: <MdOutlineAccountBalance className="text-2xl" />, label: "Account", permissionGroup: 'Finance' },
+  ];
+
 
 const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }) => {
   const authData = useSelector((state: RootState) => state?.auth?.authData);
@@ -123,32 +134,77 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
     return location.pathname === route;
   };
 
-  // Filtered menu items based on role
-  let filteredManage = manage;
-  let filteredMembers = member;
+    const permissions = authData?.permission || [];
 
-  // Restrict "View Branches" if the user is NOT HeadQuarter or NOT Branch
-  if (authData?.isHeadQuarter === false || authData?.role !== "branch") {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-branches");
-  }
+    const filterByPermission = (items: typeof manage) => {
+      if (!permissions.length) return items; // Show all if no permissions
+      return items.filter((item) => permissions.includes(item.permissionGroup));
+    };
 
-  // Restrict "View Admins" if the user is NOT HeadQuarter
-  if (authData?.isSuperAdmin === false) {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-admins");
-  }
+    const filteredManage = filterByPermission(manage);
+    const filteredMembers = filterByPermission(member);
+    const filteredMessages = filterByPermission(message);
+    const filteredFinance = filterByPermission(finance);
 
-  if (authData?.isSuperAdmin === false || authData?.role !== "branch") {
-    const restrictedRoutes = ["/members/view-forms"];
-    filteredMembers = filteredMembers.filter((item) => !restrictedRoutes.includes(item.to));
-  }
+    // Filter main nav buttons: hide submenu buttons if they have no items
+    const visibleButtons = buttons.filter((label) => {
+      switch (label) {
+        case "Manage":
+          return filteredManage.length > 0;
+        case "Membership":
+          return filteredMembers.length > 0;
+        case "Messages":
+          return filteredMessages.length > 0;
+        case "Finance":
+          return filteredFinance.length > 0;
+        case "Programs":
+          // If permissions is empty → allow access
+          if (!permissions || permissions.length === 0) return true;
 
-  if (authData?.role === "unit") {
-    filteredManage = filteredManage.filter((item) => item.to !== "/manage/view-departments");
-  }
+          // Otherwise check Attendance OR FollowUp
+          return permissions.some(
+            (perm: string) => perm === "Attendance" || perm === "FollowUp"
+          );
+        case "Reports":
+          // If permissions is empty → allow access
+          if (!permissions || permissions.length === 0) return true;
+
+          // Otherwise check Reports permission
+          return permissions.includes("Reports");
+
+        default:
+          return true;
+      }
+    });
 
   const renderSubmenu = (label: string) => {
     if (clickedSubmenu !== label) return null;
-    const items = label === "Manage" ? filteredManage : label === "Membership" ? filteredMembers : finance;
+
+    // Determine submenu items and empty message
+    let items: { label: string; to?: string; icon?: React.ReactNode }[] = [];
+    let emptyMessage = "";
+
+    switch (label) {
+      case "Manage":
+        items = filteredManage;
+        emptyMessage = "No manage items available";
+        break;
+      case "Membership":
+        items = filteredMembers;
+        emptyMessage = "No members available";
+        break;
+      case "Finance":
+        items = filteredFinance;
+        emptyMessage = "No finance items available";
+        break;
+      case "Messages":
+        items = filteredMessages;
+        emptyMessage = "No messages available";
+        break;
+      default:
+        items = [];
+        emptyMessage = "No items available";
+    }
 
     return (
       <Box
@@ -166,41 +222,48 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
           gridTemplateColumns: "repeat(2, 1fr)",
           gap: "8px",
           margin: "0 16px",
+          mb: 2,
         }}
       >
-        {items.map((item) => {
-          const isActive = isRouteActive(item.to);
-          return (
-            <Button
-              key={item.label}
-              onClick={() => {
-                navigate(item.to);
-                setClickedSubmenu(null);
-              }}
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "8px",
-                color: isActive ? "#160F38" : "#F6F4FE",
-                backgroundColor: isActive ? "#F6F4FE" : "transparent",
-                textTransform: "none",
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                borderRadius: "8px",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  backgroundColor: "#F6F4FE",
-                  color: "#160F38",
-                },
-              }}
-            >
-              {item.icon}
-              <span style={{ marginTop: "4px" }}>{item.label}</span>
-            </Button>
-          );
-        })}
+        {items.length > 0 ? (
+          items.map((item) => {
+            const isActive = isRouteActive(item.to || "");
+            return (
+              <Button
+                key={item.label}
+                onClick={() => {
+                  if (item.to) navigate(item.to);
+                  setClickedSubmenu(null);
+                }}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "8px",
+                  color: isActive ? "#160F38" : "#F6F4FE",
+                  backgroundColor: isActive ? "#F6F4FE" : "transparent",
+                  textTransform: "none",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  borderRadius: "8px",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    backgroundColor: "#F6F4FE",
+                    color: "#160F38",
+                  },
+                }}
+              >
+                {item.icon}
+                <span style={{ marginTop: "4px" }}>{item.label}</span>
+              </Button>
+            );
+          })
+        ) : (
+          <Box sx={{ gridColumn: "span 2", textAlign: "center", color: "#F6F4FE" }}>
+            {emptyMessage}
+          </Box>
+        )}
       </Box>
     );
   };
@@ -223,7 +286,8 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
         />
       )}
 
-      {renderSubmenu("Manage")}
+      {renderSubmenu("Manage")}      
+      {renderSubmenu("Messages")}      
       {renderSubmenu("Membership")}
       {renderSubmenu("Finance")}
 
@@ -279,11 +343,11 @@ const MobileNav: React.FC<MobileNavProps> = ({ activeButton, handleButtonClick }
             minWidth: "max-content",
           }}
         >
-          {buttons.map((label) => (
+          {visibleButtons.map((label) => (
             <Button
               key={label}
               onClick={() => {
-                if (label === "Manage" || label === "Membership" || label === "Finance") {
+                if (label === "Manage" || label === "Membership" || label === "Finance" || label === "Messages") {
                   handleSubmenuClick(label);
                 } else {
                   handleButtonClick(label);

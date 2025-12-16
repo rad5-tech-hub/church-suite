@@ -24,7 +24,7 @@ import {
   InputLabel,
   InputAdornment,
   TextField,
-  FormControlLabel as CheckboxFormControlLabel,
+  FormControlLabel as CheckboxFormControlLabel,  
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { FaPeopleGroup } from "react-icons/fa6";

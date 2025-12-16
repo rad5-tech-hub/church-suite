@@ -1,12 +1,15 @@
+/// <reference types="vitest" />  // ✅ Enables Vitest types
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vite.dev/config/
 export default defineConfig({
-  base: "/", // 👈 ensures correct absolute paths for assets
-  plugins: [react(), tailwindcss(),
+  base: "/",
+  plugins: [
+    react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
@@ -20,15 +23,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/churchset.png', // ✅ Correct path for public folder asset
+            src: '/churchset.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/churchset.png', // You can duplicate or add different sizes later
+            src: '/churchset.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable', // ✅ Optional, good for Android install
+            purpose: 'any maskable',
           },
         ],
       },
@@ -36,9 +39,15 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,svg}'],
       },
       devOptions: {
-        enabled: true,
-      },
+      enabled: true,  // Enables the PWA in development
+      type: "module"      },
     }),
   ],
- 
-})
+
+  // ✅ Vitest setup added here
+  test: {
+    environment: "jsdom",        // Simulates the browser
+    globals: true,               // Allows using `describe`, `it`, `expect` without imports
+    setupFiles: "./setupTests.ts", // Like Jest setup file
+  },
+});
