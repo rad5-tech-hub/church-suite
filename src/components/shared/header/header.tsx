@@ -449,11 +449,23 @@ const Header: React.FC<HeaderProps> = () => {
             display: { xs: "none", md: "block" },
             overflowX: "auto",
             whiteSpace: "nowrap",
+
+            /* Firefox */
             scrollbarWidth: "thin",
-            msOverflowStyle: "none",
-            "&::-webkit-scrollbar": { height: "6px" },
-            "&::-webkit-scrollbar-thumb": { backgroundColor: "rgba(255, 255, 255, 0.3)", borderRadius: "9999px" },
-            "&::-webkit-scrollbar-track": { backgroundColor: "transparent" },
+            scrollbarColor: "rgba(0,0,0,0.15) transparent",
+
+            /* WebKit (Chrome, Edge, Safari) */
+            "&::-webkit-scrollbar": {
+              height: "2px", // VERY thin
+            },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "rgba(0, 0, 0, 0.7)", // dark thumb
+              borderRadius: "9999px",
+            },
+            "&::-webkit-scrollbar-track": {
+              backgroundColor: "rgba(0, 0, 0, 0.15)", // subtle dark track
+            },
+
             flexGrow: 1,
             maxWidth: { lg: "calc(100vw - 500px)" },
           }}

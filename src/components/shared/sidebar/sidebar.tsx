@@ -65,7 +65,14 @@ const Sidebar: React.FC = () => {
   const currentItems = routeKey ? groupedMenus[routeKey] : [];
 
   return (
-    <div className="min-w-[78px] flex-shrink-0 h-full overflow-y-auto bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col">
+    <div   className="sidebar-scroll min-w-[78px] flex-shrink-0 h-full bg-[var(--color-primary)] text-[var(--color-text-on-primary)] flex flex-col"
+      style={{
+        overflowY: "auto",
+        overflowX: "hidden",
+        scrollbarWidth: "thin",
+        scrollbarColor: "rgba(0,0,0,0.15) transparent",
+      }}
+    >
       <nav className="flex-1 flex flex-col items-center mt-10">
         <ul className="space-y-8">
           {currentItems.map((item: any) => (
