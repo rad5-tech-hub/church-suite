@@ -19,6 +19,7 @@ import {
   CalendarToday,
   Comment,
   Reply,
+  ArrowBack,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import moment from "moment";
@@ -136,7 +137,7 @@ const ReportDetail: React.FC = () => {
             variant="h5"
             fontWeight={600}
             sx={{
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               fontSize: { xs: "1.25rem", md: "1.5rem" },
             }}
           >
@@ -146,32 +147,34 @@ const ReportDetail: React.FC = () => {
             onClick={() => navigate(-1)}
             variant="outlined"
             sx={{
-              color: "#F6F4FE",
-              borderColor: "#777280",
+              color: "var(--color-primary)",
+              backgroundColor: "var(--color-text-primary)",
+              display: 'flex',
+              gap: 1,
               textTransform: "none",
-              "&:hover": { borderColor: "#F6F4FE", bgcolor: "rgba(255,255,255,0.05)" },
+              "&:hover": { borderColor: "var(--color-border-glass)", bgcolor: "var(--color-text-primary)" },
             }}
           >
-            Back to List
+            <ArrowBack/> Back to List
           </Button>
         </Box>
 
         <Paper
           sx={{
-            bgcolor: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            bgcolor: "var(--color-surface-glass)",
+            border: "1px solid var(--color-border-glass)",
             borderRadius: 2,
             overflow: "hidden",
           }}
         >
           {/* Title + File Count */}
-          <Box sx={{ p: 3, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <Box sx={{ p: 3, borderBottom: "1px solid var(--color-border-glass)" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
               <Typography
                 variant="h6"
                 fontWeight="bold"
                 sx={{
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   wordBreak: "break-word",
                   flex: 1,
                 }}
@@ -202,7 +205,7 @@ const ReportDetail: React.FC = () => {
                     sx={{
                       width: 48,
                       height: 48,
-                      bgcolor: "rgba(255,255,255,0.1)",
+                      bgcolor: "var(--color-text-primary)",
                       fontWeight: "bold",
                     }}
                   >
@@ -214,17 +217,17 @@ const ReportDetail: React.FC = () => {
                       .slice(0, 2)}
                   </Avatar>
                   <Box>
-                    <Typography variant="body1" sx={{ color: "#F6F4FE", fontWeight: 500 }}>
+                    <Typography variant="body1" sx={{ color: "var(--color-text-primary)", fontWeight: 500 }}>
                       {report.creator.name}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>
+                    <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
                       {report.creator.email}
                     </Typography>
                   </Box>
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
-                  <CalendarToday sx={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }} />
-                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                  <CalendarToday sx={{ color: "var(--color-text-primary)", fontSize: 16 }} />
+                  <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
                     {moment(report.createdAt).format("MMMM DD, YYYY [at] h:mm A")}
                   </Typography>
                 </Box>
@@ -235,21 +238,21 @@ const ReportDetail: React.FC = () => {
               {/* Comments */}
               <Box>
                 <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                  <Comment sx={{ color: "rgba(255,255,255,0.5)", fontSize: 20, mt: 0.5 }} />
+                  <Comment sx={{ color: "var(--color-text-primary)", fontSize: 20, mt: 0.5 }} />
                   <Box flex={1}>
-                    <Typography variant="subtitle2" sx={{ color: "#F6F4FE", mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ color: "var(--color-text-primary)", mb: 1 }}>
                       Report Summary
                     </Typography>
                     <Typography
                       variant="body1"
                       sx={{
-                        color: "rgba(255,255,255,0.9)",
+                        color: "var(--color-text-secondary)",
                         lineHeight: 1.6,
                         whiteSpace: "pre-wrap",
                       }}
                     >
                       {report.comments || (
-                        <Typography component="span" sx={{ color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>
+                        <Typography component="span" sx={{ color: "var(--color-text-muted)", fontStyle: "italic" }}>
                           No comments provided
                         </Typography>
                       )}
@@ -272,7 +275,7 @@ const ReportDetail: React.FC = () => {
                         <Typography
                           variant="body1"
                           sx={{
-                            color: "rgba(255,255,255,0.9)",
+                            color: "var(--color-text-secondary)",
                             lineHeight: 1.6,
                             whiteSpace: "pre-wrap",
                           }}
@@ -290,7 +293,7 @@ const ReportDetail: React.FC = () => {
                 <>
                   <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
                   <Box>
-                    <Typography variant="subtitle2" sx={{ color: "#F6F4FE", mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ color: "var(--color-text-primary)", mb: 2 }}>
                       Attached Files ({files.length})
                     </Typography>
                     <Stack spacing={2}>
@@ -363,7 +366,7 @@ const ReportDetail: React.FC = () => {
                             <Typography
                               variant="body2"
                               sx={{
-                                color: "#F6F4FE",
+                                color: "var(--color-text-primary)",
                                 fontWeight: 500,
                                 wordBreak: "break-all",
                               }}
@@ -383,8 +386,8 @@ const ReportDetail: React.FC = () => {
                               target="_blank"
                               rel="noopener noreferrer"
                               sx={{
-                                color: "#F6F4FE",
-                                "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                                color: "var(--color-text-primary)",
+                                "&:hover": { bgcolor: "var(--color-surface-glass)" },
                               }}
                             >
                               <DownloadIcon />

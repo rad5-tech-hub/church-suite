@@ -173,14 +173,14 @@ const ViewSingleMember: React.FC = () => {
                 gutterBottom
                 
                 sx={{ 
-                  color: "#E1E1E1", // Ensure text color is set correctly
+                  color: "var(--color-text-primary)", // Ensure text color is set correctly
                 }}
               >
                 Member's Profile
               </Typography>
               <Typography 
                 variant="body2" 
-                color="#E1E1E1"
+                color="var(--color-text-primary)"
                 sx={{
                   fontSize: isLargeScreen ? '0.875rem' : undefined
                   
@@ -203,14 +203,14 @@ const ViewSingleMember: React.FC = () => {
                 onClick={() => navigate(-1)} // go back one page
                 size="medium"
                 sx={{
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: "var(--color-text-primary)",
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   "&:hover": {
-                    backgroundColor: "var(--color-primary)",
+                    backgroundColor: "var(--color-text-primary)",
                     opacity: 0.9,
                   },
                 }}
@@ -221,7 +221,7 @@ const ViewSingleMember: React.FC = () => {
           </Grid>
 
           <Box>
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
+            <Box sx={{ mb: 4, backgroundColor: "var(--color-surface-glass)",
               boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
               borderRadius: 2,
               p: 2,
@@ -245,7 +245,7 @@ const ViewSingleMember: React.FC = () => {
                     fontWeight="bold"
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
-                      color: '#E1E1E1',
+                      color: 'var(--color-text-primary)',
                       fontSize: isLargeScreen ? '1.4rem' : undefined
                     }}
                   >
@@ -256,7 +256,7 @@ const ViewSingleMember: React.FC = () => {
                     
                     sx={{ 
                       textAlign: { xs: 'center', sm: 'left' },
-                      color: '#E1E1E1',
+                      color: 'var(--color-text-primary)',
                       fontSize: isLargeScreen ? '0.875rem' : undefined
                     }}
                   >
@@ -279,17 +279,17 @@ const ViewSingleMember: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
+            <Box sx={{ mb: 4, backgroundColor: "var(--color-surface-glass)",
               boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
               borderRadius: 2,
               p: 2}}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2,color: '#E1E1E1'}}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2,color: 'var(--color-text-primary)'}}>
                 Personal Information
               </Typography>
               
               <Grid container spacing={4}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3 ,  color: '#E1E1E1'}}>
+                  <Box sx={{ mb: 3 ,  color: 'var(--color-text-primary)'}}>
                     <Typography variant="subtitle2">
                       Full Name
                     </Typography>
@@ -298,7 +298,7 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>                              
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2">
                       Gender
                     </Typography>
@@ -309,7 +309,7 @@ const ViewSingleMember: React.FC = () => {
                 </Grid>
                 
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2">
                       Phone Number
                     </Typography>
@@ -321,7 +321,7 @@ const ViewSingleMember: React.FC = () => {
                     </Box>
                   </Box>
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       WhatsApp
                     </Typography>
@@ -334,7 +334,7 @@ const ViewSingleMember: React.FC = () => {
                   </Box>
                   
                   {member.email && (
-                    <Box sx={{ mb: 3,  color: '#E1E1E1' }}>
+                    <Box sx={{ mb: 3,  color: 'var(--color-text-primary)' }}>
                       <Typography variant="subtitle2">
                         Email Address
                       </Typography>
@@ -352,17 +352,17 @@ const ViewSingleMember: React.FC = () => {
 
             <Divider sx={{ my: 3 }} />
 
-            <Box sx={{ mb: 4, backgroundColor: "rgba(255, 255, 255, 0.06)",
+            <Box sx={{ mb: 4, backgroundColor: "var(--color-surface-glass)",
               boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
               borderRadius: 2,
               p: 2}}>
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: '#E1E1E1' }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: 'var(--color-text-primary)' }}>
                 Address
               </Typography>
               
               <Grid container spacing={4}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       Street Address
                     </Typography>
@@ -373,7 +373,7 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       City
                     </Typography>
@@ -382,7 +382,7 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       State
                     </Typography>
@@ -393,7 +393,7 @@ const ViewSingleMember: React.FC = () => {
                 </Grid>
                 
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       Country
                     </Typography>
@@ -402,7 +402,7 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       Marital Status
                     </Typography>
@@ -411,7 +411,7 @@ const ViewSingleMember: React.FC = () => {
                     </Typography>
                   </Box>
                   
-                  <Box sx={{ mb: 3, color: '#E1E1E1' }}>
+                  <Box sx={{ mb: 3, color: 'var(--color-text-primary)' }}>
                     <Typography variant="subtitle2" >
                       Years of Membership
                     </Typography>
@@ -428,7 +428,7 @@ const ViewSingleMember: React.FC = () => {
             <Box
               sx={{
                 mb: 4,
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                backgroundColor: "var(--color-surface-glass)",
                 boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
                 borderRadius: 2,
                 p: 2,
@@ -437,7 +437,7 @@ const ViewSingleMember: React.FC = () => {
               <Typography
                 variant="h6"
                 fontWeight="bold"
-                sx={{ mb: 2, color: "#E1E1E1" }}
+                sx={{ mb: 2, color: "var(--color-text-primary)" }}
               >
                 Branch {(member.departments?.length ?? 0) > 0 && "/ Department - Units"} Information
               </Typography>
@@ -445,7 +445,7 @@ const ViewSingleMember: React.FC = () => {
               <Grid container spacing={4}>
                 {/* Left Column */}
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                  <Box sx={{ mb: 3, color: "var(--color-text-primary)" }}>
                     <Typography variant="subtitle2">Branch</Typography>
                     <Typography variant="body1">
                       {member.branch?.name || "N/A"}
@@ -453,7 +453,7 @@ const ViewSingleMember: React.FC = () => {
                   </Box>
 
                   {member.departments?.length! > 0 && (
-                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                    <Box sx={{ mb: 3, color: "var(--color-text-primary)" }}>
                       <Typography variant="subtitle2">Departments</Typography>
                       <Typography variant="body1">
                         {member.departments!.map((dept, index) => (
@@ -470,7 +470,7 @@ const ViewSingleMember: React.FC = () => {
                 {/* Right Column */}
                 <Grid size={{ xs: 12, md: 6 }}>
                   {member.units && member.units?.length > 0 && (
-                    <Box sx={{ mb: 3, color: "#E1E1E1" }}>
+                    <Box sx={{ mb: 3, color: "var(--color-text-primary)" }}>
                       <Typography variant="subtitle2">Units</Typography>
                       <Typography variant="body1">
                         {(() => {

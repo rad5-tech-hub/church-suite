@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useSelector } from "react-redux";
 import { RootState } from "../reduxstore/redux";
 import NotFoundPage from "./notFound";
-import ChangeColorButton from "./churchSettings/setting";
 import EmailVerification from "./setupAccount/verify-email/otp";
 
 // Lazy-loaded components
@@ -87,9 +86,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/setup-logo" element={<SetupStep2 />} />
           <Route path="/admin-account" element={<CreateAccount />} />  
           <Route path="/followups" element={<FollowUpQrcodepage />} />
-          <Route path="/members" element={<MemberQrcodepage />} />
-          <Route path="/church-settings" element={<ChangeColorButton />} />
-
+          <Route path="/members" element={<MemberQrcodepage />} />        
           <Route path="/admin-dashboard" element={<PrivateRoute><AdminDashboard /> </PrivateRoute> } />
           <Route path="/admin-supports" element={<PrivateRoute> <AdminSupports /></PrivateRoute> } />
           <Route path="/admin-activations" element={<PrivateRoute> <AdminActivation /> </PrivateRoute> } />

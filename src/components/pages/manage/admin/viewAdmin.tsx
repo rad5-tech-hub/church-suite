@@ -25,7 +25,6 @@ import {
   Divider,
   useMediaQuery,
   Grid,
-  Select as MuiSelect,
   TextField,
   Drawer,
   CircularProgress,
@@ -268,7 +267,6 @@ const ViewAdmins: React.FC = () => {
   usePageToast('view-admin');
   const authData = useSelector((state) => (state as RootState)?.auth?.authData);
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("lg"));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("xl"));
 
   const [state, setState] = useState<State>(initialState);
@@ -782,13 +780,13 @@ const ViewAdmins: React.FC = () => {
 
   const columnWidths = useMemo(() => ({
     number: "2%",
-    name: "21%",
+    name: "25%",
     email: "15%",
     phone: "14%",
     access: "14%",
     assign: "14%",
-    superAdmin: "10%",
-    actions: "10%",
+    superAdmin: "8%",
+    actions: "8%",
   }), []);
 
   const filteredNames = useMemo(() => {
@@ -800,7 +798,8 @@ const ViewAdmins: React.FC = () => {
     );
   }, [state.searchTerm, state.admins]);
 
-  // Filter Components
+  // ──────────────────────────────────────────────
+  // Mobile Filters Drawer
   const renderMobileFilters = () => (
     <Drawer
       anchor="top"
@@ -808,24 +807,22 @@ const ViewAdmins: React.FC = () => {
       onClose={() => handleStateChange("isDrawerOpen", false)}
       sx={{
         "& .MuiDrawer-paper": {
-          backgroundColor: "#2C2C2C",
-          color: "#F6F4FE",
+          backgroundColor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
           padding: 2,
           boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)",
         },
       }}
     >
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color: "#F6F4FE" }}>
+        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color: "var(--color-text-primary)" }}>
           <IoMdClose />
         </IconButton>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, px: 2, pb: 2 }}>
+        {/* Search */}
         <Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}
-          >
+          <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px", display: "block", mb: 1 }}>
             Search by name
           </Typography>
           <Autocomplete
@@ -840,33 +837,30 @@ const ViewAdmins: React.FC = () => {
                 variant="outlined"
                 size="small"
                 sx={{
-                  backgroundColor: "#4d4d4e8e",
+                  backgroundColor: "var(--color-surface-glass)",
                   borderRadius: "8px",
                   "& .MuiOutlinedInput-root": {
-                    color: "#F6F4FE",
-                    "& fieldset": { borderColor: "transparent" },
+                    color: "var(--color-text-primary)",
+                    "& fieldset": { borderColor: "var(--color-border-glass)" },
                   },
                   "& .MuiInputBase-input": { py: 1 },
                 }}
               />
             )}
             componentsProps={{
-              clearIndicator: { sx: { color: "#F6F4FE" } },
+              clearIndicator: { sx: { color: "var(--color-text-primary)" } },
             }}
-            clearIcon={<Close sx={{ color: "#F6F4FE" }} />}
+            clearIcon={<Close sx={{ color: "var(--color-text-primary)" }} />}
           />
         </Box>
+
+        {/* Access Level */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
-            >
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px" }}>
               Access Level
             </Typography>
-            {state.isSearching && (
-              <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-            )}
+            {state.isSearching && <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />}
           </Box>
           <TextField
             select
@@ -885,10 +879,10 @@ const ViewAdmins: React.FC = () => {
             variant="outlined"
             size="small"
             sx={{
-              backgroundColor: "#4d4d4e8e",
+              backgroundColor: "var(--color-surface-glass)",
               borderRadius: "8px",
-              "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "var(--color-border-glass)" } },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="">None</MenuItem>
@@ -897,18 +891,15 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="unit">Unit</MenuItem>
           </TextField>
         </Box>
+
+        {/* Branch */}
         {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
-              >
+              <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px" }}>
                 Select Branch
               </Typography>
-              {loadingStates.branches && (
-                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-              )}
+              {loadingStates.branches && <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />}
             </Box>
             <TextField
               select
@@ -923,10 +914,10 @@ const ViewAdmins: React.FC = () => {
               variant="outlined"
               size="small"
               sx={{
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-surface-glass)",
                 borderRadius: "8px",
-                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "var(--color-border-glass)" } },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
               }}
             >
               <MenuItem value="">Select Branch</MenuItem>
@@ -951,18 +942,15 @@ const ViewAdmins: React.FC = () => {
             </TextField>
           </Box>
         )}
+
+        {/* Department */}
         {(state.accessLevel === "department" || state.accessLevel === "unit") && state.selectedBranch && (
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
-              >
+              <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px" }}>
                 Select Department
               </Typography>
-              {loadingStates.departments && (
-                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-              )}
+              {loadingStates.departments && <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />}
             </Box>
             <TextField
               select
@@ -972,17 +960,15 @@ const ViewAdmins: React.FC = () => {
                 const deptId = e.target.value;
                 handleStateChange("selectedDepartment", deptId);
                 handleStateChange("selectedUnit", "");
-                if (state.accessLevel === "unit") {
-                  fetchUnits(deptId);
-                }
+                if (state.accessLevel === "unit") fetchUnits(deptId);
               }}
               variant="outlined"
               size="small"
               sx={{
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-surface-glass)",
                 borderRadius: "8px",
-                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "var(--color-border-glass)" } },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
               }}
             >
               <MenuItem value="">Select Department</MenuItem>
@@ -1007,33 +993,28 @@ const ViewAdmins: React.FC = () => {
             </TextField>
           </Box>
         )}
+
+        {/* Unit */}
         {state.accessLevel === "unit" && state.selectedDepartment && (
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
-              >
+              <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px" }}>
                 Select Unit
               </Typography>
-              {loadingStates.units && (
-                <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-              )}
+              {loadingStates.units && <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />}
             </Box>
             <TextField
               select
               fullWidth
               value={state.selectedUnit}
-              onChange={(e) => {
-                handleStateChange("selectedUnit", e.target.value);
-              }}
+              onChange={(e) => handleStateChange("selectedUnit", e.target.value)}
               variant="outlined"
               size="small"
               sx={{
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-surface-glass)",
                 borderRadius: "8px",
-                "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "var(--color-border-glass)" } },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
               }}
             >
               <MenuItem value="">Select Unit</MenuItem>
@@ -1058,17 +1039,14 @@ const ViewAdmins: React.FC = () => {
             </TextField>
           </Box>
         )}
+
+        {/* Super Admin Filter */}
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "12px" }}
-            >
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "12px" }}>
               Super Admin?
             </Typography>
-            {state.isSearching && (
-              <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
-            )}
+            {state.isSearching && <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />}
           </Box>
           <TextField
             select
@@ -1081,10 +1059,10 @@ const ViewAdmins: React.FC = () => {
             variant="outlined"
             size="small"
             sx={{
-              backgroundColor: "#4d4d4e8e",
+              backgroundColor: "var(--color-surface-glass)",
               borderRadius: "8px",
-              "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "var(--color-border-glass)" } },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="">None</MenuItem>
@@ -1092,18 +1070,20 @@ const ViewAdmins: React.FC = () => {
             <MenuItem value="false">False</MenuItem>
           </TextField>
         </Box>
+
+        {/* Search Button */}
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button
             variant="contained"
             onClick={handleSearch}
             sx={{
-              backgroundColor: "#F6F4FE",
-              color: "#4d4d4e8e",
+              backgroundColor: "var(--color-text-primary)",
+              color: "var(--color-primary)",
               borderRadius: "24px",
               py: 1,
               px: 3,
               minWidth: "auto",
-              "&:hover": { backgroundColor: "#F6F4FE", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
+              "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
             }}
             startIcon={<Search />}
             disabled={state.isSearching}
@@ -1115,66 +1095,54 @@ const ViewAdmins: React.FC = () => {
     </Drawer>
   );
 
+  // ──────────────────────────────────────────────
+  // Desktop Filters
   const renderDesktopFilters = () => (
     <Box sx={{ display: "flex", width: "100%" }}>
       <Box
         sx={{
-          border: "1px solid #4d4d4e8e",
-          borderRadius: "32px",
+          border: "1px solid var(--color-border-glass)",
+          borderRadius: "9999px",
           display: "flex",
           alignItems: "center",
-          backgroundColor: "#4d4d4e8e",
-          padding: "4px",
+          backgroundColor: "var(--color-surface-glass)",
+          padding: "1px 1px",
           width: "100%",
           boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
           "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" },
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
-            Who?
-          </Typography>
-          <Autocomplete
-            freeSolo
-            options={filteredNames.map((admin) => admin.name)}
+        {/* Search Field */}
+        <Box sx={{ flex: 1, display: "flex", flexDirection: "column", padding: "4px 16px" }}>
+          <TextField
             value={state.searchTerm}
-            onChange={(_, newValue) => handleStateChange("searchTerm", newValue || "")}
-            onInputChange={(_, newInput) => handleStateChange("searchTerm", newInput)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                placeholder="Search by name or title"
-                variant="standard"
-                sx={{
-                  "& .MuiInputBase-input": {
-                    color: state.searchTerm ? "#F6F4FE" : "#A4A1AA",
-                    fontWeight: 500,
-                    fontSize: "14px",
-                    padding: "4px 8px",
-                  },
-                  "& .MuiInput-underline:before": { borderBottom: "none" },
-                  "& .MuiInput-underline:after": { borderBottom: "none" },
-                  "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
-                }}
-              />
-            )}
-            componentsProps={{
-              clearIndicator: { sx: { color: "#F6F4FE" } },
+            onChange={(e) => handleStateChange("searchTerm", e.target.value)}
+            placeholder="Search by name"
+            variant="standard"
+            sx={{
+              "& .MuiInputBase-input": {
+                color: state.searchTerm ? "var(--color-text-primary)" : "var(--color-text-muted)",
+                fontWeight: 500,
+                fontSize: "14px",                
+              },
+              "& .MuiInput-underline:before": { borderBottom: "none" },
+              "& .MuiInput-underline:after": { borderBottom: "none" },
+              "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
             }}
-            clearIcon={<Close sx={{ color: "#F6F4FE" }} />}
           />
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+
+        <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
+
+        {/* Access Level */}
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "1px 8px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
               Access Level
             </Typography>
-            {state.isSearching && (
-              <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
-            )}
+            {state.isSearching && <CircularProgress size={12} sx={{ color: "var(--color-text-primary)" }} />}
           </Box>
-          <MuiSelect
+          <Select
             value={state.accessLevel}
             onChange={(e) => {
               const value = e.target.value as string;
@@ -1182,39 +1150,38 @@ const ViewAdmins: React.FC = () => {
               handleStateChange("selectedBranch", "");
               handleStateChange("selectedDepartment", "");
               handleStateChange("selectedUnit", "");
-              if (value === "branch" || value === "department" || value === "unit") {
-                fetchBranches();
-              }
+              if (value === "branch" || value === "department" || value === "unit") fetchBranches();
             }}
             displayEmpty
             sx={{
-              color: state.accessLevel ? "#F6F4FE" : "#777280",
+              color: state.accessLevel ? "var(--color-text-primary)" : "var(--color-text-muted)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
               "& .MuiSelect-icon": { display: "none" },
-            }}            
+            }}
           >
             <MenuItem value="">None</MenuItem>
             <MenuItem value="branch">{(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) ? 'Church' : 'Branch'}</MenuItem>
             <MenuItem value="department">Department</MenuItem>
             <MenuItem value="unit">Unit</MenuItem>
-          </MuiSelect>
+          </Select>
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+
+        <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
+
+        {/* Branch */}
         {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (state.accessLevel === "branch" || state.accessLevel === "department" || state.accessLevel === "unit") && (
           <>
-            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "1px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
                   Branch
                 </Typography>
-                {loadingStates.branches && (
-                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
-                )}
+                {loadingStates.branches && <CircularProgress size={12} sx={{ color: "var(--color-text-primary)" }} />}
               </Box>
-              <MuiSelect
+              <Select
                 value={state.selectedBranch}
                 onChange={(e) => {
                   const branchId = e.target.value as string;
@@ -1224,12 +1191,12 @@ const ViewAdmins: React.FC = () => {
                 }}
                 displayEmpty
                 sx={{
-                  color: state.selectedBranch ? "#F6F4FE" : "#777280",
+                  color: state.selectedBranch ? "var(--color-text-primary)" : "var(--color-text-muted)",
                   fontWeight: 500,
                   fontSize: "14px",
                   ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                   ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                  "& .MuiSelect-icon": { display: "none", },
+                  "& .MuiSelect-icon": { display: "none" },
                 }}
                 renderValue={(selected) => selected ? state.branches.find((b) => b.id === selected)?.name || "Select Branch" : "Select Branch"}
               >
@@ -1252,35 +1219,33 @@ const ViewAdmins: React.FC = () => {
                     </MenuItem>
                   ))
                 )}
-              </MuiSelect>
+              </Select>
             </Box>
-            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+            <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
           </>
         )}
+
+        {/* Department */}
         {(state.accessLevel === "department" || state.accessLevel === "unit") && state.selectedBranch && (
           <>
-            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "1px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
                   Department
                 </Typography>
-                {loadingStates.departments && (
-                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
-                )}
+                {loadingStates.departments && <CircularProgress size={12} sx={{ color: "var(--color-text-primary)" }} />}
               </Box>
-              <MuiSelect
+              <Select
                 value={state.selectedDepartment}
                 onChange={(e) => {
                   const deptId = e.target.value as string;
                   handleStateChange("selectedDepartment", deptId);
                   handleStateChange("selectedUnit", "");
-                  if (state.accessLevel === "unit") {
-                    fetchUnits(deptId);
-                  }
+                  if (state.accessLevel === "unit") fetchUnits(deptId);
                 }}
                 displayEmpty
                 sx={{
-                  color: state.selectedDepartment ? "#F6F4FE" : "#777280",
+                  color: state.selectedDepartment ? "var(--color-text-primary)" : "var(--color-text-muted)",
                   fontWeight: 500,
                   fontSize: "14px",
                   ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1308,30 +1273,28 @@ const ViewAdmins: React.FC = () => {
                     </MenuItem>
                   ))
                 )}
-              </MuiSelect>
+              </Select>
             </Box>
-            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+            <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
           </>
         )}
+
+        {/* Unit */}
         {state.accessLevel === "unit" && state.selectedDepartment && (
           <>
-            <Box sx={{ display: "flex", flexDirection: "column",flex: 1, minWidth: "160px", padding: "4px 8px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "1px 8px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
                   Unit
                 </Typography>
-                {loadingStates.units && (
-                  <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
-                )}
+                {loadingStates.units && <CircularProgress size={12} sx={{ color: "var(--color-text-primary)" }} />}
               </Box>
-              <MuiSelect
+              <Select
                 value={state.selectedUnit}
-                onChange={(e) => {
-                  handleStateChange("selectedUnit", e.target.value as string);
-                }}
+                onChange={(e) => handleStateChange("selectedUnit", e.target.value as string)}
                 displayEmpty
                 sx={{
-                  color: state.selectedUnit ? "#F6F4FE" : "#777280",
+                  color: state.selectedUnit ? "var(--color-text-primary)" : "var(--color-text-muted)",
                   fontWeight: 500,
                   fontSize: "14px",
                   ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1359,21 +1322,21 @@ const ViewAdmins: React.FC = () => {
                     </MenuItem>
                   ))
                 )}
-              </MuiSelect>
+              </Select>
             </Box>
-            <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+            <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
           </>
         )}
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "140px", padding: "4px 8px" }}>
+
+        {/* Super Admin */}
+        <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "140px", padding: "1px 8px" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
               Super Admin?
             </Typography>
-            {state.isSearching && (
-              <CircularProgress size={12} sx={{ color: "#F6F4FE" }} />
-            )}
+            {state.isSearching && <CircularProgress size={12} sx={{ color: "var(--color-text-primary)" }} />}
           </Box>
-          <MuiSelect
+          <Select
             value={state.superAdminFilter === null ? "" : String(state.superAdminFilter)}
             onChange={(e) => {
               const value = e.target.value;
@@ -1381,7 +1344,7 @@ const ViewAdmins: React.FC = () => {
             }}
             displayEmpty
             sx={{
-              color: state.superAdminFilter !== null ? "#F6F4FE" : "#777280",
+              color: state.superAdminFilter !== null ? "var(--color-text-primary)" : "var(--color-text-muted)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1390,26 +1353,28 @@ const ViewAdmins: React.FC = () => {
             }}
             renderValue={(selected) => {
               if (selected === "") return "Select Option";
-              return selected === "true" ? "Yes" : "No"; // ✅ Fix here
+              return selected === "true" ? "Yes" : "No";
             }}
           >
             <MenuItem value="">None</MenuItem>
             <MenuItem value="true">Yes</MenuItem>
             <MenuItem value="false">No</MenuItem>
-          </MuiSelect>
+          </Select>
         </Box>
+
+        {/* Search Button */}
         <Box sx={{ ml: "auto", pr: "8px" }}>
           <Button
             onClick={handleSearch}
             sx={{
               backgroundColor: "transparent",
-              border: "1px solid #777280",
-              color: "white",
+              border: "1px solid var(--color-text-muted)",
+              color: "var(--color-text-primary)",
               borderRadius: "50%",
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#777280" },
+              "&:hover": { backgroundColor: "var(--color-surface-glass)" },
             }}
             disabled={state.isSearching}
           >
@@ -1420,7 +1385,8 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
-  // Empty State Component
+  // ──────────────────────────────────────────────
+  // Empty State
   const EmptyState = () => (
     <Box
       sx={{
@@ -1432,30 +1398,24 @@ const ViewAdmins: React.FC = () => {
         justifyContent: "center",
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
-      <Typography
-        variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
-        gutterBottom
-        sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
-      >
+      <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2, opacity: 0.4 }} />
+      <Typography variant="h6" color="var(--color-text-muted)" gutterBottom>
         No admins found
       </Typography>
-      {state.error ? (
+      {state.error && (
         <Typography color="error" sx={{ mb: 2 }}>
           {state.error}
         </Typography>
-      ) : null}
+      )}
       <Button
         variant="contained"
         onClick={() => handleStateChange("openModal", true)}
         sx={{
-          backgroundColor: "#363740",
-          px: { xs: 2, sm: 2 },
+          backgroundColor: "var(--color-text-primary)",
+          color: "var(--color-primary)",
+          px: { xs: 2, sm: 3 },
           mt: 2,
-          fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
         }}
       >
         Create New Admin
@@ -1467,23 +1427,22 @@ const ViewAdmins: React.FC = () => {
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%", width: '100%'}}>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={1} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
-              variant={isMobile ? "h5" : "h5"}
+              variant="h5"
               component="h4"
               fontWeight={600}
               sx={{
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
+                color: "var(--color-text-primary)",
                 display: "flex",
                 alignItems: "center",
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Manage</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]">Admins</span>
+              <span style={{ color: "var(--color-text-muted)" }}>Manage</span>
+              <LiaLongArrowAltRightSolid style={{ color: "var(--color-text-primary)" }} />
+              <span style={{ color: "var(--color-text-primary)" }}>Admins</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
@@ -1492,32 +1451,31 @@ const ViewAdmins: React.FC = () => {
               onClick={() => handleStateChange("openModal", true)}
               size="medium"
               sx={{
-                backgroundColor: "#363740",
-                px: { xs: 2, sm: 2, md: 4 },
-                py: {xs: 1, sm: 1, md: 1.5},
+                backgroundColor: "var(--color-text-primary)",
+                color: "var(--color-primary)",
+                px: { xs: 2, sm: 3 },
+                py: 1.5,
                 borderRadius: 50,
-                color: "#F6F4FE",
-                fontWeight: 600,
                 textTransform: "none",
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
-                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+                fontWeight: 600,
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Create Admin +
             </Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: { xs: 2, lg: 0 },}}>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: { xs: 2, lg: 0 } }}>
             <Box>
-              {isMobile ? (
+              {useMediaQuery('(max-width:1023px)') ? (
                 <>
                   <Box sx={{ display: "flex", width: "100%" }}>
                     <Box
                       sx={{
-                        border: "1px solid #DDDDDD",
+                        border: "1px solid var(--color-border-glass)",
                         borderRadius: "32px",
                         display: "flex",
                         alignItems: "center",
-                        backgroundColor: "#4d4d4e8e",
+                        backgroundColor: "var(--color-surface-glass)",
                         padding: "4px",
                         width: "100%",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
@@ -1532,7 +1490,7 @@ const ViewAdmins: React.FC = () => {
                           variant="standard"
                           sx={{
                             "& .MuiInputBase-input": {
-                              color: state.searchTerm ? "#F6F4FE" : "#777280",
+                              color: state.searchTerm ? "var(--color-text-primary)" : "var(--color-text-muted)",
                               fontWeight: 500,
                               fontSize: "14px",
                               padding: "4px 8px",
@@ -1541,50 +1499,12 @@ const ViewAdmins: React.FC = () => {
                             "& .MuiInput-underline:after": { borderBottom: "none" },
                             "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
                           }}
-                          onFocus={() => state.searchTerm && handleStateChange("isNameDropdownOpen", true)}
-                          onBlur={() => setTimeout(() => handleStateChange("isNameDropdownOpen", false), 200)}
                         />
-                        {state.isNameDropdownOpen && filteredNames.length > 0 && (
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              maxHeight: "200px",
-                              overflowY: "auto",
-                              backgroundColor: "#2C2C2C",
-                              borderRadius: "8px",
-                              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                              zIndex: 1300,
-                              mt: 1,
-                            }}
-                          >
-                            {filteredNames.map((admin, index) => (
-                              <Box
-                                key={admin.id}
-                                sx={{
-                                  padding: "8px 16px",
-                                  color: "#F6F4FE",
-                                  cursor: "pointer",
-                                  "&:hover": { backgroundColor: "#4d4d4e8e" },
-                                  borderBottom: index < filteredNames.length - 1 ? "1px solid #777280" : "none",
-                                }}
-                                onClick={() => {
-                                  handleStateChange("searchTerm", admin.name);
-                                  handleStateChange("isNameDropdownOpen", false);
-                                }}
-                              >
-                                {admin.name}
-                              </Box>
-                            ))}
-                          </Box>
-                        )}
                       </Box>
-                      <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                      <Divider sx={{ height: 30, backgroundColor: "var(--color-border-glass)" }} orientation="vertical" />
                       <IconButton
                         onClick={() => handleStateChange("isDrawerOpen", true)}
-                        sx={{ color: "#777280", "&:hover": { color: "#F6F4FE" } }}
+                        sx={{ color: "var(--color-text-muted)", "&:hover": { color: "var(--color-text-primary)" } }}
                       >
                         <IoMdAttach />
                       </IconButton>
@@ -1593,21 +1513,17 @@ const ViewAdmins: React.FC = () => {
                           onClick={handleSearch}
                           sx={{
                             backgroundColor: "transparent",
-                            border: "1px solid #777280",
-                            color: "white",
+                            border: "1px solid var(--color-text-muted)",
+                            color: "var(--color-text-primary)",
                             borderRadius: "50%",
                             minWidth: "48px",
                             height: "48px",
                             padding: 0,
-                            "&:hover": { backgroundColor: "#E61E4D" },
+                            "&:hover": { backgroundColor: "var(--color-surface-glass)" },
                           }}
                           disabled={state.isSearching}
                         >
-                          {state.isSearching ? (
-                            <CircularProgress size={20} color="inherit" />
-                          ) : (
-                            <Search sx={{ fontSize: "20px" }} />
-                          )}
+                          {state.isSearching ? <CircularProgress size={20} color="inherit" /> : <Search sx={{ fontSize: "20px" }} />}
                         </Button>
                       </Box>
                     </Box>
@@ -1634,12 +1550,11 @@ const ViewAdmins: React.FC = () => {
 
         {state.loading && state.admins.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-text-muted)]"></div>
           </Box>
         )}
 
         {state.error && !state.loading && state.admins.length === 0 && <EmptyState />}
-
         {!state.loading && !state.error && state.admins.length === 0 && <EmptyState />}
 
         {state.admins.length > 0 && (
@@ -1647,106 +1562,116 @@ const ViewAdmins: React.FC = () => {
             <Table sx={{ minWidth: { xs: "auto", sm: 'auto' } }}>
               <TableHead>
                 <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     #
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.name, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.name, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Full Name
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Email
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Phone Number
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Access Level
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Assigned Area
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Super Admin
-                  </TableCell>                  
-                  <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#777280", py: 2 }}>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-muted)", py: 2 }}>
                     Actions
-                  </TableCell>                  
+                  </TableCell>
                 </TableRow>
               </TableHead>
+
               <TableBody>
                 {state.admins.map((admin, index) => (
                   <TableRow
                     key={admin.id}
                     sx={{
                       "& td": { border: "none" },
-                      backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
-                      borderRadius: "4px",
-                      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
+                      backgroundColor: admin.isDeleted ? "rgba(0, 0, 0, 0.04)" : "var(--color-surface-glass)",
+                      borderRadius: "12px",
+                      "&:hover": { backgroundColor: "var(--color-surface)", transform: "translateY(-2px)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
                       transition: "all 0.2s ease",
                       mb: 2,
                     }}
                   >
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.number, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {(index + 1).toString().padStart(2, "0")}
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
-                      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
-                        {admin.name.split(" ").map((name) => name.charAt(0)).join("")}
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+                      <Box sx={{ py: 2, px: 1.5, borderRadius: "50%", backgroundColor: "var(--color-text-secondary)", color: "var(--color-primary)", fontWeight: "bold", fontSize: "1.1rem", minWidth: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {admin.name.split(" ").map(n => n.charAt(0)).join("")}
                       </Box>
                       <Box>
                         {admin.name}
                         <br />
-                        <span className="text-[13px] text-[#777280]">{admin.title || "-"}</span>
+                        <span style={{ fontSize: "13px", color: "var(--color-text-muted)" }}>{admin.title || "-"}</span>
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.email, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       <Tooltip title={admin.email || "-"} arrow>
-                        <Box sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}>
-                          {truncateText(admin.email)}
-                        </Box>
+                        <Box>{truncateText(admin.email)}</Box>
                       </Tooltip>
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.phone, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.phone || "-"}
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.access, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.scopeLevel === "branch"
                         ? authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1
                           ? "Church"
                           : "Branch"
                         : admin.scopeLevel || "-"}
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.assign, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {getAssignLevelText(admin)}
                     </TableCell>
-                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "gray" : "#F6F4FE", width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
+
+                    <TableCell sx={{ textDecoration: admin.isDeleted ? "line-through" : "none", color: admin.isDeleted ? "var(--color-text-muted)" : "var(--color-text-primary)", width: columnWidths.superAdmin, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2 }}>
                       {admin.isSuperAdmin ? "Yes" : "No"}
-                    </TableCell>               
-                    <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, borderTopRightRadius: "8px", borderBottomRightRadius: "8px" }}>
-                      {!admin.isSuperAdmin && <IconButton
-                        aria-label="more"
-                        onClick={(e) => handleMenuOpen(e, admin)}
-                        disabled={state.loading}
-                        size="small"
-                        sx={{
-                          borderRadius: 1,
-                          bgcolor: "#E1E1E1",
-                          "&:hover": { backgroundColor: "var(--color-primary)", color: "#f0f0f0" },
-                        }}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>}
-                    </TableCell>    
+                    </TableCell>
+
+                    <TableCell sx={{ width: columnWidths.actions, textAlign: "center", py: 2 }}>
+                      {!admin.isSuperAdmin && (
+                        <IconButton
+                          aria-label="more"
+                          onClick={(e) => handleMenuOpen(e, admin)}
+                          disabled={state.loading}
+                          size="small"
+                          sx={{
+                            borderRadius: 1,
+                            bgcolor: "var(--color-surface-glass)",
+                            color: "var(--color-text-primary)",
+                            "&:hover": { backgroundColor: "var(--color-surface)", color: "var(--color-text-primary)" },
+                          }}
+                        >
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+
             <CustomPagination
               hasNextPage={state.pagination.hasNextPage}
               hasPrevPage={state.pageHistory.length > 0}
               onPageChange={handlePageChange}
               currentPage={state.currentPage}
-              isLargeScreen={isLargeScreen}
+              isLargeScreen
               isLoading={state.loading}
             />
           </TableContainer>

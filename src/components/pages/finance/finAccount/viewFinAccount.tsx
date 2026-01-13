@@ -147,9 +147,9 @@ const CustomPagination: React.FC<{
           minWidth: { xs: "36px", sm: "40px" },
           height: { xs: "36px", sm: "40px" },
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
           color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
         }}
       >
@@ -162,9 +162,9 @@ const CustomPagination: React.FC<{
           minWidth: { xs: "36px", sm: "40px" },
           height: { xs: "36px", sm: "40px" },
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
           color: !hasNextPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
         }}
       >
@@ -178,24 +178,24 @@ const AccountRow: React.FC<{ record: AccountRecord; index: number }> = React.mem
   <TableRow
     sx={{
       "& td": { border: "none" },
-      backgroundColor: "#4d4d4e8e",
+      backgroundColor: "var(--color-surface-glass)",
       borderRadius: "8px",
-      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
+      "&:hover": { backgroundColor: "var(--color-surface-glass)", transform: "translateY(-2px)", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
       transition: "all 0.2s ease",
       mb: { xs: 1.5, sm: 2 },
     }}
   >
-    <TableCell sx={{ width: columnWidths.snumber.md, fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, color: "#F6F4FE", fontWeight: 600, px: { xs: 1.5, sm: 2 } }}>
+    <TableCell sx={{ width: columnWidths.snumber.md, fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, color: "var(--color-text-primary)", fontWeight: 600, px: { xs: 1.5, sm: 2 } }}>
       {(index + 1).toString().padStart(2, "0")}
     </TableCell>
-    <TableCell sx={{ width: columnWidths.date.md, fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, color: "#F6F4FE", py: { xs: 1.5, sm: 2 }, px: { xs: 1.5, sm: 2 } }}>
+    <TableCell sx={{ width: columnWidths.date.md, fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" }, color: "var(--color-text-primary)", py: { xs: 1.5, sm: 2 }, px: { xs: 1.5, sm: 2 } }}>
       {new Date(record.createdAt).toLocaleDateString()}
     </TableCell>
     <TableCell
       sx={{
         width: columnWidths.description.md,
         fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" },
-        color: "#E1E1E1",
+        color: "var(--color-text-primary)",
         py: { xs: 1.5, sm: 2 },
         px: { xs: 1.5, sm: 2 },
         maxWidth: 0,
@@ -213,7 +213,7 @@ const AccountRow: React.FC<{ record: AccountRecord; index: number }> = React.mem
       sx={{
         width: columnWidths.credit.md,
         fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" },
-        color: record.credit !== "0.00" ? "#10B981" : "#777280",
+        color: record.credit !== "0.00" ? "#10B981" : "var(--color-text-muted)",
         textAlign: "right",
         fontWeight: record.credit !== "0.00" ? 600 : "inherit",
         px: { xs: 1.5, sm: 2 },
@@ -225,7 +225,7 @@ const AccountRow: React.FC<{ record: AccountRecord; index: number }> = React.mem
       sx={{
         width: columnWidths.debit.md,
         fontSize: { xs: "0.75rem", sm: "0.8rem", md: "0.875rem" },
-        color: record.debit !== "0.00" ? "#EF4444" : "#777280",
+        color: record.debit !== "0.00" ? "#EF4444" : "var(--color-text-muted)",
         textAlign: "right",
         fontWeight: record.debit !== "0.00" ? 600 : "inherit",
         px: { xs: 1.5, sm: 2 },
@@ -233,10 +233,10 @@ const AccountRow: React.FC<{ record: AccountRecord; index: number }> = React.mem
     >
       ₦{parseFloat(record.debit).toLocaleString()}
     </TableCell>
-    <TableCell sx={{ width: columnWidths.balance.md, fontSize: { xs: "0.8rem", sm: "0.85rem", md: "0.875rem" }, color: "#F6F4FE", textAlign: "right", fontWeight: 700, px: { xs: 1.5, sm: 2 } }}>
+    <TableCell sx={{ width: columnWidths.balance.md, fontSize: { xs: "0.8rem", sm: "0.85rem", md: "0.875rem" }, color: "var(--color-text-primary)", textAlign: "right", fontWeight: 700, px: { xs: 1.5, sm: 2 } }}>
       ₦{parseFloat(record.balance).toLocaleString()}
     </TableCell>
-    <TableCell sx={{ width: columnWidths.creator.md, fontSize: { sm: "0.8rem", md: "0.875rem" }, color: "#E1E1E1", px: { sm: 1.5, md: 2 } }}>
+    <TableCell sx={{ width: columnWidths.creator.md, fontSize: { sm: "0.8rem", md: "0.875rem" }, color: "var(--color-text-primary)", px: { sm: 1.5, md: 2 } }}>
       {record.creator.name}
     </TableCell>
   </TableRow>
@@ -291,7 +291,7 @@ const AccountRecordsTable: React.FC<{
             {loading ? (
               <TableRow>
                 <TableCell colSpan={7} sx={{ textAlign: "center", py: { xs: 6, sm: 8 }, border: "none" }}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-[#F6F4FE] mx-auto"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-[var(--color-text-primary)] mx-auto"></div>
                 </TableCell>
               </TableRow>
             ) : records.length === 0 ? (
@@ -662,12 +662,12 @@ const ViewFinAccount: React.FC = () => {
         gap: 2,
       }}
     >
-      <MdOutlineAccountBalance style={{ fontSize: isMobile ? 48 : 60, color: "rgba(255, 255, 255, 0.1)", marginBottom: 2 }} />
+      <MdOutlineAccountBalance style={{ fontSize: isMobile ? 48 : 60, color: "var(--color-text-muted)", marginBottom: 2 }} />
       <Typography variant="h6" color="rgba(255, 255, 255, 0.6)" gutterBottom sx={{ fontSize: { xs: "1.1rem", sm: "1.25rem" }, fontWeight: 500 }}>
         {currentTabData.error || "No Account Records"}
       </Typography>
       {state.currentTab === "department" && (
-        <Typography sx={{ mb: 2, fontSize: "0.875rem", color: "#E1E1E1" }}>
+        <Typography sx={{ mb: 2, fontSize: "0.875rem", color: "var(--color-text-primary)" }}>
           {currentTabData.error
             ? currentTabData.error
             : `No records found for ${state.departments.find((d) => d.id === state.selectedDepartmentId)?.name || "selected department"}`}
@@ -678,15 +678,15 @@ const ViewFinAccount: React.FC = () => {
         onClick={() => handleStateChange("isModalOpen", true)}
         size={isMobile ? "small" : "medium"}
         sx={{
-          backgroundColor: "#363740",
+          backgroundColor: "var(--color-text-primary)",
           px: { xs: 2, sm: 3 },
           py: 1.2,
           borderRadius: 50,
           fontWeight: 500,
           textTransform: "none",
-          color: "var(--color-text-on-primary)",
+          color: "var(--color-primary)",
           fontSize: { xs: "0.875rem", sm: "1rem" },
-          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           width: { xs: "100%", sm: "auto", md: "200px" },
         }}
       >
@@ -714,7 +714,7 @@ const ViewFinAccount: React.FC = () => {
                 lineHeight: 1.3,
               }}
             >
-              <span className="text-[#777280]">Finance</span> <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" /> <span className="text-[#F6F4FE]">Account Records</span>
+              <span className="text-[var(--color-text-muted)]">Finance</span> <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" /> <span className="text-[var(--color-text-primary)]">Account Records</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 5 }} sx={{ display: "flex", justifyContent: { xs: "end", md: "flex-end" }, alignItems: "center", gap: { xs: 1, sm: 2 }, mt: { xs: 1, md: 0 } }}>
@@ -723,17 +723,17 @@ const ViewFinAccount: React.FC = () => {
               onClick={() => handleStateChange("isModalOpen", true)}
               size={isMobile ? "small" : "medium"}
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 3 },
                 py: { xs: 0.8, sm: 1 },
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-primary)",
                 fontSize: { xs: "0.875rem", sm: "1rem" },
                 minWidth: { xs: "140px", sm: "180px" },
                 height: { xs: "38px", sm: "44px" },
-                "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Record Transaction
@@ -761,8 +761,8 @@ const ViewFinAccount: React.FC = () => {
                   transition: "all 0.3s ease",
                   px: { xs: 1.5, sm: 2.5 },
                 },
-                "& .MuiTab-root.Mui-selected": { color: "#F6F4FE", fontWeight: 600 },
-                "& .MuiTabs-indicator": { backgroundColor: "#F6F4FE", height: 3 },
+                "& .MuiTab-root.Mui-selected": { color: "var(--color-text-primary)", fontWeight: 600 },
+                "& .MuiTabs-indicator": { backgroundColor: "var(--color-text-primary)", height: 3 },
                 flex: 1,
               }}
             >
@@ -780,9 +780,9 @@ const ViewFinAccount: React.FC = () => {
 
             {!authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1 && state.currentTab === "branch" && (
               <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1, flexDirection: { xs: "column", sm: "row" } }}>
-                <TrendingFlat fontSize="large" sx={{ fontSize: 30, color: "#f6f4fe", display: { xs: "none", sm: "block" } }} />
+                <TrendingFlat fontSize="large" sx={{ fontSize: 30, color: "var(--color-text-primary)", display: { xs: "none", sm: "block" } }} />
                 <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 200 }, maxWidth: { sm: 250 } }}>
-                  <InputLabel sx={{ color: "#F6F4FE", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>Select Branch</InputLabel>
+                  <InputLabel sx={{ color: "var(--color-text-primary)", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>Select Branch</InputLabel>
                   <Select
                     value={state.selectedBranchId || ""}
                     onChange={handleBranchChange}
@@ -795,10 +795,10 @@ const ViewFinAccount: React.FC = () => {
                       return branch?.name || selected;
                     }}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       fontSize: { xs: "0.8rem", sm: "0.875rem" },
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#4d4d4e8e", borderRadius: 1 },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE", borderWidth: 2 },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)", borderWidth: 2 },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "& .MuiSvgIcon-root": { color: "#777280" },
                       height: { xs: "40px", sm: "44px" },
@@ -822,9 +822,9 @@ const ViewFinAccount: React.FC = () => {
 
             {state.currentTab === "department" && (
               <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1, flexDirection: { xs: "column", sm: "row" } }}>
-                <TrendingFlat fontSize="large" sx={{ fontSize: 30, color: "#f6f4fe", display: { xs: "none", sm: "block" } }} />
+                <TrendingFlat fontSize="large" sx={{ fontSize: 30, color: "var(--color-text-primary)", display: { xs: "none", sm: "block" } }} />
                 <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 200 }, maxWidth: { sm: 250 } }}>
-                  <InputLabel sx={{ color: "#F6F4FE", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>Select Department</InputLabel>
+                  <InputLabel sx={{ color: "var(--color-text-primary)", fontSize: { xs: "0.8rem", sm: "0.875rem" } }}>Select Department</InputLabel>
                   <Select
                     value={state.selectedDepartmentId || ""}
                     onChange={handleDepartmentChange}
@@ -837,10 +837,10 @@ const ViewFinAccount: React.FC = () => {
                       return dept?.name || selected;
                     }}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       fontSize: { xs: "0.8rem", sm: "0.875rem" },
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#4d4d4e8e", borderRadius: 1 },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE", borderWidth: 2 },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)", borderWidth: 2 },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "& .MuiSvgIcon-root": { color: "#777280" },
                       height: { xs: "40px", sm: "44px" },

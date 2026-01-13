@@ -335,10 +335,10 @@ const fetchCollections = useCallback(
         justifyContent: "center",
       }}
     >
-      <CiWallet style={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", marginBottom: 16 }} />
+      <CiWallet style={{ fontSize: 60, color: "var(--color-text-muted)", marginBottom: 16 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.1)"
+        color="var(--color-text-primary)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
@@ -350,13 +350,13 @@ const fetchCollections = useCallback(
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
         sx={{
-          backgroundColor: "#363740",
+          backgroundColor: "var(--color-text-primary)",
           px: { xs: 2, sm: 2 },
           mt: 2,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
+          color: "var(--color-primary)",
           "&:hover": {
-            backgroundColor: "#363740",
+            backgroundColor: "var(--color-text-primary)",
             opacity: 0.9,
           },
         }}
@@ -385,9 +385,9 @@ const fetchCollections = useCallback(
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Messages</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]"> SMS Wallets</span>
+              <span className="text-[var(--color-text-muted)]">Messages</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />{" "}
+              <span className="text-[var(--color-text-primary)]"> SMS Wallets</span>
             </Typography>
           </Grid>
           <Grid
@@ -403,16 +403,16 @@ const fetchCollections = useCallback(
               onClick={() => handleStateChange("isModalOpen", true)}
               size="medium"
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": {
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   opacity: 0.9,
                 },
               }}
@@ -435,20 +435,20 @@ const fetchCollections = useCallback(
           <>
             <Grid container spacing={2}>
               {state.fillteredCollection.map((collection) => {
-                const showBalance = visibleBalances[collection.id] ?? true;
+                const showBalance = visibleBalances[collection.id] ?? false;
 
                 return (
                   <Grid key={collection.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                     <Card
                       sx={{
                         borderRadius: "10.267px",
-                        backgroundColor: "rgba(255, 255, 255, 0.06)",
+                        backgroundColor: "var(--color-surface-glass)",
                         boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
                         height: "100%",
                         display: "flex",
                         flexDirection: "column",
                         "&:hover": {
-                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          backgroundColor: "var(--color-surface)",
                         },
                       }}
                     >
@@ -462,7 +462,7 @@ const fetchCollections = useCallback(
                         >
                           <IconButton
                             sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              backgroundColor: "var(--color-surface-glass)",
                               color: "#777280",
                               flexDirection: "column",
                               padding: "10px",
@@ -481,7 +481,7 @@ const fetchCollections = useCallback(
                             variant="h6"
                             fontWeight={600}
                             sx={{
-                              color: "#E1E1E1",
+                              color: "var(--color-text-primary)",
                               fontSize: "20px",
                             }}
                           >
@@ -499,7 +499,7 @@ const fetchCollections = useCallback(
                             }}
                           >
 
-                            <Typography variant="body2" sx={{ color: "#F6F4FE", display: "flex", flexDirection: "column" }}>                              
+                            <Typography variant="body2" sx={{ color: "var(--color-text-primary)", display: "flex", flexDirection: "column" }}>                              
                               <span className="text-[19px] font-semibold">
                                 ₦ {showBalance ? parseFloat(collection.balance).toLocaleString() : "****"}
                               </span>
@@ -515,7 +515,7 @@ const fetchCollections = useCallback(
                             <IconButton
                               size="small"
                               onClick={() => toggleBalance(collection.id)}
-                              sx={{ color: "#777280" }}
+                              sx={{ color: "var(--color-text-muted)" }}
                             >
                               {showBalance ? <FiEye size={20} /> : <FiEyeOff size={20} />}
                             </IconButton>
@@ -534,17 +534,17 @@ const fetchCollections = useCallback(
                             }}
                             size="medium"
                             sx={{
-                              backgroundColor: "#F6F4FE",
+                              backgroundColor: "var(--color-text-primary)",
                               px: { xs: 2, sm: 2 },
                               py: 1,
                               borderRadius: 50,
                               fontWeight: 500,
                               width: '100%',
                               textTransform: "none",
-                              color: "#363740",
+                              color: "var(--color-primary)",
                               fontSize: isLargeScreen ? "1rem" : undefined,
                               "&:hover": {
-                                backgroundColor: "#F6F4FE",
+                                backgroundColor: "var(--color-text-primary)",
                                 opacity: 0.9,
                               },
                             }}

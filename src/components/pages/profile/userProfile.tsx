@@ -181,7 +181,7 @@ const ViewAdmin: React.FC = () => {
             minHeight: "100vh",
           }}
         >
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-gray-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-var(--color-text-muted)-600"></div>
         </Box>
       </DashboardManager>
     );
@@ -203,7 +203,7 @@ const ViewAdmin: React.FC = () => {
     return (
       <DashboardManager>
         <Box sx={{ textAlign: "center", py: 4 }}>
-          <Typography variant="h6" color="gray">
+          <Typography variant="h6" color="var(--color-text-primary)">
             No admin data available.
           </Typography>
         </Box>
@@ -222,11 +222,11 @@ const ViewAdmin: React.FC = () => {
                 component="h1"
                 fontWeight={600}
                 gutterBottom
-                sx={{ color: "#f6f4fe" }}
+                sx={{ color: "var(--color-text-primary)" }}
               >
                 Admin Profile
               </Typography>
-              <Typography variant="body2" color="gray">
+              <Typography variant="body2" color="var(--color-text-muted)">
                 View and manage your profile information.
               </Typography>
             </Grid>
@@ -244,14 +244,14 @@ const ViewAdmin: React.FC = () => {
                 onClick={() => navigate(-1)}
                 size="medium"
                 sx={{
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: "var(--color-text-primary)",
                   borderRadius: 1,
                   fontWeight: 500,
                   textTransform: "none",
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   "&:hover": {
-                    backgroundColor: "var(--color-primary)",
+                    backgroundColor: "var(--color-text-primary)",
                     opacity: 0.9,
                   },
                 }}
@@ -269,7 +269,7 @@ const ViewAdmin: React.FC = () => {
                 flexDirection: "column",
                 alignItems: "center",
                 textAlign: "center",
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                backgroundColor: "var(--color-surface-glass)",
                 paddingY: 4,
                 paddingX: 2,
                 borderRadius: 2,
@@ -280,18 +280,18 @@ const ViewAdmin: React.FC = () => {
                 alt={admin.name}
                 sx={{ width: 100, height: 100, mb: 1 }}
               />
-              <Typography variant="h5" fontWeight="bold" color="#f6f4fe">
+              <Typography variant="h5" fontWeight="bold" color="var(--color-text-primary)">
                 {admin.name}
               </Typography>
-              <Typography variant="body1" color="gray">
+              <Typography variant="body1" color="var(--color-text-muted)">
                 {admin.isSuperAdmin ? "Super Admin" : "Admin"}
               </Typography>
               {admin.church_name && (
-                <Typography variant="body1" color="gray">
+                <Typography variant="body1" color="var(--color-text-muted)">
                   {admin.church_name}
                 </Typography>
               )}
-              <Typography variant="body1" color="gray">
+              <Typography variant="body1" color="var(--color-text-muted)">
                 Admin since: {getAdminSince()}
               </Typography>
 
@@ -301,12 +301,12 @@ const ViewAdmin: React.FC = () => {
                 onClick={() => setOpenChangePass(true)}
                 sx={{
                   mt: 3,
-                  borderColor: "#8b5cf6",
-                  color: "#8b5cf6",
+                  backgroundColor: "var(--color-text-primary)",
+                  color: "var(--color-primary)",
                   textTransform: "none",
-                  "&:hover": {
-                    borderColor: "#7c4dff",
-                    backgroundColor: "rgba(139, 92, 246, 0.1)",
+                  "&:hover": {                  
+                    backgroundColor: "var(--color-text-primary)",
+                    opacity: 0.9,
                   },
                 }}
               >
@@ -318,32 +318,32 @@ const ViewAdmin: React.FC = () => {
 
             <Box
               sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                backgroundColor: "var(--color-surface-glass)",
                 paddingY: 4,
                 paddingX: 2,
                 borderRadius: 2,
               }}
             >
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "#f6f4fe" }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "var(--color-text-primary)" }}>
                 Personal Information
               </Typography>
 
               <Grid container spacing={4}>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Full Name
                     </Typography>
-                    <Typography variant="body1" color="#f6f4fe">
+                    <Typography variant="body1" color="var(--color-text-primary)">
                       {admin.name || "N/A"}
                     </Typography>
                   </Box>
 
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Role
                     </Typography>
-                    <Typography variant="body1" color="#f6f4fe">
+                    <Typography variant="body1" color="var(--color-text-primary)">
                       {admin.isSuperAdmin ? "Super Admin" : "Admin"}
                     </Typography>
                   </Box>
@@ -351,24 +351,24 @@ const ViewAdmin: React.FC = () => {
 
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Phone Number
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <PhoneIcon sx={{ mr: 1, color: "#f6f4fe", fontSize: "1rem" }} />
-                      <Typography variant="body1" color="#f6f4fe">
+                      <PhoneIcon sx={{ mr: 1, color: "var(--color-text-primary)", fontSize: "1rem" }} />
+                      <Typography variant="body1" color="var(--color-text-primary)">
                         {admin.phone || "not provided"}
                       </Typography>
                     </Box>
                   </Box>
 
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Email Address
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <EmailIcon sx={{ mr: 1, color: "#f6f4fe", fontSize: "1rem" }} />
-                      <Typography variant="body1" color="#f6f4fe">
+                      <EmailIcon sx={{ mr: 1, color: "var(--color-text-primary)", fontSize: "1rem" }} />
+                      <Typography variant="body1" color="var(--color-text-primary)">
                         {admin.email || "N/A"}
                       </Typography>
                     </Box>
@@ -381,23 +381,23 @@ const ViewAdmin: React.FC = () => {
 
             <Box
               sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.06)",
+                backgroundColor: "var(--color-surface-glass)",
                 paddingY: 4,
                 paddingX: 2,
                 borderRadius: 2,
               }}
             >
-              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "#f6f4fe" }}>
+              <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: "var(--color-text-primary)" }}>
                 Account Information
               </Typography>
 
               <Grid container spacing={4}>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Admin Since
                     </Typography>
-                    <Typography variant="body1" color="#f6f4fe">
+                    <Typography variant="body1" color="var(--color-text-primary)">
                       {getAdminSince()}
                     </Typography>
                   </Box>
@@ -405,10 +405,10 @@ const ViewAdmin: React.FC = () => {
 
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle2" color="gray">
+                    <Typography variant="subtitle2" color="var(--color-text-muted)">
                       Account Status
                     </Typography>
-                    <Typography variant="body1" color="#f6f4fe">
+                    <Typography variant="body1" color="var(--color-text-primary)">
                       Active
                     </Typography>
                   </Box>
@@ -475,7 +475,7 @@ const ViewAdmin: React.FC = () => {
                 color: "#e0e0e0",
                 "& fieldset": { borderColor: "#555" },
                 "&:hover fieldset": { borderColor: "#777" },
-                "&.Mui-focused fieldset": { borderColor: "#f6f4fe" },
+                "&.Mui-focused fieldset": { borderColor: "var(--color-text-primary)" },
               },
             }}
           />
@@ -507,7 +507,7 @@ const ViewAdmin: React.FC = () => {
                 color: "#e0e0e0",
                 "& fieldset": { borderColor: "#555" },
                 "&:hover fieldset": { borderColor: "#777" },
-                "&.Mui-focused fieldset": { borderColor: "#f6f4fe" },
+                "&.Mui-focused fieldset": { borderColor: "var(--color-text-primary)" },
               },
             }}
           />
@@ -542,7 +542,7 @@ const ViewAdmin: React.FC = () => {
                 color: "#e0e0e0",
                 "& fieldset": { borderColor: "#555" },
                 "&:hover fieldset": { borderColor: "#777" },
-                "&.Mui-focused fieldset": { borderColor: "#f6f4fe" },
+                "&.Mui-focused fieldset": { borderColor: "var(--color-text-primary)" },
               },
             }}
           />
@@ -566,7 +566,7 @@ const ViewAdmin: React.FC = () => {
               newPassword !== confirmPassword
             }
             sx={{
-              backgroundColor: "#f6f4fe",
+              backgroundColor: "var(--color-text-primary)",
               color: '#2c2c2c',
               "&:hover": { backgroundColor: "#777280" },
               textTransform: "none",

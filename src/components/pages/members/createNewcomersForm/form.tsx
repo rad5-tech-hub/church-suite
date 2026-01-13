@@ -361,7 +361,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
       }, 1000);
       onSuccess();
     } catch (err) {
-      console.error("❌ Failed to save form", err);
+      console.error("❌ Failed to save form", err);      
       showPageToast("Failed to save form", "error");
     } finally {
       setFormLoading(false);
@@ -396,6 +396,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
             sx={{ color: "#F6F4FE", fontSize: "1.5rem" }}
           >
             {formId ? "Edit Form" : "Create Form"}
+            <p className="text-sm text-muted/100 font-semibold">Check inputs that you would like to display in this form</p>
           </Typography>
           <IconButton onClick={onClose}>
             <Close className="text-gray-300" />
@@ -462,16 +463,16 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 variant="contained"
                 size="medium"
                 sx={{
-                  backgroundColor: "#363740",
+                  backgroundColor: "#f6f4fe",
                   px: { xs: 2, sm: 2 },
                   py: 1,
                   borderRadius: 50,
                   fontWeight: 500,
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-text-primary)",
                   fontSize: "1rem",
                   "&:hover": {
-                    backgroundColor: "#363740",
+                    backgroundColor: "#f6f4fe",
                     opacity: 0.9,
                   },
                   mr: 2,
@@ -489,7 +490,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
               <Box sx={{ position: "relative" }}>
                 <TextField
                   label="Full Name"
-                  placeholder="Enter your full name"
+                  placeholder={`full name will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.fullname}
                   sx={{
@@ -592,7 +593,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 <TextField
                   label="Phone Number"
                   type="tel"
-                  placeholder="Enter your phone number"
+                  placeholder={`Phone number will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.phoneNumber}
                   sx={{
@@ -792,7 +793,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
               <Box sx={{ position: "relative" }}>
                 <TextField
                   label="Address"
-                  placeholder="Enter your address"
+                  placeholder={`Address will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.address}
                   sx={{
@@ -1224,7 +1225,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     {q.type === "text" && (
                       <TextField
                         fullWidth
-                        placeholder="Enter your answer"
+                        placeholder={`check to display ${q.question} on ${formName || 'this form'}`}
                         value={answers[q.id] || ""}
                         onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                         disabled={!checkedQuestions[q.id]}
@@ -1530,7 +1531,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                       <TextField
                         fullWidth
                         disabled
-                        placeholder="Free text response"
+                        placeholder={`${selectedQuestion.question} will display on ${formName || 'this form'}`}
                         size="small"
                         InputProps={{
                           sx: {
@@ -1618,7 +1619,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                             fullWidth
                             size="small"
                             value={opt}
-                            placeholder="Enter option"
+                            placeholder={`${selectedQuestion} will display on ${formName || 'this form'}`}
                             onChange={(e) => updateOption(i, e.target.value)}
                             InputProps={{
                               sx: {

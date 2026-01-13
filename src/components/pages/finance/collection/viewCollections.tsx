@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Menu,
   MenuItem,
   useTheme,
   useMediaQuery,
@@ -24,20 +23,18 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
-import {
-  MoreVert as MoreVertIcon,
+import {  
   ChevronLeft,
   ChevronRight,
   Close,
 } from "@mui/icons-material";
-import { MdOutlineEdit } from "react-icons/md";
 import Api from "../../../shared/api/api";
 import { usePageToast } from "../../../hooks/usePageToast";
 import { showPageToast } from "../../../util/pageToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import CreateCollection from "./createCollections";
-import { FaBoxTissue } from "react-icons/fa";
+import { FaBoxTissue, FaRegEdit } from "react-icons/fa";
 
 interface Collections {
   id: string;
@@ -90,8 +87,6 @@ interface State {
   isModalOpen: boolean;
   currentCollection: Collections | null;
   actionType: string | null;
-  anchorEl: HTMLElement | null;
-
   /* edit form */
   editFormData: Partial<
     Pick<Collections, "name" | "description" | "scopeType" | "branchId" | "departmentId">
@@ -116,8 +111,7 @@ const initialState: State = {
   confirmModalOpen: false,
   isModalOpen: false,
   currentCollection: null,
-  actionType: null,
-  anchorEl: null,
+  actionType: null,  
   editFormData: { name: "", description: "", scopeType: "church" },
   branches: [],
   departments: [],
@@ -173,9 +167,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
             color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
             "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
           }}
           aria-label="Previous page"
@@ -189,9 +183,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
             color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
             "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
           }}
           aria-label="Next page"
@@ -382,31 +376,28 @@ const ViewCollections: React.FC = () => {
     [handleStateChange]
   );
 
-  /* ---------- MENU & EDIT OPEN ---------- */
-  const handleMenuClose = () => handleStateChange("anchorEl", null);
-
-  const handleEditOpen = async () => {
-    if (!state.currentCollection) return;
+  const handleEditOpen = async (collection: any) => {
+    if (!state.collections) return;
 
     // Populate form
     handleStateChange("editFormData", {
-      name: state.currentCollection.name,
-      description: state.currentCollection.description,
-      scopeType: state.currentCollection.scopeType,
-      branchId: state.currentCollection.branchId,
-      departmentId: state.currentCollection.departmentId,
+      name: collection.name,
+      description: collection.description,
+      scopeType: collection.scopeType,
+      branchId: collection.branchId,
+      departmentId: collection.departmentId,
     });
 
     // Load branches if needed
-    if (state.currentCollection.scopeType !== "church") await fetchBranches();
+    if (collection.scopeType !== "church") await fetchBranches();
 
     // Load departments if level = department
-    if (state.currentCollection.scopeType === "department" && state.currentCollection.branchId) {
-      await fetchDepartments(state.currentCollection.branchId);
+    if (collection.scopeType === "department" && collection.branchId) {
+      await fetchDepartments(collection.branchId);
     }
 
-    handleStateChange("editModalOpen", true);
-    handleMenuClose();
+    handleStateChange('currentCollection', collection);
+    handleStateChange("editModalOpen", true);   
   };
 
   /* ---------- FORM HANDLERS ---------- */
@@ -505,10 +496,10 @@ const ViewCollections: React.FC = () => {
         justifyContent: "center",
       }}
     >
-      <FaBoxTissue size={60} color="rgba(255, 255, 255, 0.5)" style={{ marginBottom: 16 }} />
+      <FaBoxTissue size={60} color="var(--color-text-muted)" style={{ marginBottom: 16 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.5)"
+        color="var(--color-text-primary)"
         gutterBottom
         sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
       >
@@ -523,12 +514,12 @@ const ViewCollections: React.FC = () => {
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
         sx={{
-          backgroundColor: "#363740",
+          backgroundColor: "var(--color-text-primary)",
           px: { xs: 2, sm: 2 },
           mt: 2,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
-          "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+          color: "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
         }}
       >
         Create New Collection
@@ -555,9 +546,9 @@ const ViewCollections: React.FC = () => {
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Finance</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]">Collections</span>
+              <span className="text-[var(--color-text-muted)]">Finance</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />{" "}
+              <span className="text-[var(--color-text-primary)]">Collections</span>
             </Typography>
           </Grid>
           <Grid
@@ -572,15 +563,15 @@ const ViewCollections: React.FC = () => {
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 2, md: 3 },
                 py: {xs: 1, sm: 1, md: 1},
                 borderRadius: 50,
-                color: "#F6F4FE",
+                color: "var(--color-primary)",
                 fontWeight: 600,
                 textTransform: "none",
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Create Collection
@@ -606,12 +597,12 @@ const ViewCollections: React.FC = () => {
                   <Card
                     sx={{
                       borderRadius: "10.267px",
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
+                      backgroundColor: "var(--color-surface-glass)",
                       boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
                       height: "100%",
                       display: "flex",
                       flexDirection: "column",
-                      "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                      "&:hover": { backgroundColor: "var(--color-surface-glass)" },
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
@@ -619,13 +610,13 @@ const ViewCollections: React.FC = () => {
                         <Box>         
                           <IconButton
                             sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#777280",
+                              backgroundColor: "var(--color-surface-glass)",
+                              color: "var(--color-text-secondary)",
                               padding: "15px",
                               borderRadius: 1,
                             }}
                           >
-                            <span className="border-2 rounded-md border-[#777280] p-1">
+                            <span className="border-2 rounded-md border-[var(--color-border-glass)] p-1">
                               <FaBoxTissue size={30} />
                             </span>
                           </IconButton>
@@ -633,18 +624,17 @@ const ViewCollections: React.FC = () => {
 
                         <Box>
                           <IconButton
-                            onClick={(e) => {
-                              handleStateChange("currentCollection", collection);
-                              handleStateChange("anchorEl", e.currentTarget);
+                            onClick={() => {                                   
+                              handleEditOpen(collection);                   
                             }}
                             sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
+                              backgroundColor: "var(--color-surface-glass)",
                               color: "#777280",
                               padding: "8px",
                               borderRadius: 1,
                             }}
                           >
-                            <MoreVertIcon />
+                            <FaRegEdit/>
                           </IconButton>
                         </Box>
                       </Box>
@@ -652,7 +642,7 @@ const ViewCollections: React.FC = () => {
                       <Typography
                         variant="h6"
                         fontWeight={600}
-                        sx={{ color: "#E1E1E1", display: "flex", alignItems: "center", gap: 1 }}
+                        sx={{ color: "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 1 }}
                       >
                         {collection.name}
                         
@@ -687,7 +677,7 @@ const ViewCollections: React.FC = () => {
                           <Typography
                             variant="body2"
                             sx={{
-                              color: "#777280",
+                              color: "var(--color-text-muted)",
                               display: "-webkit-box",
                               WebkitBoxOrient: "vertical",
                               WebkitLineClamp: 2,
@@ -728,19 +718,6 @@ const ViewCollections: React.FC = () => {
           onSuccess={refreshCollections}
         />
 
-        {/* More-Vert Menu */}
-        <Menu
-          anchorEl={state.anchorEl}
-          open={Boolean(state.anchorEl)}
-          onClose={handleMenuClose}
-          PaperProps={{ sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } } }}
-        >
-          <MenuItem onClick={handleEditOpen}>
-            <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
-            Edit
-          </MenuItem>
-        </Menu>
-
         {/* EDIT DIALOG */}
         <Dialog
           open={state.editModalOpen}
@@ -753,8 +730,8 @@ const ViewCollections: React.FC = () => {
           sx={{
             "& .MuiDialog-paper": {
               borderRadius: 2,
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
             },
           }}
         >
@@ -786,25 +763,25 @@ const ViewCollections: React.FC = () => {
                 variant="outlined"
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                   },
                 }}
-                InputLabelProps={{ sx: { color: "#F6F4FE" } }}
+                InputLabelProps={{ sx: { color: "var(--color-text-primary)" } }}
               />
 
               {/* Level */}
               <FormControl fullWidth variant="outlined">
-                <InputLabel sx={{ color: "#F6F4FE" }}>Scope</InputLabel>
+                <InputLabel sx={{ color: "var(--color-text-primary)" }}>Scope</InputLabel>
 
                 <Select<"church" | "branch" | "department">
                   value={state.editFormData.scopeType ?? ""}
                   label="Scope"
                   onChange={handleScopeChange}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                    "& .MuiSvgIcon-root": { color: "var(--color-text-primary)" },
                   }}
                 >
                   <MenuItem value="church">Church</MenuItem>
@@ -817,7 +794,7 @@ const ViewCollections: React.FC = () => {
               {/* Branch (shown for branch / department) */}
               {(state.editFormData.scopeType === "branch" || state.editFormData.scopeType === "department") && (
                 <FormControl fullWidth variant="outlined">
-                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                  <InputLabel sx={{ color: "var(--color-text-primary)" }}>
                     {state.loadingBranches ? "Loading…" : "Branch"}
                   </InputLabel>
                   <Select
@@ -826,9 +803,9 @@ const ViewCollections: React.FC = () => {
                     label={state.loadingBranches ? "Loading…" : "Branch"}
                     disabled={state.loadingBranches}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                      "& .MuiSvgIcon-root": { color: "var(--color-text-primary)" },
                     }}
                   >
                     {state.branches.map((b) => (
@@ -848,7 +825,7 @@ const ViewCollections: React.FC = () => {
               {/* Department (shown only for department) */}
               {state.editFormData.scopeType === "department" && (
                 <FormControl fullWidth variant="outlined">
-                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                  <InputLabel sx={{ color: "var(--color-text-primary)" }}>
                     {state.loadingDepartments ? "Loading…" : "Department"}
                   </InputLabel>
                   <Select
@@ -857,9 +834,9 @@ const ViewCollections: React.FC = () => {
                     label={state.loadingDepartments ? "Loading…" : "Department"}
                     disabled={state.loadingDepartments || !state.editFormData.branchId}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                      "& .MuiSvgIcon-root": { color: "var(--color-text-primary)" },
                     }}
                   >
                     {state.departments.map((d) => (
@@ -888,11 +865,11 @@ const ViewCollections: React.FC = () => {
                 variant="outlined"
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                   },
                 }}
-                InputLabelProps={{ sx: { color: "#F6F4FE" } }}
+                InputLabelProps={{ sx: { color: "var(--color-text-primary)" } }}
               />
             </Box>
           </DialogContent>
@@ -903,13 +880,13 @@ const ViewCollections: React.FC = () => {
               disabled={state.loading}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 6, sm: 2 },
                 borderRadius: 50,
-                color: "#2C2C2C",
+                color: "var(--color-primary)",
                 fontWeight: "semibold",
                 textTransform: "none",
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               {state.loading ? "Saving…" : "Save Changes"}

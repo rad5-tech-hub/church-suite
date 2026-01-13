@@ -9,8 +9,6 @@ import {
   CardContent,
   Typography,
   IconButton,
-  Menu,
-  MenuItem,
   useTheme,
   useMediaQuery,
   CircularProgress,
@@ -19,19 +17,18 @@ import {
   Avatar,
   Divider,
 } from "@mui/material";
-import {
-  MoreVert as MoreVertIcon,
+import {  
   CalendarToday,
   Comment,
   SentimentVeryDissatisfied as EmptyIcon,
 } from "@mui/icons-material";
-import { MdOutlineEdit } from "react-icons/md";
 import moment from "moment";
 
 import Api from "../../shared/api/api";
 import { usePageToast } from "../../hooks/usePageToast";
 import { showPageToast } from "../../util/pageToast";
 import ReportModal from "./reports";
+import { LuExternalLink } from "react-icons/lu";
 
 /* -------------------------- Types -------------------------- */
 interface File {
@@ -146,16 +143,12 @@ const ViewReports: React.FC = () => {
   }, []);
 
   /* -------------------------- Menu -------------------------- */
-  const openMenu = (e: React.MouseEvent<HTMLElement>, id: string) => {
-    set("anchorEl", e.currentTarget);
-    set("selectedId", id);
-  };
   const closeMenu = () => {
     set("anchorEl", null);
     set("selectedId", null);
   };
-  const goToDetails = () => {
-    if (s.selectedId) navigate(`/reports/${s.selectedId}`);
+  const goToDetails = (id: string) => {
+    if (id) navigate(`/reports/${id}`);
     closeMenu();
   };
 
@@ -174,9 +167,9 @@ const ViewReports: React.FC = () => {
         gap: 2,
       }}
     >
-      <EmptyIcon sx={{ fontSize: 70, color: "rgba(255,255,255,0.4)" }} />
+      <EmptyIcon sx={{ fontSize: 70, color: "var(--color-text-muted)" }} />
 
-      <Typography variant="h6" color="rgba(255,255,255,0.7)">
+      <Typography variant="h6" color="var(--color-text-primary)">
         {s.error 
           ? "Unable to load reports" 
           : "No reports yet"
@@ -208,9 +201,10 @@ const ViewReports: React.FC = () => {
           size="large"
           sx={{
             mt: 2,
-            bgcolor: "#6C5CE7",
+            bgcolor: "var(--color-text-primary)",
+            color: "var(--color-primary)",
             px: 4,
-            "&:hover": { bgcolor: "#5A4FCF" },
+            "&:hover": { bgcolor: "var(--color-text-primary)" },
           }}
         >
           Write New Report
@@ -224,8 +218,8 @@ const ViewReports: React.FC = () => {
           onClick={refresh}
           sx={{
             mt: 1,
-            borderColor: "rgba(255,255,255,0.3)",
-            color: "white",
+            borderColor: "var(--color-text-primary)",
+            color: "var(--color-primary)",
           }}
         >
           Try Again
@@ -245,7 +239,7 @@ const ViewReports: React.FC = () => {
               variant="h5"
               fontWeight={600}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 fontSize: isLg ? "1.5rem" : "1.25rem",
                 display: "flex",
                 alignItems: "center",
@@ -260,14 +254,14 @@ const ViewReports: React.FC = () => {
               variant="contained"
               onClick={openModal}
               sx={{
-                bgcolor: "#4d4d4e8e",
+                bgcolor: "var(--color-text-primary)",
                 px: 3,
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "#F6F4FE",
-                "&:hover": { bgcolor: "#777280", opacity: 0.9 },
+                color: "var(--color-primary)",
+                "&:hover": { bgcolor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Write Report
@@ -293,14 +287,14 @@ const ViewReports: React.FC = () => {
                 <Card
                   sx={{
                     borderRadius: "10px",
-                    bgcolor: "rgba(255,255,255,0.05)",
+                    bgcolor: "var(--color-surface-glass)",
                     boxShadow: "0 1.3px 15px rgba(0,0,0,0.1)",
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     transition: "all .3s ease",
                     "&:hover": {
-                      bgcolor: "rgba(255,255,255,0.1)",
+                      bgcolor: "var(--color-surface-glass)",
                       transform: "translateY(-4px)",
                       boxShadow: "0 8px 25px rgba(0,0,0,0.2)",
                     },
@@ -312,23 +306,24 @@ const ViewReports: React.FC = () => {
                       <Typography
                         variant="h6"
                         fontWeight={600}
-                        sx={{ color: "#F6F4FE", wordBreak: "break-word", flex: 1 }}
+                        sx={{ color: "var(--color-text-primary)", wordBreak: "break-word", flex: 1 }}
                       >
                         {r.title}
                       </Typography>
 
                       <Box>
                         <IconButton
-                            onClick={(e) => openMenu(e, r.id)}
+                            title="View Report"
+                            onClick={() => goToDetails(r.id)}
                             sx={{
-                            bgcolor: "rgba(255,255,255,0.06)",
-                            color: "#F6F4FE",
-                            p: "6px",
+                            bgcolor: "var(--color-surface-glass)",
+                            color: "var(--color-text-muted)",
+                            p: "8px",
                             borderRadius: 1,
-                            "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                            "&:hover": { bgcolor: "var(--color-surface))" },
                             }}
                         >
-                            <MoreVertIcon />
+                            <LuExternalLink size={22}/>
                         </IconButton>
                       </Box>
                     </Box>
@@ -336,10 +331,10 @@ const ViewReports: React.FC = () => {
                     {/* Comments */}
                     {r.comments && (
                       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 2 }}>
-                        <Comment sx={{ color: "rgba(255,255,255,0.5)", fontSize: 16, mt: 0.3 }} />
+                        <Comment sx={{ color: "var(--color-text-primary)", fontSize: 16, mt: 0.3 }} />
                         <Typography
                           variant="body2"
-                          sx={{ color: "rgba(255,255,255,0.8)", lineHeight: 1.5, wordBreak: "break-word" }}
+                          sx={{ color: "var(--color-text-muted)", lineHeight: 1.5, wordBreak: "break-word" }}
                         >
                           {(() => {
                             const words = r.comments.split(" ");
@@ -353,14 +348,14 @@ const ViewReports: React.FC = () => {
                     {r.file?.length > 0 && (
                       <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
                         <Tooltip title={`${r.file.length} file${r.file.length > 1 ? "s" : ""}`}>
-                          <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.3)" }}>
+                          <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
                             file: {r.file.length}
                           </Typography>
                         </Tooltip>
                       </Box>
                     )}
 
-                    <Divider sx={{ my: 2, borderColor: "rgba(255,255,255,0.1)" }} />
+                    <Divider sx={{ my: 2, borderColor: "var(--color-border-glass)" }} />
 
                     {/* Creator */}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
@@ -368,7 +363,7 @@ const ViewReports: React.FC = () => {
                         sx={{
                           width: 32,
                           height: 32,
-                          bgcolor: "rgba(255,255,255,0.1)",
+                          bgcolor: "var(--color-text-primary)",
                           fontSize: "0.8rem",
                           fontWeight: "bold",
                         }}
@@ -382,10 +377,10 @@ const ViewReports: React.FC = () => {
                       </Avatar>
 
                       <Box>
-                        <Typography variant="body2" sx={{ color: "#F6F4FE", fontWeight: 500 }}>
+                        <Typography variant="body2" sx={{ color: "var(--color-text-primary)", fontWeight: 500 }}>
                           {r.creator.name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)" }}>
+                        <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
                           {r.creator.email}
                         </Typography>
                       </Box>
@@ -393,8 +388,8 @@ const ViewReports: React.FC = () => {
 
                     {/* Date */}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <CalendarToday sx={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }} />
-                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.7)" }}>
+                      <CalendarToday sx={{ color: "var(--color-text-secondary)", fontSize: 14 }} />
+                      <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
                         {moment(r.createdAt).format("MMM DD, YYYY [at] h:mm A")}
                       </Typography>
                     </Box>
@@ -404,28 +399,6 @@ const ViewReports: React.FC = () => {
             ))}
           </Grid>
         )}
-
-        {/* More Menu – navigates to details */}
-        <Menu
-          anchorEl={s.anchorEl}
-          open={Boolean(s.anchorEl)}
-          onClose={closeMenu}
-          PaperProps={{
-            sx: {
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
-              "& .MuiMenuItem-root": {
-                fontSize: isLg ? "0.875rem" : "0.8rem",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
-              },
-            },
-          }}
-        >
-          <MenuItem onClick={goToDetails}>
-            <MdOutlineEdit style={{ marginRight: 8 }} />
-            View Details
-          </MenuItem>
-        </Menu>
 
         {/* Write Report Modal */}
         <ReportModal open={s.isModalOpen} onClose={closeModal} onSuccess={refresh} />

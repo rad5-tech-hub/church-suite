@@ -129,9 +129,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
           color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
         }}
         aria-label="Previous page"
@@ -145,9 +145,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
+          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
           color: !hasNextPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
         }}
         aria-label="Next page"
@@ -162,28 +162,28 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
   <TableRow
     sx={{
       "& td": { border: "none" },
-      backgroundColor: member.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+      backgroundColor: member.isDeleted ? "var(--color-text-muted)" : "var(--color-surface-glass)",
       borderRadius: "4px",
-      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
+      "&:hover": { backgroundColor: "var(--color-surface-glass)", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
       transition: "all 0.2s ease",
       mb: 2,
     }}
   >
-    <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {(index + 1).toString().padStart(2, "0")}
     </TableCell>
-    <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
-      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+    <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" : "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
+      <Box className="py-2 px-3 rounded-full bg-[var(--color-text-secondary)] text-[var(--color-primary)] font-bold text-lg mr-2">
         {member.name.split(" ").map((name) => name.charAt(0)).join("")}
       </Box>
       <Box>
         {member.name}
       </Box>
     </TableCell>
-    <TableCell sx={{ width: columnWidths.sex, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.sex, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {member.sex || "N/A"}
     </TableCell>
-    <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {member.phoneNo || "N/A"}
     </TableCell>
     <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
@@ -210,13 +210,13 @@ const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAdd
       variant="contained"
       onClick={onAddMember}
       sx={{
-        backgroundColor: "#363740",
+        backgroundColor: "var(--color-text-primary)",
         px: { xs: 2, sm: 2 },
         mt: 2,
         borderRadius: 50,
         py: 1,
         fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: "var(--color-text-on-primary)",
+        color: "var(--color-primary)",
         "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
       }}
     >
@@ -283,7 +283,7 @@ const ConfirmationDialog: React.FC<{
     open={open}
     onClose={onClose}
     maxWidth="xs"
-    sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
+    sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "var(--color-text-primary)" } }}
   >
     <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {actionType === "delete" ? "Delete Member" : "Suspend Member"}
@@ -614,46 +614,6 @@ const ViewMembers: React.FC = () => {
     }
   };
 
-  // File Import/Export Handlers
-  // const handleExportExcel = useCallback(async () => {
-  //   handleStateChange("exportLoading", true);
-  //   try {
-  //     const response = await Api.get(`/member/export?branchId=${authData?.branchId}`, { responseType: "blob" });
-  //     const contentDisposition = response.headers["content-disposition"];
-  //     let filename = "members_export.xlsx";
-  //     if (contentDisposition) {
-  //       const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-  //       if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
-  //     }
-  //     const blob = new Blob([response.data], {
-  //       type: response.headers["content-type"] || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  //     });
-  //     const url = window.URL.createObjectURL(blob);
-  //     const link = document.createElement("a");
-  //     link.href = url;
-  //     link.download = filename;
-  //     document.body.appendChild(link);
-  //     link.click();
-  //     document.body.removeChild(link);
-  //     window.URL.revokeObjectURL(url);
-  //     showPageToast("Excel file exported successfully!", "success");
-  //   } catch (error: any) {
-  //     console.error("Failed to export members:", {
-  //       message: error.message,
-  //       response: error.response?.data,
-  //       status: error.response?.status,
-  //     });
-  //     const errorMessage = error.response?.data?.message || "Failed to export Excel file. Please try again.";
-  //     showPageToast(errorMessage, "error");
-  //   } finally {
-  //     handleStateChange("exportLoading", false);
-  //   }
-  // }, [authData?.branchId, handleStateChange]);
-
-  // const handleImportExcel = () => {
-  //   handleStateChange("openDialog", true);
-  // };
-
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (
@@ -747,16 +707,16 @@ const ViewMembers: React.FC = () => {
       anchor="top"
       open={state.isDrawerOpen}
       onClose={() => handleStateChange("isDrawerOpen", false)}
-      sx={{ "& .MuiDrawer-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE", padding: 2, boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)" } }}
+      sx={{ "& .MuiDrawer-paper": { backgroundColor: "var(--color-text-primary)", color: "var(--color-primary)", padding: 2, boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)" } }}
     >
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color: "#F6F4FE" }}>
+        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color: "var(--color-text-primary)" }}>
           <CloseIcon />
         </IconButton>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2, gap: 2 }}>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -771,10 +731,10 @@ const ViewMembers: React.FC = () => {
                 variant="outlined"
                 size="small"
                 sx={{
-                  backgroundColor: "#4d4d4e8e",
+                  backgroundColor: "var(--color-text-primary)",
                   borderRadius: "8px",
-                  "& .MuiInputLabel-root": { color: "#F6F4FE" },
-                  "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+                  "& .MuiInputLabel-root": { color: "var(--color-text-primary)" },
+                  "& .MuiOutlinedInput-root": { color: "var(--color-text-primary)", "& fieldset": { borderColor: "transparent" } },
                   "& .MuiAutocomplete-endAdornment": { display: state.searchName ? "block" : "none" },
                 }}
                 InputProps={{
@@ -782,7 +742,7 @@ const ViewMembers: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       {state.searchName && (
-                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "var(--color-text-primary)" }}>
                           <CloseIcon />
                         </IconButton>
                       )}
@@ -794,7 +754,7 @@ const ViewMembers: React.FC = () => {
           />
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Gender
           </Typography>
           <MuiSelect
@@ -806,7 +766,7 @@ const ViewMembers: React.FC = () => {
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
-              color: state.searchSex ? "#F6F4FE" : "#777280",
+              color: state.searchSex ? "var(--color-text-primary)" : "#777280",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
@@ -828,13 +788,13 @@ const ViewMembers: React.FC = () => {
             variant="contained"
             onClick={searchMembers}
             sx={{
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               color: "#4d4d4e8e",
               borderRadius: "24px",
               py: 1,
               px: 3,
               minWidth: "auto",
-              "&:hover": { backgroundColor: "#F6F4FE", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
+              "&:hover": { backgroundColor: "var(--color-text-primary)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
             }}
             startIcon={<Search />}
             disabled={state.isSearching}
@@ -848,9 +808,9 @@ const ViewMembers: React.FC = () => {
 
   const renderDesktopFilters = () => (
     <Box sx={{ display: "flex", width: "100%", mb: 3 }}>
-      <Box sx={{ border: "1px solid #4d4d4e8e", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "#4d4d4e8e", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
+      <Box sx={{ border: "1px solid var(--color-surface-border-glass)", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "var(--color-surface-glass)", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -864,7 +824,7 @@ const ViewMembers: React.FC = () => {
                 variant="standard"
                 placeholder="Search by name"
                 sx={{
-                  "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#A4A1AA", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
+                  "& .MuiInputBase-input": { color: state.searchName ? "var(--color-text-muted)" : "var(--color-text-primary)", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
                   "& .MuiInput-underline:before": { borderBottom: "none" },
                   "& .MuiInput-underline:after": { borderBottom: "none" },
                   "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -874,7 +834,7 @@ const ViewMembers: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       {state.searchName && (
-                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "var(--color-text-primary)" }}>
                           <CloseIcon />
                         </IconButton>
                       )}
@@ -885,9 +845,9 @@ const ViewMembers: React.FC = () => {
             )}
           />
         </Box>
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+        <Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Gender
           </Typography>
           <MuiSelect
@@ -897,7 +857,7 @@ const ViewMembers: React.FC = () => {
             }}
             displayEmpty        
             sx={{
-              color: state.searchSex ? "#F6F4FE" : "#777280",
+              color: state.searchSex ? "var(--color-text-muted)" : "var(--color-text-primary)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -919,13 +879,13 @@ const ViewMembers: React.FC = () => {
             onClick={searchMembers}
             sx={{
               backgroundColor: "transparent",
-              border: "1px solid #777280",
-              color: "white",
+              border: "1px solid var(--color-text-primary)",
+              color: "var(--color-text-primary)",
               borderRadius: "50%",
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#777280" },
+              "&:hover": { backgroundColor: "var(--color-surface-glass)" },
             }}
             disabled={state.isSearching}
           >
@@ -959,9 +919,9 @@ const ViewMembers: React.FC = () => {
               gutterBottom
               sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
             >
-              <span className="text-[#777280]">Membership</span>
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Members</span>
+              <span className="text-[var(--color-text-muted)]">Membership</span>
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />
+              <span className="text-[var(--color-text-primary)]">Members</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}  
@@ -971,38 +931,18 @@ const ViewMembers: React.FC = () => {
             }}
           >
             <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", sm: "row" }, width: { xs: "100%", sm: "auto" } }}>
-              {/* <Button
-                variant="contained"
-                onClick={handleImportExcel}
-                disabled={state.isLoading}
-                sx={{
-                  py: 1,
-                  backgroundColor: "#363740",
-                  px: { xs: 3, sm: 3 },
-                  borderRadius: 50,
-                  fontWeight: "semibold",
-                  textTransform: "none",
-                  color: "var(--color-text-on-primary)",
-                  fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
-                  width: { xs: "100%", sm: "auto" },
-                  minWidth: "max-content",
-                }}
-              >
-                Upload Workers <MdOutlineFileUpload className="ml-1" />
-              </Button> */}
               <Button
                 variant="contained"
                 onClick={handleAddMember}
                 size="medium"
                 sx={{
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   px: { xs: 2, sm: 2 },
                   py: 1,
                   borderRadius: 50,
                   fontWeight: 500,
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   fontSize: { xs: "1rem", sm: "1rem" },
                   "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
                   width: { xs: "100%", sm: "auto" },
@@ -1017,7 +957,7 @@ const ViewMembers: React.FC = () => {
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
-                  <Box sx={{ border: "1px solid #4d4d4e8e", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "#4d4d4e8e", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
+                  <Box sx={{ border: "1px solid var(--color-text-primary)", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "var(--color-primary)", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
                     <Box sx={{ flex: 1, padding: "4px 8px" }}>
                       <Autocomplete
                         options={state.members}
@@ -1030,7 +970,7 @@ const ViewMembers: React.FC = () => {
                             variant="standard"
                             placeholder="Search by name"
                             sx={{
-                              "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#777280", fontSize: "14px", padding: "4px 8px" },
+                              "& .MuiInputBase-input": { color: state.searchName ? "var(--color-text-primary)" : "#777280", fontSize: "14px", padding: "4px 8px" },
                               "& .MuiInput-underline:before": { borderBottom: "none" },
                               "& .MuiInput-underline:after": { borderBottom: "none" },
                               "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -1041,7 +981,7 @@ const ViewMembers: React.FC = () => {
                               endAdornment: (
                                 <InputAdornment position="end">
                                   {state.searchName && (
-                                    <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                                    <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "var(--color-text-primary)" }}>
                                       <CloseIcon />
                                     </IconButton>
                                   )}
@@ -1052,22 +992,22 @@ const ViewMembers: React.FC = () => {
                         )}
                       />
                     </Box>
-                    <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-                    <IconButton onClick={() => handleStateChange("isDrawerOpen", true)} sx={{ color: "#777280", "&:hover": { color: "#F6F4FE" } }}>
-                      <AttachFile sx={{ color: "#F6F4FE", fontSize: "20px" }} />
+                    <Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
+                    <IconButton onClick={() => handleStateChange("isDrawerOpen", true)} sx={{ color: "#777280", "&:hover": { color: "var(--color-text-primary)" } }}>
+                      <AttachFile sx={{ color: "var(--color-text-primary)", fontSize: "20px" }} />
                     </IconButton>
                     <Box sx={{ pr: "8px" }}>
                       <Button
                         onClick={searchMembers}
                         sx={{
                           backgroundColor: "transparent",
-                          border: "1px solid #777280",
-                          color: "white",
+                          border: "1px solid var(--color-text-muted)",
+                          color: "var(--color-text-primary)",
                           borderRadius: "50%",
                           minWidth: "48px",
                           height: "48px",
                           padding: 0,
-                          "&:hover": { backgroundColor: "#777280" },
+                          "&:hover": { backgroundColor: "var(--color-text-primary)" },
                         }}
                         disabled={state.isSearching}
                       >
@@ -1155,7 +1095,7 @@ const ViewMembers: React.FC = () => {
                     borderRadius: 1.5,
                     fontWeight: 500,
                     textTransform: "none",
-                    color: "#f6f4fe",
+                    color: "var(--color-text-primary)",
                     fontSize: isLargeScreen ? "1rem" : undefined,
                     boxShadow: "0px 4px 12px rgba(0,0,0,0.3)",
                     "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
@@ -1204,11 +1144,11 @@ const ViewMembers: React.FC = () => {
           onClose={handleCloseDialog}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
             <h3>Import Members Data</h3>
-            <IconButton onClick={handleCloseDialog} disabled={state.isLoading} sx={{ color: "#F6F4FE" }}>
+            <IconButton onClick={handleCloseDialog} disabled={state.isLoading} sx={{ color: "var(--color-text-primary)" }}>
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
@@ -1226,19 +1166,19 @@ const ViewMembers: React.FC = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
-              <Typography variant="body1" color="#F6F4FE" gutterBottom>
+              <Typography variant="body1" color="var(--color-text-primary)" gutterBottom>
                 Drag and drop your Excel file here or
               </Typography>
               <Button
                 variant="contained"
                 component="label"
-                sx={{ mt: 2, backgroundColor: "#F6F4FE", color: "#2C2C2C", "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 } }}
+                sx={{ mt: 2, backgroundColor: "var(--color-text-primary)", color: "#2C2C2C", "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 } }}
               >
                 Select File
                 <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} ref={fileInputRef} />
               </Button>
               {state.selectedFile && (
-                <Typography variant="body2" sx={{ mt: 2, color: "#F6F4FE" }}>
+                <Typography variant="body2" sx={{ mt: 2, color: "var(--color-text-primary)" }}>
                   Selected file: {state.selectedFile.name}
                 </Typography>
               )}
@@ -1251,20 +1191,20 @@ const ViewMembers: React.FC = () => {
               disabled={state.isLoading || !state.selectedFile}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 3, sm: 3 },
                 fontWeight: 500,
                 textTransform: "none",
                 color: "#2C2C2C",
                 borderRadius: 50,
                 fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                 mt: 2,
               }}
             >
               {state.isLoading ? (
                 <span className="text-gray-400">
-                  <CircularProgress size={18} sx={{ color: "#F6F4FE", mr: 1 }} />
+                  <CircularProgress size={18} sx={{ color: "var(--color-text-primary)", mr: 1 }} />
                   Uploading...
                 </span>
               ) : (

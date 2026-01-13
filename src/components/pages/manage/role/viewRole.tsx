@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import DashboardManager from "../../../shared/dashboardManager";
 import { useNavigate } from "react-router-dom";
 import CreateRoleModel from "./createRole";
-import EditRoleModal from "./editRole"; // <-- New component
+import EditRoleModal from "./editRole";
 import {
   Box,
   Button,
@@ -17,8 +17,6 @@ import {
   Chip,
   CircularProgress,
   Grid,
-  useTheme,
-  useMediaQuery,
   Menu,
   MenuItem,
 } from "@mui/material";
@@ -68,8 +66,6 @@ const ViewRoles: React.FC = () => {
   const navigate = useNavigate();
   const authData = useSelector((state: RootState) => state.auth?.authData);
   usePageToast("view-roles");
-  const theme = useTheme();
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 
   const [state, setState] = useState<State>(initialState);
 
@@ -139,16 +135,17 @@ const ViewRoles: React.FC = () => {
         gap: 2,
       }}
     >
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255,255,255,0.3)" }} />
-      <Typography variant="h6" color="rgba(255,255,255,0.5)">
+      <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", opacity: 0.4 }} />
+      <Typography variant="h6" color="var(--color-text-muted)">
         No roles found
       </Typography>
       <Button
         variant="contained"
         onClick={() => handleStateChange("createModalOpen", true)}
         sx={{
-          bgcolor: "#4d4d4e8e",
-          "&:hover": { bgcolor: "#4d4d4e8e", opacity: 0.9 },
+          backgroundColor: "var(--color-text-primary)",
+          color: "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
         }}
       >
         Create Role
@@ -156,42 +153,39 @@ const ViewRoles: React.FC = () => {
     </Box>
   );
 
-  // if (!authData?.isSuperAdmin) {
-  //   return <Navigate to="/manage/view-admins" replace />;
-  // }
-
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 } }}>
         {/* Header */}
         <Box sx={{ mb: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography
-              variant={"h5"}
-              component="h4"
-              fontWeight={600}
-              sx={{
-                color: theme.palette.text.primary,
-                fontSize: isLargeScreen ? "1.5rem" : undefined,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <span className="text-[#828283ad]">Manage</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[var(--color-text-on-primary)]">Roles</span>
-            </Typography>
+          <Typography
+            variant="h5"
+            component="h4"
+            fontWeight={600}
+            sx={{
+              color: "var(--color-text-primary)",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <span style={{ color: "var(--color-text-muted)" }}>Manage</span>{" "}
+            <LiaLongArrowAltRightSolid style={{ color: "var(--color-text-primary)" }} />{" "}
+            <span style={{ color: "var(--color-text-primary)" }}>Roles</span>
+          </Typography>
+
           <Button
             variant="contained"
             onClick={() => handleStateChange("createModalOpen", true)}
             sx={{
-              bgcolor: "#4d4d4e8e",
+              backgroundColor: "var(--color-text-primary)",
+              color: "var(--color-primary)",
               px: 3,
               py: 1,
               borderRadius: 50,
               fontWeight: 500,
               textTransform: "none",
-              "&:hover": { bgcolor: "#777280", opacity: 0.9 },
+              "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
             }}
           >
             Create Role +
@@ -201,7 +195,7 @@ const ViewRoles: React.FC = () => {
         {/* Loading */}
         {state.loading && state.roles.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-            <CircularProgress sx={{ color: "#777280" }} />
+            <CircularProgress sx={{ color: "var(--color-text-muted)" }} />
           </Box>
         )}
 
@@ -210,7 +204,6 @@ const ViewRoles: React.FC = () => {
         {!state.loading && !state.error && state.roles.length === 0 && <EmptyState />}
 
         {/* Roles Grid */}
-        {/* Roles Grid */}
         {state.roles.length > 0 && (
           <Grid container spacing={3}>
             {state.roles.map((role) => (
@@ -218,11 +211,11 @@ const ViewRoles: React.FC = () => {
                 <Card
                   sx={{
                     borderRadius: 3,
-                    bgcolor: "rgba(255,255,255,0.05)",
+                    bgcolor: "var(--color-surface-glass)",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                     height: "100%",
                     transition: "all 0.2s",
-                    "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                    "&:hover": { bgcolor: "var(--color-surface)", boxShadow: "0 4px 16px rgba(0,0,0,0.15)" },
                   }}
                 >
                   <CardContent sx={{ p: 3 }}>
@@ -230,16 +223,16 @@ const ViewRoles: React.FC = () => {
                       <Box>
                         <IconButton
                           sx={{
-                            backgroundColor: "rgba(255,255,255,0.06)",
-                            color: "#777280",
+                            backgroundColor: "var(--color-surface-glass)",
+                            color: "var(--color-text-primary)",
                             display: "flex",
                             flexDirection: "column",
                             padding: "15px",
                             borderRadius: 1,
                           }}
                         >
-                          <span className="border-2 rounded-md border-[var(--color-text-on-primary)] p-1">
-                            <PiRankingFill size={30} className="text-[var(--color-text-on-primary)]" />
+                          <span className="border-2 rounded-md border-[var(--color-border-glass)] p-1">
+                            <PiRankingFill size={30} className="text-[var(--color-text-secondary)]" />
                           </span>
                         </IconButton>
                       </Box>
@@ -251,10 +244,10 @@ const ViewRoles: React.FC = () => {
                             handleStateChange("anchorEl", e.currentTarget);
                           }}
                           sx={{
-                            bgcolor: "rgba(255,255,255,0.06)",
+                            bgcolor: "var(--color-surface-glass)",
                             borderRadius: 1,
-                            color: "#F6F4FE",
-                            "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+                            color: "var(--color-text-primary)",
+                            "&:hover": { bgcolor: "var(--color-surface)" },
                           }}
                         >
                           <MoreVertIcon />
@@ -267,25 +260,26 @@ const ViewRoles: React.FC = () => {
                       <Typography
                         variant="h6"
                         fontWeight={600}
-                        sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.1rem" : "1rem" }}
+                        sx={{ color: "var(--color-text-primary)", fontSize: "1.1rem" }}
                       >
                         {role.name}
                       </Typography>
                       <Chip
-                        label={role.scopeLevel === 'branch' 
-                          ? (!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) 
-                              ? 'Branch' 
-                              : 'Church'
-                            )
-                          : role.scopeLevel
+                        label={
+                          role.scopeLevel === 'branch' 
+                            ? (!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) 
+                                ? 'Branch' 
+                                : 'Church'
+                              )
+                            : role.scopeLevel
                         }
                         size="small"
                         sx={{
-                          bgcolor: "#4d4d4e8e",
-                          color: "#90EE90",
+                          bgcolor: "var(--color-surface-glass)",
+                          color: "var(--color-text-primary)",
                           fontWeight: 500,
-                          fontSize: "0.65rem",
-                          height: 20,
+                          fontSize: "0.7rem",
+                          height: 24,
                         }}
                       />
                     </Box>
@@ -294,7 +288,7 @@ const ViewRoles: React.FC = () => {
                     <Typography
                       variant="body2"
                       sx={{
-                        color: "#aaa",
+                        color: "var(--color-text-muted)",
                         mb: 2,
                         fontSize: "0.875rem",
                         lineHeight: 1.5,
@@ -316,14 +310,24 @@ const ViewRoles: React.FC = () => {
           onClose={() => handleStateChange("anchorEl", null)}
           PaperProps={{
             sx: {           
-              mt: 1,              
+              mt: 1,
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
+              border: "1px solid var(--color-border-glass)",
               "& .MuiMenuItem-root": {
-                fontSize: isLargeScreen ? "0.875rem" : "0.8rem",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                fontSize: "0.875rem",
+                "&:hover": { bgcolor: "var(--color-surface-glass)" },
               },
             },
           }}
         >
+          <MenuItem onClick={() => {
+            navigate(`/manage/view-role/${state.selectedRole?.id}`);
+            handleStateChange("anchorEl", null);
+          }}>
+            <Visibility sx={{ mr: 1, fontSize: 20 }} />
+            View
+          </MenuItem>
           <MenuItem
             onClick={() => {
               handleStateChange("editModalOpen", true);
@@ -332,13 +336,6 @@ const ViewRoles: React.FC = () => {
           >
             <MdOutlineEdit style={{ marginRight: 8, fontSize: 18 }} />
             Edit
-          </MenuItem>
-          <MenuItem onClick={() => {
-            navigate(`/manage/view-role/${state.selectedRole?.id}`);
-            handleStateChange("anchorEl", null);
-          }}>
-              <Visibility sx={{ mr: 1, fontSize: 20 }} />
-              View
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -382,6 +379,12 @@ const ViewRoles: React.FC = () => {
           }}
           maxWidth="xs"
           fullWidth
+          sx={{
+            "& .MuiPaper-root": {
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
+            }
+          }}
         >
           <DialogTitle>
             <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -393,6 +396,7 @@ const ViewRoles: React.FC = () => {
                   handleStateChange("confirmDeleteOpen", false);
                   handleStateChange("selectedRole", null);
                 }}
+                sx={{ color: "var(--color-text-primary)" }}
               >
                 <Close />
               </IconButton>
@@ -409,10 +413,16 @@ const ViewRoles: React.FC = () => {
                 handleStateChange("confirmDeleteOpen", false);
                 handleStateChange("selectedRole", null);
               }}
+              sx={{ color: "var(--color-text-primary)" }}
             >
               Cancel
             </Button>
-            <Button onClick={handleDelete} color="error" variant="contained" disabled={state.loading}>
+            <Button
+              onClick={handleDelete}
+              color="error"
+              variant="contained"
+              disabled={state.loading}
+            >
               {state.loading ? <CircularProgress size={20} /> : "Delete"}
             </Button>
           </DialogActions>
