@@ -161,7 +161,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
           borderRadius: 2,
           py: 2,
           px: 1,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
         },
       }}
     >
@@ -171,7 +171,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                 variant="h5"
                 fontWeight={600}
                 gutterBottom
-                sx={{ color: "#F6F4FE", fontSize: "1.5rem"}}
+                sx={{ color: "var(--color-text-primary)", fontSize: "1.5rem"}}
             >
             Add Questions
             </Typography>
@@ -191,7 +191,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
               mb: 2,
               mt: 3,
               borderRadius: 1,
-              bgcolor: '#2C2C2C',
+              bgcolor: 'var(--color-primary)',
               position: 'relative',
             }}
           >
@@ -204,10 +204,10 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                     position: 'absolute',
                     top: -15,
                     right: -15,
-                    bgcolor: '#4B4B4B',
+                    bgcolor: 'var(--color-border-glass)',
                     borderRadius: '6px',
                     "&:hover": {
-                    bgcolor: '#6B6B6B', // lighter version of #4B4B4B
+                    bgcolor: 'var(--color-border-subtle)', // lighter version of #4B4B4B
                     },
                 }}
             >
@@ -226,17 +226,17 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                   }
                 InputProps={{
                     sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize:  "1rem",
                     },
                 }}
                 InputLabelProps={{
                     sx: {
                     fontSize:  "1rem",
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     },
                 }}
                 sx={{
@@ -250,7 +250,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
               </Grid>
               <Grid size={{xs: 12, md: 5}}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{color:'#f6f4fe'}} > Type</InputLabel>
+                  <InputLabel sx={{color:'var(--color-text-primary)'}} > Type</InputLabel>
                   <Select
                     value={q.type}
                     label="Type"
@@ -263,10 +263,10 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                     }
                     sx={{
                         fontSize: '1rem',
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                         "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
+                        "& .MuiSelect-select": { color: "var(--color-text-primary)" },
                         "& .MuiSelect-icon": { color: "#777280" },
                     }}
                   >
@@ -309,7 +309,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                     sx: {
                     fontSize: "1rem",
                     color: "#9E9E9E",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     "&.Mui-disabled": {
                         color: "#9E9E9E", // muted label when disabled
                     },
@@ -396,7 +396,7 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                         }
                         InputProps={{
                             sx: {
-                            color: "#F6F4FE", // active text color
+                            color: "var(--color-text-primary)", // active text color
                             "& .MuiOutlinedInput-notchedOutline": {
                                 borderColor: "#777280", // muted border
                             },
@@ -422,10 +422,10 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                                 size="small"
                                 color="error"
                                 sx={{
-                                bgcolor: '#4B4B4B',
+                                bgcolor: 'var(--color-border-glass)',
                                 borderRadius: '6px',
                                 "&:hover": {
-                                    bgcolor: '#6B6B6B', // lighter version of #4B4B4B
+                                    bgcolor: 'var(--color-border-subtle)', // lighter version of #4B4B4B
                                 },
                                 }}
                             >
@@ -445,8 +445,8 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                             color="primary"
                             sx={{
                                 mt: 1,
-                                bgcolor: '#4B4B4B',
-                                "&:hover": { bgcolor: '#525252' },
+                                bgcolor: 'var(--color-border-glass)',
+                                "&:hover": { bgcolor: 'var(--color-border-subtle)' },
                             }}
                             >
                             <AddIcon />
@@ -468,8 +468,8 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
                 color="primary"
                 sx={{
                     mt: 1,
-                    bgcolor: '#4B4B4B',
-                    '&:hover': { bgcolor: '#525252' },
+                    bgcolor: 'var(--color-border-glass)',
+                    '&:hover': { bgcolor: 'var(--color-border-subtle)' },
                 }}
                 >
                 <AddIcon />
@@ -482,15 +482,15 @@ const Question: React.FC<QuestionProps> = ({ open, onClose, onSuccess }) => {
         <Button onClick={handleSave} variant="contained"               
             sx={{
             py: 1,
-            backgroundColor: '#F6F4FE',
+            backgroundColor: 'var(--color-text-primary)',
             px: { xs: 5, sm: 5 },
             borderRadius: 50,
             fontWeight: 'semibold',
             textTransform: 'none',
             fontSize: { xs: '1rem', sm: '1rem' },
-            color: '#2C2C2C',
+            color: 'var(--color-primary)',
             '&:hover': {
-                backgroundColor: '#F6F4FE',
+                backgroundColor: 'var(--color-text-primary)',
                 opacity: 0.9,
             },
             width: { xs: '100%', sm: 'auto' },

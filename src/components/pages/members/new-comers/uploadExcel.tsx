@@ -170,14 +170,14 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
       fullWidth
       sx={{
         '& .MuiDialog-paper': {
-          backgroundColor: '#2C2C2C',
-          color: '#F6F4FE',
+          backgroundColor: 'var(--color-primary)',
+          color: 'var(--color-text-primary)',
         },
       }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <h3>Import Newcomers Data</h3>
-        <IconButton onClick={handleClose} disabled={isLoading} sx={{ color: '#F6F4FE' }}>
+        <IconButton onClick={handleClose} disabled={isLoading} sx={{ color: 'var(--color-text-primary)' }}>
           <Close sx={{ mr: 1 }} />
         </IconButton>
       </DialogTitle>
@@ -192,7 +192,7 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
             clearIcon={
               uploadBranchId ? (
                 <Close
-                  sx={{ color: '#F6F4FE', cursor: 'pointer' }}
+                  sx={{ color: 'var(--color-text-primary)', cursor: 'pointer' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setUploadBranchId(authData?.branchId || null); // Reset to default branch
@@ -218,10 +218,10 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
                   ),
                 }}
                 sx={{
-                  '& .MuiInputBase-root': { color: '#F6F4FE' },
+                  '& .MuiInputBase-root': { color: 'var(--color-text-primary)' },
                   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
-                  '& .MuiInputLabel-root': { color: '#F6F4FE' },
-                  "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" } ,
+                  '& .MuiInputLabel-root': { color: 'var(--color-text-primary)' },
+                  "& .MuiAutocomplete-popupIndicator": { color: "var(--color-text-primary)" } ,
                   '& .Mui-error .MuiOutlinedInput-notchedOutline': { borderColor: '#F44336' }, // Red border for error
                 }}
               />
@@ -235,7 +235,7 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
         </Box>
         <Box
           sx={{
-            border: `2px dashed ${isDragging ? '#F6F4FE' : '#777280'}`,
+            border: `2px dashed ${isDragging ? 'var(--color-text-primary)' : '#777280'}`,
             borderRadius: 2,
             p: 4,
             textAlign: 'center',
@@ -246,7 +246,7 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          <Typography variant="body1" color="#F6F4FE" gutterBottom>
+          <Typography variant="body1" color="var(--color-text-primary)" gutterBottom>
             Drag and drop your Excel file here or
           </Typography>
           <Button
@@ -254,9 +254,9 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
             component="label"
             sx={{
               mt: 2,
-              backgroundColor: '#F6F4FE',
-              color: '#2C2C2C',
-              '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+              backgroundColor: 'var(--color-text-primary)',
+              color: 'var(--color-primary)',
+              '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
             }}
           >
             Select File
@@ -269,7 +269,7 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
             />
           </Button>
           {selectedFile && (
-            <Typography variant="body2" sx={{ mt: 2, color: '#F6F4FE' }}>
+            <Typography variant="body2" sx={{ mt: 2, color: 'var(--color-text-primary)' }}>
               Selected file: {selectedFile.name}
             </Typography>
           )}
@@ -281,9 +281,9 @@ const UploadNewcomersDialog: React.FC<UploadNewcomersDialogProps> = ({
           variant="contained"
           disabled={isLoading || !selectedFile}
           sx={{
-            backgroundColor: '#777280',
-            color: '#F6F4FE',
-            '&:hover': { backgroundColor: '#777280', opacity: 0.9 },
+            backgroundColor: 'var(--color-text-primary)',
+            color: 'var(--color-primary)',
+            '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
           }}
         >
           {isLoading ? (

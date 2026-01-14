@@ -140,10 +140,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" :  "var(--color-text-primary)",
-          color: !hasPrevPage || isLoading ? "var(--color-text-muted)" : "#160F38",
-          "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "var(--color-text-muted)" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -156,10 +156,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" :  "var(--color-text-primary)",
-          color: !hasNextPage || isLoading ? "var(--color-text-muted)" : "#160F38",
-          "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "var(--color-text-muted)" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >
@@ -234,8 +234,8 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
 
 const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAddMember: () => void }> = ({ error, isLargeScreen, onAddMember }) => (
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
-    <Typography variant="h6" color="rgba(255, 255, 255, 0.5)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
+    <Typography variant="h6" color="var(--color-text-muted)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {error || "No Workers found"}
     </Typography>
     <Button
@@ -315,7 +315,7 @@ const ConfirmationDialog: React.FC<{
     open={open}
     onClose={onClose}
     maxWidth="xs"
-    sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color:  "var(--color-text-primary)" } }}
+    sx={{ "& .MuiDialog-paper": { backgroundColor: "var(--color-primary)", color:  "var(--color-text-primary)" } }}
   >
     <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
@@ -326,7 +326,7 @@ const ConfirmationDialog: React.FC<{
       </Typography>
     </DialogContent>
     <DialogActions>
-      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: 'var(--color-text-primary)', bgcolor:'var(--color-surface-glass)'}} disabled={loading}>
         Cancel
       </Button>
       <Button
@@ -1043,7 +1043,7 @@ const ViewMembers: React.FC = () => {
 
   const renderDesktopFilters = () => (
     <Box sx={{ display: "flex", width: "100%", mb: 3 }}>
-      <Box sx={{ display: "flex", alignContent: "center", border: "1px solid var(--color-border-glass)", borderRadius: "9999px",backgroundColor: "var(--color-surface-glass)", padding: "4px 4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
+      <Box sx={{ display: "flex", alignItems: "center", border: "1px solid var(--color-border-glass)", borderRadius: "9999px",backgroundColor: "var(--color-surface-glass)", padding: "4px 4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
           <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
@@ -1491,7 +1491,7 @@ const ViewMembers: React.FC = () => {
           onClose={handleCloseDialog}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color:  "var(--color-text-primary)" } }}
+          sx={{ "& .MuiDialog-paper": { backgroundColor: "var(--color-primary)", color:  "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
             <h3>Import Workers Data</h3>
@@ -1499,7 +1499,8 @@ const ViewMembers: React.FC = () => {
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
-          <DialogContent sx={{mt: 3}}>
+          <DialogContent sx={{mt: 1}}>
+            <label htmlFor="branch"> Select Branch</label>
             <Autocomplete
               options={state.branches}
               getOptionLabel={(option) => option.name}
@@ -1517,8 +1518,7 @@ const ViewMembers: React.FC = () => {
               loadingText="Loading branches..."
               renderInput={(params) => (
                 <TextField
-                  {...params}
-                  label="Select Branch (optional)"
+                  {...params}        
                   variant="outlined"
                   InputProps={{
                     ...params.InputProps,
@@ -1552,7 +1552,7 @@ const ViewMembers: React.FC = () => {
               <Button
                 variant="contained"
                 component="label"
-                sx={{ mt: 2, backgroundColor:  "var(--color-text-primary)", color: "#2C2C2C", "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 } }}
+                sx={{ mt: 2, backgroundColor:  "var(--color-text-primary)", color: "var(--color-primary)", "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 } }}
               >
                 Select File
                 <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} ref={fileInputRef} />
@@ -1575,7 +1575,7 @@ const ViewMembers: React.FC = () => {
                 px: { xs: 3, sm: 3 },
                 fontWeight: 500,
                 textTransform: "none",
-                color: "#2C2C2C",
+                color: "var(--color-primary)",
                 borderRadius: 50,
                 fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
                 "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 },

@@ -174,8 +174,8 @@ const CreateWalletDialog: React.FC<Props> = ({
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -187,13 +187,13 @@ const CreateWalletDialog: React.FC<Props> = ({
         <Box sx={{ py: 3 }}>
           {isFetching ? (
             <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
-              <CircularProgress size={28} sx={{ color: "#F6F4FE" }} />
+              <CircularProgress size={28} sx={{ color: "var(--color-text-primary)" }} />
             </Box>
           ) : (
             <Typography
               variant="body1"
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 textAlign: "center",
                 fontWeight: 500,
                 fontSize: 17,
@@ -210,7 +210,7 @@ const CreateWalletDialog: React.FC<Props> = ({
         <Button
           onClick={handleCancel}
           disabled={loading}
-          sx={{ color: "#F6F4FE" }}
+          sx={{ color: "var(--color-text-primary)", backgroundColor: "var(--color-surface-glass)", }}
         >
           Cancel
         </Button>
@@ -220,8 +220,8 @@ const CreateWalletDialog: React.FC<Props> = ({
           onClick={handleCreate}
           disabled={loading || isFetching}
           sx={{
-            backgroundColor: "#F6F4FE",
-            color: "#2C2C2C",
+            backgroundColor: "var(--color-text-primary)",
+            color: "var(--color-primary)",
             borderRadius: 50,
             px: 5,
             fontWeight: 600,

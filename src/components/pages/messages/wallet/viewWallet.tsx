@@ -534,7 +534,7 @@ const fetchCollections = useCallback(
                             }}
                             size="medium"
                             sx={{
-                              backgroundColor: "var(--color-text-primary)",
+                              backgroundColor: "var(--color-text-secondary)",
                               px: { xs: 2, sm: 2 },
                               py: 1,
                               borderRadius: 50,
@@ -544,7 +544,7 @@ const fetchCollections = useCallback(
                               color: "var(--color-primary)",
                               fontSize: isLargeScreen ? "1rem" : undefined,
                               "&:hover": {
-                                backgroundColor: "var(--color-text-primary)",
+                                backgroundColor: "var(--color-text-secondary)",
                                 opacity: 0.9,
                               },
                             }}

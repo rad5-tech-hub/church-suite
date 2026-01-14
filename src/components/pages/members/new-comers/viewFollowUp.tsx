@@ -389,8 +389,8 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
-          color: 'white',
+          bgcolor: 'var(--color-primary)',
+          color: 'var(--color-text-primary)',
           p: 2,
         },
       }}
@@ -429,7 +429,7 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
         <Button
           onClick={()=>{onClose(); setAdminComment('')}}
           disabled={loading}
-          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, color: 'var(--color-text-primary)' }}
+          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, backgroundColor:'var(--color-surface-glass)', color: 'var(--color-text-primary)' }}
         >
           Cancel
         </Button>
@@ -439,12 +439,12 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
           disabled={loading}
           sx={{
             backgroundColor: 'var(--color-text-primary)',
-            color: '#2C2C2C',
+            color: 'var(--color-primary)',
             '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
             fontSize: isLargeScreen ? '0.875rem' : undefined,
           }}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#2C2C2C', mr: 1 }} /> : 'Save'}
+          {loading ? <CircularProgress size={20} sx={{ color: 'var(--color-primary)', mr: 1 }} /> : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -1042,7 +1042,7 @@ const ViewFollowUp: React.FC = () => {
       onClose={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
       sx={{
         '& .MuiDrawer-paper': {
-          backgroundColor: '#2C2C2C',
+          backgroundColor: 'var(--color-primary)',
           color: 'var(--color-text-primary)',
           padding: 2,
           boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.25)',
@@ -1549,7 +1549,7 @@ const ViewFollowUp: React.FC = () => {
                           right: 0,
                           maxHeight: '200px',
                           overflowY: 'auto',
-                          backgroundColor: '#2C2C2C',
+                          backgroundColor: 'var(--color-primary)',
                           borderRadius: '8px',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                           zIndex: 1300,

@@ -400,7 +400,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   const inputProps = {
     sx: {
       fontSize: isLargeScreen ? "0.875rem" : undefined,
-      color: "#F6F4FE",
+      color: "var(--color-text-primary)",
       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
     },
   };
@@ -408,8 +408,8 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
   const inputLabelProps = {
     sx: {
       fontSize: isLargeScreen ? "0.875rem" : undefined,
-      color: "#F6F4FE",
-      "&.Mui-focused": { color: "#F6F4FE" },
+      color: "var(--color-text-primary)",
+      "&.Mui-focused": { color: "var(--color-text-primary)" },
     },
   };
 
@@ -833,13 +833,14 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
     <Grid size={{ xs: 12 }} spacing={2}>
       <FormLabel
         id="program-type-label"
-        sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}
+        sx={{ fontSize: "0.9rem", color: "var(--color-text-primary)" }}
       >
-        Program Type
+        Program Type <br />
+        <span className="text-muted text-xs">Click one of  the program type to select. </span>
       </FormLabel>
       <RadioGroup
         row
-        sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "#F6F4FE" }}
+        sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "var(--color-text-primary)" }}
         aria-labelledby="program-type-label"
         name="recurrenceType"
         value={formData.recurrenceType}
@@ -849,22 +850,22 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           {
             value: "none",
             label: "Single",
-            icon: <CalendarTodayOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />,
+            icon: <CalendarTodayOutlined fontSize="small" sx={{ color: "var(--color-text-primary)" }} />,
           },
           {
             value: "weekly",
             label: "Weekly",
-            icon: <CachedOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />,
+            icon: <CachedOutlined fontSize="small" sx={{ color: "var(--color-text-primary)" }} />,
           },
           {
             value: "monthly",
             label: "Monthly",
-            icon: <CachedOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />,
+            icon: <CachedOutlined fontSize="small" sx={{ color: "var(--color-text-primary)" }} />,
           },
           {
             value: "custom",
             label: "Custom",
-            icon: <CachedOutlined fontSize="small" sx={{ color: "#F6F4FE" }} />,
+            icon: <CachedOutlined fontSize="small" sx={{ color: "var(--color-text-primary)" }} />,
           },
         ].map(({ value, label, icon }) => (
           <FormControlLabel
@@ -872,12 +873,12 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             value={value}
             disabled={loading}
             control={
-              <Radio sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }} />
+              <Radio sx={{ ml: 2, color: "var(--color-text-primary)", "&.Mui-checked": { color: "var(--color-text-primary)" } }} />
             }
             label={
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 {icon}
-                <Typography sx={{ ml: 1, color: "#F6F4FE" }}>{label}</Typography>
+                <Typography sx={{ ml: 1, color: "var(--color-text-primary)" }}>{label}</Typography>
               </Box>
             }
             labelPlacement="start"
@@ -930,9 +931,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                           deleteIcon={<span onMouseDown={(e) => e.stopPropagation()}>×</span>}
                           sx={{
                             bgcolor: "rgba(121,121,121,0.2)",
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiChip-deleteIcon": {
-                              color: "#F6F4FE",
+                              color: "var(--color-text-primary)",
                               "&:hover": { color: "#4B8DF8" },
                             },
                           }}
@@ -942,28 +943,28 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   )}
                   sx={{
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "& .MuiSelect-select": {
                       borderColor: "#777280",
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       display: "flex",
                       flexWrap: "wrap",
                       gap: "4px",
                     },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     borderRadius: "8px",
                     "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#F6F4FE" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "& fieldset": { borderColor: "var(--color-text-primary)" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                       "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                       "&.Mui-disabled": {
                         color: "#777280",
                         "& fieldset": { borderColor: "transparent" },
                       },
                     },
-                    "& .MuiInputBase-input": { color: "#F6F4FE" },
+                    "& .MuiInputBase-input": { color: "var(--color-text-primary)" },
                   }}
                 >
                   {daysOfWeek.map((day) => (
@@ -983,7 +984,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     borderColor: "#777280",
                     borderRadius: "8px",
                     p: 2,
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     bgcolor: "rgba(121,121,121,0.2)",
                     display: "flex",
                     alignItems: "center",
@@ -1004,9 +1005,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     sx={{
                       borderRadius: "8px",
                       "& .MuiOutlinedInput-root": {
-                        color: "#F6F4FE",
-                        "& fieldset": { borderColor: "#F6F4FE" },
-                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        color: "var(--color-text-primary)",
+                        "& fieldset": { borderColor: "var(--color-text-primary)" },
+                        "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                         "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                         "&.Mui-disabled": {
                           color: "#777280",
@@ -1014,7 +1015,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                         },
                       },
                       "& .MuiInputBase-input": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "&::-webkit-calendar-picker-indicator": {
                           filter: "invert(1)",
                           cursor: "pointer",
@@ -1035,9 +1036,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     sx={{
                       borderRadius: "8px",
                       "& .MuiOutlinedInput-root": {
-                        color: "#F6F4FE",
-                        "& fieldset": { borderColor: "#F6F4FE" },
-                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        color: "var(--color-text-primary)",
+                        "& fieldset": { borderColor: "var(--color-text-primary)" },
+                        "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                         "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                         "&.Mui-disabled": {
                           color: "#777280",
@@ -1045,7 +1046,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                         },
                       },
                       "& .MuiInputBase-input": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "&::-webkit-calendar-picker-indicator": {
                           filter: "invert(1)",
                           cursor: "pointer",
@@ -1073,9 +1074,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                 sx={{
                   borderRadius: "8px",
                   "& .MuiOutlinedInput-root": {
-                    color: "#F6F4FE",
-                    "& fieldset": { borderColor: "#F6F4FE" },
-                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "& fieldset": { borderColor: "var(--color-text-primary)" },
+                    "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     "&.Mui-disabled": {
                       color: "#777280",
@@ -1083,7 +1084,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     },
                   },
                   "& .MuiInputBase-input": {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "&::-webkit-calendar-picker-indicator": {
                       filter: "invert(1)",
                       cursor: "pointer",
@@ -1108,7 +1109,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   borderColor: "#777280",
                   borderRadius: "8px",
                   p: 2,
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   bgcolor: "rgba(121,121,121,0.2)",
                   display: "flex",
                   alignItems: "center",
@@ -1137,9 +1138,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   sx={{
                     borderRadius: "8px",
                     "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#F6F4FE" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "& fieldset": { borderColor: "var(--color-text-primary)" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                       "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                       "&.Mui-disabled": {
                         color: "#777280",
@@ -1147,7 +1148,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                       },
                     },
                     "& .MuiInputBase-input": {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "&::-webkit-calendar-picker-indicator": {
                         filter: "invert(1)",
                         cursor: "pointer",
@@ -1168,9 +1169,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   sx={{
                     borderRadius: "8px",
                     "& .MuiOutlinedInput-root": {
-                      color: "#F6F4FE",
-                      "& fieldset": { borderColor: "#F6F4FE" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "& fieldset": { borderColor: "var(--color-text-primary)" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                       "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                       "&.Mui-disabled": {
                         color: "#777280",
@@ -1178,7 +1179,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                       },
                     },
                     "& .MuiInputBase-input": {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "&::-webkit-calendar-picker-indicator": {
                         filter: "invert(1)",
                         cursor: "pointer",
@@ -1198,7 +1199,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               borderColor: "#777280",
               borderRadius: "8px",
               p: 2,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               bgcolor: "rgba(121,121,121,0.2)",
               mb: 2,
             }}
@@ -1212,7 +1213,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     borderColor: "#777280",
                     borderRadius: "8px",
                     p: 2,
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     bgcolor: "rgba(121,121,121,0.2)",
                     display: "flex",
                     flexDirection: { xs: "column", lg: "row" },
@@ -1239,7 +1240,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                               prev.customRecurrenceDates?.filter((_, i) => i !== index) || [],
                           }))
                         }
-                        sx={{ color: "#F6F4FE", "&:hover": { color: "#FF6B6B" } }}
+                        sx={{ color: "var(--color-text-primary)", "&:hover": { color: "#FF6B6B" } }}
                       >
                         <Close />
                       </IconButton>
@@ -1261,9 +1262,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     sx={{
                       borderRadius: "8px",
                       "& .MuiOutlinedInput-root": {
-                        color: "#F6F4FE",
-                        "& fieldset": { borderColor: "#F6F4FE" },
-                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        color: "var(--color-text-primary)",
+                        "& fieldset": { borderColor: "var(--color-text-primary)" },
+                        "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                         "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                         "&.Mui-disabled": {
                           color: "#777280",
@@ -1271,7 +1272,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                         },
                       },
                       "& .MuiInputBase-input": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "&::-webkit-calendar-picker-indicator": {
                           filter: "invert(1)",
                           cursor: "pointer",
@@ -1297,9 +1298,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     sx={{
                       borderRadius: "8px",
                       "& .MuiOutlinedInput-root": {
-                        color: "#F6F4FE",
-                        "& fieldset": { borderColor: "#F6F4FE" },
-                        "&:hover fieldset": { borderColor: "#F6F4FE" },
+                        color: "var(--color-text-primary)",
+                        "& fieldset": { borderColor: "var(--color-text-primary)" },
+                        "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                         "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                         "&.Mui-disabled": {
                           color: "#777280",
@@ -1307,7 +1308,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                         },
                       },
                       "& .MuiInputBase-input": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "&::-webkit-calendar-picker-indicator": {
                           filter: "invert(1)",
                           cursor: "pointer",
@@ -1326,7 +1327,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                             prev.customRecurrenceDates?.filter((_, i) => i !== index) || [],
                         }))
                       }
-                      sx={{ color: "#F6F4FE", "&:hover": { color: "#FF6B6B" } }}
+                      sx={{ color: "var(--color-text-primary)", "&:hover": { color: "#FF6B6B" } }}
                     >
                       <Close />
                     </IconButton>
@@ -1338,8 +1339,8 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               <IconButton
                 onClick={() => setCalendarOpen(true)}
                 sx={{
-                  color: "#F6F4FE",
-                  bgcolor: "#2C2C2C",
+                  color: "var(--color-text-primary)",
+                  bgcolor: "var(--color-primary)",
                   borderRadius: 2,
                   "&:hover": { bgcolor: "#3a3a3a" },
                 }}
@@ -1366,9 +1367,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                 sx={{
                   borderRadius: "8px",
                   "& .MuiOutlinedInput-root": {
-                    color: "#F6F4FE",
-                    "& fieldset": { borderColor: "#F6F4FE" },
-                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "& fieldset": { borderColor: "var(--color-text-primary)" },
+                    "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     "&.Mui-disabled": {
                       color: "#777280",
@@ -1376,10 +1377,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     },
                   },
                   "& .MuiInputBase-input": {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "&::-webkit-calendar-picker-indicator": {
                       filter: "invert(1)",
                       cursor: "pointer",
+                      color: 'var(--color-text-primary)'
                     },
                   },
                 }}
@@ -1402,9 +1404,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                 sx={{
                   borderRadius: "8px",
                   "& .MuiOutlinedInput-root": {
-                    color: "#F6F4FE",
-                    "& fieldset": { borderColor: "#F6F4FE" },
-                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "& fieldset": { borderColor: "var(--color-text-primary)" },
+                    "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     "&.Mui-disabled": {
                       color: "#777280",
@@ -1412,10 +1414,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     },
                   },
                   "& .MuiInputBase-input": {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "&::-webkit-calendar-picker-indicator": {
                       filter: "invert(1)",
                       cursor: "pointer",
+                      color: 'var(--color-text-primary)'
                     },
                   },
                 }}
@@ -1436,9 +1439,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                 sx={{
                   borderRadius: "8px",
                   "& .MuiOutlinedInput-root": {
-                    color: "#F6F4FE",
-                    "& fieldset": { borderColor: "#F6F4FE" },
-                    "&:hover fieldset": { borderColor: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "& fieldset": { borderColor: "var(--color-text-primary)" },
+                    "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     "&.Mui-disabled": {
                       color: "#777280",
@@ -1446,10 +1449,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     },
                   },
                   "& .MuiInputBase-input": {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "&::-webkit-calendar-picker-indicator": {
                       filter: "invert(1)",
                       cursor: "pointer",
+                      color: 'var(--color-text-primary)'
                     },
                   },
                 }}
@@ -1473,9 +1477,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               sx={{
                 borderRadius: "8px",
                 "& .MuiOutlinedInput-root": {
-                  color: "#F6F4FE",
-                  "& fieldset": { borderColor: "#F6F4FE" },
-                  "&:hover fieldset": { borderColor: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "& fieldset": { borderColor: "var(--color-text-primary)" },
+                  "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                   "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                   "&.Mui-disabled": {
                     color: "#777280",
@@ -1483,7 +1487,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   },
                 },
                 "& .MuiInputBase-input": {
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "&::-webkit-calendar-picker-indicator": {
                     filter: "invert(1)",
                     cursor: "pointer",
@@ -1522,9 +1526,9 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             setMonthlyModalOpen(false)
           }
         }}
-        sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
+        sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", py: 3, px: 2 } }}
       >
-        <DialogTitle color="#F6F4FE">Choose Monthly Recurrence</DialogTitle>
+        <DialogTitle color="var(--color-text-primary)">Choose Monthly Recurrence</DialogTitle>
         <DialogContent>
           <RadioGroup
             value={monthlyOption}
@@ -1538,14 +1542,14 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           >
             <FormControlLabel
               value="byDate"
-              sx={{ color: "#F6F4FE" }}
-              control={<Radio sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
+              sx={{ color: "var(--color-text-primary)" }}
+              control={<Radio sx={{ color: 'var(--color-text-primary)', '&.Mui-checked': { color: 'var(--color-text-primary)' } }} />}
               label={byDateLabel}
             />
             <FormControlLabel
               value="byWeek"
-              sx={{ color: "#F6F4FE" }}
-              control={<Radio  sx={{ color: '#f6f4fe', '&.Mui-checked': { color: '#f6f4fe' } }} />}
+              sx={{ color: "var(--color-text-primary)" }}
+              control={<Radio  sx={{ color: 'var(--color-text-primary)', '&.Mui-checked': { color: 'var(--color-text-primary)' } }} />}
               label={byWeekLabel}
             />
           </RadioGroup>
@@ -1555,14 +1559,14 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             onClick={handleConfirmMonthly}
             sx={{
               py: 1,
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               px: { xs: 2, sm: 2 },
               borderRadius: 50,
-              color: "#2C2C2C",
+              color: "var(--color-primary)",
               fontWeight: "semibold",
               textTransform: "none",
               fontSize: { xs: "1rem", sm: "1rem" },
-              "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+              "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
             }}
           >
             Confirm
@@ -1597,10 +1601,10 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           }}
           sx={{
             fontSize: isLargeScreen ? "1rem" : undefined,
-            color: "#F6F4FE",
+            color: "var(--color-text-primary)",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-select": { color: "#F6F4FE" },
-            "& .MuiSelect-icon": { color: "#F6F4FE" },
+            "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+            "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           }}
           MenuProps={{
             disableAutoFocus: true,
@@ -1619,7 +1623,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               borderBottom: "1px solid #777280",
             }}
           >
-            <IconButton size="small" onClick={() => setSelectOpen(false)} sx={{ color: "#2C2C2C" }}>
+            <IconButton size="small" onClick={() => setSelectOpen(false)} sx={{ color: "var(--color-primary)" }}>
               <Close fontSize="small" />
             </IconButton>
           </Box>
@@ -1647,7 +1651,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   );
                 }}
               >
-                <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+                <Refresh fontSize="small" sx={{ color: "var(--color-primary)" }} />
               </IconButton>
             </MenuItem>
           ) : collections.length > 0 ? (
@@ -1690,10 +1694,10 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           onClose={() => setBranchSelectOpen(false)}
           sx={{
             fontSize: isLargeScreen ? "1rem" : undefined,
-            color: "#F6F4FE",
+            color: "var(--color-text-primary)",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-            "& .MuiSelect-icon": { color: "#F6F4FE" },
+            "& .MuiSelect-select": { borderColor: "#777280", color: "var(--color-text-primary)" },
+            "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           }}
           MenuProps={{ PaperProps: { sx: { maxHeight: 350 } } }}
         >
@@ -1712,7 +1716,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             <IconButton
               size="small"
               onClick={() => setBranchSelectOpen(false)}
-              sx={{ color: "#2C2C2C" }}
+              sx={{ color: "var(--color-primary)" }}
               aria-label="Close menu"
             >
               <Close fontSize="small" />
@@ -1749,7 +1753,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   fetchBranches(setBranches, setFetchingBranch, setFetchBranchesError);
                 }}
               >
-                <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+                <Refresh fontSize="small" sx={{ color: "var(--color-primary)" }} />
               </IconButton>
             </MenuItem>
           ) : branches.length > 0 ? (
@@ -1793,10 +1797,10 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
             onClose={() => setDepartmentSelectOpen(false)}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
+              "& .MuiSelect-select": { borderColor: "#777280", color: "var(--color-text-primary)" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 350 } } }}
           >
@@ -1815,7 +1819,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
               <IconButton
                 size="small"
                 onClick={() => setDepartmentSelectOpen(false)}
-                sx={{ color: "#2C2C2C" }}
+                sx={{ color: "var(--color-primary)" }}
                 aria-label="Close menu"
               >
                 <Close fontSize="small" />
@@ -1873,7 +1877,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                     );
                   }}
                 >
-                  <Refresh fontSize="small" sx={{ color: "#2C2C2C" }} />
+                  <Refresh fontSize="small" sx={{ color: "var(--color-primary)" }} />
                 </IconButton>
               </MenuItem>
             ) : departments.length > 0 ? (
@@ -1913,11 +1917,11 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
       }}
       fullWidth
       maxWidth="md"
-      sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
+      sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", py: 3, px: 2 } }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" color="#F6F4FE" fontWeight={600}>
+          <Typography variant="h6" color="var(--color-text-primary)" fontWeight={600}>
             {isEdit ? "Edit Program" : "Create Program"}
           </Typography>
           <IconButton
@@ -1958,7 +1962,7 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   disabled={loading}
                   InputProps={{
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&:hover .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#777280",
@@ -1971,8 +1975,8 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
                   }}
                   InputLabelProps={{
                     sx: {
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       fontSize: isMobile ? "0.875rem" : "1rem",
                     },
                   }}
@@ -2008,14 +2012,14 @@ const ProgramModal: React.FC<ProgramModalProps & { isEdit?: boolean }> = ({
           disabled={loading || (isEdit && loadingEdit)}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 2, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           }}
         >
           {loading ? (

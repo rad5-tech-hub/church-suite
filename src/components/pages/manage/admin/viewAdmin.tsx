@@ -743,11 +743,7 @@ const ViewAdmins: React.FC = () => {
     fetchedBranchIds.current.add(state.selectedBranch);
 
     // Now fetch
-    fetchDepartments(state.selectedBranch).finally(() => {
-      // Optional: keep the mark even on failure → prevents retry spam
-      // If you want to retry on fail, remove the line below
-      // fetchedBranchIds.current.delete(state.selectedBranch);
-    });
+    fetchDepartments(state.selectedBranch).finally();
   }, [
     state.selectedBranch,
     state.accessLevel,

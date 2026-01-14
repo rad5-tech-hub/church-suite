@@ -203,7 +203,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -221,11 +221,11 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
           <Typography
             variant="h6" // slightly larger, fits dialog header better
             component="span" // ✅ renders as <span> to avoid nested heading error
-            sx={{ fontWeight: 'bold', fontSize: '1rem', color: '#F6F4FE' }}
+            sx={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--color-text-primary)' }}
           >
             Loading...
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
@@ -255,7 +255,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -265,18 +265,18 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Error
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             {fetchError}
           </Typography>
         </DialogContent>
@@ -294,7 +294,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -304,18 +304,18 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Members Count
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             Attendance recording is not available for department role.
           </Typography>
         </DialogContent>
@@ -337,7 +337,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
           minHeight: '300px',
         },
       }}
@@ -347,13 +347,13 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          color: '#F6F4FE',
+          color: 'var(--color-text-primary)',
         }}
       >
         <Typography variant="h5" component="h2" fontWeight="bold">
           {eventData && eventData.event.title}
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+        <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
           <Close />
         </IconButton>
       </DialogTitle>
@@ -363,7 +363,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Box sx={{ mb: { xs: 2, sm: 3 }, justifyContent: 'center' }}>
@@ -394,7 +394,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
                         height: { xs: 70, sm: 80 },
                       },
                       '&.Mui-disabled': {
-                        WebkitTextFillColor: '#F6F4FE',
+                        WebkitTextFillColor: 'var(--color-text-primary)',
                         color: '#777280',
                       },
                     }}
@@ -404,7 +404,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
                     }
                     InputProps={{
                       sx: {
-                        color: '#F6F4FE',
+                        color: 'var(--color-text-primary)',
                         '& .MuiOutlinedInput-notchedOutline': {
                           borderColor: '#777280',
                         },
@@ -416,16 +416,16 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
                         },
                         '&.Mui-disabled': {
                           '& .MuiInputBase-input.Mui-disabled': {
-                            WebkitTextFillColor: '#F6F4FE',
-                            color: '#F6F4FE',
+                            WebkitTextFillColor: 'var(--color-text-primary)',
+                            color: 'var(--color-text-primary)',
                           },
                         },
                       },
                     }}
                     inputProps={{
                       sx: {
-                        WebkitTextFillColor: '#F6F4FE',
-                        color: '#F6F4FE',
+                        WebkitTextFillColor: 'var(--color-text-primary)',
+                        color: 'var(--color-text-primary)',
                         '&.Mui-disabled': {
                           color: '#777280',
                         },
@@ -451,7 +451,7 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
       </DialogContent>
       <DialogActions
         sx={{
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
           p: 2,
           justifyContent: 'center',
         }}
@@ -459,17 +459,17 @@ const MembersCountDialogue: React.FC<MembersCountDialogueProps> = ({ eventId, op
         <Button
           onClick={handleSave}
           variant="contained"
-          startIcon={submitting ? <CircularProgress size={20} sx={{ color: '#2C2C2C' }} /> : <Save />}
+          startIcon={submitting ? <CircularProgress size={20} sx={{ color: 'var(--color-primary)' }} /> : <Save />}
           disabled={submitting}
           sx={{
-            backgroundColor: '#F6F4FE',
-            color: '#2C2C2C',
+            backgroundColor: 'var(--color-text-primary)',
+            color: 'var(--color-primary)',
             borderRadius: 50,
             px: 4,
             fontWeight: 'semibold',
             textTransform: 'none',
             minWidth: '200px',
-            '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+            '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
           }}
         >
           Save Information

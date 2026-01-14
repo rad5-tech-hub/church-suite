@@ -182,7 +182,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -192,11 +192,11 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography fontWeight="bold">Loading...</Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
@@ -231,7 +231,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -241,18 +241,18 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Error
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             {fetchError}
           </Typography>
         </DialogContent>
@@ -270,7 +270,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -280,18 +280,18 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Collections
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             Collection recording is not available for department role.
           </Typography>
         </DialogContent>
@@ -309,7 +309,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
             minHeight: '300px',
           },
         }}
@@ -319,18 +319,18 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Collections
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             No collections available for this event.
           </Typography>
         </DialogContent>
@@ -347,7 +347,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
           minHeight: '300px',
         },
       }}
@@ -357,13 +357,13 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          color: '#F6F4FE',
+          color: 'var(--color-text-primary)',
         }}
       >
         <Typography variant="h5" component="h2" fontWeight="bold">
           {eventData && eventData.event.title}
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+        <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
           <Close />
         </IconButton>
       </DialogTitle>
@@ -373,7 +373,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Box sx={{ mb: { xs: 2, sm: 3 }, justifyContent: 'center' }}>
@@ -405,7 +405,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
                     }}
                     InputProps={{
                       sx: {
-                        color: '#F6F4FE',
+                        color: 'var(--color-text-primary)',
                         '& .MuiOutlinedInput-notchedOutline': {
                           borderColor: '#777280',
                         },
@@ -419,9 +419,9 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
                     }}
                     InputLabelProps={{
                       sx: {
-                        color: '#F6F4FE',
+                        color: 'var(--color-text-primary)',
                         '&.Mui-focused': {
-                          color: '#F6F4FE',
+                          color: 'var(--color-text-primary)',
                         },
                       },
                     }}
@@ -446,7 +446,7 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
       </DialogContent>
       <DialogActions
         sx={{
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
           p: 2,
           justifyContent: 'center',
         }}
@@ -454,17 +454,17 @@ const CollectionsDialogue: React.FC<CollectionsDialogueProps> = ({ eventId, open
         <Button
           onClick={handleSave}
           variant="contained"
-          startIcon={submitting ? <CircularProgress size={20} sx={{ color: '#2C2C2C' }} /> : <Save />}
+          startIcon={submitting ? <CircularProgress size={20} sx={{ color: 'var(--color-primary)' }} /> : <Save />}
           disabled={submitting}
           sx={{
-            backgroundColor: '#F6F4FE',
-            color: '#2C2C2C',
+            backgroundColor: 'var(--color-text-primary)',
+            color: 'var(--color-primary)',
             borderRadius: 50,
             px: 4,
             fontWeight: 'semibold',
             textTransform: 'none',
             minWidth: '200px',
-            '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+            '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
           }}
         >
           Save Information

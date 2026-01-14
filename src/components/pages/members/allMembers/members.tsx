@@ -488,7 +488,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     <Grid container spacing={4}>
       {authData?.isHeadQuarter && <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>
             Branch *
           </InputLabel>
           <Select
@@ -499,10 +499,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             label="Branch *"
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Branch";
@@ -544,18 +544,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           size="medium"
           autoComplete="off"
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsPerson style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsPerson style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
           required
@@ -563,20 +563,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Gender *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Gender *</InputLabel>
           <Select
             name="sex"
             value={formData.sex}
             onChange={handleChange}
             disabled={isLoading}
             label="Gender *"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select Gender</MenuItem>
@@ -597,18 +597,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           placeholder="Enter WhatsApp number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
@@ -637,12 +637,12 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <IoCallOutline style={{ color: '#F6F4FE' }} />
+                <IoCallOutline style={{ color: 'var(--color-text-primary)' }} />
               </InputAdornment>
             ),
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
             inputMode: "numeric", // ensures numeric keypad on mobile
@@ -650,8 +650,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
           required
@@ -659,20 +659,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Marital Status *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Marital Status *</InputLabel>
           <Select
             name="maritalStatus"
             value={formData.maritalStatus}
             onChange={handleChange}
             disabled={isLoading}
             label="Marital Status *"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select marital status</MenuItem>
@@ -686,20 +686,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Year of Membership</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Year of Membership</InputLabel>
           <Select
             name="memberSince"
             value={formData.memberSince}
             onChange={handleChange}
             disabled={isLoading}
             label="Year of Membership"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -722,18 +722,18 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           multiline
           rows={3}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
@@ -745,7 +745,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     <Grid container spacing={4}>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Age Range</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Age Range</InputLabel>
           <Select
             value={selectedAgeRange}
             onChange={handleAgeRangeChange as any}
@@ -753,10 +753,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             label="Age Range"
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select age range</MenuItem>
@@ -827,8 +827,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               required
               InputLabelProps={{
                 sx: {
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 },
@@ -837,15 +837,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 ...params.InputProps,
                 startAdornment: (
                   <InputAdornment position="start" sx={{ paddingLeft: 2 }}>
-                    <BsCalendar style={{ color: "#F6F4FE" }} />
+                    <BsCalendar style={{ color: "var(--color-text-primary)" }} />
                   </InputAdornment>
                 ),
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 },
               }}
             />
@@ -853,8 +853,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           disabled={isLoading}
           size="medium"
           sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-          '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' }, // 🎯 dropdown arrow
-          '& .MuiSvgIcon-root': { color: '#F6F4FE' }, // fallback for any svg icon
+          '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' }, // 🎯 dropdown arrow
+          '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' }, // fallback for any svg icon
          }}
         />
       </Grid>
@@ -911,15 +911,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 },
               }}
               InputLabelProps={{
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   transform: params.inputProps.value
                     ? 'translate(14px, -9px) scale(0.75)'
                     : undefined,
@@ -931,8 +931,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+            '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
+            '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
           }}
         />
       </Grid>
@@ -972,16 +972,16 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 },
               }}
               InputLabelProps={{
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 }
               }}
@@ -990,8 +990,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           noOptionsText={!formData.nationality ? "Select a Nationality or Country first" : "No states found"}
           size="medium"
           sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+            '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
+            '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
           }}
         />
       </Grid>
@@ -1006,9 +1006,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           placeholder="Enter local government area"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
@@ -1016,15 +1016,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth required>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Departments</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Departments</InputLabel>
           <Select
             name="departmentIds"
             multiple
@@ -1044,10 +1044,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             }
             sx={{
               fontSize: isLargeScreen ? '1rem' : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -1083,7 +1083,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       {formData.departmentIds.map((deptId) => (
         <Grid size={{ xs: 12, md: 6 }} key={deptId}>
           <FormControl fullWidth>
-            <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+            <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>
               Units for {departments.find((dept) => dept.id === deptId)?.name || "Department"}
             </InputLabel>
             <Select
@@ -1101,10 +1101,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               }
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
-                "& .MuiSelect-select": { color: "#F6F4FE" },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+                "& .MuiSelect-select": { color: "var(--color-text-primary)" },
               }}
               MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
             >
@@ -1152,14 +1152,14 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           rows={3}
           InputLabelProps={{
             sx: {
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
           }}
           InputProps={{
             sx: {
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
@@ -1193,7 +1193,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
         },
       }}
     >
@@ -1203,7 +1203,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
             variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
             fontWeight={600}
             gutterBottom
-            sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.5rem" : undefined }}
+            sx={{ color: "var(--color-text-primary)", fontSize: isLargeScreen ? "1.5rem" : undefined }}
           >
             Add New Worker
           </Typography>
@@ -1220,15 +1220,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                 "& .MuiStepLabel-label": {
                   fontSize: "0.75rem",
                   color: "#6B7280",
-                  "&.Mui-active": { color: "#F6F4FE !important", fontWeight: "bold" },
-                  "&.Mui-completed": { color: "var(--color-primary) !important", fontWeight: "normal" },
+                  "&.Mui-active": { color: "var(--color-text-primary) !important", fontWeight: "bold" },
+                  "&.Mui-completed": { color: "var(--color-text-primary) !important", fontWeight: "normal" },
                 },
                 "& .MuiStepIcon-root": {
                   color: "#D1D5DB",
                   "&.Mui-active": { color: "var(--color-primary)" },
-                  "&.Mui-completed": { color: "var(--color-primary)" },
+                  "&.Mui-completed": { color: "var(--color-text-primary)" },
                 },
-                "& .MuiStepIcon-text": { fill: "#FFFFFF" },
+                "& .MuiStepIcon-text": { fill: "var(--color-text-primary)" },
               }}>
                 {steps.map((label) => (
                   <Step key={label}>
@@ -1245,20 +1245,20 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   disabled={downLoading}
                   sx={{
                     py: 1,
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 3, sm: 3 },
                     fontWeight: 500,
                     textTransform: "none",
-                    color: "#2C2C2C",
+                    color: "var(--color-primary)",
                     borderRadius: 50,
                     fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                     mt: 2,
                   }}
                 >
                   {downLoading ? (
                     <span className="text-gray-300">
-                      <CircularProgress size={18} sx={{ mr: 1 , color: '#f6f4fe'}} />
+                      <CircularProgress size={18} sx={{ mr: 1 , color: 'var(--color-text-primary)'}} />
                       Downloading...
                     </span>
                   ) : (
@@ -1279,14 +1279,14 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   disabled={isLoading}
                   sx={{
                     py: 1,
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 5, sm: 3 },
                     borderRadius: 50,
                     fontWeight: "semibold",
                     textTransform: "none",
-                    color: "#2C2C2C",
+                    color: "var(--color-primary)",
                     fontSize: { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   }}
                 >
                   Next
@@ -1298,10 +1298,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               {renderAdditionalDetails()}
               <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
                 <Button
-                  variant="outlined"
+                  variant="contained"
                   onClick={handlePrevStep}
                   disabled={isLoading}
-                  sx={{ py: 1, px: { xs: 2, sm: 2 }, borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
+                  sx={{ py: 1, px: { xs: 2, sm: 2 }, backgroundColor: 'var(--color-surface-glass)', color: 'var(--color-text-primary)', borderRadius: 1, fontWeight: "semibold", textTransform: "none", fontSize: { xs: "1rem", sm: "1rem" } }}
                 >
                   Previous
                 </Button>
@@ -1311,14 +1311,14 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
                   disabled={isLoading}
                   sx={{
                     py: 1,
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 5, sm: 2 },
                     borderRadius: 50,
                     fontWeight: "semibold",
-                    color: "#2C2C2C",
+                    color: "var(--color-primary)",
                     textTransform: "none",
                     fontSize: { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   }}
                 >
                   {isLoading ? (

@@ -282,14 +282,14 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Submit New Report
           </Typography>
           <IconButton onClick={handleCancel}>
@@ -311,8 +311,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                 >
                   <InputLabel
                     sx={{
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                     }}
                   >
                     Submit To *
@@ -326,19 +326,19 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                     label="Submit To *"
                     startAdornment={
                       <InputAdornment position="start">
-                        <Send sx={{ color: "#F6F4FE" }} />
+                        <Send sx={{ color: "var(--color-text-primary)" }} />
                       </InputAdornment>
                     }
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#777280",
                       },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F6F4FE",
+                        borderColor: "var(--color-text-primary)",
                       },
                       "& .MuiSvgIcon-root": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                       },
                     }}
                   >
@@ -364,7 +364,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
             {showBranchSelect && (
               <Grid size={12}>
                 <FormControl fullWidth error={!!errors.branch}>
-                  <InputLabel sx={{ color: "#F6F4FE" }}>
+                  <InputLabel sx={{ color: "var(--color-text-primary)" }}>
                     Select Branch 
                   </InputLabel>
                   <Select
@@ -374,11 +374,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                     onChange={(e) => setSelectedBranchId(e.target.value)}
                     disabled={loadingBranches}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                       "& .MuiSvgIcon-root": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                       },
                     }}
                   >
@@ -401,7 +401,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
             {showDepartmentSelect && (
               <Grid size={12}>
                 <FormControl fullWidth error={!!errors.department}>
-                  <InputLabel sx={{ color: "#F6F4FE" }}>Select Department *</InputLabel>
+                  <InputLabel sx={{ color: "var(--color-text-primary)" }}>Select Department *</InputLabel>
                   <Select
                     value={selectedDepartmentId}
                     label="Select Department *"
@@ -409,11 +409,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                     onChange={(e) => setSelectedDepartmentId(e.target.value)}
                     disabled={loadingDepartments || !selectedBranchId}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                       "& .MuiSvgIcon-root": {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                       },
                     }}
                   >
@@ -450,17 +450,17 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <TitleIcon sx={{ color: "#F6F4FE" }} />
+                      <TitleIcon sx={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                   },
                 }}
                 InputLabelProps={{
-                  sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                  sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } },
                 }}
               />
             </Grid>
@@ -479,13 +479,13 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                 disabled={loading}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                   },
                 }}
                 InputLabelProps={{
-                  sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                  sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } },
                 }}
               />
               <FormHelperText sx={{ color: "rgba(255,255,255,0.6)" }}>
@@ -503,10 +503,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                 sx={{
                   py: 2,
                   borderColor: "#777280",
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   textTransform: "none",
                   borderStyle: "dashed",
-                  "&:hover": { borderColor: "#F6F4FE", bgcolor: "rgba(255,255,255,0.05)" },
+                  "&:hover": { borderColor: "var(--color-text-primary)", bgcolor: "rgba(255,255,255,0.05)" },
                 }}
                 disabled={loading}
               >
@@ -534,7 +534,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
                       label={file.name}
                       size="small"
                       onDelete={() => setFiles(files.filter((_, idx) => idx !== i))}
-                      sx={{ bgcolor: "rgba(255,255,255,0.1)", color: "#F6F4FE" }}
+                      sx={{ bgcolor: "rgba(255,255,255,0.1)", color: "var(--color-text-primary)" }}
                     />
                   ))}
                 </Box>
@@ -567,18 +567,18 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSuccess }) =
           sx={{
             py: 1.2,
             minWidth: 140,
-            backgroundColor: "#F6F4FE",
-            color: "#2C2C2C",
+            backgroundColor: "var(--color-text-primary)",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             borderRadius: 50,
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-            "&.Mui-disabled": { bgcolor: "rgba(255,255,255,0.3)", color: "#777" },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+            "&.Mui-disabled": { bgcolor: "var(--color-text-muted)", color: "var(--color-surface)" },
           }}
         >
           {loading ? (
             <Box display="flex" alignItems="center" gap={1}>
-              <CircularProgress size={18} sx={{ color: "#2C2C2C" }} />
+              <CircularProgress size={18} sx={{ color: "var(--color-primary)" }} />
               Submitting...
             </Box>
           ) : (

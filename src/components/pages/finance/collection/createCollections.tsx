@@ -406,8 +406,8 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: isMobile ? 0 : 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -417,7 +417,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
             variant={isMobile ? "h6" : "h5"}
             component="h1"
             fontWeight={300}
-            sx={{ color: "#F6F4FE" }}
+            sx={{ color: "var(--color-text-primary)" }}
           >
             Create Collection
           </Typography>
@@ -454,15 +454,15 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                 helperText={errors.name}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -488,7 +488,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                 helperText={errors.description}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -497,7 +497,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                   },
                 }}
                 InputLabelProps={{
-                  sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" },
+                  sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" }, fontSize: "0.9rem" },
                 }}              
               />
             </Grid>
@@ -505,7 +505,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
               <FormControl fullWidth>
                 <InputLabel
                   id="scope-level-label"
-                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                 >
                   Level of Collection
                 </InputLabel>
@@ -518,11 +518,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                   label="Level of Collection"
                   disabled={loading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                 >
@@ -543,7 +543,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                     id="branch-label"
                     sx={{
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     }}
                   >
                     Select Branch
@@ -557,11 +557,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                     label="Select Branch"
                     disabled={loading}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
@@ -609,7 +609,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                     id="department-select-label"
                     sx={{
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     }}
                   >
                     Select Department
@@ -628,11 +628,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                     label="Select Department"
                     disabled={loading || !formData.branchIds[0]}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
@@ -675,7 +675,7 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                       id="church-branch-label"
                       sx={{
                         fontSize: isLargeScreen ? "1rem" : undefined,
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                       }}
                     >
                       Select Branch(es)
@@ -695,11 +695,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                           .join(", ")
                       }
                       sx={{
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
-                        "& .MuiSelect-icon": { color: "#F6F4FE" },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                        "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                        "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                         fontSize: isLargeScreen ? "1rem" : undefined,
                       }}
                       MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
@@ -745,11 +745,11 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                   <Checkbox
                     checked={isScheduleChecked}
                     onChange={(e) => setIsScheduleChecked(e.target.checked)}
-                    sx={{ color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }}
+                    sx={{ color: "var(--color-text-primary)", "&.Mui-checked": { color: "var(--color-text-primary)" } }}
                   />
                 }
                 label="Does this Collection have End Date?"
-                sx={{ color: "#F6F4FE", mb: 1 }}
+                sx={{ color: "var(--color-text-primary)", mb: 1 }}
               />
               {isScheduleChecked && (
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -780,18 +780,18 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
                         error: !!errors.endTime,
                         helperText: errors.endTime,
                         InputLabelProps: {
-                          sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                          sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } },
                         },
                         InputProps: {
                           sx: {
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                             "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                           },
                         },
                         sx: {
-                          "& .MuiSvgIcon-root": { color: "#F6F4FE" },
+                          "& .MuiSvgIcon-root": { color: "var(--color-text-primary)" },
                         },
                       },
                     }}
@@ -810,15 +810,15 @@ const CreateCollection: React.FC<AdminModalProps> = ({ open, onClose, onSuccess 
           onClick={handleSubmit}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 7, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}

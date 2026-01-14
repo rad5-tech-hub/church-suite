@@ -265,7 +265,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: "var(--color-primary)",
             py: 3,
             px: 2,
           },
@@ -273,7 +273,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
       >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
               Edit Newcomer
             </Typography>
             <IconButton onClick={onClose}>
@@ -283,8 +283,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
-            <CircularProgress sx={{ color: "#F6F4FE" }} />
-            <Typography sx={{ ml: 2, color: "#F6F4FE" }}>Loading Newcomer data...</Typography>
+            <CircularProgress sx={{ color: "var(--color-text-primary)" }} />
+            <Typography sx={{ ml: 2, color: "var(--color-text-primary)" }}>Loading Newcomer data...</Typography>
           </Box>
         </DialogContent>
       </Dialog>
@@ -301,7 +301,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: "var(--color-primary)",
             py: 3,
             px: 2,
           },
@@ -309,7 +309,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
       >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
               Edit Newcomer
             </Typography>
             <IconButton onClick={onClose}>
@@ -323,7 +323,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
             <Button
               variant="contained"
               onClick={fetchMember}
-              sx={{ mt: 2, backgroundColor: "#F6F4FE", color: "#2C2C2C" }}
+              sx={{ mt: 2, backgroundColor: "var(--color-text-primary)", color: "var(--color-primary)" }}
               disabled={isFetchingMember}
             >
               Retry
@@ -343,7 +343,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
+          bgcolor: "var(--color-primary)",
           py: 3,
           px: 2,
         },
@@ -351,7 +351,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
     >
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Edit Newcomer
           </Typography>
           <IconButton onClick={onClose}>
@@ -368,8 +368,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   id="branch-select-label"
                   sx={{
                     fontSize: "1rem",
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   }}
                 >
                   Select Branch (optional)
@@ -384,11 +384,11 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   label="Select Branch (optional)"
                   disabled={isLoading || branchLoading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: "1rem",
                   }}
                   aria-label="Select branch"
@@ -399,7 +399,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   {branchLoading ? (
                     <MenuItem disabled>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+                        <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />
                         <Typography variant="body2">Loading branches...</Typography>
                       </Box>
                     </MenuItem>
@@ -427,11 +427,11 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <IoPersonOutline style={{ color: "#F6F4FE" }} />
+                        <IoPersonOutline style={{ color: "var(--color-text-primary)" }} />
                       </InputAdornment>
                     ),
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -440,8 +440,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   }}
                   InputLabelProps={{
                     sx: {
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       fontSize: isMobile ? "0.875rem" : "1rem",
                     },
                   }}
@@ -463,11 +463,11 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <IoCallOutline style={{ color: "#F6F4FE" }} />
+                        <IoCallOutline style={{ color: "var(--color-text-primary)" }} />
                       </InputAdornment>
                     ),
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -476,8 +476,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   }}
                   InputLabelProps={{
                     sx: {
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       fontSize: isMobile ? "0.875rem" : "1rem",
                     },
                   }}
@@ -486,7 +486,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
-                <InputLabel id="gender-label" sx={{ color: "#F6F4FE", fontSize: isMobile ? "0.875rem" : "1rem" }}>
+                <InputLabel id="gender-label" sx={{ color: "var(--color-text-primary)", fontSize: isMobile ? "0.875rem" : "1rem" }}>
                   Gender
                 </InputLabel>
                 <Select
@@ -500,16 +500,16 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   disabled={isLoading}
                   startAdornment={
                     <InputAdornment position="start">
-                      <FaTransgender style={{ color: "#F6F4FE" }} />
+                      <FaTransgender style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   }
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "& .MuiSelect-select": { paddingRight: "24px !important" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isMobile ? "0.875rem" : "1rem",
                   }}
                 >
@@ -534,11 +534,11 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <IoLocationOutline style={{ color: "#F6F4FE" }} />
+                        <IoLocationOutline style={{ color: "var(--color-text-primary)" }} />
                       </InputAdornment>
                     ),
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -547,8 +547,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   }}
                   InputLabelProps={{
                     sx: {
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       fontSize: isMobile ? "0.875rem" : "1rem",
                     },
                   }}
@@ -623,8 +623,8 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                     required
                     InputLabelProps={{
                       sx: {
-                        color: "#F6F4FE",
-                        "&.Mui-focused": { color: "#F6F4FE" },
+                        color: "var(--color-text-primary)",
+                        "&.Mui-focused": { color: "var(--color-text-primary)" },
                         fontSize: isMobile ? "0.875rem" : "1rem",
                         transform: params.inputProps.value ? "translate(14px, -9px) scale(0.75)" : undefined,
                       },
@@ -633,17 +633,17 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                       ...params.InputProps,
                       startAdornment: (
                         <InputAdornment position="start" sx={{ paddingLeft: 2 }}>
-                          <BsCalendarDate style={{ color: "#F6F4FE" }} />
+                          <BsCalendarDate style={{ color: "var(--color-text-primary)" }} />
                         </InputAdornment>
                       ),
                       sx: {
                         fontSize: isMobile ? "0.875rem" : "1rem",
                         "& input": { paddingLeft: "8px !important" },
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                         "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                         "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" },
+                        "& .MuiAutocomplete-popupIndicator": { color: "var(--color-text-primary)" },
                       },
                     }}
                   />
@@ -655,7 +655,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
-                <InputLabel id="timer-label" sx={{ color: "#F6F4FE", fontSize: isMobile ? "0.875rem" : "1rem" }}>
+                <InputLabel id="timer-label" sx={{ color: "var(--color-text-primary)", fontSize: isMobile ? "0.875rem" : "1rem" }}>
                   Attendance Duration
                 </InputLabel>
                 <Select
@@ -668,16 +668,16 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   disabled={isLoading}
                   startAdornment={
                     <InputAdornment position="start">
-                      <FiClock style={{ color: "#F6F4FE" }} />
+                      <FiClock style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   }
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "& .MuiSelect-select": { paddingRight: "24px !important" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isMobile ? "0.875rem" : "1rem",
                   }}
                 >
@@ -696,7 +696,7 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
               <FormControl fullWidth>
                 <InputLabel
                   id="isVisitor-label"
-                  sx={{ color: "#F6F4FE", fontSize: isMobile ? "0.875rem" : "1rem" }}
+                  sx={{ color: "var(--color-text-primary)", fontSize: isMobile ? "0.875rem" : "1rem" }}
                 >
                   Is Visitor
                 </InputLabel>
@@ -712,12 +712,12 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
                   }}
                   disabled={isLoading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "& .MuiSelect-select": { paddingRight: "24px !important" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isMobile ? "0.875rem" : "1rem",
                   }}
                 >
@@ -746,14 +746,14 @@ const EditRegistrationModal: React.FC<EditRegistrationModalProps> = ({
               disabled={isLoading}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 5, sm: 5 },
                 borderRadius: 50,
                 fontWeight: "semibold",
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                color: "#2C2C2C",
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                color: "var(--color-primary)",
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                 width: { xs: "100%", sm: "auto" },
                 order: { xs: 1, sm: 2 },
               }}

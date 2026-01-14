@@ -441,7 +441,7 @@ const ViewServices: React.FC = () => {
                   </Typography>
                   <Button
                     onClick={() => handleNavigate(moment(currentDate).subtract(1, view).toDate())}
-                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                    sx={{ p: 1, color: "var(--color-text-primary)", "&:hover": { bgcolor: "var(--color-surface-glass)", color: "purple" }, borderRadius: 1 }}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -449,7 +449,7 @@ const ViewServices: React.FC = () => {
                   </Button>
                   <Button
                     onClick={() => handleNavigate(moment(currentDate).add(1, view).toDate())}
-                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                    sx={{ p: 1, color: "var(--color-text-primary)", "&:hover": { bgcolor: "var(--color-surface-glass)", color: "purple" }, borderRadius: 1 }}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />

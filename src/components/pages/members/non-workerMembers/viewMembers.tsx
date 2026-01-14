@@ -129,10 +129,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
           "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -145,10 +145,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
           "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >

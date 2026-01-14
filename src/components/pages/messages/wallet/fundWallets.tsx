@@ -231,8 +231,8 @@ const FundWalletDialog: React.FC<Props> = ({
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -267,24 +267,24 @@ const FundWalletDialog: React.FC<Props> = ({
                 helperText={errors.amount || installmentFeedback}
                 FormHelperTextProps={{
                   sx: {
-                    color: errors.amount ? "#ff6b6b" : "#F6F4FE", // ✅ visible and bright text
+                    color: errors.amount ? "#ff6b6b" : "var(--color-text-primary)", // ✅ visible and bright text
                     fontWeight: 500,
                   },
                 }}
                 InputProps={{
                     startAdornment: (
                     <InputAdornment position="start">
-                        <BsWallet2 style={{ color: "#F6F4FE" }} />
+                        <BsWallet2 style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                     ),
                     sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     },
                 }}
-                InputLabelProps={{ sx: { color: "#F6F4FE" } }}
+                InputLabelProps={{ sx: { color: "var(--color-text-primary)" } }}
               />
             </Grid>
           </Grid>
@@ -292,7 +292,7 @@ const FundWalletDialog: React.FC<Props> = ({
           {/* ----- Script loading hint ----- */}
           {!scriptLoaded && (
             <Box sx={{ mt: 2, display: "flex", alignItems: "center", gap: 1 }}>
-              <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+              <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />
               <Typography variant="caption" sx={{ color: "#777280" }}>
                 Loading payment service...
               </Typography>
@@ -302,7 +302,7 @@ const FundWalletDialog: React.FC<Props> = ({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={handleCancel} disabled={loading} sx={{color:'#F6F4FE' }}>
+        <Button onClick={handleCancel} disabled={loading} sx={{color:'var(--color-text-primary)' }}>
           Cancel
         </Button>
 
@@ -313,8 +313,8 @@ const FundWalletDialog: React.FC<Props> = ({
             form="fund-wallet-form"
             disabled={loading || !scriptLoaded}
             sx={{
-            backgroundColor: "#F6F4FE",
-            color: "#2C2C2C",
+            backgroundColor: "var(--color-text-primary)",
+            color: "var(--color-primary)",
             borderRadius: 50,
             px: 4,
             "&:disabled": { backgroundColor: "#777280" },
