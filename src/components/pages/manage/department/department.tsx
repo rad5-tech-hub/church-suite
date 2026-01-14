@@ -249,14 +249,14 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Create New Department
           </Typography>
           <IconButton onClick={handleCancel}>
@@ -320,25 +320,25 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
                   InputLabelProps={{
                     sx: {
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                     },
                   }}
                   InputProps={{
                     ...params.InputProps,
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F6F4FE",
+                        borderColor: "var(--color-text-primary)",
                       },
-                      "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" },
-                      "& .MuiAutocomplete-popupIndicator": { color: "#F6F4FE" },
+                      "& .MuiAutocomplete-clearIndicator": { color: "var(--color-text-primary)" },
+                      "& .MuiAutocomplete-popupIndicator": { color: "var(--color-text-primary)" },
                     },
                     endAdornment: (
                       <>
                         {branchesLoading ? (
-                          <CircularProgress size={16} sx={{ mr: 1, color: "#F6F4FE" }} />
+                          <CircularProgress size={16} sx={{ mr: 1, color: "var(--color-text-primary)" }} />
                         ) : null}
                         {params.InputProps.endAdornment}
                       </>
@@ -365,16 +365,16 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             helperText={errors.name}
             InputLabelProps={{
               sx: {
-                color: "#F6F4FE",
-                "&.Mui-focused": { color: "#F6F4FE" },
+                color: "var(--color-text-primary)",
+                "&.Mui-focused": { color: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
             InputProps={{
               sx: {
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
@@ -386,8 +386,8 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
               id="type-label"
               sx={{
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                color: "#F6F4FE",
-                "&.Mui-focused": { color: "#F6F4FE" },
+                color: "var(--color-text-primary)",
+                "&.Mui-focused": { color: "var(--color-text-primary)" },
               }}
             >
               Type *
@@ -400,11 +400,11 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
               label="Type *"
               disabled={loading}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                "& .MuiSelect-select": { color: "#F6F4FE" },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               }}
             >
@@ -435,19 +435,19 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             }}
             InputLabelProps={{
               sx: {
-                color: "#F6F4FE",
-                "&.Mui-focused": { color: "#F6F4FE" },
+                color: "var(--color-text-primary)",
+                "&.Mui-focused": { color: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
             InputProps={{
               sx: {
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { 
                   borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#777280" // 🟠 Warning orange
                 },
                 "&.Mui-focused .MuiOutlinedInput-notchedOutline": { 
-                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#F6F4FE" 
+                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "var(--color-text-primary)" 
                 },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
@@ -488,15 +488,15 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
           disabled={loading}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 2, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}

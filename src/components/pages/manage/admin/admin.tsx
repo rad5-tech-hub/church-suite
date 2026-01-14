@@ -541,8 +541,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: isMobile ? 0 : 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >    
@@ -552,7 +552,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             variant={isMobile ? "h6" : "h5"}
             component="h1"
             fontWeight={300}
-            sx={{ color: "#F6F4FE" }}
+            sx={{ color: "var(--color-text-primary)" }}
           >
             Create Admin
           </Typography>
@@ -589,15 +589,15 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 helperText={errors.name}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -620,15 +620,15 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 helperText={errors.title}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}                
@@ -652,20 +652,20 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoMailOutline style={{ color: "#F6F4FE" }} />
+                      <IoMailOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 required
@@ -689,20 +689,20 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoCallOutline style={{ color: "#F6F4FE" }} />
+                      <IoCallOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 required
@@ -712,7 +712,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
               <FormControl fullWidth error={!!errors.branchIds}>
                 <InputLabel
                   id="scope-level-label"
-                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                 >
                   Admin Level *
                 </InputLabel>
@@ -725,11 +725,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   label="Scope Level *"
                   disabled={loading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                 >
@@ -751,7 +751,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     id="branch-label"
                     sx={{
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     }}
                   >
                     Select Branch(es)
@@ -772,11 +772,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                         .join(", ")
                     }
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{
@@ -854,7 +854,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   <FormControl fullWidth error={!!errors.departmentIds}>
                     <InputLabel
                       id={`department-label-${branchId}`}
-                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                     >
                       Departments for {branches.find((b) => b.id === branchId)?.name || "Branch"}
                     </InputLabel>
@@ -882,11 +882,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                           .join(", ")
                       }
                       sx={{
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
-                        "& .MuiSelect-icon": { color: "#F6F4FE" },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                        "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                        "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                         fontSize: isLargeScreen ? "1rem" : undefined,
                       }}
                       MenuProps={{
@@ -959,7 +959,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                     <FormControl fullWidth error={!!errors.unitIds}>
                       <InputLabel
                         id={`unit-label-${deptId}`}
-                        sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                        sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                       >
                         Units for {department?.name || "Department"} ({branch?.name || "Branch"})
                       </InputLabel>
@@ -987,13 +987,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                             .join(", ")
                         }
                         sx={{
-                          color: "#F6F4FE",
+                          color: "var(--color-text-primary)",
                           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#F6F4FE",
+                            borderColor: "var(--color-text-primary)",
                           },
-                          "& .MuiSelect-select": { color: "#F6F4FE" },
-                          "& .MuiSelect-icon": { color: "#F6F4FE" },
+                          "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                           fontSize: isLargeScreen ? "1rem" : undefined,
                         }}
                         MenuProps={{
@@ -1063,7 +1063,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
 
             <Grid size={{ xs: 12, md: 6 }} >
               <FormControl fullWidth error={!!roleError}>
-                <InputLabel id="role-select-label" sx={{ color: "#F6F4FE" }}>
+                <InputLabel id="role-select-label" sx={{ color: "var(--color-text-primary)" }}>
                   Select Role(s)
                 </InputLabel>
 
@@ -1080,10 +1080,10 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                       .join(", ")
                   }
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                   }}
                 >
                   {roleLoading ? (
@@ -1130,9 +1130,9 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                       onChange={handleChange}
                       name="isSuperAdmin"
                       sx={{
-                        color: "#f6f4fe", // Unchecked color
+                        color: "var(--color-text-primary)", // Unchecked color
                         "&.Mui-checked": {
-                          color: "#f6f4fe", // Checked color
+                          color: "var(--color-text-primary)", // Checked color
                         },
                       }}
                     />
@@ -1141,7 +1141,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   sx={{
                     "& .MuiTypography-root": {
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
                   }}
                 />
@@ -1159,21 +1159,21 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
           onClick={handleSubmit}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 7, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}
         >
           {loading ? (
-            <span className="text-gray-300">
+            <span >
               <CircularProgress size={24} color="inherit" /> Creating
             </span>
           ) : (

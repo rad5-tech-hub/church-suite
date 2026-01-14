@@ -37,7 +37,7 @@ import {
   AttachFileOutlined,
 } from "@mui/icons-material";
 import { PiChurch } from "react-icons/pi";
-import { MdRefresh, MdOutlineEdit } from "react-icons/md";
+import { MdOutlineEdit } from "react-icons/md";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
@@ -136,10 +136,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -152,10 +152,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >
@@ -182,10 +182,10 @@ const EmptyState: React.FC<{
       justifyContent: "center",
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted", mb: 2 }} />
     <Typography
       variant="h6"
-      color="rgba(255, 255, 255, 0.5)"
+      color="var(--color-text-muted)"
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
@@ -913,7 +913,7 @@ const ViewUnit: React.FC = () => {
                           fontSize: "14px",
                           ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                           ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                           "& .MuiSelect-icon": { display: "none" },
                         }}
                         renderValue={(selected) =>
@@ -950,7 +950,7 @@ const ViewUnit: React.FC = () => {
                     fontSize: "14px",
                     ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                     ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     "& .MuiSelect-icon": { display: "none" }
                   }}
                   renderValue={(selected) => (selected ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department" : "Select Department")}
@@ -1030,7 +1030,7 @@ const ViewUnit: React.FC = () => {
                       }}
                       sx={{ "& .MuiOutlinedInput-root": { border: "none" },                                            
                           "& .MuiAutocomplete-clearIndicator": {
-                            color: "#F6F4FE", // ✅ ensure cancel icon stays styled
+                            color: "var(--color-text-primary)", // ✅ ensure cancel icon stays styled
                           },
                       }}                    
                     />
@@ -1118,7 +1118,7 @@ const ViewUnit: React.FC = () => {
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                       "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     },
                   }}
@@ -1147,7 +1147,7 @@ const ViewUnit: React.FC = () => {
                       fontSize: "14px",
                       ".MuiSelect-select": { padding: "8px" },
                       ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                       "& .MuiSelect-icon": { color: "var(--color-text-primary)"},
                     }}
                     renderValue={(selected) =>
@@ -1181,7 +1181,7 @@ const ViewUnit: React.FC = () => {
                   fontSize: "14px",
                   ".MuiSelect-select": { padding: "8px" },
                   ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                   "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 }}
                 renderValue={(selected) => (selected ? state.departments.find((dept) => dept.id === selected)?.name || "Select Department" : "Select Department")}
@@ -1361,15 +1361,10 @@ const ViewUnit: React.FC = () => {
             Edit
           </MenuItem>
           <MenuItem onClick={() => showConfirmation("suspend")} disabled={state.currentUnit?.isDeleted || state.loading}>
-            {state.currentUnit?.isActive ? (
+            {state.currentUnit?.isActive && (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
                 {state.loading && state.actionType === "suspend" ? "Suspending..." : "Suspend"}
-              </>
-            ) : (
-              <>
-                <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend" ? "Activating..." : "Activate"}
               </>
             )}
           </MenuItem>
@@ -1391,8 +1386,8 @@ const ViewUnit: React.FC = () => {
           sx={{
             "& .MuiDialog-paper": {
               borderRadius: 2,
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
             },
           }}
         >
@@ -1433,17 +1428,17 @@ const ViewUnit: React.FC = () => {
                 disabled={state.loading || !state.editFormData.departmentId}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: { 
                     fontSize: isLargeScreen ? "1rem" : undefined, 
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 aria-label="Unit name"
@@ -1461,17 +1456,17 @@ const ViewUnit: React.FC = () => {
                 disabled={state.loading || !state.editFormData.departmentId}
                 InputProps={{
                   sx: { 
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "0.875rem" : undefined 
                   },
                 }}
                 InputLabelProps={{
                   sx: { 
                     fontSize: isLargeScreen ? "0.875rem" : undefined, 
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 aria-label="Unit description"
@@ -1483,7 +1478,7 @@ const ViewUnit: React.FC = () => {
               onClick={handleEditSubmit}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 6, sm: 2 },
                 borderRadius: 50,
                 fontWeight: "semibold",
@@ -1491,7 +1486,7 @@ const ViewUnit: React.FC = () => {
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
                 "&:hover": {
-                  backgroundColor: "#F6F4FE",
+                  backgroundColor: "var(--color-text-primary)",
                   opacity: 0.9,
                 },
               }}
@@ -1523,8 +1518,8 @@ const ViewUnit: React.FC = () => {
           maxWidth="xs"
           sx={{
             "& .MuiDialog-paper": {
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
             },
           }}
         >
@@ -1536,7 +1531,7 @@ const ViewUnit: React.FC = () => {
               : "Activate Unit"}
           </DialogTitle>
           <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
+            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-primary)" }}>
               {state.actionType === "delete"
                 ? `Are you sure you want to delete "${state.currentUnit?.name}"?`
                 : `Are you sure you want to ${state.currentUnit?.isActive ? "suspend" : "activate"} "${state.currentUnit?.name}"?`}
@@ -1547,7 +1542,7 @@ const ViewUnit: React.FC = () => {
               onClick={() => handleStateChange("confirmModalOpen", false)}
               sx={{
                 fontSize: isLargeScreen ? "0.875rem" : undefined,
-                color: "#F6F4FE",
+                color: "var(--color-text-muted)",
               }}
               aria-label="Cancel action"
             >
@@ -1563,7 +1558,7 @@ const ViewUnit: React.FC = () => {
             >
               {state.loading ? (
                 <Box display="flex" alignItems="center">
-                  <CircularProgress size={18} sx={{ color: "#F6F4FE", mr: 1 }} />
+                  <CircularProgress size={18} sx={{ color: "var(--color-text-primary)", mr: 1 }} />
                   Processing...
                 </Box>
               ) : state.actionType === "delete" ? (

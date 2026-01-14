@@ -174,14 +174,14 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Create New Branch
           </Typography>
           <IconButton onClick={handleCancel}>
@@ -219,20 +219,20 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <BsPerson style={{ color: "#F6F4FE" }} />
+                      <BsPerson style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -257,20 +257,20 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoLocationOutline style={{ color: "#F6F4FE" }} />
+                      <IoLocationOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -295,20 +295,20 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoMailOutline style={{ color: "#F6F4FE" }} />
+                      <IoMailOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -333,20 +333,20 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoCallOutline style={{ color: "#F6F4FE" }} />
+                      <IoCallOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -364,15 +364,15 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
           disabled={loading}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 6, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}

@@ -87,8 +87,7 @@ const ViewRoles: React.FC = () => {
       handleStateChange("roles", response.data.data || []);
     } catch (error: any) {
       console.error("Failed to fetch roles:", error);
-      const msg = error.response?.data?.message || "Failed to load roles";
-      showPageToast(msg, "error");
+      const msg = error.response?.data?.message || "Failed to load roles";    
       handleStateChange("error", msg);
     } finally {
       handleStateChange("loading", false);
@@ -139,6 +138,7 @@ const ViewRoles: React.FC = () => {
       <Typography variant="h6" color="var(--color-text-muted)">
         No roles found
       </Typography>
+        {<p className="text-red-600">{state.error}</p>}
       <Button
         variant="contained"
         onClick={() => handleStateChange("createModalOpen", true)}
@@ -413,7 +413,7 @@ const ViewRoles: React.FC = () => {
                 handleStateChange("confirmDeleteOpen", false);
                 handleStateChange("selectedRole", null);
               }}
-              sx={{ color: "var(--color-text-primary)" }}
+              sx={{ color: "var(--color-text-muted)" }}
             >
               Cancel
             </Button>

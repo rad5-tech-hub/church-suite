@@ -156,11 +156,11 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           sx={{
             minWidth: "40px",
             height: "40px",
-            borderRadius: "8px",
-            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+            borderRadius: "8px",           
+            backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+            color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
             "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+            "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
           }}
           aria-label="Previous page"
         >
@@ -173,10 +173,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+            backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+            color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
             "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+            "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
           }}
           aria-label="Next page"
         >
@@ -215,8 +215,7 @@ const ViewBranches: React.FC = () => {
       } catch (error) {
         console.error("Failed to fetch branches:", error);
         handleStateChange("error", "Failed to load branches. Please try again later.");
-        handleStateChange("loading", false);
-        showPageToast("Failed to load branches", 'error');
+        handleStateChange("loading", false);      
         throw error;
       }
     },
@@ -485,8 +484,8 @@ const ViewBranches: React.FC = () => {
 
   const EmptyState = () => (
     <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255,255,255,0.5)", mb: 2 }} />
-      <Typography variant="h6" color="rgba(255,255,255,0.5)" gutterBottom>
+      <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
+      <Typography variant="h6" color="var(--color-text-muted)" gutterBottom>
         No branches found
       </Typography>
       {state.error && <Typography color="error">{state.error}</Typography>}
@@ -971,11 +970,19 @@ const ViewBranches: React.FC = () => {
         </Menu>
 
         {/* Edit Dialog */}
-        <Dialog open={state.editModalOpen} onClose={() => handleStateChange("editModalOpen", false)} maxWidth="sm" fullWidth>
+        <Dialog open={state.editModalOpen} onClose={() => handleStateChange("editModalOpen", false)} maxWidth="sm" fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: 2,
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
+            },
+          }}
+        >
           <DialogTitle>
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="h6" fontWeight={600}>Edit Branch</Typography>
-              <IconButton onClick={() => handleStateChange("editModalOpen", false)}><Close /></IconButton>
+              <IconButton onClick={() => handleStateChange("editModalOpen", false)} ><Close sx={{ color: "#B0B0B0" }} /></IconButton>
             </Box>
           </DialogTitle>
           <DialogContent>
@@ -989,14 +996,34 @@ const ViewBranches: React.FC = () => {
                   value={state.editFormData[field as keyof typeof state.editFormData] ?? ""}
                   onChange={handleEditChange}
                   variant="outlined"
-                  InputProps={{ sx: { color: "var(--color-text-primary)" } }}
-                  InputLabelProps={{ sx: { color: "var(--color-text-primary)" } }}
+                  InputProps={{sx: {
+                    color: "var(--color-text-primary)",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  }}}
+                  InputLabelProps={{sx: {color: "var(--color-text-primary)"}}}                  
                 />
               ))}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleEditSubmit} variant="contained" disabled={state.loading}>
+            <Button onClick={handleEditSubmit} variant="contained" disabled={state.loading} 
+              sx={{
+                py: 1,
+                backgroundColor: "var(--color-text-primary)",
+                px: { xs: 6, sm: 2 },
+                borderRadius: 50,
+                color: "var(--color-primary)",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": {
+                  backgroundColor: "var(--color-text-primary)",
+                  opacity: 0.9,
+                },
+              }}
+            >
               {state.loading ? "Saving…" : "Save Changes"}
             </Button>
           </DialogActions>

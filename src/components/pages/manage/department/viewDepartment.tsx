@@ -163,10 +163,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
           "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -179,10 +179,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "var(--color-text-primary)",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
           "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >
@@ -208,15 +208,16 @@ const EmptyState: React.FC<{ error: string | null; role: string | null; openModa
       justifyContent: "center",
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
     <Typography
       variant="h6"
-      color="rgba(255, 255, 255, 0.5)"
+      color="var(--color-text-muted)"
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      {error || "No departments Found"}
+      {"No departments Found"}
     </Typography>
+     {<p>{error}</p>}
     {role === 'branch' && <Button
       variant="contained"
       onClick={openModal}
@@ -1085,7 +1086,7 @@ const ViewDepartment: React.FC = () => {
               disabled={state.loading || state.isSearching}
               aria-label="Search departments"
             >
-              {state.isSearching ? <CircularProgress size={20} sx={{ color: "#2C2C2C" }} /> : "Search"}
+              {state.isSearching ? <CircularProgress size={20} sx={{ color: "var(--color-primary)" }} /> : "Search"}
             </Button>
           </Box>
         </Drawer>
@@ -1255,7 +1256,7 @@ const ViewDepartment: React.FC = () => {
           onClose={handleCancelEdit}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", color: "var(--color-text-primary)" } }}
+          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -1442,7 +1443,7 @@ const ViewDepartment: React.FC = () => {
                 backgroundColor: "var(--color-text-primary)",
                 px: { xs: 6, sm: 2 },
                 borderRadius: 50,
-                color: "#2C2C2C",
+                color: "var(--color-primary)",
                 fontWeight: "semibold",
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
@@ -1474,7 +1475,7 @@ const ViewDepartment: React.FC = () => {
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
-          sx={{ "& .MuiDialog-paper": { bgcolor: "#2C2C2C", color: "var(--color-text-primary)" } }}
+          sx={{ "& .MuiDialog-paper": { bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"

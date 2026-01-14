@@ -229,8 +229,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
-          color: "#F6F4FE",
+          bgcolor: 'var(--color-primary)',
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -259,8 +259,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               id="branch-select-label" 
               sx={{ 
                 fontSize: isLargeScreen ? '1rem' : undefined, 
-                color: '#F6F4FE',
-                '&.Mui-focused': { color: '#F6F4FE' }
+                color: 'var(--color-text-primary)',
+                '&.Mui-focused': { color: 'var(--color-text-primary)' }
               }}
             >
               Select Branch *
@@ -272,11 +272,11 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               label="Select Branch *"
               disabled={loading}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                "& .MuiSelect-select": { color: "#F6F4FE" },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               }}
               aria-label="Select branch"
@@ -284,7 +284,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               {fetchingBranches ? (
                 <MenuItem disabled>
                   <Box display="flex" alignItems="center" width="100%">
-                    <CircularProgress size={20} sx={{ color: "#F6F4FE", mr: 1 }} />
+                    <CircularProgress size={20} sx={{ color: "var(--color-text-primary)", mr: 1 }} />
                     Loading branches...
                   </Box>
                 </MenuItem>
@@ -302,8 +302,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               id="department-select-label" 
               sx={{ 
                 fontSize: isLargeScreen ? '1rem' : undefined, 
-                color: '#F6F4FE',
-                '&.Mui-focused': { color: '#F6F4FE' }
+                color: 'var(--color-text-primary)',
+                '&.Mui-focused': { color: 'var(--color-text-primary)' }
               }}
             >
               Select Department *
@@ -316,18 +316,18 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
               disabled={!selectedBranch}
               sx={{
                 fontSize: isLargeScreen ? '1rem' : undefined,
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                "& .MuiSelect-select": { color: "#F6F4FE" },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
               }}
               aria-label="Select department"
             >
               {fetchingDepartments ? (
                 <MenuItem disabled>
                   <Box display="flex" alignItems="center" width="100%">
-                    <CircularProgress size={20} sx={{ color: "#F6F4FE", mr: 1 }} />
+                    <CircularProgress size={20} sx={{ color: "var(--color-text-primary)", mr: 1 }} />
                     Loading departments...
                   </Box>
                 </MenuItem>
@@ -352,7 +352,7 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
             component="h2" 
             sx={{ 
               fontSize: isLargeScreen ? '1.2rem' : undefined,
-              color: "#F6F4FE"
+              color: "var(--color-text-primary)"
             }}
           >
             Units
@@ -373,8 +373,8 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                   elevation={1}
                   sx={{
                     p: 2,
-                    backgroundColor: isUnitEmpty ? '#353535' : '#2C2C2C', // Lighter dialog background for validation errors
-                    border: isUnitEmpty ? '1px solid #4B4B4B' : '1px solid #2C2C2C',
+                    backgroundColor: isUnitEmpty ? 'var(--color-text-muted)' : 'var(--color-surface-glass)', // Lighter dialog background for validation errors
+                    border: isUnitEmpty ? '1px solid var(--color-border-glass)' : '1px solid var(--color-border-subtle)',
                     transition: 'all 0.3s ease',
                     pointerEvents: isDisabled ? 'none' : 'auto',
                     opacity: isDisabled ? 0.6 : 1,
@@ -413,17 +413,17 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         helperText={showValidationErrors && !unit.name.trim() ? "Required field" : ""}
                         InputProps={{
                           sx: {
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                             fontSize: isLargeScreen ? "1rem" : undefined,
                           },
                         }}
                         InputLabelProps={{
                           sx: {
                             fontSize: isLargeScreen ? "1rem" : undefined,
-                            color: "#F6F4FE",
-                            "&.Mui-focused": { color: "#F6F4FE" },
+                            color: "var(--color-text-primary)",
+                            "&.Mui-focused": { color: "var(--color-text-primary)" },
                           },
                         }}
                         aria-label={`Unit name ${index + 1}`}
@@ -446,17 +446,17 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                         helperText={showValidationErrors && !unit.description.trim() ? "Required field" : ""}
                         InputProps={{
                           sx: {
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                             fontSize: isLargeScreen ? "1rem" : undefined,
                           },
                         }}
                         InputLabelProps={{
                           sx: {
                             fontSize: isLargeScreen ? "1rem" : undefined,
-                            color: "#F6F4FE",
-                            "&.Mui-focused": { color: "#F6F4FE" },
+                            color: "var(--color-text-primary)",
+                            "&.Mui-focused": { color: "var(--color-text-primary)" },
                           },
                         }}
                         aria-label={`Unit description ${index + 1}`}
@@ -468,11 +468,11 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
                           onClick={addUnitField}
                           title="Add More Unit"
                           sx={{
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             borderRadius: '5px',
                             border: '0.5px solid gray',
                             '&:hover': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                              backgroundColor: 'var(--color-surface-glass)',
                               boxShadow: '0.5px 1px 0.5px',
                             },
                           }}
@@ -498,15 +498,15 @@ const UnitModal: React.FC<UnitModalProps> = ({ open, onClose, onSuccess }) => {
           disabled={loading || fetchingDepartments || !selectedBranch || !selectedDepartment}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 6, sm: 2 },
             borderRadius: 50,
             fontWeight: "semibold",
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}

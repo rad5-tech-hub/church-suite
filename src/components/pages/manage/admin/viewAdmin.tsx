@@ -42,8 +42,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Close,
-} from "@mui/icons-material";
-import { MdOutlineEdit, MdRefresh } from "react-icons/md";
+} from "@mui/icons-material"
+import { MdOutlineEdit } from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
 import { AiOutlineDelete } from "react-icons/ai";
 import { SentimentVeryDissatisfied as EmptyIcon } from "@mui/icons-material";
@@ -235,10 +235,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: (!hasPrevPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
-          color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
       >
         <ChevronLeft />
@@ -250,10 +250,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: (!hasNextPage || isLoading) ? "#4d4d4e8e" : "#F6F4FE",
-          color: (!hasPrevPage || isLoading) ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
       >
         <ChevronRight />
@@ -462,7 +462,6 @@ const ViewAdmins: React.FC = () => {
 
       handleStateChange("currentPage", 1);
       handleStateChange("pageHistory", []);
-      showPageToast("Search completed successfully!", "success");
     } catch (error: any) {
       console.error("Error searching admins:", error);
       const errorMessage = error.response?.data?.error?.message || "No admins found matching the search criteria";
@@ -508,8 +507,7 @@ const ViewAdmins: React.FC = () => {
       }
     } catch (error) {
       console.error(`Error fetching ${direction} page:`, error);
-      handleStateChange("error", "Failed to load page");
-      showPageToast("Failed to load page", 'error');
+      handleStateChange("error", "Failed to load page");  
     } finally {
       handleStateChange("loading", false);
     }
@@ -579,7 +577,6 @@ const ViewAdmins: React.FC = () => {
       handleStateChange("pageHistory", []);
     } catch (error) {  
       handleStateChange("error", "Failed to refresh admins");
-      showPageToast("Failed to refresh admins", 'error');
     } finally {
       handleStateChange("loading", false);
     }
@@ -608,7 +605,6 @@ const ViewAdmins: React.FC = () => {
     } catch (error) {
       console.error("Error refreshing admins:", error);
       handleStateChange("error", "Failed to refresh admins");
-      showPageToast("Failed to refresh admins", 'error');
     } finally {
       handleStateChange("loading", false);
     }
@@ -1705,19 +1701,12 @@ const ViewAdmins: React.FC = () => {
             onClick={() => showConfirmation("suspend")}
             disabled={state.loading || !canSuspend}
           >
-            {!state.currentAdmin?.isSuspended ? (
+            {!state.currentAdmin?.isDeleted &&  (
               <>
                 <BlockIcon sx={{ mr: 1, fontSize: "1rem" }} />
                 {state.loading && state.actionType === "suspend"
                   ? "Suspending..."
                   : "Suspend"}
-              </>
-            ) : (
-              <>
-                <MdRefresh style={{ marginRight: 8, fontSize: "1rem" }} />
-                {state.loading && state.actionType === "suspend"
-                  ? "Activating..."
-                  : "Activate"}
               </>
             )}
           </MenuItem>
@@ -1736,7 +1725,7 @@ const ViewAdmins: React.FC = () => {
           onClose={() => handleStateChange("assignRoleOpen", false)}
           maxWidth="xs"
           fullWidth
-          sx={{ "& .MuiPaper-root": { bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiPaper-root": { bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             Assign Role to {state.currentAdmin?.name}
@@ -1749,8 +1738,8 @@ const ViewAdmins: React.FC = () => {
                 id="branch-select-label"
                 sx={{
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" }
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" }
                 }}
               >
                 Select Branch *
@@ -1762,11 +1751,11 @@ const ViewAdmins: React.FC = () => {
                 onChange={(e) => handleStateChange('selectedBranchId', (e.target.value))}
                 label="Select Branch *"
                 sx={{
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                  "& .MuiSelect-select": { color: "#F6F4FE" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                  "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                   fontSize: isLargeScreen ? "1rem" : undefined,
                 }}
               >
@@ -1781,7 +1770,7 @@ const ViewAdmins: React.FC = () => {
             <FormControl fullWidth sx={{ mt: 2 }}>
               <InputLabel
                 id="role-select-label"
-                sx={{ color: "#F6F4FE" }}
+                sx={{ color: "var(--color-text-primary)" }}
               >
                 Select Role(s)
               </InputLabel>
@@ -1800,12 +1789,12 @@ const ViewAdmins: React.FC = () => {
                     .join(", ")
                 }
                 sx={{
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#777280",
                   },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                 }}
               >
                 {/* 🔥 filter here → scopeLevel must match currentAdmin.scopeLevel */}
@@ -1835,7 +1824,7 @@ const ViewAdmins: React.FC = () => {
           </DialogContent>
 
           <DialogActions>
-            <Button onClick={() => handleStateChange("assignRoleOpen", false)}>
+            <Button sx={{color: "var(--color-text-muted)"}}  onClick={() => handleStateChange("assignRoleOpen", false)}>
               Cancel
             </Button>
             <Button
@@ -1844,9 +1833,9 @@ const ViewAdmins: React.FC = () => {
               disabled={state.loading}
               sx={{
                 fontSize: isLargeScreen ? "0.875rem" : undefined,
-                backgroundColor: "#F6F4FE",
-                color: "#2c2c2c",
-                "&:hover": { backgroundColor: "#e0e0e0" },
+                backgroundColor: "var(--color-text-primary)",
+                color: "var(--color-primary)",
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Assign
@@ -1858,7 +1847,7 @@ const ViewAdmins: React.FC = () => {
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
-          sx={{ "& .MuiPaper-root": { bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiPaper-root": { bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
           fullWidth
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
@@ -1879,13 +1868,13 @@ const ViewAdmins: React.FC = () => {
           <DialogActions>
             <Button
               onClick={() => handleStateChange("confirmModalOpen", false)}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: 'var(--color-text-muted)' }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmedAction}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined,color: state.actionType === 'delete' ? '#f6f4fe' : '#2c2c2c' , backgroundColor: state.actionType === "delete" ? "#E61E4D" : "#f6f4fe", "&:hover": { backgroundColor: state.actionType === "delete" ? "#b91535" : "#f6f4fe" } }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined,color: state.actionType === 'delete' ? 'var(--color-text-primary)' : '#2c2c2c' , backgroundColor: state.actionType === "delete" ? "#E61E4D" : "var(--color-text-primary)", "&:hover": { backgroundColor: state.actionType === "delete" ? "#b91535" : "var(--color-text-primary)" } }}
               variant="contained"
               disabled={state.loading || !canDelete || !canSuspend}
             >
