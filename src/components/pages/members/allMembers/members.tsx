@@ -332,7 +332,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
   fetchStates();
 }, [formData.nationality]);
 
-  // Handlers
+  // Handlersg
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { name?: string; value: unknown } }
   ) => {
