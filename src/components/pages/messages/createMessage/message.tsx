@@ -164,12 +164,13 @@ const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
   isLoading,
 }) => (
   <Grid size={{ xs: 12 }}>
-    <FormLabel id="program-type-label" sx={{ fontSize: "0.9rem", color: "#F6F4FE" }}>
-      Audience Type
+    <FormLabel id="program-type-label" sx={{ fontSize: "0.9rem", color: "var(--color-text-primary)" }}>
+      Audience Type <br />
+      <span className="text-muted text-xs">Click on any of the audience to select</span>
     </FormLabel>
     <RadioGroup
       row
-      sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "#F6F4FE" }}
+      sx={{ display: "flex", justifyContent: "space-around", mt: 1, color: "var(--color-text-primary)" }}
       aria-labelledby="program-type-label"
       name="type"
       value={formData.type}
@@ -189,17 +190,17 @@ const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
         {
           value: "newcomers",
           label: "Newcomers",
-          icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
+          icon: <FaPeopleGroup fontSize="25" color="var(--color-text-primary)" />,
         },
         {
           value: "workers",
           label: "Workers",
-          icon: <FaPeopleCarry fontSize="25" color="#F6F4FE" />,
+          icon: <FaPeopleCarry fontSize="25" color="var(--color-text-primary)" />,
         },
         // {
         //   value: "members",
         //   label: "Members",
-        //   icon: <FaPeopleGroup fontSize="25" color="#F6F4FE" />,
+        //   icon: <FaPeopleGroup fontSize="25" color="var(--color-text-primary)" />,
         // },
       ].map(({ value, label, icon }) => (
         <FormControlLabel
@@ -207,12 +208,12 @@ const RenderAudienceType: React.FC<RenderAudienceTypeProps> = ({
           value={value}
           disabled={isLoading}
           control={
-            <Radio sx={{ ml: 2, color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }} />
+            <Radio sx={{ ml: 2, color: "var(--color-text-primary)", "&.Mui-checked": { color: "var(--color-text-primary)" } }} />
           }
           label={
             <Box sx={{ display: "flex", alignItems: "center" }}>
               {icon}
-              <Typography sx={{ ml: 1, color: "#F6F4FE" }}>{label}</Typography>
+              <Typography sx={{ ml: 1, color: "var(--color-text-primary)" }}>{label}</Typography>
             </Box>
           }
           labelPlacement="start"
@@ -554,7 +555,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
   const renderProgramType = () => (
     <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="program-type-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+      <InputLabel id="program-type-label" sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
         Program Type
       </InputLabel>
       <Select
@@ -570,10 +571,10 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         disabled={!authData?.branchId || isLoading}
         sx={{
           fontSize: isLargeScreen ? "1rem" : undefined,
-          color: "#F6F4FE",
+          color: "var(--color-text-primary)",
           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-          "& .MuiSelect-select": { borderColor: "#777280", color: "#F6F4FE" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          "& .MuiSelect-select": { borderColor: "#777280", color: "var(--color-text-primary)" },
+          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
         }}
         renderValue={(selected) => {
           if (!selected) return "Select Program";
@@ -647,7 +648,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
     return (
       <Grid size={{ xs: 12, md: 6 }}>
-        <InputLabel sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        <InputLabel sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
           Check Newcomers
         </InputLabel>
         <Select
@@ -664,9 +665,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                   .join(", ")
           }
           sx={{
-            color: "#F6F4FE",
+            color: "var(--color-text-primary)",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-icon": { color: "#F6F4FE" },
+            "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           }}
         >
           {state.newcomersLoading ? (
@@ -740,7 +741,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
     return (
       <Grid size={{ xs: 12, md: 6 }}>
-        <InputLabel sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+        <InputLabel sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
           Check Workers
         </InputLabel>
         <Select
@@ -757,9 +758,9 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                   .join(", ")
           }
           sx={{
-            color: "#F6F4FE",
+            color: "var(--color-text-primary)",
             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-            "& .MuiSelect-icon": { color: "#F6F4FE" },
+            "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           }}
         >
           {state.workersLoading ? (
@@ -812,7 +813,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
   const renderDepartments = () => (
     <Grid size={{ xs: 12, md: 6 }}>
-      <InputLabel id="departments-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+      <InputLabel id="departments-label" sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
         Department
       </InputLabel>
       <Select
@@ -827,16 +828,16 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         disabled={isLoading}
         startAdornment={
           <InputAdornment position="start">
-            <FiClock style={{ color: "#F6F4FE" }} />
+            <FiClock style={{ color: "var(--color-text-primary)" }} />
           </InputAdornment>
         }
         sx={{
-          color: "#F6F4FE",
+          color: "var(--color-text-primary)",
           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "& .MuiSelect-select": { paddingRight: "24px !important" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           fontSize: "0.875rem",
         }}
         renderValue={(selected) =>
@@ -862,7 +863,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
   const renderWallet = () => (
     <Grid size={{ xs: 12}}>
-      <InputLabel id="wallet-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+      <InputLabel id="wallet-label" sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
        Select Wallet
       </InputLabel>
 
@@ -879,16 +880,16 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         disabled={state.walletLoading}
         startAdornment={
           <InputAdornment position="start">
-            <CiWallet style={{ color: "#F6F4FE" }} />
+            <CiWallet style={{ color: "var(--color-text-primary)" }} />
           </InputAdornment>
         }
         sx={{
-          color: "#F6F4FE",
+          color: "var(--color-text-primary)",
           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "& .MuiSelect-select": { paddingRight: "24px !important" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           fontSize: "0.875rem",
         }}
         renderValue={(selected) => {
@@ -930,7 +931,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
 
   const renderCategories = () => (
     <Grid size={{ xs: 12, md: 12 }}>
-      <InputLabel id="categories-label" sx={{ color: "#F6F4FE", fontSize: "0.9rem", mb: 1 }}>
+      <InputLabel id="categories-label" sx={{ color: "var(--color-text-primary)", fontSize: "0.9rem", mb: 1 }}>
         Category
       </InputLabel>
       <Select
@@ -951,12 +952,12 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
         name="categories"
         disabled={isLoading}
         sx={{
-          color: "#F6F4FE",
+          color: "var(--color-text-primary)",
           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
           "& .MuiSelect-select": { paddingRight: "24px !important" },
-          "& .MuiSelect-icon": { color: "#F6F4FE" },
+          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
           fontSize: "0.875rem",
         }}
         renderValue={(selected) => (selected.length === 0 ? "Select Category" : selected.join(", "))}
@@ -965,7 +966,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           <Checkbox
             checked={formData.categories.length === categoryOptions.length}
             indeterminate={formData.categories.length > 0 && formData.categories.length < categoryOptions.length}
-            sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+            sx={{ color: "#777280", "&.Mui-checked": { color: "var(--color-primary)" }, "& svg": { fontSize: 18 } }}
           />
           <ListItemText primary="All" />
         </MenuItem>
@@ -973,7 +974,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           <MenuItem key={category} value={category}>
             <Checkbox
               checked={formData.categories.includes(category)}
-              sx={{ color: "#777280", "&.Mui-checked": { color: "#2c2c2c" }, "& svg": { fontSize: 18 } }}
+              sx={{ color: "#777280", "&.Mui-checked": { color: "var(--color-primary)" }, "& svg": { fontSize: 18 } }}
             />
             <ListItemText primary={category.charAt(0).toUpperCase() + category.slice(1)} />
           </MenuItem>
@@ -997,7 +998,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           placeholder="Enter your message here..."
           InputProps={{
             sx: {
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
@@ -1006,7 +1007,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
             },
           }}
           InputLabelProps={{
-            sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" },
+            sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" }, fontSize: "0.9rem" },
           }}
           required
         />
@@ -1023,11 +1024,11 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                   setFormData((prev) => ({ ...prev, scheduledDateTime: undefined }));
                 }
               }}
-              sx={{ color: "#F6F4FE", "&.Mui-checked": { color: "#F6F4FE" } }}
+              sx={{ color: "var(--color-text-primary)", "&.Mui-checked": { color: "var(--color-text-primary)" } }}
             />
           }
           label="Schedule Message"
-          sx={{ color: "#F6F4FE", mb: 1 }}
+          sx={{ color: "var(--color-text-primary)", mb: 1 }}
         />
         {state.isScheduleChecked && (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1051,7 +1052,7 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                   placeholder: "Select date and time to send message",
                   InputProps: {
                     sx: {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
                       "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
                       "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280 !important" },
@@ -1061,16 +1062,16 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
                   },
                   InputLabelProps: {
                     sx: {
-                      color: "#F6F4FE",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      color: "var(--color-text-primary)",
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       fontSize: "0.9rem",
                     },
                   },
                   sx: {
                     "& .MuiSvgIcon-root": {
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& fieldset": {
                       borderColor: "#777280 !important",
                     },
@@ -1104,14 +1105,14 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Send SMS Messages
           </Typography>
           <IconButton onClick={onClose}>
@@ -1153,14 +1154,14 @@ const MessageModal: React.FC<MessageModalProps> = ({ open, onClose, onSuccess, i
           disabled={isLoading}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 6, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "0.9rem", sm: "0.9rem" },
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           }}
         >
           {isLoading ? (

@@ -168,7 +168,7 @@ const ViewForms: React.FC = () => {
       <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.5)"
+        color="var(--color-text-muted)"
         gutterBottom
         sx={{
           fontSize: isLargeScreen ? "1.25rem" : undefined,
@@ -186,13 +186,13 @@ const ViewForms: React.FC = () => {
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
         sx={{
-          backgroundColor: "#363740",
+          backgroundColor: "var(--color-text-primary)",
           px: { xs: 2, sm: 2 },
           mt: 2,
           fontSize: isLargeScreen ? "0.875rem" : undefined,
-          color: "var(--color-text-on-primary)",
+          color: "var(--color-primary)",
           "&:hover": {
-            backgroundColor: "#363740",
+            backgroundColor: "var(--color-text-primary)",
             opacity: 0.9,
           },
         }}
@@ -225,7 +225,7 @@ const ViewForms: React.FC = () => {
                 gap: 1,
               }}
             >
-              <span className="text-[#F6F4FE]">Forms</span>
+              <span className="text-[var(--color-text-primary)]">Forms</span>
             </Typography>
           </Grid>
           <Grid
@@ -244,16 +244,16 @@ const ViewForms: React.FC = () => {
               }}
               size="medium"
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": {
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   opacity: 0.9,
                 },
               }}
@@ -281,13 +281,13 @@ const ViewForms: React.FC = () => {
                 <Card
                   sx={{
                     borderRadius: "10.267px",
-                    backgroundColor: "rgba(255, 255, 255, 0.06)",
+                    backgroundColor: "var(--color-surface-glass)",
                     boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     "&:hover": {
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      backgroundColor: "var(--color-surface)",
                     },
                   }}
                 >
@@ -296,8 +296,8 @@ const ViewForms: React.FC = () => {
                       <Box>
                         <IconButton
                           sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#777280",
+                            backgroundColor: "var(--color-surface-glass)",
+                            color: "var(--color-text-secondary)",
                             display: "flex",
                             flexDirection: "column",
                             padding: "10px",
@@ -306,7 +306,7 @@ const ViewForms: React.FC = () => {
                           }}
                           aria-label={`Form icon for ${form.name}`}
                         >
-                          <span className="border-2 rounded-md border-[#777280] p-1">
+                          <span className="border rounded-md border-[var(--color-border-glass)] p-1">
                             <SiGoogleforms size={28} />
                           </span>
                         </IconButton>
@@ -318,8 +318,8 @@ const ViewForms: React.FC = () => {
                             handleStateChange("anchorEl", e.currentTarget);
                           }}
                           sx={{
-                            backgroundColor: "rgba(255, 255, 255, 0.06)",
-                            color: "#777280",
+                            backgroundColor: "var(--color-surface-glass)",
+                            color: "var(--color-text-primary)",
                             padding: "8px",
                             borderRadius: 1,
                             textAlign: "center",
@@ -336,7 +336,7 @@ const ViewForms: React.FC = () => {
                           variant="h6"
                           fontWeight={600}
                           sx={{
-                            color: "#E1E1E1",
+                            color: "var(--color-text-primary)",
                           }}
                         >
                           {form.name}
@@ -356,7 +356,7 @@ const ViewForms: React.FC = () => {
                         <Typography
                           variant="body2"
                           sx={{
-                            color: "#777280",
+                            color: "var(--color-text-muted)",
                           }}
                         >
                           {form.description}

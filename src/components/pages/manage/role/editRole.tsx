@@ -368,11 +368,11 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
       onClose={handleCancel}
       fullWidth
       maxWidth="md"
-      sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", py: 3, px: 2 } }}
+      sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", py: 3, px: 2 } }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
             Edit Role
           </Typography>
           <IconButton onClick={handleCancel}>
@@ -424,19 +424,19 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
                     variant="outlined"
                     placeholder="Select a branch"
                     InputLabelProps={{
-                      sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                      sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } },
                     }}
                     InputProps={{
                       ...params.InputProps,
                       sx: {
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                        "& .MuiSelect-icon": { color: "#F6F4FE" },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                        "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       },
                       endAdornment: (
                         <>
-                          {branchesLoading ? <CircularProgress size={16} sx={{ mr: 1, color: "#F6F4FE" }} /> : null}
+                          {branchesLoading ? <CircularProgress size={16} sx={{ mr: 1, color: "var(--color-text-primary)" }} /> : null}
                           {params.InputProps.endAdornment}
                         </>
                       ),
@@ -462,13 +462,13 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
             error={!!errors.name}
             helperText={errors.name}
             InputLabelProps={{
-              sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: isLargeScreen ? "1rem" : undefined },
+              sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" }, fontSize: isLargeScreen ? "1rem" : undefined },
             }}
             InputProps={{
               sx: {
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
             }}
@@ -480,8 +480,8 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
               id="type-label"
               sx={{
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                color: "#F6F4FE",
-                "&.Mui-focused": { color: "#F6F4FE" },
+                color: "var(--color-text-primary)",
+                "&.Mui-focused": { color: "var(--color-text-primary)" },
               }}
             >
               Access Level *
@@ -494,11 +494,11 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
               label="Access Level *"
               disabled={loading}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                "& .MuiSelect-select": { color: "#F6F4FE" },
-                "& .MuiSelect-icon": { color: "#F6F4FE" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               }}
             >              
@@ -510,13 +510,13 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
 
           {/* Permission Groups */}
           <Box>
-            <Typography variant="subtitle2" sx={{ color: "#F6F4FE", mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: "var(--color-text-primary)", mb: 1 }}>
               Permission Groups *
             </Typography>
 
             {groupsLoading ? (
               <Box display="flex" justifyContent="center" py={2}>
-                <CircularProgress size={20} sx={{ color: "#F6F4FE" }} />
+                <CircularProgress size={20} sx={{ color: "var(--color-text-primary)" }} />
               </Box>
             ) : (
               <Grid container spacing={2}>
@@ -530,7 +530,7 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
                     <Grid size={{ xs: 12, md: 6 }} key={group.id}>
                       <Box
                         sx={{
-                          border: `1px solid ${isGroupSelected ? "#F6F4FE" : "#777280"}`,
+                          border: `1px solid ${isGroupSelected ? "var(--color-text-primary)" : "#777280"}`,
                           borderRadius: 2,
                           p: 2,
                           bgcolor: isGroupSelected ? "#4d4d4e8e" : "transparent",
@@ -544,15 +544,15 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
                               indeterminate={!isGroupSelected && somePermsChecked}
                               onChange={(e) => handlePermissionGroupChange(group.id, e.target.checked)}
                               sx={{
-                                color: "#F6F4FE",
-                                "&.Mui-checked": { color: "#F6F4FE" },
-                                "&.Mui-indeterminate": { color: "#F6F4FE" },
+                                color: "var(--color-text-primary)",
+                                "&.Mui-checked": { color: "var(--color-text-primary)" },
+                                "&.Mui-indeterminate": { color: "var(--color-text-primary)" },
                               }}
                             />
                           }
                           label={
                             <Box>
-                              <Typography sx={{ fontWeight: 600, color: "#F6F4FE" }}>
+                              <Typography sx={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
                                 {group.name}
                               </Typography>
                               <Typography variant="body2" sx={{ color: "#aaa", fontSize: "0.8rem" }}>
@@ -589,7 +589,7 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
                                   />
                                 }
                                 label={
-                                  <Typography sx={{ fontSize: "0.875rem", color: "#F6F4FE" }}>
+                                  <Typography sx={{ fontSize: "0.875rem", color: "var(--color-text-primary)" }}>
                                     {perm.name}
                                   </Typography>
                                 }
@@ -651,16 +651,16 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
             size="medium"
             inputProps={{ maxLength: MAX_CHARS }}
             InputLabelProps={{
-              sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: isLargeScreen ? "1rem" : undefined },
+              sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" }, fontSize: isLargeScreen ? "1rem" : undefined },
             }}
             InputProps={{
               sx: {
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "& .MuiOutlinedInput-notchedOutline": {
                   borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#777280",
                 },
                 "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "#F6F4FE",
+                  borderColor: charCount >= MAX_CHARS ? "#ff9800" : "var(--color-text-primary)",
                 },
                 fontSize: isLargeScreen ? "1rem" : undefined,
               },
@@ -695,14 +695,14 @@ const EditRoleModal: React.FC<EditRoleModalProps> = ({
           disabled={loading || formData.permissionGroup.length === 0}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 2, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           }}
         >
           {loading ? (

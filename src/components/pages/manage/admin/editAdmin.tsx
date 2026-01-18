@@ -586,8 +586,8 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: isMobile ? 0 : 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -597,7 +597,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
             variant={isMobile ? "h6" : "h5"}
             component="h1"
             fontWeight={300}
-            sx={{ color: "#F6F4FE" }}
+            sx={{ color: "var(--color-text-primary)" }}
           >
             Edit Admin
           </Typography>
@@ -634,15 +634,15 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                 helperText={errors.name}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -666,15 +666,15 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                 helperText={errors.title}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -698,20 +698,20 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoMailOutline style={{ color: "#F6F4FE" }} />
+                      <IoMailOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 required
@@ -735,20 +735,20 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <IoCallOutline style={{ color: "#F6F4FE" }} />
+                      <IoCallOutline style={{ color: "var(--color-text-primary)" }} />
                     </InputAdornment>
                   ),
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
                   sx: {
-                    color: "#F6F4FE",
-                    "&.Mui-focused": { color: "#F6F4FE" },
+                    color: "var(--color-text-primary)",
+                    "&.Mui-focused": { color: "var(--color-text-primary)" },
                   },
                 }}
                 required
@@ -758,7 +758,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
               <FormControl fullWidth error={!!errors.branches}>
                 <InputLabel
                   id="scope-level-label"
-                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                  sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                 >
                   Scope Level *
                 </InputLabel>
@@ -771,11 +771,11 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                   label="Scope Level *"
                   disabled={loading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                 >
@@ -797,7 +797,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                     id="branch-label"
                     sx={{
                       fontSize: isLargeScreen ? "1rem" : undefined,
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     }}
                   >
                     Select Branch(es)
@@ -818,11 +818,11 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                         .join(", ")
                     }
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{
@@ -900,7 +900,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                   <FormControl fullWidth error={!!errors.departments}>
                     <InputLabel
                       id={`department-label-${branch.id}`}
-                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                      sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                     >
                       Departments for {branch.name}
                     </InputLabel>
@@ -922,11 +922,11 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                           .join(", ")
                       }
                       sx={{
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                         "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                        "& .MuiSelect-select": { color: "#F6F4FE" },
-                        "& .MuiSelect-icon": { color: "#F6F4FE" },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                        "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                        "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                         fontSize: isLargeScreen ? "1rem" : undefined,
                       }}
                       MenuProps={{
@@ -999,7 +999,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                     <FormControl fullWidth error={!!errors.units}>
                       <InputLabel
                         id={`unit-label-${dept.id}`}
-                        sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}
+                        sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}
                       >
                         Units for {dept.name} ({branch?.name || "Branch"})
                       </InputLabel>
@@ -1021,13 +1021,13 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                             .join(", ")
                         }
                         sx={{
-                          color: "#F6F4FE",
+                          color: "var(--color-text-primary)",
                           "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#F6F4FE",
+                            borderColor: "var(--color-text-primary)",
                           },
-                          "& .MuiSelect-select": { color: "#F6F4FE" },
-                          "& .MuiSelect-icon": { color: "#F6F4FE" },
+                          "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                          "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                           fontSize: isLargeScreen ? "1rem" : undefined,
                         }}
                         MenuProps={{
@@ -1109,7 +1109,7 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
                     sx={{
                       "& .MuiTypography-root": {
                         fontSize: isLargeScreen ? "1rem" : undefined,
-                        color: "#F6F4FE",
+                        color: "var(--color-text-primary)",
                       },
                     }}
                   />
@@ -1126,15 +1126,15 @@ const EditAdminModal: React.FC<EditAdminModalProps> = ({ open, onClose, adminDat
           onClick={handleSubmit}
           sx={{
             py: 1,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 7, sm: 2 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: { xs: "1rem", sm: "1rem" },
             "&:hover": {
-              backgroundColor: "#F6F4FE",
+              backgroundColor: "var(--color-text-primary)",
               opacity: 0.9,
             },
           }}

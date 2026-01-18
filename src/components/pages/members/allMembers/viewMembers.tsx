@@ -128,8 +128,8 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
   isLargeScreen,
   isLoading,
 }) => (
-  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", py: 2, px: { xs: 2, sm: 3 }, color: "#777280", gap: 2, flexWrap: "wrap" }}>
-    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "#777280" }}>
+  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", py: 2, px: { xs: 2, sm: 3 }, color: "var(--color-text-muted)", gap: 2, flexWrap: "wrap" }}>
+    <Typography sx={{ fontSize: isLargeScreen ? "0.75rem" : "0.875rem", color: "var(--color-text-muted)" }}>
       Page {currentPage}
     </Typography>
     <Box sx={{ display: "flex", gap: 1 }}>
@@ -140,10 +140,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -156,10 +156,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasNextPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >
@@ -173,49 +173,49 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
   <TableRow
     sx={{
       "& td": { border: "none" },
-      backgroundColor: member.isDeleted ? "rgba(0, 0, 0, 0.04)" : "#4d4d4e8e",
+      backgroundColor: member.isDeleted ? "var(--color-surface)" : "var(--color-surface-glass)",
       borderRadius: "4px",
-      "&:hover": { backgroundColor: "#4d4d4e8e", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
+      "&:hover": { backgroundColor: "var(--color-surface-glass)", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
       transition: "all 0.2s ease",
       mb: 2,
     }}
   >
-    <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.snumber, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {(index + 1).toString().padStart(2, "0")}
     </TableCell>
-    <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" : "#F6F4FE", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
-      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+    <TableCell sx={{ textDecoration: member.isDeleted ? "line-through" : "none", color: member.isDeleted ? "gray" :  "var(--color-text-primary)", display: "flex", alignItems: "center", gap: 1, fontSize: isLargeScreen ? "0.875rem" : undefined, py: 2, flex: 1 }}>
+      <Box className="py-2 px-3 rounded-full bg-[var(--color-text-secondary)] text-[var(--color-primary)] font-bold text-lg mr-2">
         {member.name.split(" ").map((name) => name.charAt(0)).join("")}
       </Box>
       <Box>
         {member.name}
         <br />
-        <span className="text-[13px] text-[#777280]">{member.sex || "-"}</span>
+        <span className="text-[13px] text-[var(--color-text-muted)]">{member.sex || "-"}</span>
       </Box>
     </TableCell>
-    <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {member.phoneNo || "N/A"}
     </TableCell>
-    <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+    <TableCell sx={{ width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
       <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {member.branch?.name || "N/A"}
       </Box>
     </TableCell>
-    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
       <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {member.departments?.length
           ? member.departments.map(dept => dept.name).join(", ")
           : "N/A"}
       </Box>
     </TableCell>
-    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
+    <TableCell sx={{ width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none", maxWidth: 0, overflow: "hidden", whiteSpace: "normal", wordWrap: "break-word", overflowWrap: "break-word" }}>
       <Box component="span" sx={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
         {member.units?.length
           ? member.units.map(unit => unit.name).join(", ")
           : "N/A"}
       </Box>
     </TableCell>
-    <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" : "#F6F4FE", textDecoration: member.isDeleted ? "line-through" : "none" }}>
+    <TableCell sx={{ width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined, color: member.isDeleted ? "gray" :  "var(--color-text-primary)", textDecoration: member.isDeleted ? "line-through" : "none" }}>
       {member.whatappNo}
     </TableCell>
     <TableCell sx={{ width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>
@@ -234,22 +234,22 @@ const MemberRow: React.FC<MemberRowProps> = memo(({ member, index, onMenuOpen, i
 
 const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAddMember: () => void }> = ({ error, isLargeScreen, onAddMember }) => (
   <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.5)", mb: 2 }} />
-    <Typography variant="h6" color="rgba(255, 255, 255, 0.5)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
+    <Typography variant="h6" color="var(--color-text-muted)" gutterBottom sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {error || "No Workers found"}
     </Typography>
     <Button
       variant="contained"
       onClick={onAddMember}
       sx={{
-        backgroundColor: "#363740",
+        backgroundColor: "var(--color-text-primary)",
         px: { xs: 2, sm: 2 },
         mt: 2,
         borderRadius: 50,
         py: 1,
         fontSize: isLargeScreen ? "0.875rem" : undefined,
-        color: "var(--color-text-on-primary)",
-        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+        color: "var(--color-primary)",
+        "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
       }}
     >
       Add New Worker
@@ -315,7 +315,7 @@ const ConfirmationDialog: React.FC<{
     open={open}
     onClose={onClose}
     maxWidth="xs"
-    sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
+    sx={{ "& .MuiDialog-paper": { backgroundColor: "var(--color-primary)", color:  "var(--color-text-primary)" } }}
   >
     <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
       {actionType === "delete" ? "Delete Worker" : "Suspend Worker"}
@@ -326,7 +326,7 @@ const ConfirmationDialog: React.FC<{
       </Typography>
     </DialogContent>
     <DialogActions>
-      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined }} disabled={loading}>
+      <Button onClick={onClose} sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: 'var(--color-text-primary)', bgcolor:'var(--color-surface-glass)'}} disabled={loading}>
         Cancel
       </Button>
       <Button
@@ -462,37 +462,40 @@ const ViewMembers: React.FC = () => {
     [authData?.branchId, authData?.department, authData?.role, handleStateChange]
   );
 
-  const fetchDepartments = useCallback(async () => {
-    if (state.loadingDepartments || state.departmentsLoaded || state.departmentsError) return;
+ const fetchDepartments = useCallback(async (force = false) => {
+    // Prevent duplicate calls
+    if (!force && (state.loadingDepartments || state.departmentsLoaded || state.departmentsError)) {
+      return;
+    }
+
     const branchId = state.searchBranch || authData?.branchId;
     if (!branchId) {
       handleStateChange("departments", []);
-      handleStateChange("loadingDepartments", false);
       handleStateChange("departmentsError", "Please select a branch to load departments");
       showPageToast("Please select a branch to load departments", "warning");
       return;
     }
+
     handleStateChange("loadingDepartments", true);
+    handleStateChange("departmentsError", null);
+
     try {
       const response = await Api.get(`/church/get-departments?branchId=${branchId}`);
       handleStateChange("departments", response.data.departments || []);
       handleStateChange("departmentsLoaded", true);
-      handleStateChange("departmentsError", null);
     } catch (error: any) {
-      console.error("Error fetching departments:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      const errorMessage = error.response?.data?.message || "Failed to load departments. Please try again.";
-      handleStateChange("departmentsError", errorMessage);
-      handleStateChange("departments", []);
-      handleStateChange("loadingDepartments", false);
-      handleStateChange("departmentsLoaded", false);    
+      // ... error handling ...
     } finally {
       handleStateChange("loadingDepartments", false);
     }
-  }, [authData?.branchId, state.searchBranch, state.loadingDepartments, state.departmentsLoaded, state.departmentsError, handleStateChange]);
+  }, [
+    authData?.branchId,
+    state.searchBranch,
+    state.loadingDepartments,
+    state.departmentsLoaded,
+    state.departmentsError,
+    handleStateChange
+  ]);
 
   const fetchBranches = useCallback(async () => {
     if (state.isBranchLoading || state.branchesLoaded || state.branchesError) return;
@@ -652,8 +655,7 @@ const ViewMembers: React.FC = () => {
           status: error.response?.status,
         });
         handleStateChange("error", errorMessage);
-        handleStateChange("loading", false);
-        showPageToast(errorMessage, "error");
+        handleStateChange("loading", false);      
       }
     },
     [authData?.branchId, authData?.department, authData?.role, state.pagination.nextPage, state.pageHistory, state.searchName, state.searchDepartment, state.searchBranch, fetchMembers, handleStateChange, searchMembersWithPagination]
@@ -868,16 +870,16 @@ const ViewMembers: React.FC = () => {
       anchor="top"
       open={state.isDrawerOpen}
       onClose={() => handleStateChange("isDrawerOpen", false)}
-      sx={{ "& .MuiDrawer-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE", padding: 2, boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)" } }}
+      sx={{ "& .MuiDrawer-paper": { backgroundColor:  "var(--color-primary)", color: "var(--color-text-primary)", padding: 2, boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.25)" } }}
     >
       <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color: "#F6F4FE" }}>
+        <IconButton onClick={() => handleStateChange("isDrawerOpen", false)} sx={{ color:  "var(--color-text-primary)" }}>
           <CloseIcon />
         </IconButton>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", px: 2, pb: 2, gap: 2 }}>
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -894,8 +896,8 @@ const ViewMembers: React.FC = () => {
                 sx={{
                   backgroundColor: "#4d4d4e8e",
                   borderRadius: "8px",
-                  "& .MuiInputLabel-root": { color: "#F6F4FE" },
-                  "& .MuiOutlinedInput-root": { color: "#F6F4FE", "& fieldset": { borderColor: "transparent" } },
+                  "& .MuiInputLabel-root": { color:  "var(--color-text-primary)" },
+                  "& .MuiOutlinedInput-root": { color:  "var(--color-text-primary)", "& fieldset": { borderColor: "transparent" } },
                   "& .MuiAutocomplete-endAdornment": { display: state.searchName ? "block" : "none" },
                 }}
                 InputProps={{
@@ -903,7 +905,7 @@ const ViewMembers: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       {state.searchName && (
-                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color:  "var(--color-text-primary)" }}>
                           <CloseIcon />
                         </IconButton>
                       )}
@@ -919,7 +921,7 @@ const ViewMembers: React.FC = () => {
           (authData?.branches?.length ?? 0) === 1
         ) && 
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Branch
           </Typography>
           <MuiSelect
@@ -937,12 +939,12 @@ const ViewMembers: React.FC = () => {
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
-              color: state.searchBranch ? "#F6F4FE" : "#777280",
+              color: state.searchBranch ?  "var(--color-text-primary)" : "var(--color-text-muted)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { color: "#F6F4FE"},
+              "& .MuiSelect-icon": { color:  "var(--color-text-primary)"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Branch";
@@ -968,7 +970,7 @@ const ViewMembers: React.FC = () => {
           </MuiSelect>
         </Box>}
         <Box sx={{ display: "flex", flexDirection: "column" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
           </Typography>
           <MuiSelect
@@ -986,12 +988,12 @@ const ViewMembers: React.FC = () => {
             sx={{
               backgroundColor: "#4d4d4e8e",
               borderRadius: "8px",
-              color: state.searchDepartment ? "#F6F4FE" : "#777280",
+              color: state.searchDepartment ?  "var(--color-text-primary)" : "var(--color-text-muted)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "8px", pr: "24px !important" },
               ".MuiOutlinedInput-notchedOutline": { border: "none" },
-              "& .MuiSelect-icon": { color: "#F6F4FE"},
+              "& .MuiSelect-icon": { color:  "var(--color-text-primary)"},
             }}
             renderValue={(selected) => {
               if (!selected) return "Select Department";
@@ -1021,13 +1023,13 @@ const ViewMembers: React.FC = () => {
             variant="contained"
             onClick={searchMembers}
             sx={{
-              backgroundColor: "#F6F4FE",
+              backgroundColor:  "var(--color-text-primary)",
               color: "#4d4d4e8e",
               borderRadius: "24px",
               py: 1,
               px: 3,
               minWidth: "auto",
-              "&:hover": { backgroundColor: "#F6F4FE", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
+              "&:hover": { backgroundColor:  "var(--color-text-primary)", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
             }}
             startIcon={<Search />}
             disabled={state.isSearching}
@@ -1041,9 +1043,9 @@ const ViewMembers: React.FC = () => {
 
   const renderDesktopFilters = () => (
     <Box sx={{ display: "flex", width: "100%", mb: 3 }}>
-      <Box sx={{ border: "1px solid #4d4d4e8e", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "#4d4d4e8e", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
+      <Box sx={{ display: "flex", alignItems: "center", border: "1px solid var(--color-border-glass)", borderRadius: "9999px",backgroundColor: "var(--color-surface-glass)", padding: "4px 4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "200px", padding: "4px 16px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1057,7 +1059,7 @@ const ViewMembers: React.FC = () => {
                 variant="standard"
                 placeholder="Search by name"
                 sx={{
-                  "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#A4A1AA", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
+                  "& .MuiInputBase-input": { color: state.searchName ?  "var(--color-text-primary)" : "var(--color-text-muted)", fontWeight: 500, fontSize: "14px", padding: "4px 8px" },
                   "& .MuiInput-underline:before": { borderBottom: "none" },
                   "& .MuiInput-underline:after": { borderBottom: "none" },
                   "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -1067,7 +1069,7 @@ const ViewMembers: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       {state.searchName && (
-                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                        <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color:  "var(--color-text-primary)" }}>
                           <CloseIcon />
                         </IconButton>
                       )}
@@ -1082,9 +1084,9 @@ const ViewMembers: React.FC = () => {
           authData?.isHeadQuarter === false &&
           (authData?.branches?.length ?? 0) === 1
         ) && <>
-          <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+          <Divider sx={{ height: 30, backgroundColor:  "var(--color-text-primary)" }} orientation="vertical" />
           <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+            <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
               Branch
             </Typography>
             <MuiSelect
@@ -1100,7 +1102,7 @@ const ViewMembers: React.FC = () => {
               }}
               onClose={() => handleStateChange("isBranchSelectOpen", false)}
               sx={{
-                color: state.searchBranch ? "#F6F4FE" : "#777280",
+                color: state.searchBranch ?  "var(--color-text-primary)" : "var(--color-text-muted)",
                 fontWeight: 500,
                 fontSize: "14px",
                 ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1131,9 +1133,9 @@ const ViewMembers: React.FC = () => {
             </MuiSelect>
           </Box>
         </>}
-        <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+        <Divider sx={{ height: 30, backgroundColor:  "var(--color-text-primary)" }} orientation="vertical" />
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: "160px", padding: "4px 8px" }}>
-          <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+          <Typography variant="caption" sx={{ color:  "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
             Department
           </Typography>
           <MuiSelect
@@ -1149,7 +1151,7 @@ const ViewMembers: React.FC = () => {
             onClose={() => handleStateChange("isDepartmentSelectOpen", false)}
             disabled={!state.searchBranch && !authData?.branchId}
             sx={{
-              color: state.searchDepartment ? "#F6F4FE" : "#777280",
+              color: state.searchDepartment ?  "var(--color-text-primary)" : "var(--color-text-muted)",
               fontWeight: 500,
               fontSize: "14px",
               ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
@@ -1184,13 +1186,13 @@ const ViewMembers: React.FC = () => {
             onClick={searchMembers}
             sx={{
               backgroundColor: "transparent",
-              border: "1px solid #777280",
-              color: "white",
+              border: "1px solid var(--color-text-muted)",
+              color: "var(--color-text-primary)",
               borderRadius: "50%",
               minWidth: "48px",
               height: "48px",
               padding: 0,
-              "&:hover": { backgroundColor: "#777280" },
+              "&:hover": { backgroundColor: "var(--color-surface-glass)" },
             }}
             disabled={state.isSearching}
           >
@@ -1201,18 +1203,19 @@ const ViewMembers: React.FC = () => {
     </Box>
   );
 
-  // Add this ref at the top with other refs
-  const mountedRef = useRef(false);
-
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      fetchMembers();
-      if (!state.branchesLoaded && !state.branchesError) {
-        fetchBranches();
-      }
-    }
-  }, []); // Empty dependency array - runs only once on mount
+    // Optional: early return if already loaded / auth missing
+    if (!authData?.branchId) return;
+
+    // You can run them in parallel
+    Promise.allSettled([
+      fetchMembers(),
+      fetchBranches(),
+    ]).catch((err) => {
+      console.warn("Initial data fetch partially failed", err);
+      // optional: show toast only once here if both fail
+    });
+  }, []);  // ← only oncely once, after first mount
 
   useEffect(() => {
     if (
@@ -1240,9 +1243,9 @@ const ViewMembers: React.FC = () => {
               gutterBottom
               sx={{ color: theme.palette.text.primary, fontSize: isLargeScreen ? "1.5rem" : undefined, display: "flex", alignItems: "center", gap: 1 }}
             >
-              <span className="text-[#777280]">Membership</span>
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Workers</span>
+              <span className="text-[var(--color-text-muted)]">Membership</span>
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />
+              <span className="text-[var(--color-text-primary)]">Workers</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}  
@@ -1258,14 +1261,14 @@ const ViewMembers: React.FC = () => {
                 disabled={state.isLoading}
                 sx={{
                   py: 1,
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   px: { xs: 3, sm: 3 },
                   borderRadius: 50,
                   fontWeight: "semibold",
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   width: { xs: "100%", sm: "auto" },
                   minWidth: "max-content",
                 }}
@@ -1277,15 +1280,15 @@ const ViewMembers: React.FC = () => {
                 onClick={handleAddMember}
                 size="medium"
                 sx={{
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   px: { xs: 2, sm: 2 },
                   py: 1,
                   borderRadius: 50,
                   fontWeight: 500,
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   width: { xs: "100%", sm: "auto" },
                   minWidth: "max-content",
                 }}
@@ -1298,7 +1301,7 @@ const ViewMembers: React.FC = () => {
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
-                  <Box sx={{ border: "1px solid #4d4d4e8e", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "#4d4d4e8e", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
+                  <Box sx={{ border: "1px solid var(--color-border-glass)", borderRadius: "32px", display: "flex", alignItems: "center", backgroundColor: "var(--color-surface-glass)", padding: "4px", width: "100%", boxShadow: "0 1px 2px rgba(0,0,0,0.08)", "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)" } }}>
                     <Box sx={{ flex: 1, padding: "4px 8px" }}>
                       <Autocomplete
                         options={state.members}
@@ -1311,7 +1314,7 @@ const ViewMembers: React.FC = () => {
                             variant="standard"
                             placeholder="Search by name"
                             sx={{
-                              "& .MuiInputBase-input": { color: state.searchName ? "#F6F4FE" : "#777280", fontSize: "14px", padding: "4px 8px" },
+                              "& .MuiInputBase-input": { color: state.searchName ?  "var(--color-text-primary)" : "var(--color-text-muted)", fontSize: "14px", padding: "4px 8px" },
                               "& .MuiInput-underline:before": { borderBottom: "none" },
                               "& .MuiInput-underline:after": { borderBottom: "none" },
                               "& .MuiInput-underline:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -1322,7 +1325,7 @@ const ViewMembers: React.FC = () => {
                               endAdornment: (
                                 <InputAdornment position="end">
                                   {state.searchName && (
-                                    <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color: "#F6F4FE" }}>
+                                    <IconButton onClick={() => handleStateChange("searchName", "")} edge="end" sx={{ color:  "var(--color-text-primary)" }}>
                                       <CloseIcon />
                                     </IconButton>
                                   )}
@@ -1333,22 +1336,22 @@ const ViewMembers: React.FC = () => {
                         )}
                       />
                     </Box>
-                    <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-                    <IconButton onClick={() => handleStateChange("isDrawerOpen", true)} sx={{ color: "#777280", "&:hover": { color: "#F6F4FE" } }}>
-                      <AttachFile sx={{ color: "#F6F4FE", fontSize: "20px" }} />
+                    <Divider sx={{ height: 30, backgroundColor:  "var(--color-text-primary)" }} orientation="vertical" />
+                    <IconButton onClick={() => handleStateChange("isDrawerOpen", true)} sx={{ color: "var(--color-text-muted)", "&:hover": { color:  "var(--color-text-primary)" } }}>
+                      <AttachFile sx={{ color:  "var(--color-text-primary)", fontSize: "20px" }} />
                     </IconButton>
                     <Box sx={{ pr: "8px" }}>
                       <Button
                         onClick={searchMembers}
                         sx={{
                           backgroundColor: "transparent",
-                          border: "1px solid #777280",
-                          color: "white",
+                          border: "1px solid var(--color-text-muted)",
+                          color: "var(--color-text-primary)",
                           borderRadius: "50%",
                           minWidth: "48px",
                           height: "48px",
                           padding: 0,
-                          "&:hover": { backgroundColor: "#777280" },
+                          "&:hover": { backgroundColor: "var(--color-surface-glass)" },
                         }}
                         disabled={state.isSearching}
                       >
@@ -1367,7 +1370,7 @@ const ViewMembers: React.FC = () => {
 
         {state.loading && state.filteredMembers.length === 0 && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#777280]"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-text-muted)]"></div>
           </Box>
         )}
 
@@ -1388,20 +1391,20 @@ const ViewMembers: React.FC = () => {
               maxHeight: "500px",
               overflowY: "auto",
               "&::-webkit-scrollbar": { width: "8px" },
-              "&::-webkit-scrollbar-thumb": { backgroundColor: "#777280", borderRadius: "4px" },
+              "&::-webkit-scrollbar-thumb": { backgroundColor: "var(--color-text-muted)", borderRadius: "4px" },
               "&::-webkit-scrollbar-track": { backgroundColor: "#4d4d4e8e" },
             }}>
               <Table sx={{ minWidth: { xs: "auto", sm: 650 } }}>
                 <TableHead>
                   <TableRow sx={{ "& th": { border: "none", backgroundColor: "transparent" } }}>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.snumber, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: columnWidths.name, color: "#777280", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Branch</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Departments</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.units, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Units</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Whatsapp Number</TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: "#777280", width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.snumber, color: "var(--color-text-muted)", fontSize: isLargeScreen ? "0.875rem" : undefined }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: columnWidths.name, color: "var(--color-text-muted)", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.contact, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Phone Number</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.branch, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Branch</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.departments, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Departments</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.units, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Units</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.whatsapp, fontSize: isLargeScreen ? "0.875rem" : undefined }}>Whatsapp Number</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: "var(--color-text-muted)", width: columnWidths.actions, textAlign: "center", fontSize: isLargeScreen ? "0.875rem" : undefined }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1433,16 +1436,16 @@ const ViewMembers: React.FC = () => {
                   disabled={state.exportLoading}
                   size="medium"
                   sx={{
-                    backgroundColor: "#363740",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 2, sm: 2 },
                     py: 1,
                     borderRadius: 1.5,
                     fontWeight: 500,
                     textTransform: "none",
-                    color: "#f6f4fe",
+                    color:  "var(--color-primary)",
                     fontSize: isLargeScreen ? "1rem" : undefined,
                     boxShadow: "0px 4px 12px rgba(0,0,0,0.3)",
-                    "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   }}
                 >
                   {state.exportLoading ? (
@@ -1488,15 +1491,16 @@ const ViewMembers: React.FC = () => {
           onClose={handleCloseDialog}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { backgroundColor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiDialog-paper": { backgroundColor: "var(--color-primary)", color:  "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ display: "flex", justifyContent: "space-between" }}>
             <h3>Import Workers Data</h3>
-            <IconButton onClick={handleCloseDialog} disabled={state.isLoading} sx={{ color: "#F6F4FE" }}>
+            <IconButton onClick={handleCloseDialog} disabled={state.isLoading} sx={{ color:  "var(--color-text-primary)" }}>
               <CloseIcon sx={{ mr: 1 }} />
             </IconButton>
           </DialogTitle>
-          <DialogContent sx={{mt: 3}}>
+          <DialogContent sx={{mt: 1}}>
+            <label htmlFor="branch"> Select Branch</label>
             <Autocomplete
               options={state.branches}
               getOptionLabel={(option) => option.name}
@@ -1508,14 +1512,13 @@ const ViewMembers: React.FC = () => {
               }}
               clearIcon={null}
               popupIcon={state.selectedBranchId ? (
-                <CloseIcon sx={{ color: "#F6F4FE", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ""); }} />
+                <CloseIcon sx={{ color:  "var(--color-text-primary)", cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); handleStateChange("selectedBranchId", ""); }} />
               ) : null}
               loading={state.isBranchLoading}
               loadingText="Loading branches..."
               renderInput={(params) => (
                 <TextField
-                  {...params}
-                  label="Select Branch (optional)"
+                  {...params}        
                   variant="outlined"
                   InputProps={{
                     ...params.InputProps,
@@ -1526,13 +1529,13 @@ const ViewMembers: React.FC = () => {
                       </>
                     ),
                   }}
-                  sx={{ mb: 3, "& .MuiInputBase-root": { color: "#F6F4FE" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" }, "& .MuiInputLabel-root": { color: "#F6F4FE" } }}
+                  sx={{ mb: 3, "& .MuiInputBase-root": { color:  "var(--color-text-primary)" }, "& .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-muted)" }, "& .MuiInputLabel-root": { color:  "var(--color-text-primary)" } }}
                 />
               )}
             />
             <Box
               sx={{
-                border: `2px dashed ${state.isDragging ? theme.palette.primary.main : "#777280"}`,
+                border: `2px dashed ${state.isDragging ? theme.palette.primary.main : "var(--color-text-muted)"}`,
                 borderRadius: 2,
                 p: 4,
                 textAlign: "center",
@@ -1543,19 +1546,19 @@ const ViewMembers: React.FC = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
             >
-              <Typography variant="body1" color="#F6F4FE" gutterBottom>
+              <Typography variant="body1" color= "var(--color-text-primary)" gutterBottom>
                 Drag and drop your Excel file here or
               </Typography>
               <Button
                 variant="contained"
                 component="label"
-                sx={{ mt: 2, backgroundColor: "#F6F4FE", color: "#2C2C2C", "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 } }}
+                sx={{ mt: 2, backgroundColor:  "var(--color-text-primary)", color: "var(--color-primary)", "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 } }}
               >
                 Select File
                 <input type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} ref={fileInputRef} />
               </Button>
               {state.selectedFile && (
-                <Typography variant="body2" sx={{ mt: 2, color: "#F6F4FE" }}>
+                <Typography variant="body2" sx={{ mt: 2, color:  "var(--color-text-primary)" }}>
                   Selected file: {state.selectedFile.name}
                 </Typography>
               )}
@@ -1568,20 +1571,20 @@ const ViewMembers: React.FC = () => {
               disabled={state.isLoading || !state.selectedFile}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor:  "var(--color-text-primary)",
                 px: { xs: 3, sm: 3 },
                 fontWeight: 500,
                 textTransform: "none",
-                color: "#2C2C2C",
+                color: "var(--color-primary)",
                 borderRadius: 50,
                 fontSize: isLargeScreen ? "0.875rem" : { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                "&:hover": { backgroundColor:  "var(--color-text-primary)", opacity: 0.9 },
                 mt: 2,
               }}
             >
               {state.isLoading ? (
                 <span className="text-gray-400">
-                  <CircularProgress size={18} sx={{ color: "#F6F4FE", mr: 1 }} />
+                  <CircularProgress size={18} sx={{ color:  "var(--color-text-primary)", mr: 1 }} />
                   Uploading...
                 </span>
               ) : (

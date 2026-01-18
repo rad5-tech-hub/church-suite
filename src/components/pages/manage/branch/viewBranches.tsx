@@ -143,7 +143,7 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
         <Typography
           sx={{
             fontSize: isLargeScreen ? "0.75rem" : "0.875rem",
-            color: "var(--color-text-on-primary)",
+            color: "var(--color-text-primary)",
           }}
         >
           Page {currentPage}
@@ -156,11 +156,11 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           sx={{
             minWidth: "40px",
             height: "40px",
-            borderRadius: "8px",
-            backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+            borderRadius: "8px",           
+            backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+            color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+            "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
           }}
           aria-label="Previous page"
         >
@@ -173,10 +173,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
             minWidth: "40px",
             height: "40px",
             borderRadius: "8px",
-            backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-            color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-            "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+            backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+            color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+            "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
           }}
           aria-label="Next page"
         >
@@ -215,8 +215,7 @@ const ViewBranches: React.FC = () => {
       } catch (error) {
         console.error("Failed to fetch branches:", error);
         handleStateChange("error", "Failed to load branches. Please try again later.");
-        handleStateChange("loading", false);
-        showPageToast("Failed to load branches", 'error');
+        handleStateChange("loading", false);      
         throw error;
       }
     },
@@ -485,15 +484,15 @@ const ViewBranches: React.FC = () => {
 
   const EmptyState = () => (
     <Box sx={{ textAlign: "center", py: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <EmptyIcon sx={{ fontSize: 60, color: "rgba(255,255,255,0.5)", mb: 2 }} />
-      <Typography variant="h6" color="rgba(255,255,255,0.5)" gutterBottom>
+      <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
+      <Typography variant="h6" color="var(--color-text-muted)" gutterBottom>
         No branches found
       </Typography>
       {state.error && <Typography color="error">{state.error}</Typography>}
       <Button
         variant="contained"
         onClick={() => handleStateChange("isModalOpen", true)}
-        sx={{ mt: 2, backgroundColor: "#4d4d4e8e", "&:hover": { backgroundColor: "#4d4d4e8e", opacity: 0.9 } }}
+        sx={{ mt: 2, backgroundColor: "var(--color-text-primary)", color: 'var(--color-primary)', "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 } }}
       >
         Create New Branch
       </Button>
@@ -525,9 +524,9 @@ const ViewBranches: React.FC = () => {
                 gap: 1,
               }}
             >
-              <span className="text-[#828283ad]">Manage</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[var(--color-text-on-primary)]">Branches</span>
+              <span className="text-[var(--color-text-muted)]">Manage</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />{" "}
+              <span className="text-[var(--color-text-primary)]">Branches</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
@@ -535,15 +534,15 @@ const ViewBranches: React.FC = () => {
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
-                "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
             >
               Create Branch +
@@ -563,9 +562,9 @@ const ViewBranches: React.FC = () => {
             <Box
               sx={{
                 display: { xs: "none", md: "flex" },
-                border: "1px solid #4d4d4e8e",
-                borderRadius: "32px",
-                backgroundColor: "#4d4d4e8e",
+                border: "1px solid var(--color-border-glass)",
+                borderRadius: "9999px",
+                backgroundColor: "var(--color-surface-glass)",
                 p: "4px",
                 gap: "8px",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
@@ -576,7 +575,7 @@ const ViewBranches: React.FC = () => {
             >
               {/* Name */}
               <Box sx={{ flex: 1, minWidth: 0, px: 2 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", mb: 0.5 }}>
                   Name?
                 </Typography>
                 <Autocomplete
@@ -593,15 +592,15 @@ const ViewBranches: React.FC = () => {
                       InputProps={{
                         ...params.InputProps,
                         disableUnderline: true,
-                        sx: { color: "#F6F4FE", fontSize: "14px", py: "2px" },
+                        sx: { color: "var(--color-text-primary)", fontSize: "14px", py: "2px" },
                       }}
                     />
                   )}
-                  sx={{ "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" } }}
+                  sx={{ "& .MuiAutocomplete-clearIndicator": { color: "var(--color-text-primary)" } }}
                 />
               </Box>
 
-              <Divider orientation="vertical" sx={{ height: 30, bgcolor: "#F6F4FE" }} />
+              <Divider orientation="vertical" sx={{ height: 30, bgcolor: "var(--color-text-primary)" }} />
 
               {/* Location */}
               <Box sx={{ flex: 1, minWidth: 0, px: 1 }}>
@@ -620,11 +619,11 @@ const ViewBranches: React.FC = () => {
                       InputProps={{
                         ...params.InputProps,
                         disableUnderline: true,
-                        sx: { color: "#F6F4FE", fontSize: "14px", py: "2px" },
+                        sx: { color: "var(--color-text-primary)", fontSize: "14px", py: "2px" },
                       }}
                     />
                   )}
-                  sx={{ "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" } }}
+                  sx={{ "& .MuiAutocomplete-clearIndicator": { color: "var(--color-text-primary)" } }}
                 />
               </Box>
 
@@ -639,7 +638,7 @@ const ViewBranches: React.FC = () => {
                     borderRadius: "50%",
                     border: "1px solid #777280",
                     bgcolor: "transparent",
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "&:hover": { bgcolor: "#777280" },
                   }}
                 >
@@ -656,17 +655,17 @@ const ViewBranches: React.FC = () => {
             <Box
               sx={{
                 display: { xs: "flex", md: "none" },
-                border: "1px solid #4d4d4e8e",
-                borderRadius: "32px",            
+                border: "1px solid var(--color-border-glass)",
+                borderRadius: "9999px",            
                 alignItems: "center",
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-surface-glass)",
                 width: "100%",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                 "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)"}                  
               }}
             >
                 <Box sx={{ flex: 1, minWidth: 0, px: 2 }}>
-                  <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", mb: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", mb: 0.5 }}>
                     Name?
                   </Typography>
                   <Autocomplete
@@ -683,17 +682,17 @@ const ViewBranches: React.FC = () => {
                         InputProps={{
                           ...params.InputProps,
                           disableUnderline: true,
-                          sx: { color: "#F6F4FE", fontSize: "14px", py: "2px" },
+                          sx: { color: "var(--color-text-primary)", fontSize: "14px", py: "2px" },
                         }}
                       />
                     )}
-                    sx={{ "& .MuiAutocomplete-clearIndicator": { color: "#F6F4FE" } }}
+                    sx={{ "& .MuiAutocomplete-clearIndicator": { color: "var(--color-text-primary)" } }}
                   />
                 </Box>
-                <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                <Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
                 <IconButton
                   onClick={() => handleStateChange("searchDrawerOpen", true)}
-                  sx={{ color: "#F6F4FE" }}
+                  sx={{ color: "var(--color-text-primary)" }}
                 >
                   <AttachFileOutlined/>
                 </IconButton>
@@ -708,7 +707,7 @@ const ViewBranches: React.FC = () => {
                       borderRadius: "50%",
                       border: "1px solid #777280",
                       bgcolor: "transparent",
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "&:hover": { bgcolor: "#777280" },
                     }}
                   >
@@ -730,8 +729,8 @@ const ViewBranches: React.FC = () => {
           onClose={() => handleStateChange("searchDrawerOpen", false)}
           sx={{
             "& .MuiDrawer-paper": {
-              bgcolor: "#2C2C2C",
-              color: "#F6F4FE",
+              backgroundColor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
               p: 2,
               borderRadius: "0 0 16px 16px",
             },
@@ -742,13 +741,13 @@ const ViewBranches: React.FC = () => {
               onClick={() => handleStateChange("searchDrawerOpen", false)}
               aria-label="Close filter drawer"
             >
-              <Close sx={{ color: "#F6F4FE" }} />
+              <Close sx={{ color: "var(--color-text-primary)" }} />
             </IconButton>
           </Box>
 
           {/* Name */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
               Name?
             </Typography>
             <Autocomplete
@@ -765,12 +764,12 @@ const ViewBranches: React.FC = () => {
                   size="small"
                   InputProps={{
                     ...params.InputProps,
-                    sx: { color: "#F6F4FE", bgcolor: "transparent" },
+                    sx: { color: "var(--color-text-primary)", bgcolor: "transparent" },
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     },
                   }}
                 />
@@ -780,7 +779,7 @@ const ViewBranches: React.FC = () => {
 
           {/* Location */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px" }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px" }}>
               Location?
             </Typography>
             <Autocomplete
@@ -798,12 +797,12 @@ const ViewBranches: React.FC = () => {
                   size="small"
                   InputProps={{
                     ...params.InputProps,
-                    sx: { color: "#F6F4FE", bgcolor: "transparent" },
+                    sx: { color: "var(--color-text-primary)", bgcolor: "transparent" },
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                     },
                   }}
                 />
@@ -820,11 +819,11 @@ const ViewBranches: React.FC = () => {
             disabled={state.loading || state.isSearching}
             sx={{
               mt: 1,
-              bgcolor: "#F6F4FE",
-              color: "#2C2C2C",
+              bgcolor: "var(--color-text-primary)",
+              color: "var(--color-primary)",
               borderRadius: 50,
               py: 1.5,
-              "&:hover": { bgcolor: "#F6F4FE", opacity: 0.9 },
+              "&:hover": { bgcolor: "var(--color-text-primary)", opacity: 0.9 },
             }}
           >
             {state.isSearching ? <CircularProgress size={20} sx={{ color: "#2C2C2C" }} /> : "Search"}
@@ -850,13 +849,13 @@ const ViewBranches: React.FC = () => {
                   <Card
                     sx={{
                       borderRadius: "10.267px",
-                      backgroundColor: "rgba(255,255,255,0.05)",
+                      backgroundColor: "var(--color-surface-glass)",
                       boxShadow: "0 1.272px 15.267px 0 rgba(0,0,0,0.1)",
                       height: "100%",
                       display: "flex",
                       flexDirection: "column",
                       opacity: branch.isDeleted ? 0.7 : 1,
-                      "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+                      "&:hover": { backgroundColor: "var(--color-surface)", boxShadow: "0 4px 16px rgba(0,0,0,0.15)" },
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
@@ -864,16 +863,16 @@ const ViewBranches: React.FC = () => {
                         <Box>
                           <IconButton
                             sx={{
-                              backgroundColor: "rgba(255,255,255,0.06)",
-                              color: "#777280",
+                              backgroundColor: "var(--color-surface-glass)",
+                              color: "var(--color-text-primary)",
                               display: "flex",
                               flexDirection: "column",
                               padding: "15px",
                               borderRadius: 1,
                             }}
                           >
-                            <span className="border-2 rounded-md border-[var(--color-text-on-primary)] p-1">
-                              <TbArrowFork size={30} className="text-[var(--color-text-on-primary)]"/>
+                            <span className="border-1 rounded-md border-[var(--color-text-primary)] p-1">
+                              <TbArrowFork size={25} className="text-[var(--color-text-secondary)]"/>
                             </span>
                           </IconButton>
                         </Box>
@@ -884,8 +883,8 @@ const ViewBranches: React.FC = () => {
                               handleStateChange("anchorEl", e.currentTarget);
                             }}
                             sx={{
-                              backgroundColor: "rgba(255,255,255,0.06)",
-                              color: "var(--color-text-on-primary)",
+                              backgroundColor: "var(--color-surface-glass)",
+                              color: "var(--color-text-primary)",
                               padding: "8px",
                               borderRadius: 1,
                             }}
@@ -896,11 +895,11 @@ const ViewBranches: React.FC = () => {
                       </Box>
                       <Box>
                         <Typography
-                          variant="h6"
+                          variant="subtitle1"
                           fontWeight={600}
                           sx={{
                             textDecoration: branch.isDeleted ? "line-through" : "none",
-                            color: branch.isDeleted ? "gray" : "var(--color-text-on-primary)",
+                            color: branch.isDeleted ? "gray" : "var(--color-text-primary)",
                           }}
                         >
                           {branch.name}
@@ -910,7 +909,7 @@ const ViewBranches: React.FC = () => {
                             variant="body2"
                             sx={{
                               textDecoration: branch.isDeleted ? "line-through" : "none",
-                              color: branch.isDeleted ? "gray" : "#777280",
+                              color: branch.isDeleted ? "gray" : "var(--color-text-muted)",
                             }}
                           >
                             {branch.address}
@@ -971,11 +970,19 @@ const ViewBranches: React.FC = () => {
         </Menu>
 
         {/* Edit Dialog */}
-        <Dialog open={state.editModalOpen} onClose={() => handleStateChange("editModalOpen", false)} maxWidth="sm" fullWidth>
+        <Dialog open={state.editModalOpen} onClose={() => handleStateChange("editModalOpen", false)} maxWidth="sm" fullWidth
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: 2,
+              bgcolor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
+            },
+          }}
+        >
           <DialogTitle>
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="h6" fontWeight={600}>Edit Branch</Typography>
-              <IconButton onClick={() => handleStateChange("editModalOpen", false)}><Close /></IconButton>
+              <IconButton onClick={() => handleStateChange("editModalOpen", false)} ><Close sx={{ color: "#B0B0B0" }} /></IconButton>
             </Box>
           </DialogTitle>
           <DialogContent>
@@ -989,14 +996,34 @@ const ViewBranches: React.FC = () => {
                   value={state.editFormData[field as keyof typeof state.editFormData] ?? ""}
                   onChange={handleEditChange}
                   variant="outlined"
-                  InputProps={{ sx: { color: "#F6F4FE" } }}
-                  InputLabelProps={{ sx: { color: "#F6F4FE" } }}
+                  InputProps={{sx: {
+                    color: "var(--color-text-primary)",
+                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    fontSize: isLargeScreen ? "1rem" : undefined,
+                  }}}
+                  InputLabelProps={{sx: {color: "var(--color-text-primary)"}}}                  
                 />
               ))}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleEditSubmit} variant="contained" disabled={state.loading}>
+            <Button onClick={handleEditSubmit} variant="contained" disabled={state.loading} 
+              sx={{
+                py: 1,
+                backgroundColor: "var(--color-text-primary)",
+                px: { xs: 6, sm: 2 },
+                borderRadius: 50,
+                color: "var(--color-primary)",
+                fontWeight: "semibold",
+                textTransform: "none",
+                fontSize: { xs: "1rem", sm: "1rem" },
+                "&:hover": {
+                  backgroundColor: "var(--color-text-primary)",
+                  opacity: 0.9,
+                },
+              }}
+            >
               {state.loading ? "Saving…" : "Save Changes"}
             </Button>
           </DialogActions>

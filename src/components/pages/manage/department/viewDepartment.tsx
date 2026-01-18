@@ -163,10 +163,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasPrevPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Previous page"
       >
@@ -179,10 +179,10 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: "40px",
           height: "40px",
           borderRadius: "8px",
-          backgroundColor: !hasNextPage || isLoading ? "#4d4d4e8e" : "#F6F4FE",
-          color: !hasPrevPage || isLoading ? "#777280" : "#160F38",
-          "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
-          "&:disabled": { backgroundColor: "#4d4d4e8e", color: "#777280" },
+          backgroundColor: (!hasNextPage || isLoading) ? "var(--color-text-muted)" : "var(--color-text-primary)",
+          color: (!hasPrevPage || isLoading) ? "var(--color-primary)" : "var(--color-primary)",
+          "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
+          "&:disabled": { backgroundColor: "var(--color-text-muted)", color: "var(--color-text-secondary)" },
         }}
         aria-label="Next page"
       >
@@ -208,28 +208,29 @@ const EmptyState: React.FC<{ error: string | null; role: string | null; openModa
       justifyContent: "center",
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)", mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
     <Typography
       variant="h6"
-      color="rgba(255, 255, 255, 0.5)"
+      color="var(--color-text-muted)"
       gutterBottom
       sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}
     >
-      {error || "No departments Found"}
+      {"No departments Found"}
     </Typography>
+     {<p>{error}</p>}
     {role === 'branch' && <Button
       variant="contained"
       onClick={openModal}
       sx={{
-        backgroundColor: "#363740",
+        backgroundColor: "var(--color-text-primary)",
         px: { xs: 2, sm: 2 },
         py: 1,
         mt: 2,
         fontWeight: 500,
         textTransform: "none",
-        color: "var(--color-text-on-primary)",
+        color: "var(--color-primary)",
         fontSize: isLargeScreen ? "1rem" : undefined,
-        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+        "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
       }}
       aria-label="Create new department"
     >
@@ -705,9 +706,9 @@ const ViewDepartment: React.FC = () => {
                 gap: 1,
               }}
             >
-              <span className="text-[#777280]">Manage</span>{" "}
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />{" "}
-              <span className="text-[#F6F4FE]">Departments</span>
+              <span className="text-[var(--color-text-muted)]">Manage</span>{" "}
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />{" "}
+              <span className="text-[var(--color-text-primary)]">Departments</span>
             </Typography>
           </Grid>
           <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
@@ -715,13 +716,13 @@ const ViewDepartment: React.FC = () => {
               variant="contained"
               onClick={() => handleStateChange("isModalOpen", true)}
               sx={{
-                backgroundColor: "#363740",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 2, sm: 2 },
                 py: 1,
                 borderRadius: 50,
                 fontWeight: 500,
                 textTransform: "none",
-                color: "var(--color-text-on-primary)",
+                color: "var(--color-primary)",
                 fontSize: isLargeScreen ? "1rem" : undefined,
                 "&:hover": { backgroundColor: "#777280", opacity: 0.9 },
                 ml: isMobile ? 2 : 0,
@@ -731,14 +732,14 @@ const ViewDepartment: React.FC = () => {
               Create Department +
             </Button>}    
           </Grid>
-          <Grid size={{ xs: 12, lg: 7 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
+          <Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
             {/* Desktop View */}
             <Box
               sx={{
                 display: { xs: "none", md: "flex" },
-                border: "1px solid #4d4d4e8e",
-                borderRadius: "32px",
-                backgroundColor: "#4d4d4e8e",
+                border: "1px solid var(--color-border-glass)",
+                borderRadius: "9999px",
+                backgroundColor: "var(--color-surface-glass)",
                 p: "4px",
                 gap: "8px",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
@@ -748,7 +749,7 @@ const ViewDepartment: React.FC = () => {
               }}
             >
               <Box sx={{ display: "flex", flexDirection: "column", flex: 1, padding: "4px 16px" }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Name
                 </Typography>
                 <Autocomplete
@@ -769,11 +770,11 @@ const ViewDepartment: React.FC = () => {
                       InputProps={{
                         ...params.InputProps,
                         disableUnderline: true,
-                        sx: { color: "#F6F4FE", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
+                        sx: { color: "var(--color-text-primary)", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
                       }}
                       sx={{ "& .MuiOutlinedInput-root": { border: "none" },
                           "& .MuiAutocomplete-clearIndicator": {
-                            color: "#F6F4FE", // ✅ ensure cancel icon stays styled
+                            color: "var(--color-text-primary)", // ✅ ensure cancel icon stays styled
                           },
                       }}
                     />
@@ -785,9 +786,9 @@ const ViewDepartment: React.FC = () => {
               {!(
                   authData?.isHeadQuarter === false &&
                   (authData?.branches?.length ?? 0) === 1
-                ) &&  <><Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+                ) &&  <><Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
               <Box sx={{ display: "flex", flexDirection: "column", flex:  1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Branch
                 </Typography>
                 <FormControl fullWidth>
@@ -797,12 +798,12 @@ const ViewDepartment: React.FC = () => {
                     displayEmpty
                     onOpen={handleBranchOpen} 
                     sx={{
-                      color: state.selectedBranchId ? "#F6F4FE" : "#777280",
+                      color: state.selectedBranchId ? "var(--color-text-primary)" : "var(--color-text-muted)",
                       fontWeight: 500,
                       fontSize: "14px",
                       ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                       ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                       "& .MuiSelect-icon": { display: "none" },
                     }}
                     renderValue={(selected) =>
@@ -820,9 +821,9 @@ const ViewDepartment: React.FC = () => {
                   </Select>
                 </FormControl>
               </Box></>}
-              <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
+              <Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
               <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: { xs: "120px", sm: "160px" }, padding: "4px 8px" }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Type
                 </Typography>
                 <Select
@@ -830,12 +831,12 @@ const ViewDepartment: React.FC = () => {
                   onChange={handleTypeChange}
                   displayEmpty
                   sx={{
-                    color: state.typeFilter ? "#F6F4FE" : "#777280",
+                    color: state.typeFilter ? "var(--color-text-primary)" : "var(--color-text-muted)",
                     fontWeight: 500,
                     fontSize: "14px",
                     ".MuiSelect-select": { padding: "4px 8px", pr: "24px !important" },
                     ".MuiOutlinedInput-notchedOutline": { border: "none" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     "& .MuiSelect-icon": { display: "none" }
                   }}
                   renderValue={(selected) => (selected ? selected : "Select Type")}
@@ -851,19 +852,19 @@ const ViewDepartment: React.FC = () => {
                   onClick={handleSearchClick}
                   sx={{
                     backgroundColor: "transparent",
-                    border: "1px solid #777280",
-                    color: "#F6F4FE",
+                    border: "1px solid var(--color-text-muted)",
+                    color: "var(--color-text-primary)",
                     borderRadius: "50%",
                     minWidth: "48px",
                     height: "48px",
                     padding: 0,
-                    "&:hover": { backgroundColor: "#777280" },
+                    "&:hover": { backgroundColor: "var(--color-surface-glass)" },
                   }}
                   disabled={state.loading || state.isSearching}
                   aria-label="Search departments"
                 >
                   {state.isSearching ? (
-                    <CircularProgress size={20} sx={{ color: "#F6F4FE" }} />
+                    <CircularProgress size={20} sx={{ color: "var(--color-text-primary)" }} />
                   ) : (
                     <SearchIcon sx={{ fontSize: "20px" }} />
                   )}
@@ -875,17 +876,17 @@ const ViewDepartment: React.FC = () => {
             <Box
               sx={{
                 display: { xs: "flex", md: "none" },
-                border: "1px solid #4d4d4e8e",
-                borderRadius: "32px",            
+                border: "1px solid var(--color-border-glass)",
+                borderRadius: "9999px",            
                 alignItems: "center",
-                backgroundColor: "#4d4d4e8e",
+                backgroundColor: "var(--color-surface-glass)",
                 width: "100%",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                 "&:hover": { boxShadow: "0 2px 4px rgba(0,0,0,0.12)"}                  
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0, px: 2 }}>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "13px", ml: "8px" }}>
                   Name
                 </Typography>
                 <Autocomplete
@@ -906,11 +907,11 @@ const ViewDepartment: React.FC = () => {
                       InputProps={{
                         ...params.InputProps,
                         disableUnderline: true,
-                        sx: { color: "#F6F4FE", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
+                        sx: { color: "var(--color-text-primary)", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
                       }}
                       sx={{ "& .MuiOutlinedInput-root": { border: "none" },
                           "& .MuiAutocomplete-clearIndicator": {
-                            color: "#F6F4FE", // ✅ ensure cancel icon stays styled
+                            color: "var(--color-text-primary)", // ✅ ensure cancel icon stays styled
                           },
                       }}
                     />
@@ -919,8 +920,8 @@ const ViewDepartment: React.FC = () => {
                   aria-label="Search departments by name"
                 />
               </Box>
-              <Divider sx={{ height: 30, backgroundColor: "#F6F4FE" }} orientation="vertical" />
-              <IconButton sx={{ color: "#F6F4FE" }} onClick={() => handleStateChange("searchDrawerOpen", true)}>
+              <Divider sx={{ height: 30, backgroundColor: "var(--color-text-primary)" }} orientation="vertical" />
+              <IconButton sx={{ color: "var(--color-text-primary)" }} onClick={() => handleStateChange("searchDrawerOpen", true)}>
                 <AttachFileOutlined />
               </IconButton>
               <Box sx={{ pr: 1 }}>
@@ -929,7 +930,7 @@ const ViewDepartment: React.FC = () => {
                   sx={{
                     backgroundColor: "transparent",
                     border: "1px solid #777280",
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     borderRadius: "50%",
                     minWidth: "48px",
                     height: "48px",
@@ -940,7 +941,7 @@ const ViewDepartment: React.FC = () => {
                   aria-label="Search departments"
                 >
                   {state.isSearching ? (
-                    <CircularProgress size={20} sx={{ color: "#F6F4FE" }} />
+                    <CircularProgress size={20} sx={{ color: "var(--color-text-primary)" }} />
                   ) : (
                     <SearchIcon sx={{ fontSize: "20px" }} />
                   )}
@@ -956,8 +957,8 @@ const ViewDepartment: React.FC = () => {
           onClose={() => handleStateChange("searchDrawerOpen", false)}
           sx={{
             "& .MuiDrawer-paper": {
-              backgroundColor: "#2C2C2C",
-              color: "#F6F4FE",
+              backgroundColor: "var(--color-primary)",
+              color: "var(--color-text-primary)",
               padding: 2,
               borderRadius: "0 0 16px 16px",
             },
@@ -968,11 +969,11 @@ const ViewDepartment: React.FC = () => {
               onClick={() => handleStateChange("searchDrawerOpen", false)}
               aria-label="Close search drawer"
             >
-              <Close sx={{ color: "#F6F4FE" }} />
+              <Close sx={{ color: "var(--color-text-primary)" }} />
             </IconButton>
           </Box>
           <Box sx={{ p: 2 }}>
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "11px", mb: 1 }}>
               Name
             </Typography>
             <Autocomplete
@@ -993,12 +994,12 @@ const ViewDepartment: React.FC = () => {
                   variant="outlined"
                   InputProps={{
                     ...params.InputProps,
-                    sx: { color: "#F6F4FE", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
+                    sx: { color: "var(--color-text-primary)", fontSize: "14px", padding: "4px 8px", backgroundColor: "transparent" },
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       "& fieldset": { borderColor: "#777280" },
-                      "&:hover fieldset": { borderColor: "#F6F4FE" },
+                      "&:hover fieldset": { borderColor: "var(--color-text-primary)" },
                       "&.Mui-focused fieldset": { borderColor: "#4B8DF8" },
                     },
                   }}
@@ -1012,7 +1013,7 @@ const ViewDepartment: React.FC = () => {
                 (authData?.branches?.length ?? 0) === 1
               ) && 
               <>
-                <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1, mt: 2 }}>
+                <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "11px", mb: 1, mt: 2 }}>
                   Branch
                 </Typography>
                 <FormControl fullWidth sx={{ mb: 2 }}>
@@ -1022,13 +1023,13 @@ const ViewDepartment: React.FC = () => {
                     onOpen={handleBranchOpen}
                     displayEmpty
                     sx={{
-                      color: state.selectedBranchId ? "#F6F4FE" : "#777280",
+                      color: state.selectedBranchId ? "var(--color-text-primary)" : "#777280",
                       fontWeight: 500,
                       fontSize: "14px",
                       ".MuiSelect-select": { padding: "8px" },
                       ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     }}
                     renderValue={(selected) =>
                       selected ? state.branches.find((branch) => branch.id === selected)?.name || "Select Branch" : "Select Branch"
@@ -1046,7 +1047,7 @@ const ViewDepartment: React.FC = () => {
                 </FormControl>
               </>
             }           
-            <Typography variant="caption" sx={{ color: "#F6F4FE", fontWeight: 500, fontSize: "11px", mb: 1 }}>
+            <Typography variant="caption" sx={{ color: "var(--color-text-primary)", fontWeight: 500, fontSize: "11px", mb: 1 }}>
               Type
             </Typography>
             <FormControl fullWidth>
@@ -1055,13 +1056,13 @@ const ViewDepartment: React.FC = () => {
                 onChange={handleTypeChange}
                 displayEmpty
                 sx={{
-                  color: state.typeFilter ? "#F6F4FE" : "#777280",
+                  color: state.typeFilter ? "var(--color-text-primary)" : "#777280",
                   fontWeight: 500,
                   fontSize: "14px",
                   ".MuiSelect-select": { padding: "8px" },
                   ".MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 }}
                 renderValue={(selected) => (selected ? selected : "Select Type")}
                 aria-label="Filter departments by type"
@@ -1075,17 +1076,17 @@ const ViewDepartment: React.FC = () => {
               onClick={handleSearchClick}
               sx={{
                 mt: 2,
-                backgroundColor: "#F6F4FE",
-                color: "#2C2C2C",
+                backgroundColor: "var(--color-text-primary)",
+                color: "var(--color-primary)",
                 borderRadius: 50,
                 width: "100%",
                 py: 1,
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
               disabled={state.loading || state.isSearching}
               aria-label="Search departments"
             >
-              {state.isSearching ? <CircularProgress size={20} sx={{ color: "#2C2C2C" }} /> : "Search"}
+              {state.isSearching ? <CircularProgress size={20} sx={{ color: "var(--color-primary)" }} /> : "Search"}
             </Button>
           </Box>
         </Drawer>
@@ -1109,13 +1110,14 @@ const ViewDepartment: React.FC = () => {
                     component="div"
                     sx={{
                       borderRadius: "10.267px",
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      boxShadow: "0 1.272px 15.267px 0 rgba(0, 0, 0, 0.05)",
+                      bgcolor: "var(--color-surface-glass)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                       height: "100%",
+                      transition: "all 0.2s",
+                      "&:hover": { bgcolor: "var(--color-surface)", boxShadow: "0 4px 16px rgba(0,0,0,0.15)" },                   
                       display: "flex",
                       flexDirection: "column",
-                      opacity: dept.isDeleted ? 0.7 : 1,
-                      "&:hover": { cursor: "pointer", backgroundColor: "rgba(255, 255, 255, 0.1)" },
+                      opacity: dept.isDeleted ? 0.7 : 1,                      
                     }}
                   >
                     <CardContent sx={{ flexGrow: 1 }}>
@@ -1123,8 +1125,8 @@ const ViewDepartment: React.FC = () => {
                         <Box>
                           <IconButton
                             sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#E1E1E1",
+                              backgroundColor: "var(--color-surface-glass)",
+                              color: "var(--color-text-secondary)",
                               flexDirection: "column",
                               borderRadius: 1,
                               textAlign: "center",
@@ -1132,7 +1134,7 @@ const ViewDepartment: React.FC = () => {
                             aria-label={`Department icon for ${dept.name}`}
                           >
                             <PiChurch size={30} />
-                            <Typography sx={{ fontSize: "10px", color: "#E1E1E1" }}>{dept.type}</Typography>
+                            <Typography sx={{ fontSize: "10px", color: "var(--color-text-primary)" }}>{dept.type}</Typography>
                           </IconButton>
                         </Box>
                         <Box>
@@ -1143,8 +1145,8 @@ const ViewDepartment: React.FC = () => {
                               handleStateChange("anchorEl", e.currentTarget);
                             }}
                             sx={{
-                              backgroundColor: "rgba(255, 255, 255, 0.06)",
-                              color: "#777280",
+                              backgroundColor: "var(--color-surface-glass)",
+                              color: "var(--color-text-primary)",
                               padding: "8px",
                               borderRadius: 1,
                               textAlign: "center",
@@ -1161,7 +1163,7 @@ const ViewDepartment: React.FC = () => {
                           fontWeight={600}
                           sx={{
                             textDecoration: dept.isDeleted ? "line-through" : "none",
-                            color: dept.isDeleted ? "gray" : "#E1E1E1",
+                            color: dept.isDeleted ? "gray" : "var(--color-text-primary)",
                           }}
                         >
                           {dept.name}
@@ -1254,11 +1256,11 @@ const ViewDepartment: React.FC = () => {
           onClose={handleCancelEdit}
           maxWidth="sm"
           fullWidth
-          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Typography variant="h6" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+              <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
                 Edit Department
               </Typography>
               <IconButton onClick={handleCancelEdit} aria-label="Close edit modal">
@@ -1273,8 +1275,8 @@ const ViewDepartment: React.FC = () => {
                 <InputLabel
                   sx={{ 
                     fontSize: isLargeScreen ? "0.875rem" : undefined, 
-                    color: "#F6F4FE", 
-                    "&.Mui-focused": { color: "#F6F4FE" } 
+                    color: "var(--color-text-primary)", 
+                    "&.Mui-focused": { color: "var(--color-text-primary)" } 
                   }}
                 >
                   Branch *
@@ -1284,11 +1286,11 @@ const ViewDepartment: React.FC = () => {
                   onChange={handleEditBranchChange}                
                   label="Branch *"
                   sx={{
-                    color: state.editFormData.branchId ? "#F6F4FE" : "#777280",
+                    color: state.editFormData.branchId ? "var(--color-text-primary)" : "#777280",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                   renderValue={(selected) => {
@@ -1327,21 +1329,21 @@ const ViewDepartment: React.FC = () => {
                 helperText={state.errors.name}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
                 InputLabelProps={{
-                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } },
+                  sx: { fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } },
                 }}
                 aria-label="Department name"
                 required
               />
               <FormControl fullWidth>
                 <InputLabel
-                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } }}
+                  sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } }}
                 >
                   Type *
                 </InputLabel>
@@ -1350,11 +1352,11 @@ const ViewDepartment: React.FC = () => {
                   onChange={handleEditTypeChange}
                   label="Type *"
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                   aria-label="Department type"
@@ -1412,12 +1414,12 @@ const ViewDepartment: React.FC = () => {
                 }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { 
                       borderColor: state.charCount >= 256 ? "#ff9800" : "#777280" // 🟠 Warning orange
                     },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { 
-                      borderColor: state.charCount >= 256 ? "#ff9800" : "#F6F4FE" 
+                      borderColor: state.charCount >= 256 ? "#ff9800" : "var(--color-text-primary)" 
                     },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
@@ -1425,8 +1427,8 @@ const ViewDepartment: React.FC = () => {
                 InputLabelProps={{
                   sx: { 
                     fontSize: isLargeScreen ? "1rem" : undefined, 
-                    color: "#F6F4FE", 
-                    "&.Mui-focused": { color: "#F6F4FE" } 
+                    color: "var(--color-text-primary)", 
+                    "&.Mui-focused": { color: "var(--color-text-primary)" } 
                   },
                 }}
                 aria-label="Department description"
@@ -1438,14 +1440,14 @@ const ViewDepartment: React.FC = () => {
               onClick={handleEditSubmit}
               sx={{
                 py: 1,
-                backgroundColor: "#F6F4FE",
+                backgroundColor: "var(--color-text-primary)",
                 px: { xs: 6, sm: 2 },
                 borderRadius: 50,
-                color: "#2C2C2C",
+                color: "var(--color-primary)",
                 fontWeight: "semibold",
                 textTransform: "none",
                 fontSize: { xs: "1rem", sm: "1rem" },
-                "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
               }}
               variant="contained"
               disabled={state.loading || Object.values(state.errors).some((error) => error)}
@@ -1473,7 +1475,7 @@ const ViewDepartment: React.FC = () => {
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}
           maxWidth="xs"
-          sx={{ "& .MuiDialog-paper": { bgcolor: "#2C2C2C", color: "#F6F4FE" } }}
+          sx={{ "& .MuiDialog-paper": { bgcolor: "var(--color-primary)", color: "var(--color-text-primary)" } }}
         >
           <DialogTitle sx={{ fontSize: isLargeScreen ? "1.25rem" : undefined }}>
             {state.actionType === "delete"
@@ -1483,7 +1485,7 @@ const ViewDepartment: React.FC = () => {
               : "Activate Department"}
           </DialogTitle>
           <DialogContent>
-            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}>
+            <Typography sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-primary)" }}>
               {state.actionType === "delete"
                 ? `Are you sure you want to delete "${state.currentDepartment?.name}"?`
                 : `Are you sure you want to ${state.currentDepartment?.isActive ? "suspend" : "activate"} "${state.currentDepartment?.name}"?`}
@@ -1492,7 +1494,7 @@ const ViewDepartment: React.FC = () => {
           <DialogActions>
             <Button
               onClick={() => handleStateChange("confirmModalOpen", false)}
-              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "#F6F4FE" }}
+              sx={{ fontSize: isLargeScreen ? "0.875rem" : undefined, color: "var(--color-text-primary)" }}
               aria-label="Cancel action"
             >
               Cancel
@@ -1507,7 +1509,7 @@ const ViewDepartment: React.FC = () => {
             >
               {state.loading ? (
                 <Box display="flex" alignItems="center">
-                  <CircularProgress size={18} sx={{ color: "#F6F4FE", mr: 1 }} />
+                  <CircularProgress size={18} sx={{ color: "var(--color-text-primary)", mr: 1 }} />
                   Processing...
                 </Box>
               ) : state.actionType === "delete" ? (

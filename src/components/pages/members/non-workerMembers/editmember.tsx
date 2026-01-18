@@ -415,7 +415,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: "var(--color-primary)",
             py: 3,
             px: 2,
           },
@@ -423,7 +423,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
               Edit Member
             </Typography>
             <IconButton onClick={onClose}>
@@ -433,8 +433,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
-            <CircularProgress sx={{ color: "#F6F4FE" }} />
-            <Typography sx={{ ml: 2, color: "#F6F4FE" }}>Loading Member data...</Typography>
+            <CircularProgress sx={{ color: "var(--color-text-primary)" }} />
+            <Typography sx={{ ml: 2, color: "var(--color-text-primary)" }}>Loading Member data...</Typography>
           </Box>
         </DialogContent>
       </Dialog>
@@ -452,7 +452,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         sx={{
           "& .MuiDialog-paper": {
             borderRadius: 2,
-            bgcolor: "#2C2C2C",
+            bgcolor: "var(--color-primary)",
             py: 3,
             px: 2,
           },
@@ -460,7 +460,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       >
         <DialogTitle>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h5" fontWeight={600} sx={{ color: "#F6F4FE" }}>
+            <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
               Edit Worker
             </Typography>
             <IconButton onClick={onClose}>
@@ -474,7 +474,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
             <Button
               variant="contained"
               onClick={fetchMember}
-              sx={{ mt: 2, backgroundColor: "#F6F4FE", color: "#2C2C2C" }}
+              sx={{ mt: 2, backgroundColor: "var(--color-text-primary)", color: "var(--color-primary)" }}
               disabled={isFetchingMember}
             >
               Retry
@@ -490,7 +490,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
     <Grid container spacing={4}>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Branch *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Branch *</InputLabel>
           <Select
             name="branchId"
             value={formData.branchId}
@@ -498,17 +498,17 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
             label="Branch *"
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select Branch</MenuItem>
             {isFetchingBranches ? (
               <MenuItem disabled>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} sx={{ color: "#F6F4FE" }} />
+                  <CircularProgress size={16} sx={{ color: "var(--color-text-primary)" }} />
                   <Typography variant="body2">Loading branches...</Typography>
                 </Box>
               </MenuItem>
@@ -539,18 +539,18 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           size="medium"
           autoComplete="off"
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsPerson style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsPerson style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
           required
@@ -558,20 +558,20 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Gender *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Gender *</InputLabel>
           <Select
             name="sex"
             value={formData.sex}
             onChange={handleChange}
             disabled={isLoading}
             label="Gender *"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select Gender</MenuItem>
@@ -592,18 +592,18 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           placeholder="Enter WhatsApp number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
@@ -620,18 +620,18 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           placeholder="Enter phone number"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><IoCallOutline style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
           required
@@ -639,20 +639,20 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Marital Status *</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Marital Status *</InputLabel>
           <Select
             name="maritalStatus"
             value={formData.maritalStatus}
             onChange={handleChange}
             disabled={isLoading}
             label="Marital Status *"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select marital status</MenuItem>
@@ -666,20 +666,20 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Year of Membership</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Year of Membership</InputLabel>
           <Select
             name="memberSince"
             value={formData.memberSince}
             onChange={handleChange}
             disabled={isLoading}
             label="Year of Membership"
-            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "#F6F4FE" }} /></InputAdornment>}
+            startAdornment={<InputAdornment position="start"><BsPerson style={{ color: "var(--color-text-primary)" }} /></InputAdornment>}
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
             MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
           >
@@ -702,18 +702,18 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           multiline
           rows={3}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
             },
           }}
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
@@ -725,7 +725,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
     <Grid container spacing={4}>
       <Grid size={{ xs: 12, md: 6 }}>
         <FormControl fullWidth>
-          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>Age Range</InputLabel>
+          <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>Age Range</InputLabel>
           <Select
             value={selectedAgeRange}
             onChange={handleAgeRangeChange as any}
@@ -733,10 +733,10 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
             label="Age Range"
             sx={{
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              "& .MuiSelect-icon": { color: "#F6F4FE" },
-              "& .MuiSelect-select": { color: "#F6F4FE" },
+              "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
+              "& .MuiSelect-select": { color: "var(--color-text-primary)" },
             }}
           >
             <MenuItem value="" disabled>Select age range</MenuItem>
@@ -808,8 +808,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
               InputLabelProps={{
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 },
               }}
@@ -817,15 +817,15 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                 ...params.InputProps,
                 startAdornment: (
                   <InputAdornment position="start" sx={{ paddingLeft: 2 }}>
-                    <BsCalendar style={{ color: "#F6F4FE" }} />
+                    <BsCalendar style={{ color: "var(--color-text-primary)" }} />
                   </InputAdornment>
                 ),
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 },
               }}
             />
@@ -834,8 +834,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+            '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
+            '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
           }}
         />
       </Grid>
@@ -886,15 +886,15 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                 },
               }}
               InputLabelProps={{
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 }
               }}
@@ -903,8 +903,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+            '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
+            '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
           }}
         />
       </Grid>
@@ -944,16 +944,16 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
                   '& input': { paddingLeft: '8px !important' },
-                  color: "#F6F4FE",
+                  color: "var(--color-text-primary)",
                   "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                  "& .MuiSelect-icon": { color: "#F6F4FE" },
+                  "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                 },
               }}
               InputLabelProps={{
                 sx: {
                   fontSize: isLargeScreen ? "1rem" : undefined,
-                  color: "#F6F4FE",
-                  "&.Mui-focused": { color: "#F6F4FE" },
+                  color: "var(--color-text-primary)",
+                  "&.Mui-focused": { color: "var(--color-text-primary)" },
                   transform: params.inputProps.value ? 'translate(14px, -9px) scale(0.75)' : undefined
                 }
               }}
@@ -963,8 +963,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           size="medium"
           sx={{
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
-            '& .MuiAutocomplete-popupIndicator': { color: '#F6F4FE' },
-            '& .MuiSvgIcon-root': { color: '#F6F4FE' },
+            '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
+            '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
           }}
         />
       </Grid>
@@ -979,9 +979,9 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           placeholder="Enter local government area"
           disabled={isLoading}
           InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: '#F6F4FE' }} /></InputAdornment>,
+            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
             sx: {
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
@@ -989,8 +989,8 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           InputLabelProps={{
             sx: {
               fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
             },
           }}
         />
@@ -1009,14 +1009,14 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
           rows={3}
           InputLabelProps={{
             sx: {
-              color: "#F6F4FE",
-              "&.Mui-focused": { color: "#F6F4FE" },
+              color: "var(--color-text-primary)",
+              "&.Mui-focused": { color: "var(--color-text-primary)" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
           }}
           InputProps={{
             sx: {
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
               fontSize: isLargeScreen ? "1rem" : undefined,
             },
@@ -1044,7 +1044,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
         },
       }}
     >
@@ -1054,7 +1054,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
             variant={isMobile ? "h5" : isLargeScreen ? "h5" : "h5"}
             fontWeight={600}
             gutterBottom
-            sx={{ color: "#F6F4FE", fontSize: isLargeScreen ? "1.5rem" : undefined }}
+            sx={{ color: "var(--color-text-primary)", fontSize: isLargeScreen ? "1.5rem" : undefined }}
           >
             Edit Member
           </Typography>
@@ -1071,7 +1071,7 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                 "& .MuiStepLabel-label": {
                   fontSize: "0.75rem",
                   color: "#6B7280",
-                  "&.Mui-active": { color: "#F6F4FE !important", fontWeight: "bold" },
+                  "&.Mui-active": { color: "var(--color-text-primary) !important", fontWeight: "bold" },
                   "&.Mui-completed": { color: "var(--color-primary) !important", fontWeight: "normal" },
                 },
                 "& .MuiStepIcon-root": {
@@ -1109,14 +1109,14 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                   disabled={isLoading || isFetchingMember}
                   sx={{
                     py: 1,
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 5, sm: 3 },
                     borderRadius: 50,
                     fontWeight: "semibold",
                     textTransform: "none",
-                    color: "#2C2C2C",
+                    color: "var(--color-primary)",
                     fontSize: { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   }}
                 >
                   Next
@@ -1128,14 +1128,14 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
                   disabled={isLoading}
                   sx={{
                     py: 1,
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 5, sm: 2 },
                     borderRadius: 50,
                     fontWeight: "semibold",
-                    color: "#2C2C2C",
+                    color: "var(--color-primary)",
                     textTransform: "none",
                     fontSize: { xs: "1rem", sm: "1rem" },
-                    "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   }}
                 >
                   {isLoading ? (

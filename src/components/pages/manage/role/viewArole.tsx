@@ -8,8 +8,6 @@ import {
   Chip,
   CircularProgress,
   Grid,
-  useTheme,
-  useMediaQuery,
   Paper,
   Divider,
 } from "@mui/material";
@@ -39,11 +37,10 @@ interface Role {
 }
 
 const ViewRole: React.FC = () => {
-  const theme = useTheme();
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
   const navigate = useNavigate();
-  const { roleId } = useParams<{roleId: string }>(); // Get roleId from URL params
-  const authData = useSelector((state: RootState & { auth?: { authData?: any } }) => state.auth?.authData);
+  const { roleId } = useParams<{ roleId: string }>();
+  const authData = useSelector((state: RootState) => state.auth?.authData);
+
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +82,7 @@ const ViewRole: React.FC = () => {
     return (
       <DashboardManager>
         <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
-          <CircularProgress sx={{ color: "#777280" }} />
+          <CircularProgress sx={{ color: "var(--color-text-muted)" }} />
         </Box>
       </DashboardManager>
     );
@@ -101,7 +98,11 @@ const ViewRole: React.FC = () => {
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(-1)}
-            sx={{ mt: 2 }}
+            sx={{ 
+              mt: 2,
+              color: "var(--color-text-primary)",
+              "&:hover": { bgcolor: "var(--color-surface-glass)" }
+            }}
           >
             Go Back
           </Button>
@@ -119,10 +120,10 @@ const ViewRole: React.FC = () => {
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(-1)}
             sx={{
-              color: "#F6F4FE",
+              color: "var(--color-text-primary)",
               textTransform: "none",
               fontWeight: 500,
-              "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+              "&:hover": { bgcolor: "var(--color-surface-glass)" },
             }}
           >
             Back
@@ -133,110 +134,111 @@ const ViewRole: React.FC = () => {
         <Box sx={{ mb: 4, display: "flex", alignItems: "center", gap: 2 }}>
           <Box
             sx={{
-              backgroundColor: "rgba(255,255,255,0.06)",
+              backgroundColor: "var(--color-surface-glass)",
               p: 2,
               borderRadius: 2,
               display: "flex",
             }}
           >
-            <PiRankingFill size={36} className="text-[var(--color-text-on-primary)]" />
+            <PiRankingFill size={36} className="text-[var(--color-text-primary)]" />
           </Box>
           <Box>
             <Typography
               variant="h4"
               fontWeight={700}
               sx={{
-                color: "#F6F4FE",
-                fontSize: isLargeScreen ? "2rem" : "1.6rem",
+                color: "var(--color-text-primary)",
+                fontSize: { xs: "1.6rem", md: "2rem" },
               }}
             >
-              {role.name} <span className="text-sm"> - </span> 
-               <Chip
-                label={role.scopeLevel === 'branch' 
-                  ? (!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) 
-                      ? 'Branch' 
-                      : 'Church'
-                    )
-                  : role.scopeLevel
+              {role.name}{" "}
+              <span style={{ fontSize: "0.9rem", color: "var(--color-text-muted)" }}> - </span>{" "}
+              <Chip
+                label={
+                  role.scopeLevel === 'branch'
+                    ? (!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1)
+                        ? 'Branch'
+                        : 'Church')
+                    : role.scopeLevel
                 }
                 size="small"
                 sx={{
-                  bgcolor: "#4d4d4e8e",
-                  color: "#90EE90",
+                  bgcolor: "var(--color-surface-glass)",
+                  color: "var(--color-text-primary)",
                   fontWeight: 600,
-                  fontSize: "0.75rem",
-                  height: 24,
+                  fontSize: "0.8rem",
+                  height: 28,
                 }}
               />
             </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
-              {/* Description */}
-              <Typography
-                variant="body1"
-                sx={{
-                  color: "#ccc",                
-                  fontSize: "1rem",
-                  lineHeight: 1.6,
-                  maxWidth: "800px",
-                }}
-              >
-                {role.description || "No description provided."}
-              </Typography>
-            </Box>
+
+            <Typography
+              variant="body1"
+              sx={{
+                color: "var(--color-text-muted)",
+                mt: 1,
+                fontSize: "1rem",
+                lineHeight: 1.6,
+                maxWidth: "800px",
+              }}
+            >
+              {role.description || "No description provided."}
+            </Typography>
           </Box>
         </Box>
-        <Divider sx={{ mb: 4, borderColor: "rgba(255,255,255,0.1)" }} />
+
+        <Divider sx={{ mb: 4, borderColor: "var(--color-border-subtle)" }} />
 
         {/* Permissions Section */}
         <Typography
           variant="h6"
           fontWeight={600}
-          sx={{ color: "#F6F4FE", mb: 3 }}
+          sx={{ color: "var(--color-text-primary)", mb: 3 }}
         >
           Permissions
         </Typography>
 
         {Object.keys(groupedPermissions || {}).length === 0 ? (
-          <Typography color="var(--color-text-on-primary)" fontStyle="italic">
+          <Typography color="var(--color-text-muted)" fontStyle="italic">
             No permissions assigned.
           </Typography>
         ) : (
           <Grid container spacing={2}>
             {Object.entries(groupedPermissions!).map(([groupName, perms]) => (
-              <Grid size={{xs:12, sm:6, md:4}} key={groupName}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={groupName}>
                 <Paper
                   sx={{
                     p: 2.5,
                     borderRadius: 2,
-                    bgcolor: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    bgcolor: "var(--color-surface-glass)",
+                    border: "1px solid var(--color-border-glass)",
                     height: "100%",
-                    transition: "0.2s",
-                    "&:hover": { bgcolor: "rgba(255,255,255,0.08)" },
+                    transition: "all 0.25s ease",
+                    "&:hover": { bgcolor: "var(--color-surface)", boxShadow: "0 4px 16px rgba(0,0,0,0.12)" },
                   }}
                 >
                   {/* Group Title */}
                   <Typography
                     variant="subtitle1"
                     fontWeight={600}
-                    sx={{ color: "#90EE90", mb: 1.5 }}
+                    sx={{ color: "var(--color-text-primary)", mb: 1.5 }}
                   >
                     {groupName}
                   </Typography>
 
                   {/* Permissions List */}
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
                     {perms.map((perm) => (
                       <Chip
                         key={perm}
                         label={perm}
                         size="small"
                         sx={{
-                          bgcolor: "rgba(144, 238, 144, 0.15)",
-                          color: "#90EE90",
+                          bgcolor: "var(--color-surface)",
+                          color: "var(--color-text-primary)",                    
                           fontWeight: 500,
-                          fontSize: "0.7rem",
-                          height: 22,
+                          fontSize: "0.75rem",
+                          height: 24,
                         }}
                       />
                     ))}

@@ -32,7 +32,6 @@ import DashboardManager from "../../shared/dashboardManager";
 import Api from "../../shared/api/api";
 import { useNavigate } from "react-router-dom";
 import { showPageToast } from "../../util/pageToast";
-import ChangeColorButton from "./setting";
 import { useDispatch, useSelector } from "react-redux";
 import { setAuthData, AuthState } from "../../reduxstore/authstore"; // ← YOUR STORE
 
@@ -237,7 +236,7 @@ export default function ViewChurch() {
     return (
       <DashboardManager>
         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "70vh" }}>
-          <CircularProgress sx={{ color: "#f6f4fe" }} />
+          <CircularProgress sx={{ color: "var(--color-text-primary)" }} />
         </Box>
       </DashboardManager>
     );
@@ -254,7 +253,7 @@ export default function ViewChurch() {
             variant="contained"
             startIcon={<ArrowBack />}
             onClick={() => navigate(-1)}
-            sx={{ bgcolor: "var(--color-primary)", color: "var(--color-text-on-primary)", "&:hover": { opacity: 0.9 } }}
+            sx={{ bgcolor: "var(--color-text-primary)", color: "var(--color-primary)", "&:hover": { opacity: 0.9 } }}
           >
             Back
           </Button>
@@ -274,29 +273,13 @@ export default function ViewChurch() {
           {/* ----- Header ----- */}
           <Grid container spacing={2} sx={{ mb: 4 }}>
             <Grid size={{ xs: 12, md: 8 }}>
-              <Typography variant="h5" fontWeight={600} sx={{ color: "#f6f4fe" }}>
+              <Typography variant="h5" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
                 Church Profile
               </Typography>
-              <Typography variant="body2" color="gray" sx={{ fontSize: isLarge ? "0.875rem" : undefined }}>
+              <Typography variant="body2" color="var(--color-text-secondary)" sx={{ fontSize: isLarge ? "0.875rem" : undefined }}>
                 View and manage your church information.
               </Typography>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }} sx={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                startIcon={<ArrowBack />}
-                onClick={() => navigate(-1)}
-                sx={{
-                  bgcolor: "var(--color-primary)",
-                  color: "var(--color-text-on-primary)",
-                  fontWeight: 500,
-                  textTransform: "none",
-                  "&:hover": { bgcolor: "var(--color-primary)", opacity: 0.9 },
-                }}
-              >
-                Back
-              </Button>
-            </Grid>
+            </Grid>            
           </Grid>
 
           {/* ----- COVER + LOGO ----- */}
@@ -307,7 +290,7 @@ export default function ViewChurch() {
               borderRadius: 2,
               overflow: "visible",
               mb: { xs: 7, sm: 8, md: 9 },
-              bgcolor: "rgba(255,255,255,0.06)",
+              bgcolor: "var(--color-surface-glass)",
             }}
           >
             {church.backgroundImage ? (
@@ -344,9 +327,9 @@ export default function ViewChurch() {
                 position: "absolute",
                 top: 12,
                 right: 12,
-                bgcolor: "rgba(0,0,0,0.5)",
-                color: "#fff",
-                "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
+                bgcolor: "var(--color-text-primary)",
+                color: "var(--color-primary)",
+                "&:hover": { bgcolor: "var(--color-text-primary)" },
               }}
               disabled={uploadingBg}
             >
@@ -381,8 +364,8 @@ export default function ViewChurch() {
                 bottom: "-17%",
                 left: { xs: "50%", sm: 42 },
                 transform: { xs: "translateX(-50%)", sm: "none" },
-                bgcolor: "var(--color-primary)",
-                color: "var(--color-text-light-primary)",
+                bgcolor: "var(--color-text-primary)",
+                color: "var(--color-primary)",
                 width: 36,
                 height: 36,
                 "&:hover": { opacity: 0.9 },
@@ -395,21 +378,21 @@ export default function ViewChurch() {
           </Box>
 
           {/* ----- PROFILE CARD ----- */}
-          <Box sx={{ bgcolor: "rgba(255,255,255,0.06)", borderRadius: 2, p: { xs: 3, sm: 4 }, mb: 4 }}>
+          <Box sx={{ bgcolor: "var(--color-surface-glass)", borderRadius: 2, p: { xs: 3, sm: 4 }, mb: 4 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-              <Typography variant="h5" fontWeight="bold" color="#f6f4fe">
+              <Typography variant="h5" fontWeight="bold" color="var(--color-text-primary)">
                 {church.name}
               </Typography>
-              <IconButton onClick={() => setEditOpen(true)} sx={{ color: "#f6f4fe" }}>
+              <IconButton onClick={() => setEditOpen(true)} sx={{ color: "var(--color-text-primary)" }}>
                 <EditIcon />
               </IconButton>
             </Box>
 
-            <Typography variant="body1" color="gray" sx={{ mb: 1 }}>
+            <Typography variant="body1" color="var(--color-text-secondary)" sx={{ mb: 1 }}>
               {church.isHeadQuarter ? "Headquarters" : "Branch"}
             </Typography>
 
-            <Typography variant="body1" color="gray">
+            <Typography variant="body1" color="var(--color-text-secondary)">
               Church since: {since()}
             </Typography>
           </Box>
@@ -417,8 +400,8 @@ export default function ViewChurch() {
           <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.1)" }} />
 
           {/* ----- CHURCH INFO ----- */}
-          <Box sx={{ bgcolor: "rgba(255,255,255,0.06)", borderRadius: 2, p: { xs: 3, sm: 4 }, mb: 4 }}>
-            <Typography variant="h6" fontWeight="bold" color="#f6f4fe" sx={{ mb: 3 }}>
+          <Box sx={{ bgcolor: "var(--color-surface-glass)", borderRadius: 2, p: { xs: 3, sm: 4 }, mb: 4 }}>
+            <Typography variant="h6" fontWeight="bold" color="var(--color-text-primary)" sx={{ mb: 3 }}>
               Church Information
             </Typography>
 
@@ -437,8 +420,8 @@ export default function ViewChurch() {
           <Divider sx={{ my: 3, borderColor: "rgba(255,255,255,0.1)" }} />
 
           {/* ----- ACCOUNT INFO + SMS + COLOR PICKER ----- */}
-          <Box sx={{ bgcolor: "rgba(255,255,255,0.06)", borderRadius: 2, p: { xs: 3, sm: 4 } }}>
-            <Typography variant="h6" fontWeight="bold" color="#f6f4fe" sx={{ mb: 3 }}>
+          <Box sx={{ bgcolor: "var(--color-surface-glass)", borderRadius: 2, p: { xs: 3, sm: 4 } }}>
+            <Typography variant="h6" fontWeight="bold" color="var(--color-text-primary)" sx={{ mb: 3 }}>
               Account Information
             </Typography>
 
@@ -457,18 +440,15 @@ export default function ViewChurch() {
               </Grid>
             </Grid>
 
-            <Box sx={{ mt: 4 }}>
-              <ChangeColorButton />
-            </Box>
           </Box>
         </Box>
       </Container>
 
       {/* ----- EDIT TEXT DIALOG ----- */}
       <Dialog open={editOpen} onClose={() => !editLoading && setEditOpen(false)} maxWidth="sm" fullWidth sx={{
-        '& .MuiDialog-paper': { borderRadius: 2, bgcolor: '#2C2C2C' },
+        '& .MuiDialog-paper': { borderRadius: 2, bgcolor: 'var(--color-primary)' },
       }}>
-        <DialogTitle sx={{ color: "#f6f4fe", fontWeight: 600 }}>Edit Church</DialogTitle>
+        <DialogTitle sx={{ color: "var(--color-text-primary)", fontWeight: 600 }}>Edit Church</DialogTitle>
         <DialogContent dividers>
           <TextField fullWidth margin="normal" label="Church Name"
             value={editForm.churchName}
@@ -488,12 +468,12 @@ export default function ViewChurch() {
             InputProps={{ sx: textFieldSx }} InputLabelProps={{ sx: labelSx }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)} disabled={editLoading}>Cancel</Button>
+          <Button onClick={() => setEditOpen(false)} sx={{color: 'var(--color-text-muted)'}} disabled={editLoading}>Cancel</Button>
           <Button onClick={saveText} variant="contained" disabled={editLoading}
             sx={{
-              py: 1, backgroundColor: '#F6F4FE', px: 2, borderRadius: 50,
-              color: '#2C2C2C', fontWeight: 'semibold', textTransform: 'none',
-              '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+              py: 1, backgroundColor: 'var(--color-text-primary)', px: 2, borderRadius: 50,
+              color: 'var(--color-primary)', fontWeight: 'semibold', textTransform: 'none',
+              '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
             }}>
             {editLoading ? <CircularProgress size={20} /> : "Save"}
           </Button>
@@ -510,22 +490,22 @@ const InfoRow: React.FC<{ icon?: React.ReactNode; label: string; value: string; 
   icon, label, value, color,
 }) => (
   <Box sx={{ mb: 3 }}>
-    <Typography variant="subtitle2" color="gray" sx={{ mb: 0.5 }}>{label}</Typography>
+    <Typography variant="subtitle2" color="var(--color-text-secondary)" sx={{ mb: 0.5 }}>{label}</Typography>
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      {icon && <Box sx={{ color: color ?? "#f6f4fe" }}>{icon}</Box>}
-      <Typography variant="body1" sx={{ color: color ?? "#f6f4fe" }}>{value}</Typography>
+      {icon && <Box sx={{ color: color ?? "var(--color-text-primary)" }}>{icon}</Box>}
+      <Typography variant="body1" sx={{ color: color ?? "var(--color-text-primary)" }}>{value}</Typography>
     </Box>
   </Box>
 );
 
 /* Shared TextField Styles */
 const textFieldSx = {
-  color: '#F6F4FE',
+  color: 'var(--color-text-primary)',
   '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
 };
 const labelSx = {
-  color: '#F6F4FE',
-  '&.Mui-focused': { color: '#F6F4FE' },
+  color: 'var(--color-text-primary)',
+  '&.Mui-focused': { color: 'var(--color-text-primary)' },
 };

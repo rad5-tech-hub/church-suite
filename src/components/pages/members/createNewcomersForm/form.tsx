@@ -361,7 +361,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
       }, 1000);
       onSuccess();
     } catch (err) {
-      console.error("❌ Failed to save form", err);
+      console.error("❌ Failed to save form", err);      
       showPageToast("Failed to save form", "error");
     } finally {
       setFormLoading(false);
@@ -383,20 +383,23 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
           borderRadius: 2,
           py: 2,
           px: 1,
-          bgcolor: "#2C2C2C",
+          bgcolor: "var(--color-primary)",
         },
       }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography
-            variant="h5"
-            fontWeight={600}
-            gutterBottom
-            sx={{ color: "#F6F4FE", fontSize: "1.5rem" }}
-          >
-            {formId ? "Edit Form" : "Create Form"}
-          </Typography>
+          <Box>
+            <Typography
+              variant="h5"
+              fontWeight={600}
+              gutterBottom
+              sx={{ color: "var(--color-text-primary)", fontSize: "1.5rem" }}
+            >
+              {formId ? "Edit Form" : "Create Form"}
+            </Typography>
+            <p className="text-sm text-[var(--color-text-muted)]">Check inputs that you would like to display in this form</p>
+          </Box>
           <IconButton onClick={onClose}>
             <Close className="text-gray-300" />
           </IconButton>
@@ -416,7 +419,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     sx: {
                       fontWeight: 500,
                       fontSize: { xs: "1rem", md: "1.1rem" },
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       maxWidth: { xs: "80%", md: "60%" },
                     },
                   }}
@@ -437,7 +440,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     sx: {
                       fontWeight: 400,
                       fontSize: { xs: "1rem", md: "1.1rem" },
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
                   }}
                   sx={{
@@ -462,16 +465,16 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 variant="contained"
                 size="medium"
                 sx={{
-                  backgroundColor: "#363740",
+                  backgroundColor: "var(--color-text-primary)",
                   px: { xs: 2, sm: 2 },
                   py: 1,
                   borderRadius: 50,
                   fontWeight: 500,
                   textTransform: "none",
-                  color: "var(--color-text-on-primary)",
+                  color: "var(--color-primary)",
                   fontSize: "1rem",
                   "&:hover": {
-                    backgroundColor: "#363740",
+                    backgroundColor: "var(--color-text-primary)",
                     opacity: 0.9,
                   },
                   mr: 2,
@@ -489,7 +492,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
               <Box sx={{ position: "relative" }}>
                 <TextField
                   label="Full Name"
-                  placeholder="Enter your full name"
+                  placeholder={`full name will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.fullname}
                   sx={{
@@ -497,7 +500,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                       "& fieldset": { borderColor: checkedFields.fullname ? "#4CAF50" : "#4B4B4B" },
                       "&:hover fieldset": { borderColor: checkedFields.fullname ? "#4CAF50" : "#777280" },
                       "&.Mui-focused fieldset": { borderColor: checkedFields.fullname ? "#4CAF50" : "#777280" },
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
                   }}
                   InputProps={{
@@ -524,7 +527,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     sx: {
                       fontSize: "1rem",
                       color: "#9E9E9E",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       "&.Mui-disabled": {
                         color: "#4B4B4B",
                       },
@@ -592,7 +595,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 <TextField
                   label="Phone Number"
                   type="tel"
-                  placeholder="Enter your phone number"
+                  placeholder={`Phone number will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.phoneNumber}
                   sx={{
@@ -600,7 +603,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                       "& fieldset": { borderColor: checkedFields.phoneNumber ? "#4CAF50" : "#4B4B4B" },
                       "&:hover fieldset": { borderColor: checkedFields.phoneNumber ? "#4CAF50" : "#777280" },
                       "&.Mui-focused fieldset": { borderColor: checkedFields.phoneNumber ? "#4CAF50" : "#777280" },
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
                   }}
                   InputProps={{
@@ -627,7 +630,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     sx: {
                       fontSize: "1rem",
                       color: "#9E9E9E",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       "&.Mui-disabled": {
                         color: "#4B4B4B",
                       },
@@ -707,9 +710,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     readOnly
                     sx={{
                       fontSize: "1rem",
-                      color: checkedFields.gender ? "#F6F4FE" : "#9E9E9E",
+                      color: checkedFields.gender ? "var(--color-text-primary)" : "#9E9E9E",
                       "& .MuiSelect-select": {
-                        color: checkedFields.gender ? "#F6F4FE" : "#9E9E9E",
+                        color: checkedFields.gender ? "var(--color-text-primary)" : "#9E9E9E",
                       },
                       "& .MuiSelect-select.Mui-disabled": {
                         color: "#4B4B4B !important",
@@ -792,7 +795,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
               <Box sx={{ position: "relative" }}>
                 <TextField
                   label="Address"
-                  placeholder="Enter your address"
+                  placeholder={`Address will display on ${formName || 'this form'}`}
                   fullWidth
                   disabled={!checkedFields.address}
                   sx={{
@@ -800,7 +803,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                       "& fieldset": { borderColor: checkedFields.address ? "#4CAF50" : "#4B4B4B" },
                       "&:hover fieldset": { borderColor: checkedFields.address ? "#4CAF50" : "#777280" },
                       "&.Mui-focused fieldset": { borderColor: checkedFields.address ? "#4CAF50" : "#777280" },
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                     },
                   }}
                   InputProps={{
@@ -827,7 +830,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     sx: {
                       fontSize: "1rem",
                       color: "#9E9E9E",
-                      "&.Mui-focused": { color: "#F6F4FE" },
+                      "&.Mui-focused": { color: "var(--color-text-primary)" },
                       "&.Mui-disabled": {
                         color: "#4B4B4B",
                       },
@@ -1028,9 +1031,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     onChange={(e) => setAttendanceDuration(e.target.value)}
                     sx={{
                       fontSize: "1rem",
-                      color: checkedFields.attendanceDuration ? "#F6F4FE" : "#9E9E9E",
+                      color: checkedFields.attendanceDuration ? "var(--color-text-primary)" : "#9E9E9E",
                       "& .MuiSelect-select": {
-                        color: checkedFields.attendanceDuration ? "#F6F4FE" : "#9E9E9E",
+                        color: checkedFields.attendanceDuration ? "var(--color-text-primary)" : "#9E9E9E",
                       },
                       "& .MuiSelect-select.Mui-disabled": {
                         color: "#4B4B4B !important",
@@ -1129,9 +1132,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     defaultValue=""
                     sx={{
                       fontSize: "1rem",
-                      color: checkedFields.isVisitor ? "#F6F4FE" : "#9E9E9E",
+                      color: checkedFields.isVisitor ? "var(--color-text-primary)" : "#9E9E9E",
                       "& .MuiSelect-select": {
-                        color: checkedFields.isVisitor ? "#F6F4FE" : "#9E9E9E",
+                        color: checkedFields.isVisitor ? "var(--color-text-primary)" : "#9E9E9E",
                       },
                       "& .MuiSelect-select.Mui-disabled": {
                         color: "#4B4B4B !important",
@@ -1220,11 +1223,11 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
               questions.map((q) => (
                 <Grid size={{ xs: 12, md: 6 }} key={q.id}>
                   <Box sx={{position: "relative" }}>
-                    <Box sx={{ fontWeight: 600, mb: 1, color: "#F6F4FE" }}>{q.question}</Box>
+                    <Box sx={{ fontWeight: 600, mb: 1, color: "var(--color-text-primary)" }}>{q.question}</Box>
                     {q.type === "text" && (
                       <TextField
                         fullWidth
-                        placeholder="Enter your answer"
+                        placeholder={`check to display ${q.question} on ${formName || 'this form'}`}
                         value={answers[q.id] || ""}
                         onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                         disabled={!checkedQuestions[q.id]}
@@ -1233,7 +1236,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                             "& fieldset": { borderColor: checkedQuestions[q.id] ? "#4CAF50" : "#4B4B4B" },
                             "&:hover fieldset": { borderColor: checkedQuestions[q.id] ? "#4CAF50" : "#777280" },
                             "&.Mui-focused fieldset": { borderColor: checkedQuestions[q.id] ? "#4CAF50" : "#777280" },
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                           },
                         }}
                         InputProps={{
@@ -1260,7 +1263,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           sx: {
                             fontSize: "1rem",
                             color: "#4B4B4B",
-                            "&.Mui-focused": { color: "#F6F4FE" },
+                            "&.Mui-focused": { color: "var(--color-text-primary)" },
                             "&.Mui-disabled": {
                               color: "#4B4B4B",
                             },
@@ -1285,9 +1288,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                           sx={{
                             fontSize: "1rem",
-                            color: checkedQuestions[q.id] ? "#F6F4FE" : "#9E9E9E",
+                            color: checkedQuestions[q.id] ? "var(--color-text-primary)" : "#9E9E9E",
                             "& .MuiSelect-select": {
-                              color: checkedQuestions[q.id] ? "#F6F4FE" : "#9E9E9E",
+                              color: checkedQuestions[q.id] ? "var(--color-text-primary)" : "#9E9E9E",
                             },
                             "& .MuiSelect-select.Mui-disabled": {
                               color: "#4B4B4B !important",
@@ -1332,9 +1335,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           renderValue={(selected) => (selected as string[]).join(", ")}
                           sx={{
                             fontSize: "1rem",
-                            color: checkedQuestions[q.id] ? "#F6F4FE" : "#9E9E9E",
+                            color: checkedQuestions[q.id] ? "var(--color-text-primary)" : "#9E9E9E",
                             "& .MuiSelect-select": {
-                              color: checkedQuestions[q.id] ? "#F6F4FE" : "#9E9E9E",
+                              color: checkedQuestions[q.id] ? "var(--color-text-primary)" : "#9E9E9E",
                             },
                             "& .MuiSelect-select.Mui-disabled": {
                               color: "#4B4B4B !important",
@@ -1424,9 +1427,9 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                             color: "#4CAF50",
                             position: "absolute",
                             top: "19px",
-                            backgroundColor: "#2c2c2c",
+                            backgroundColor: "var(--color-primary)",
                             right: "-15px",
-                            "&:hover": { color: "#66BB6A", backgroundColor: "#2c2c2c" },
+                            "&:hover": { color: "#66BB6A", backgroundColor: "var(--color-primary)" },
                           }}
                         >
                           <EditIcon sx={{ fontSize: 18 }} />
@@ -1453,7 +1456,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 borderRadius: 2,
                 py: 2,
                 px: 1,
-                bgcolor: "#2C2C2C",
+                bgcolor: "var(--color-primary)",
               },
             }}
           >
@@ -1463,7 +1466,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                   variant="h5"
                   fontWeight={600}
                   gutterBottom
-                  sx={{ color: "#F6F4FE", fontSize: "1.5rem" }}
+                  sx={{ color: "var(--color-text-primary)", fontSize: "1.5rem" }}
                 >
                   Edit Question
                 </Typography>
@@ -1480,7 +1483,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                     p: 2,
                     mb: 2,
                     borderRadius: 1,
-                    bgcolor: "#2C2C2C",
+                    bgcolor: "var(--color-primary)",
                   }}
                 >
                   <Grid container spacing={2}>
@@ -1492,29 +1495,29 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                         onChange={(e) => updateQuestion("question", e.target.value)}
                         InputProps={{
                           sx: {
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                           },
                         }}
                         InputLabelProps={{
                           sx: {
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                           },
                         }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, md: 5 }}>
                       <FormControl fullWidth>
-                        <InputLabel sx={{ color: "#F6F4FE" }}>Type</InputLabel>
+                        <InputLabel sx={{ color: "var(--color-text-primary)" }}>Type</InputLabel>
                         <Select
                           value={selectedQuestion.type}
                           onChange={(e) => updateQuestion("type", e.target.value)}
                           sx={{
                             fontSize: "1rem",
-                            color: "#F6F4FE",
+                            color: "var(--color-text-primary)",
                             "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                             "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                            "& .MuiSelect-select": { color: "#F6F4FE" },
+                            "& .MuiSelect-select": { color: "var(--color-text-primary)" },
                             "& .MuiSelect-icon": { color: "#777280" },
                           }}
                         >
@@ -1530,7 +1533,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                       <TextField
                         fullWidth
                         disabled
-                        placeholder="Free text response"
+                        placeholder={`${selectedQuestion.question} will display on ${formName || 'this form'}`}
                         size="small"
                         InputProps={{
                           sx: {
@@ -1555,7 +1558,7 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                           sx: {
                             fontSize: "1rem",
                             color: "#9E9E9E",
-                            "&.Mui-focused": { color: "#F6F4FE" },
+                            "&.Mui-focused": { color: "var(--color-text-primary)" },
                             "&.Mui-disabled": {
                               color: "#9E9E9E",
                             },
@@ -1618,11 +1621,11 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                             fullWidth
                             size="small"
                             value={opt}
-                            placeholder="Enter option"
+                            placeholder={`${selectedQuestion} will display on ${formName || 'this form'}`}
                             onChange={(e) => updateOption(i, e.target.value)}
                             InputProps={{
                               sx: {
-                                color: "#F6F4FE",
+                                color: "var(--color-text-primary)",
                                 "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                               },
                             }}
@@ -1668,15 +1671,15 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
                 variant="contained"
                 sx={{
                   py: 1,
-                  backgroundColor: "#F6F4FE",
+                  backgroundColor: "var(--color-text-primary)",
                   px: { xs: 5, sm: 5 },
                   borderRadius: 50,
                   fontWeight: "semibold",
                   textTransform: "none",
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  color: "#2C2C2C",
+                  color: "var(--color-primary)",
                   "&:hover": {
-                    backgroundColor: "#F6F4FE",
+                    backgroundColor: "var(--color-text-primary)",
                     opacity: 0.9,
                   },
                 }}
@@ -1695,16 +1698,16 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
             variant="contained"
             size="medium"
             sx={{
-              backgroundColor: "#f6f4fe",
+              backgroundColor: "var(--color-text-primary)",
               px: { xs: 2, sm: 2 },
               py: 1,
               borderRadius: 50,
               fontWeight: 500,
               textTransform: "none",
-              color: "#363740",
+              color: "var(--color-primary)",
               fontSize: "1rem",
               "&:hover": {
-                backgroundColor: "#f6f4fe",
+                backgroundColor: "var(--color-text-primary)",
                 opacity: 0.9,
               },
             }}

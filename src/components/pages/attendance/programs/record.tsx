@@ -267,7 +267,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
           },
         }}
       >
@@ -276,11 +276,11 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography fontWeight="bold">Loading...</Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
@@ -310,7 +310,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
         sx={{
           '& .MuiDialog-paper': {
             borderRadius: 2,
-            bgcolor: '#2C2C2C',
+            bgcolor: 'var(--color-primary)',
           },
         }}
       >
@@ -319,18 +319,18 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            color: '#F6F4FE',
+            color: 'var(--color-text-primary)',
           }}
         >
           <Typography variant="h5" component="h2" fontWeight="bold">
             Error
           </Typography>
-          <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+          <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
             <Close />
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3, mt: 2 }}>
-          <Typography variant="body1" sx={{ color: '#F6F4FE', textAlign: 'center' }}>
+          <Typography variant="body1" sx={{ color: 'var(--color-text-primary)', textAlign: 'center' }}>
             {fetchError}
           </Typography>
         </DialogContent>
@@ -351,7 +351,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
+          bgcolor: 'var(--color-primary)',
         },
       }}
     >
@@ -360,13 +360,13 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          color: '#F6F4FE',
+          color: 'var(--color-text-primary)',
         }}
       >
         <Typography variant="h5" component="h2" fontWeight="bold">
           {eventData && eventData.event.title}
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: '#F6F4FE' }} aria-label="Close dialog">
+        <IconButton onClick={onClose} sx={{ color: 'var(--color-text-primary)' }} aria-label="Close dialog">
           <Close />
         </IconButton>
       </DialogTitle>
@@ -379,7 +379,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                color: '#F6F4FE',
+                color: 'var(--color-text-primary)',
               }}
             >
               <Box sx={{ mb: { xs: 2, sm: 3 }, justifyContent: 'center' }}>
@@ -410,7 +410,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                             height: { xs: 70, sm: 80 },
                           },
                           '&.Mui-disabled': {
-                            WebkitTextFillColor: '#F6F4FE',
+                            WebkitTextFillColor: 'var(--color-text-primary)',
                             color: '#777280',
                           },
                         }}
@@ -420,7 +420,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                         }
                         InputProps={{
                           sx: {
-                            color: '#F6F4FE',
+                            color: 'var(--color-text-primary)',
                             '& .MuiOutlinedInput-notchedOutline': {
                               borderColor: '#777280',
                             },
@@ -432,16 +432,16 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                             },
                             '&.Mui-disabled': {
                               '& .MuiInputBase-input.Mui-disabled': {
-                                WebkitTextFillColor: '#F6F4FE',
-                                color: '#F6F4FE',
+                                WebkitTextFillColor: 'var(--color-text-primary)',
+                                color: 'var(--color-text-primary)',
                               },
                             },
                           },
                         }}
                         inputProps={{
                           sx: {
-                            WebkitTextFillColor: '#F6F4FE',
-                            color: '#F6F4FE',
+                            WebkitTextFillColor: 'var(--color-text-primary)',
+                            color: 'var(--color-text-primary)',
                             '&.Mui-disabled': {
                               color: '#777280',
                             },
@@ -473,7 +473,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                color: '#F6F4FE',
+                color: 'var(--color-text-primary)',
                 mt: 4,
               }}
             >
@@ -506,7 +506,7 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                         }}
                         InputProps={{
                           sx: {
-                            color: '#F6F4FE',
+                            color: 'var(--color-text-primary)',
                             '& .MuiOutlinedInput-notchedOutline': {
                               borderColor: '#777280',
                             },
@@ -520,9 +520,9 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
                         }}
                         InputLabelProps={{
                           sx: {
-                            color: '#F6F4FE',
+                            color: 'var(--color-text-primary)',
                             '&.Mui-focused': {
-                              color: '#F6F4FE',
+                              color: 'var(--color-text-primary)',
                             },
                           },
                         }}
@@ -555,14 +555,14 @@ const RecordDialogue: React.FC<RecordDialogueProps> = ({ eventId, open, onClose,
               disabled={submitting}
               sx={{
                 py: 1,
-                backgroundColor: '#F6F4FE',
+                backgroundColor: 'var(--color-text-primary)',
                 px: { xs: 2, sm: 2 },
                 borderRadius: 50,
-                color: '#2C2C2C',
+                color: 'var(--color-primary)',
                 fontWeight: 'semibold',
                 textTransform: 'none',
                 fontSize: { xs: '1rem', sm: '1rem' },
-                '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+                '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
               }}
             >
               Save Information

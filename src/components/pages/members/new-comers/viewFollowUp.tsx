@@ -175,9 +175,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: '40px',
           height: '40px',
           borderRadius: '8px',
-          backgroundColor: !hasPrevPage || isLoading ? '#4d4d4e8e' : '#F6F4FE',
+          backgroundColor: !hasPrevPage || isLoading ? '#4d4d4e8e' : 'var(--color-text-primary)',
           color: !hasPrevPage || isLoading ? '#777280' : '#160F38',
-          '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+          '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
           '&:disabled': { backgroundColor: '#4d4d4e8e', color: '#777280' },
         }}
         aria-label="Previous page"
@@ -191,9 +191,9 @@ const CustomPagination: React.FC<CustomPaginationProps> = ({
           minWidth: '40px',
           height: '40px',
           borderRadius: '8px',
-          backgroundColor: !hasNextPage || isLoading ? '#4d4d4e8e' : '#F6F4FE',
+          backgroundColor: !hasNextPage || isLoading ? '#4d4d4e8e' : 'var(--color-text-primary)',
           color: !hasPrevPage || isLoading ? '#777280' : '#160F38',
-          '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+          '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
           '&:disabled': { backgroundColor: '#4d4d4e8e', color: '#777280' },
         }}
         aria-label="Next page"
@@ -221,7 +221,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeSc
       justifyContent: 'center',
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: 'rgba(255, 255, 255, 0.1)', mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: 'var(--color-text-muted)', mb: 2 }} />
     <Typography variant="h6" color="gray" sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined }}>
       {error || 'No Newcomer Found '}
     </Typography>
@@ -229,14 +229,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({ error, onAddFollowUp, isLargeSc
       variant="contained"
       onClick={onAddFollowUp}
       sx={{
-        backgroundColor: '#363740',
+        backgroundColor: 'var(--color-text-primary)',
         px: { xs: 2, sm: 2 },
         mt: 2,
         borderRadius: 50,
         py: 1,
         fontSize: isLargeScreen ? '0.875rem' : undefined,
-        color: 'var(--color-text-on-primary)',
-        '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
+        color: 'var(--color-primary)',
+        '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
       }}
     >
       Add Newcomer
@@ -255,9 +255,9 @@ interface FollowUpRowProps {
 const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuOpen, isLargeScreen, loading }) => (
   <TableRow
     sx={{
-      backgroundColor: followUp.isDeleted ? 'rgba(0, 0, 0, 0.04)' : '#4d4d4e8e',
+      backgroundColor: followUp.isDeleted ? 'var(--color-text-muted)' : 'var(--color-surface-glass)',
       '&:hover': {
-        backgroundColor: '#4d4d4e8e',
+        backgroundColor: 'var(--color-surface-glass)',
         transform: 'translateY(-2px)',
         boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
       },
@@ -265,11 +265,11 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
       mb: 1,
     }}
   >
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.snumber, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       {(index + 1).toString().padStart(2, '0')}
     </TableCell>
-    <TableCell sx={{ color: followUp.isDeleted ? 'gray' : '#F6F4FE', display: 'flex', alignItems: 'center', gap: 1, fontSize: isLargeScreen ? '0.875rem' : undefined, py: 2 }}>
-      <Box className="py-2 px-3 rounded-full bg-[#F6F4FE] text-[#160F38] font-bold text-lg mr-2">
+    <TableCell sx={{ color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 1, fontSize: isLargeScreen ? '0.875rem' : undefined, py: 2 }}>
+      <Box className="py-2 px-3 rounded-full bg-[var(--color-text-primary)] text-[var(--color-primary)] font-bold text-lg mr-2">
         {followUp.name.split(' ').map((name) => name.charAt(0)).join('')}
       </Box>
       <Box>
@@ -279,7 +279,7 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
         </Typography>
       </Box>
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.contact, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       <div className='flex align-center gap-0.5'>
         <span>{followUp.phoneNo || "N/A"}</span>
         {!followUp.isDeleted && followUp.phoneNo && (
@@ -288,7 +288,7 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
               size="small"
               onClick={() => window.open(`tel:${followUp.phoneNo}`)}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 "&:hover": {
                   color: "#C49C6B",
                 },
@@ -300,30 +300,30 @@ const FollowUpRow: React.FC<FollowUpRowProps> = memo(({ followUp, index, onMenuO
         )}
       </div>
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.branch, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.branch, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       {followUp.branch.name || 'N/A'}
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.address, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       {followUp.eventAttended?.event?.title || 'N/A'}
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.visitor, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.visitor, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       <Chip
         label={followUp?.isVisitor ? "Yes" : "No"}
         variant={followUp?.isDeleted ? "outlined" : "filled"}
         sx={{
-          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          color: followUp.isDeleted ? "gray" : "var(--color-text-primary)",
           textDecoration: followUp.isDeleted ? "line-through" : "none",
           "& .MuiChip-label": { fontWeight: 500, fontSize: "0.8rem" },
         }}
       />
     </TableCell>
-    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed_Up, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : '#F6F4FE', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
+    <TableCell sx={{ width: TABLE_COLUMN_WIDTHS.followed_Up, fontSize: isLargeScreen ? '0.875rem' : undefined, color: followUp.isDeleted ? 'gray' : 'var(--color-text-primary)', textDecoration: followUp.isDeleted ? 'line-through' : 'none' }}>
       <Chip
         label={followUp?.adminComment ? "Yes" : "No"}
         color={followUp?.isDeleted ? "default" : followUp?.adminComment ? "success" : "error"}
         variant={followUp?.isDeleted ? "outlined" : "filled"}
         sx={{
-          color: followUp.isDeleted ? "gray" : "#F6F4FE",
+          color: followUp.isDeleted ? "gray" : "var(--color-text-primary)",
           textDecoration: followUp.isDeleted ? "line-through" : "none",
           backgroundColor: followUp.isDeleted
             ? "transparent"
@@ -389,13 +389,13 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 2,
-          bgcolor: '#2C2C2C',
-          color: 'white',
+          bgcolor: 'var(--color-primary)',
+          color: 'var(--color-text-primary)',
           p: 2,
         },
       }}
     >
-      <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined, color: '#F6F4FE' }}>
+      <DialogTitle sx={{ fontSize: isLargeScreen ? '1.25rem' : undefined, color: 'var(--color-text-primary)' }}>
         Comment On {fullname}
       </DialogTitle>
       <DialogContent>
@@ -409,10 +409,10 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
           disabled={loading}
           InputProps={{
             sx: {
-              color: '#F6F4FE',
+              color: 'var(--color-text-primary)',
               '& .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
               '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#777280' },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--color-text-primary)' },
               fontSize: isLargeScreen ? '0.875rem' : undefined,
             },
           }}
@@ -429,7 +429,7 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
         <Button
           onClick={()=>{onClose(); setAdminComment('')}}
           disabled={loading}
-          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, color: '#F6F4FE' }}
+          sx={{ fontSize: isLargeScreen ? '0.875rem' : undefined, backgroundColor:'var(--color-surface-glass)', color: 'var(--color-text-primary)' }}
         >
           Cancel
         </Button>
@@ -438,13 +438,13 @@ const FollowUpCommentDialog: React.FC<FollowUpCommentDialogProps> = ({
           variant="contained"
           disabled={loading}
           sx={{
-            backgroundColor: '#F6F4FE',
-            color: '#2C2C2C',
-            '&:hover': { backgroundColor: '#F6F4FE', opacity: 0.9 },
+            backgroundColor: 'var(--color-text-primary)',
+            color: 'var(--color-primary)',
+            '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
             fontSize: isLargeScreen ? '0.875rem' : undefined,
           }}
         >
-          {loading ? <CircularProgress size={20} sx={{ color: '#2C2C2C', mr: 1 }} /> : 'Save'}
+          {loading ? <CircularProgress size={20} sx={{ color: 'var(--color-primary)', mr: 1 }} /> : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -1042,8 +1042,8 @@ const ViewFollowUp: React.FC = () => {
       onClose={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
       sx={{
         '& .MuiDrawer-paper': {
-          backgroundColor: '#2C2C2C',
-          color: '#F6F4FE',
+          backgroundColor: 'var(--color-primary)',
+          color: 'var(--color-text-primary)',
           padding: 2,
           boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.25)',
         },
@@ -1055,14 +1055,14 @@ const ViewFollowUp: React.FC = () => {
         </Typography>
         <IconButton
           onClick={() => setState((prev) => ({ ...prev, isDrawerOpen: false }))}
-          sx={{ color: '#F6F4FE' }}
+          sx={{ color: 'var(--color-text-primary)' }}
         >
           <IoMdClose />
         </IconButton>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', px: 2, pb: 2, gap: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', mb: 1 }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '11px', mb: 1 }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1071,7 +1071,7 @@ const ViewFollowUp: React.FC = () => {
             value={state.searchName || ''}
             onInputChange={(_, newValue) => handleStateChange('searchName', newValue)}
             onChange={(_, newValue) => handleStateChange('searchName', newValue || '')}
-            clearIcon={<Close sx={{ color: '#F6F4FE', cursor: 'pointer' }} onClick={(e) => {
+            clearIcon={<Close sx={{ color: 'var(--color-text-primary)', cursor: 'pointer' }} onClick={(e) => {
                 e.stopPropagation();
                 handleStateChange('searchName', '');
               }} />}
@@ -1084,9 +1084,9 @@ const ViewFollowUp: React.FC = () => {
                 sx={{
                   backgroundColor: '#4d4d4e8e',
                   borderRadius: '8px',
-                  '& .MuiInputLabel-root': { color: '#F6F4FE' },
+                  '& .MuiInputLabel-root': { color: 'var(--color-text-primary)' },
                   '& .MuiOutlinedInput-root': {
-                    color: '#F6F4FE',
+                    color: 'var(--color-text-primary)',
                     '& fieldset': { borderColor: 'transparent' },
                   },
                   '& .MuiAutocomplete-endAdornment': {
@@ -1101,7 +1101,7 @@ const ViewFollowUp: React.FC = () => {
                         <IconButton
                           onClick={() => handleStateChange('searchName', '')}
                           edge="end"
-                          sx={{ color: '#F6F4FE' }}
+                          sx={{ color: 'var(--color-text-primary)' }}
                         >
                           <Close />
                         </IconButton>
@@ -1118,7 +1118,7 @@ const ViewFollowUp: React.FC = () => {
           (authData?.branches?.length ?? 0) === 1
         ) && 
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px' }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '11px' }}>
             Branch
           </Typography>
           <Select
@@ -1129,12 +1129,12 @@ const ViewFollowUp: React.FC = () => {
             sx={{
               backgroundColor: '#4d4d4e8e',
               borderRadius: '8px',
-              color: '#F6F4FE',
+              color: 'var(--color-text-primary)',
               fontWeight: 500,
               fontSize: '14px',
               '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
               '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-               '& .MuiSelect-icon': {color: '#F6F4FE' },
+               '& .MuiSelect-icon': {color: 'var(--color-text-primary)' },
             }}
             renderValue={(selected) =>
               selected ? state.branches.find((branch) => branch.id === selected)?.name || 'Select Branch' : 'Select Branch'
@@ -1153,7 +1153,7 @@ const ViewFollowUp: React.FC = () => {
           </Select>
         </Box>}
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '11px', mb: 1 }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '11px', mb: 1 }}>
             Program
           </Typography>
           <Select
@@ -1165,12 +1165,12 @@ const ViewFollowUp: React.FC = () => {
             sx={{
               backgroundColor: '#4d4d4e8e',
               borderRadius: '8px',
-              color: state.selectedEventId ? '#F6F4FE' : '#777280',
+              color: state.selectedEventId ? 'var(--color-text-primary)' : '#777280',
               fontWeight: 500,
               fontSize: '14px',
               '.MuiSelect-select': { padding: '8px', pr: '24px !important' },
               '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-              '& .MuiSelect-icon': {color: '#F6F4FE' },
+              '& .MuiSelect-icon': {color: 'var(--color-text-primary)' },
               '&.Mui-disabled': { backgroundColor: '#4d4d4e4d', color: '#777280' },
             }}
             renderValue={(selected) => {
@@ -1241,13 +1241,13 @@ const ViewFollowUp: React.FC = () => {
             variant="contained"
             onClick={searchFollowUps}
             sx={{
-              backgroundColor: '#F6F4FE',
+              backgroundColor: 'var(--color-text-primary)',
               color: '#4d4d4e8e',
               borderRadius: '24px',
               py: 1,
               px: 3,
               minWidth: 'auto',
-              '&:hover': { backgroundColor: '#F6F4FE', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' },
+              '&:hover': { backgroundColor: 'var(--color-text-primary)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' },
             }}
             startIcon={<Search />}
             disabled={state.isSearching || state.loading}
@@ -1273,11 +1273,11 @@ const ViewFollowUp: React.FC = () => {
     <Box sx={{ display: 'flex', width: '100%', mb: 3 }}>
       <Box
         sx={{
-          border: '1px solid #4d4d4e8e',
+          border: '1px solid var(--color-surface-glass)',
           borderRadius: '32px',
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: '#4d4d4e8e',
+          backgroundColor: 'var(--color-surface-glass)',
           padding: '4px',
           width: '100%',
           boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
@@ -1293,7 +1293,7 @@ const ViewFollowUp: React.FC = () => {
             padding: '4px 8px',
           }}
         >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Who?
           </Typography>
           <Autocomplete
@@ -1302,7 +1302,7 @@ const ViewFollowUp: React.FC = () => {
             value={state.searchName || ''}
             onInputChange={(_, newValue) => handleStateChange('searchName', newValue)}
             onChange={(_, newValue) => handleStateChange('searchName', newValue || '')}
-            clearIcon={<Close sx={{ color: '#F6F4FE', cursor: 'pointer' }} onClick={(e) => {
+            clearIcon={<Close sx={{ color: 'var(--color-text-primary)', cursor: 'pointer' }} onClick={(e) => {
                 e.stopPropagation();
                 handleStateChange('searchName', '');
               }} />}
@@ -1313,7 +1313,7 @@ const ViewFollowUp: React.FC = () => {
                 variant="standard"
                 sx={{
                   '& .MuiInputBase-input': {
-                    color: state.searchName ? '#F6F4FE' : 'rgba(255, 255, 255, 0.5)',
+                    color: state.searchName ? 'var(--color-text-primary)' : 'rgba(255, 255, 255, 0.5)',
                     fontWeight: 500,
                     fontSize: '14px',
                     padding: '4px 8px',
@@ -1330,11 +1330,11 @@ const ViewFollowUp: React.FC = () => {
           authData?.isHeadQuarter === false &&
           (authData?.branches?.length ?? 0) === 1
         ) && <>
-            <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+            <Divider sx={{ height: 30, backgroundColor: 'var(--color-text-primary)' }} orientation="vertical" />
             <Box
               sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
             >
-              <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+              <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
                 Branch
               </Typography>
               <FormControl fullWidth>
@@ -1344,12 +1344,12 @@ const ViewFollowUp: React.FC = () => {
                   onOpen={handleBranchOpen}
                   displayEmpty
                   sx={{
-                    color: state.selectedBranchId ? '#F6F4FE' : '#777280',
+                    color: state.selectedBranchId ? 'var(--color-text-primary)' : '#777280',
                     fontWeight: 500,
                     fontSize: '14px',
                     '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
                     '.MuiOutlinedInput-notchedOutline': { border: 'none' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F6F4FE' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'var(--color-text-primary)' },
                     '& .MuiSelect-icon': { display: 'none' },
                   }}
                   renderValue={(selected) =>
@@ -1371,11 +1371,11 @@ const ViewFollowUp: React.FC = () => {
             </Box>
           </>
         }
-        <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+        <Divider sx={{ height: 30, backgroundColor: 'var(--color-text-primary)' }} orientation="vertical" />
         <Box
           sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: { xs: '120px', sm: '160px' }, padding: '4px 8px' }}
         >
-          <Typography variant="caption" sx={{ color: '#F6F4FE', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
+          <Typography variant="caption" sx={{ color: 'var(--color-text-primary)', fontWeight: 500, fontSize: '13px', ml: '8px' }}>
             Program
           </Typography>
           <MuiSelect
@@ -1385,7 +1385,7 @@ const ViewFollowUp: React.FC = () => {
             displayEmpty
             disabled={!state.selectedBranchId}
             sx={{
-              color: state.selectedEventId ? '#F6F4FE' : '#777280',
+              color: state.selectedEventId ? 'var(--color-text-primary)' : '#777280',
               fontWeight: 500,
               fontSize: '14px',
               '.MuiSelect-select': { padding: '4px 8px', pr: '24px !important' },
@@ -1461,13 +1461,13 @@ const ViewFollowUp: React.FC = () => {
             onClick={searchFollowUps}
             sx={{
               backgroundColor: 'transparent',
-              border: '1px solid #777280',
-              color: 'white',
+              border: '1px solid var(--color-border-glass)',
+              color: 'var(--color-text-primary)',
               borderRadius: '50%',
               minWidth: '48px',
               height: '48px',
               padding: 0,
-              '&:hover': { backgroundColor: '#777280' },
+              '&:hover': { backgroundColor: 'var(--color-surface-glass)' },
             }}
             disabled={state.isSearching || state.loading}
           >
@@ -1502,19 +1502,19 @@ const ViewFollowUp: React.FC = () => {
               component="h4"
               sx={{ fontWeight: 600, display: 'flex', mb: 3, alignItems: 'center', gap: 1, color: theme.palette.text.primary, fontSize: isLargeScreen ? '1.5rem' : undefined }}
             >
-              <span className="text-[#777280]">Membership</span>
-              <LiaLongArrowAltRightSolid className="text-[#F6F4FE]" />
-              <span className="text-[#F6F4FE]">Newcomers</span>
+              <span className="text-[var(--color-text-muted)]">Membership</span>
+              <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />
+              <span className="text-[var(--color-text-primary)]">Newcomers</span>
             </Typography>
             {isMobile ? (
               <Box sx={{ display: 'flex', width: '100%', mt: 2 }}>
                 <Box
                   sx={{
-                    border: '1px solid #4d4d4e8e',
+                    border: '1px solid var(--color-border-glass)',
                     borderRadius: '32px',
                     display: 'flex',
                     alignItems: 'center',
-                    backgroundColor: '#4d4d4e8e',
+                    backgroundColor: 'var(--color-surface-glass)',
                     padding: '4px',
                     width: '100%',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
@@ -1529,7 +1529,7 @@ const ViewFollowUp: React.FC = () => {
                       variant="standard"
                       sx={{
                         '& .MuiInputBase-input': {
-                          color: state.searchName ? '#F6F4FE' : '#A4A1AA',
+                          color: state.searchName ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                           fontSize: '14px',
                           padding: '4px 8px',
                         },
@@ -1549,7 +1549,7 @@ const ViewFollowUp: React.FC = () => {
                           right: 0,
                           maxHeight: '200px',
                           overflowY: 'auto',
-                          backgroundColor: '#2C2C2C',
+                          backgroundColor: 'var(--color-primary)',
                           borderRadius: '8px',
                           boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                           zIndex: 1300,
@@ -1561,7 +1561,7 @@ const ViewFollowUp: React.FC = () => {
                             key={followUp.id}
                             sx={{
                               padding: '8px 16px',
-                              color: '#F6F4FE',
+                              color: 'var(--color-text-primary)',
                               cursor: 'pointer',
                               '&:hover': { backgroundColor: '#4d4d4e8e' },
                               borderBottom: index < state.filteredNames.length - 1 ? '1px solid #777280' : 'none',
@@ -1577,12 +1577,12 @@ const ViewFollowUp: React.FC = () => {
                       </Box>
                     )}
                   </Box>
-                  <Divider sx={{ height: 30, backgroundColor: '#F6F4FE' }} orientation="vertical" />
+                  <Divider sx={{ height: 30, backgroundColor: 'var(--color-text-primary)' }} orientation="vertical" />
                   <IconButton
                     onClick={() => setState((prev) => ({ ...prev, isDrawerOpen: true }))}
-                    sx={{ color: '#777280', '&:hover': { color: '#F6F4FE' } }}
+                    sx={{ color: '#777280', '&:hover': { color: 'var(--color-text-primary)' } }}
                   >
-                    <AttachFile sx={{ color: '#F6F4FE', fontSize: '20px' }} />
+                    <AttachFile sx={{ color: 'var(--color-text-primary)', fontSize: '20px' }} />
                   </IconButton>
                   <Box sx={{ pr: '8px' }}>
                     <Button
@@ -1590,12 +1590,12 @@ const ViewFollowUp: React.FC = () => {
                       sx={{
                         backgroundColor: 'transparent',
                         border: '1px solid #777280',
-                        color: 'white',
+                        color: 'var(--color-text-primary)',
                         borderRadius: '50%',
                         minWidth: '48px',
                         height: '48px',
                         padding: 0,
-                        '&:hover': { backgroundColor: '#777280' },
+                        '&:hover': { backgroundColor: 'var(--color-surface-glass)' },
                       }}
                       disabled={state.isSearching}
                     >
@@ -1706,7 +1706,7 @@ const ViewFollowUp: React.FC = () => {
                     borderRadius: 50,
                     fontWeight: 500,
                     textTransform: 'none',
-                    color: '#f6f4fe',
+                    color: 'var(--color-text-primary)',
                     fontSize: isLargeScreen ? '1rem' : undefined,
                     '&:hover': { backgroundColor: '#363740', opacity: 0.9 },
                   }}

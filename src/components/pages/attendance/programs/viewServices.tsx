@@ -383,9 +383,8 @@ const ViewServices: React.FC = () => {
                 onClick={() => setIsOpen(true)}
                 sx={{
                   mb: 2,
-                  backgroundColor: "#F6F4FE",
-                  color: "gray",
-                  border: "1px solid white",
+                  backgroundColor: "var(--color-text-primary)",
+                  color: "var(--color-primary)",                  
                   width: { xs: "100%", md: "auto" },
                 }}
               >
@@ -400,7 +399,7 @@ const ViewServices: React.FC = () => {
                 }}
               >
                 {Object.entries(eventStatusColors).map(([status, colors]) => (
-                  <ListItem key={status} sx={{ color: "white" }}>
+                  <ListItem key={status} sx={{ color: "var(--color-text-primary)" }}>
                     <IconButton
                       size="small"
                       sx={{
@@ -431,7 +430,7 @@ const ViewServices: React.FC = () => {
                   mb: 2,
                   gap: 2,
                   backgroundColor: "transparent",
-                  color: "#f6f4fe",
+                  color: "var(--color-text-primary)",
                   textAlign: { xs: "center", md: "left" },
                 }}
               >
@@ -442,7 +441,7 @@ const ViewServices: React.FC = () => {
                   </Typography>
                   <Button
                     onClick={() => handleNavigate(moment(currentDate).subtract(1, view).toDate())}
-                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                    sx={{ p: 1, color: "var(--color-text-primary)", "&:hover": { bgcolor: "var(--color-surface-glass)", color: "purple" }, borderRadius: 1 }}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -450,7 +449,7 @@ const ViewServices: React.FC = () => {
                   </Button>
                   <Button
                     onClick={() => handleNavigate(moment(currentDate).add(1, view).toDate())}
-                    sx={{ p: 1, color: "#f6f4fe", "&:hover": { bgcolor: "grey.100", color: "purple" }, borderRadius: 1 }}
+                    sx={{ p: 1, color: "var(--color-text-primary)", "&:hover": { bgcolor: "var(--color-surface-glass)", color: "purple" }, borderRadius: 1 }}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />

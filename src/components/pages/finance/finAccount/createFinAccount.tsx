@@ -351,8 +351,8 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
       sx={{
         "& .MuiDialog-paper": {
           borderRadius: isMobile ? 0 : 2,
-          bgcolor: "#2C2C2C",
-          color: "#F6F4FE",
+          bgcolor: "var(--color-primary)",
+          color: "var(--color-text-primary)",
         },
       }}
     >
@@ -362,7 +362,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             variant={isMobile ? "h6" : "h5"}
             component="h1"
             fontWeight={300}
-            sx={{ color: "#F6F4FE" }}
+            sx={{ color: "var(--color-text-primary)" }}
           >
             Record Transaction
           </Typography>
@@ -392,12 +392,12 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                 size="medium"
                 error={!!errors.amount}
                 helperText={errors.amount}
-                InputLabelProps={{ sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" } } }}
+                InputLabelProps={{ sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" } } }}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   },
                 }}
@@ -427,14 +427,14 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                 helperText={errors.description}
                 InputProps={{
                   sx: {
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     fontSize: "0.9rem",
                     paddingY: 1,
                   },
                 }}
-                InputLabelProps={{ sx: { color: "#F6F4FE", "&.Mui-focused": { color: "#F6F4FE" }, fontSize: "0.9rem" } }}
+                InputLabelProps={{ sx: { color: "var(--color-text-primary)", "&.Mui-focused": { color: "var(--color-text-primary)" }, fontSize: "0.9rem" } }}
                 required
               />
             </Grid>
@@ -444,7 +444,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             {/* ═══════════════════════════════════════════════════════════════════════════════ */}
             <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
-                <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+                <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>
                 Type
                 </InputLabel>
                 <Select
@@ -455,11 +455,11 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                 onChange={handleChange}
                 disabled={loading}
                 sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                 }}
                 >
@@ -474,7 +474,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                 <InputLabel
                   sx={{
                     fontSize: isLargeScreen ? "1rem" : undefined,
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                   }}
                 >
                   Transaction For
@@ -488,13 +488,13 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                   onChange={handleScopeLevelChange}
                   disabled={loading}
                   sx={{
-                    color: "#F6F4FE",
+                    color: "var(--color-text-primary)",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
                     "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "#F6F4FE",
+                      borderColor: "var(--color-text-primary)",
                     },
-                    "& .MuiSelect-select": { color: "#F6F4FE" },
-                    "& .MuiSelect-icon": { color: "#F6F4FE" },
+                    "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                    "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                     fontSize: isLargeScreen ? "1rem" : undefined,
                   }}
                 >
@@ -518,7 +518,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             {!(authData?.isHeadQuarter === false && (authData?.branches?.length ?? 0) === 1) && (formData.scopeLevel === "branch" || formData.scopeLevel === "department") && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth error={!!errors.branchIds}>
-                  <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+                  <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>
                     Select Branch *
                   </InputLabel>
                   <Select
@@ -528,11 +528,11 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                     onOpen={fetchBranches}
                     disabled={loading}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
@@ -578,7 +578,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             {formData.scopeLevel === "department" && (
               <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth error={!!errors.departmentIds}>
-                  <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "#F6F4FE" }}>
+                  <InputLabel sx={{ fontSize: isLargeScreen ? "1rem" : undefined, color: "var(--color-text-primary)" }}>
                     Select Department *
                   </InputLabel>
                   <Select
@@ -593,11 +593,11 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                     }}
                     disabled={loading || !formData.branchIds[0]}
                     sx={{
-                      color: "#F6F4FE",
+                      color: "var(--color-text-primary)",
                       "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#F6F4FE" },
-                      "& .MuiSelect-select": { color: "#F6F4FE" },
-                      "& .MuiSelect-icon": { color: "#F6F4FE" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
+                      "& .MuiSelect-select": { color: "var(--color-text-primary)" },
+                      "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                       fontSize: isLargeScreen ? "1rem" : undefined,
                     }}
                     MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
@@ -641,14 +641,14 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
           onClick={handleSubmit}
           sx={{
             py: 1.5,
-            backgroundColor: "#F6F4FE",
+            backgroundColor: "var(--color-text-primary)",
             px: { xs: 8, sm: 4 },
             borderRadius: 50,
-            color: "#2C2C2C",
+            color: "var(--color-primary)",
             fontWeight: "semibold",
             textTransform: "none",
             fontSize: "1rem",
-            "&:hover": { backgroundColor: "#F6F4FE", opacity: 0.9 },
+            "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
           }}
         >
           {loading ? (

@@ -49,7 +49,6 @@ const ViewSms: React.FC = () => {
 
   const churchName = church?.name || "your church";
   const smsActive = church?.smsActive === true;
-
   const tooltipMessage = `Please wait — SMS setup for **${churchName}** is in progress. It will be ready within 2 working days of church creation.`;
 
   const EmptyState = () => (
@@ -64,34 +63,53 @@ const ViewSms: React.FC = () => {
         gap: 2,
       }}
     >
-      <Chat sx={{ fontSize: 60, color: "rgba(255, 255, 255, 0.1)" }} />
+      <Chat sx={{ fontSize: 60, color: "var(--color-text-muted)" }} />
       <Typography
         variant="h6"
-        color="rgba(255, 255, 255, 0.6)"
+        color="var(--color-text-primary)"
         sx={{ fontSize: isLargeScreen ? "1.25rem" : "1.1rem", fontWeight: 500 }}
       >
         Message History Pending
       </Typography>
 
-      <Tooltip title={<span dangerouslySetInnerHTML={{ __html: tooltipMessage }} />} placement="bottom" arrow>
+      {smsActive && (
+        <Typography
+          variant="body2"
+          sx={{
+            color: "var(--color-text-muted)",          
+            fontSize: { xs: "0.875rem", sm: "1rem" },
+          }}
+        >
+          {churchName}
+        </Typography>
+      )}
+
+      <Tooltip
+        title={<span dangerouslySetInnerHTML={{ __html: tooltipMessage }} />}
+        placement="left"
+        arrow
+        disableHoverListener={smsActive}
+        disableFocusListener={smsActive}
+        disableTouchListener={smsActive}
+      >
         <span>
           <Button
             variant="contained"
             onClick={() => smsActive && setIsModalOpen(true)}
             disabled={!smsActive}
             sx={{
-              backgroundColor: "#363740",
+              backgroundColor: "var(--color-text-primary)",
               px: { xs: 3, sm: 4 },
               py: 1.2,
               borderRadius: 50,
               fontWeight: 500,
               textTransform: "none",
-              color: "var(--color-text-on-primary)",
+              color: "var(--color-primary)",
               fontSize: { xs: "0.875rem", sm: "1rem" },
               "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
               "&.Mui-disabled": {
-                backgroundColor: "#4d4d4e8e",
-                color: "#777280",
+                backgroundColor: "var(--color-surface)",
+                color: "var(--color-text-muted)",
               },
             }}
           >
@@ -106,7 +124,7 @@ const ViewSms: React.FC = () => {
     return (
       <DashboardManager>
         <Box sx={{ py: 8, textAlign: "center" }}>
-          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[#F6F4FE] mx-auto"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-[var(--color-text-muted)] mx-auto"></div>
         </Box>
       </DashboardManager>
     );
@@ -133,7 +151,7 @@ const ViewSms: React.FC = () => {
               component="h3"
               fontWeight={600}
               sx={{
-                color: "#F6F4FE",
+                color: "var(--color-text-primary)",
                 fontSize: { xs: "1.3rem", sm: "1.5rem" },
                 display: "flex",
                 alignItems: "center",
@@ -141,6 +159,19 @@ const ViewSms: React.FC = () => {
               }}
             >
               Message Histories
+              {smsActive && (
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: { xs: "0.875rem", sm: "1rem" },
+                    fontWeight: 400,
+                    color: "var(--color-text-muted)",
+                    ml: 1,
+                  }}
+                >
+                  - {churchName}
+                </Typography>
+              )}
             </Typography>
           </Grid>
           <Grid
@@ -151,7 +182,14 @@ const ViewSms: React.FC = () => {
               alignItems: "center",
             }}
           >
-            <Tooltip title={<span dangerouslySetInnerHTML={{ __html: tooltipMessage }} />} placement="left" arrow>
+            <Tooltip
+              title={<span dangerouslySetInnerHTML={{ __html: tooltipMessage }} />}
+              placement="left"
+              arrow
+              disableHoverListener={smsActive}
+              disableFocusListener={smsActive}
+              disableTouchListener={smsActive}
+            >
               <span>
                 <Button
                   variant="contained"
@@ -159,18 +197,18 @@ const ViewSms: React.FC = () => {
                   disabled={!smsActive}
                   size={isMobile ? "small" : "medium"}
                   sx={{
-                    backgroundColor: "#363740",
+                    backgroundColor: "var(--color-text-primary)",
                     px: { xs: 2.5, sm: 3 },
                     py: 1,
                     borderRadius: 50,
                     fontWeight: 500,
                     textTransform: "none",
-                    color: "var(--color-text-on-primary)",
+                    color: "var(--color-primary)",
                     minWidth: { xs: "140px", sm: "180px" },
-                    "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                    "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                     "&.Mui-disabled": {
-                      backgroundColor: "#4d4d4e8e",
-                      color: "#777280",
+                      backgroundColor: "var(--color-surface)",
+                      color: "var(--color-text-muted)",
                     },
                   }}
                 >
