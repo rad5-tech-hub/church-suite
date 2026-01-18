@@ -295,36 +295,42 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     }
   }, [isFetchingCountries, hasFetchedCountries]);
 
-  // Fetch States
+  // Fetch States when nationality changes
   useEffect(() => {
-    if (!formData.nationalityCode) {
+  if (!formData.nationality) {
+    setStates([]);
+    setFormData(prev => ({ ...prev, state: "" }));
+    return;
+  }
+
+  const fetchStates = async () => {
+    setLoadingStates(true);
+    try {
+      const res = await fetch(
+        "https://countriesnow.space/api/v0.1/countries/states",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            country: formData.nationality, // e.g. "Nigeria"
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      const stateList = result?.data?.states || [];
+      setStates(stateList.map((s: any) => ({ name: s.name })));
+    } catch (error) {
+      console.error(error);
       setStates([]);
-      setFormData(prev => ({ ...prev, state: "" }));
-      return;
+    } finally {
+      setLoadingStates(false);
     }
+  };
 
-    const fetchStates = async () => {
-      setLoadingStates(true);
-      try {
-        const res = await fetch(
-          `https://country-api.drnyeinchan.com/v1/countries/${formData.nationalityCode}/states`
-        );
-        const data = await res.json();
-
-        // API returns array directly → perfect!
-        const stateList = Array.isArray(data) ? data : [];
-        setStates(stateList.map((s: any) => ({ name: s.name })));
-      } catch (error) {
-        console.error("Error fetching states:", error);
-        showPageToast("Failed to load states.", "error");
-        setStates([]);
-      } finally {
-        setLoadingStates(false);
-      }
-    };
-
-    fetchStates();
-  }, [formData.nationalityCode]);
+  fetchStates();
+}, [formData.nationality]);
 
   // Handlers
   const handleChange = (
