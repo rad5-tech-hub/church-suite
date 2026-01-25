@@ -12,12 +12,24 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 import './registerSW'; // Import the service worker registration module
 
+import { PostHogProvider } from 'posthog-js/react';
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <App />
+          <PostHogProvider
+            apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+            options={{
+              api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+              defaults: '2025-05-24',
+              capture_exceptions: true,
+              debug: import.meta.env.MODE === "development",
+            }}
+          >
+            <App />
+          </PostHogProvider>
         </LocalizationProvider>
       </PersistGate>
     </Provider>
