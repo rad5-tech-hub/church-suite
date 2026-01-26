@@ -313,7 +313,7 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
   };
 
   return (
-    <Dialog open={open} onClose={handleCancel} fullWidth maxWidth="md"  sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary", py: 3, px: 2 } }}>
+    <Dialog open={open} onClose={handleCancel} fullWidth maxWidth="md"  sx={{ "& .MuiDialog-paper": { borderRadius: 2, bgcolor: "var(--color-primary)", py: 3, px: 2 } }}>
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6" fontWeight={600} sx={{ color: "var(--color-text-primary)" }}>
