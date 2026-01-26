@@ -17,6 +17,7 @@ import {
   DialogActions,
   TextField,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import {
   Phone as PhoneIcon,
@@ -321,7 +322,7 @@ export default function ViewChurch() {
               </Box>
             )}
 
-            <IconButton
+            {authData?.isSuperAdmin && <IconButton
               onClick={() => bgRef.current?.click()}
               sx={{
                 position: "absolute",
@@ -334,7 +335,7 @@ export default function ViewChurch() {
               disabled={uploadingBg}
             >
               {uploadingBg ? <CircularProgress size={16} color="inherit" /> : <UploadIcon />}
-            </IconButton>
+            </IconButton>}
             <input ref={bgRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, "backgroundImage")} />
 
             <Avatar
@@ -357,7 +358,7 @@ export default function ViewChurch() {
               {(!church.logo) && church.name[0].toUpperCase()}
             </Avatar>
 
-            <IconButton
+            {authData?.isSuperAdmin && <IconButton
               onClick={() => logoRef.current?.click()}
               sx={{
                 position: "absolute",
@@ -373,7 +374,7 @@ export default function ViewChurch() {
               disabled={uploadingLogo}
             >
               {uploadingLogo ? <CircularProgress size={16} color="inherit" /> : <CameraIcon fontSize="small" />}
-            </IconButton>
+            </IconButton>}
             <input ref={logoRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, "logo")} />
           </Box>
 
@@ -383,14 +384,17 @@ export default function ViewChurch() {
               <Typography variant="h5" fontWeight="bold" color="var(--color-text-primary)">
                 {church.name}
               </Typography>
-              <IconButton onClick={() => setEditOpen(true)} sx={{ color: "var(--color-text-primary)" }}>
+              {authData?.isSuperAdmin && <IconButton onClick={() => setEditOpen(true)} sx={{ color: "var(--color-text-primary)" }}>
                 <EditIcon />
-              </IconButton>
+              </IconButton>}
             </Box>
 
-            <Typography variant="body1" color="var(--color-text-secondary)" sx={{ mb: 1 }}>
-              {church.isHeadQuarter ? "Headquarters" : "Branch"}
-            </Typography>
+            <Chip
+              label={church.isHeadQuarter ? "Headquarters" : "Branch"}
+              size="small"
+              color={church.isHeadQuarter ? "success" : "primary"}
+              sx={{ fontWeight: 500 }}
+            />
 
             <Typography variant="body1" color="var(--color-text-secondary)">
               Church since: {since()}

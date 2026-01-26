@@ -362,19 +362,41 @@ const Header: React.FC<HeaderProps> = () => {
       <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-primary)] flex items-center justify-between px-4 sm:px-6 shadow-md z-20">
         {/* Left side - Logo + Navigation */}
         <div className="flex items-center gap-4 lg:gap-12 w-full lg:w-auto justify-between lg:justify-start">
-          <Tooltip title={authData?.church_name || ""} arrow>
-            {authData?.logo ? (
-              <img
-                src={authData.logo}
-                alt={`${authData?.church_name || "Church"} logo`}
-                className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 object-contain border rounded-full"
-              />
-            ) : (
-              <div className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 flex items-center justify-center bg-[var(--color-text-primary)] rounded-full text-[var(--color-primary)] font-bold text-xl sm:text-2xl">
-                {authData?.church_name?.charAt(0).toUpperCase() || "C"}
-              </div>
-            )}
-          </Tooltip>
+        <Tooltip title={authData?.church_name ? `${authData?.church_name} - ${authData?.isHeadQuarter ? "HQ" : "Branch"}` : ""} arrow>
+          {authData?.logo ? (
+            <img
+              src={authData.logo}
+              alt={`${authData?.church_name || "Church"} logo`}
+              className={`
+                h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 
+                object-contain 
+                rounded-full 
+                border-2 
+                ${authData?.isHeadQuarter 
+                  ? 'border-green-500' 
+                  : 'border-blue-600'}   // or border-primary-500 / border-[var(--color-primary)]
+              `}
+            />
+          ) : (
+            <div
+              className={`
+                h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16 
+                flex items-center justify-center 
+                bg-[var(--color-text-primary)] 
+                rounded-full 
+                text-[var(--color-primary)] 
+                font-bold 
+                text-xl sm:text-2xl
+                border-2
+                ${authData?.isHeadQuarter 
+                  ? 'border-green-500' 
+                  : 'border-blue-600'}
+              `}
+            >
+              {authData?.church_name?.charAt(0).toUpperCase() || "C"}
+            </div>
+          )}
+        </Tooltip>
 
           <Box
             sx={{

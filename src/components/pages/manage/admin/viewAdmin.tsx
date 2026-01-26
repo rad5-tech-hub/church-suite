@@ -42,6 +42,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Close,
+  Visibility,
 } from "@mui/icons-material"
 import { MdOutlineEdit } from "react-icons/md";
 import { LiaLongArrowAltRightSolid } from "react-icons/lia";
@@ -53,6 +54,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../../reduxstore/redux";
 import EditAdminModal from "./editAdmin";
 import { PiUserSwitch } from "react-icons/pi";
+import ViewAdminDialog from "./viewAnAdmin";
 // Interfaces
 interface Branch {
   id: string | number;
@@ -76,7 +78,7 @@ interface Unit {
 }
 
 interface Admin {
-  id: string | number;
+  id: string;
   name: string;
   email: string;
   title?: string;
@@ -91,6 +93,7 @@ interface Admin {
   branches?: Branch[];
   departments?: Department[];
   units?: Unit[];
+  createdAt: string;
 }
 
 interface Pagination {
@@ -120,9 +123,10 @@ interface State {
   loading: boolean;
   roleLoading: boolean;
   roleError: string | null;
-  selectedRoleIds: string[], 
-  selectedBranchId: string, 
+  selectedRoleIds: string[];
+  selectedBranchId: string;
   error: string | null;
+  viewModalOpen: boolean;
   openModal: boolean;
   editModalOpen: boolean;
   confirmModalOpen: boolean;
@@ -171,6 +175,7 @@ const initialState: State = {
   loading: false,
   error: null,
   roleLoading: false,
+  viewModalOpen: false,
   roleError: null,
   roles: [],
   selectedRoleIds: [], 
@@ -360,7 +365,6 @@ const ViewAdmins: React.FC = () => {
       setLoadingStates((prev) => ({ ...prev, units: false }));
     }
   }, [loadingStates.units]);
-
 
   // Initial Data Load
   const fetchAdmins = useCallback(async (url: string | null = null): Promise<FetchAdminsResponse> => {
@@ -697,7 +701,6 @@ const ViewAdmins: React.FC = () => {
       handleStateChange("loading", false);
     }
   };
-
 
   // Automatically set selectedBranch if only 1 branch and not HQ
   useEffect(() => {
@@ -1415,6 +1418,17 @@ const ViewAdmins: React.FC = () => {
     </Box>
   );
 
+  // ──────────────────────────────────────────────
+  // View Admin Modal Handlers
+  const handleViewOpen = useCallback(() => {
+    handleStateChange("viewModalOpen", true);
+    handleMenuClose();
+  }, [handleMenuClose]);
+
+  const handleViewClose = useCallback(() => {
+    handleStateChange("viewModalOpen", false);
+  }, []);
+
   // Render
   return (
     <DashboardManager>
@@ -1681,13 +1695,17 @@ const ViewAdmins: React.FC = () => {
             sx: { "& .MuiMenuItem-root": { fontSize: isLargeScreen ? "0.875rem" : undefined } },
           }}
         >
+          <MenuItem onClick={handleViewOpen}>
+            <Visibility sx={{ mr: 1, fontSize: "1rem" }} />
+            View Details
+          </MenuItem>
           {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
             <MenuItem onClick={handleEditOpen} disabled={state.currentAdmin?.isDeleted}>
               <MdOutlineEdit style={{ marginRight: 8, fontSize: "1rem" }} />
               Edit
             </MenuItem>
           )}
-          {state.currentAdmin && state.currentAdmin.scopeLevel !== 'branch' && (
+          {authData?.isSuperAdmin && (
             <MenuItem onClick={() => openAssignRoleDialog(state.currentAdmin)} disabled={state.currentAdmin?.isDeleted}>
               <PiUserSwitch style={{ marginRight: 8, fontSize: "1.2rem" }} />
               Assign Role
@@ -1904,6 +1922,11 @@ const ViewAdmins: React.FC = () => {
               name: u.name,
             })) || [],
           }}
+        />
+        <ViewAdminDialog
+          open={state.viewModalOpen}
+          onClose={handleViewClose}
+          adminData={state.currentAdmin}
         />
       </Box>
     </DashboardManager>
