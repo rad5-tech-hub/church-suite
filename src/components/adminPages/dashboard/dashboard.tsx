@@ -245,7 +245,10 @@ const AdminDashboard: React.FC = () => {
                   <YAxis yAxisId="right" orientation="right" stroke="#6b7280" fontSize={12} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "#1f2937", border: "none", borderRadius: "8px", color: "#f9fafb" }}
-                    formatter={(value: number, name: string) => name === "revenue" ? formatCurrency(value) : value}
+                    formatter={(value, name) => {
+                      const numValue = Number(value) || 0;
+                      return name === "revenue" ? formatCurrency(numValue) : numValue;
+                    }}
                   />
                   <Legend />
                   <Line yAxisId="left" type="monotone" dataKey="churches" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 5 }} name="Churches" />
@@ -281,7 +284,7 @@ const AdminDashboard: React.FC = () => {
                   <YAxis stroke="#6b7280" fontSize={12} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "#1f2937", border: "none", borderRadius: "8px", color: "#f9fafb" }}
-                    formatter={(value: number) => formatNumber(value)}
+                    formatter={(value) => formatNumber(Number(value) || 0)}
                   />
                   <Bar dataKey="messages" fill="#a78bfa" radius={[8, 8, 0, 0]} />
                 </BarChart>
