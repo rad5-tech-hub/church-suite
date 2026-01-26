@@ -129,7 +129,7 @@ const StatCard: React.FC<{
               width: 48,
               height: 48,
               borderRadius: "12px",
-              background: `linear-gradient(135deg, ${color}88 0%, ${color}44 100%)`, // slight transparency
+              background: `linear-gradient(135deg, ${color}88 0%, ${color}44 100%)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -229,7 +229,6 @@ const Dashboard: React.FC = () => {
   const department = authData?.department;
   const hasRoles = authData?.roles && authData.roles.length > 0;
 
-  // Role fetching logic remains unchanged
   useEffect(() => {
     if (!authId || rolesFetched || hasRoles) return;
     const fetchAndDispatchRoles = async () => {
@@ -238,7 +237,6 @@ const Dashboard: React.FC = () => {
         const response = await Api.get(`/church/admin-role/${authId}`);
         const rolesData = response.data.data.roles;
         const transformed: RolePermission[] = [];
-        // ... (your role transformation logic stays the same)
         rolesData.forEach((role: any) => {
           const groupMap = new Map<string, { groupName: string; permissions: string[] }>();
           role.permissionGroups.forEach((g: any) => {
@@ -527,10 +525,7 @@ const Dashboard: React.FC = () => {
                 <XAxis dataKey="period" stroke="var(--color-text-muted)" />
                 <YAxis stroke="var(--color-text-muted)" />
                 <Tooltip
-                  formatter={(value: any) => {                 
-                    const numValue = Number(value) || 0;
-                    return [`₦${numValue.toLocaleString()}`, "Amount"];
-                  }}
+                  formatter={(value?: number) => `₦${(value ?? 0).toLocaleString()}`}
                   contentStyle={{
                     background: "var(--color-primary)",
                     border: "1px solid var(--color-border-glass)",
