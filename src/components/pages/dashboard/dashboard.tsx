@@ -527,9 +527,7 @@ const Dashboard: React.FC = () => {
                 <XAxis dataKey="period" stroke="var(--color-text-muted)" />
                 <YAxis stroke="var(--color-text-muted)" />
                 <Tooltip
-                  formatter={(value?: number) =>
-                    value !== undefined ? `₦${value.toLocaleString()}` : ""
-                  }
+                  formatter={(value?: number) => `₦${(value ?? 0).toLocaleString()}`}
                   contentStyle={{
                     background: "var(--color-primary)",
                     border: "1px solid var(--color-border-glass)",
