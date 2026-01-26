@@ -162,7 +162,7 @@ const StatCard: React.FC<{
 const QuickActionButton: React.FC<{ title: string; icon: React.ReactNode; onClick: () => void }> = ({
   title,
   icon,
-  onClick,
+  onClick
 }) => (
   <Button
     fullWidth
@@ -527,6 +527,9 @@ const Dashboard: React.FC = () => {
                 <XAxis dataKey="period" stroke="var(--color-text-muted)" />
                 <YAxis stroke="var(--color-text-muted)" />
                 <Tooltip
+                  formatter={(value?: number) =>
+                    value !== undefined ? `₦${value.toLocaleString()}` : ""
+                  }
                   contentStyle={{
                     background: "var(--color-primary)",
                     border: "1px solid var(--color-border-glass)",

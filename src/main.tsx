@@ -23,9 +23,8 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
             apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
             options={{
               api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-              defaults: '2025-05-24',
               capture_exceptions: true,
-              debug: import.meta.env.MODE === "development",
+              debug: import.meta.env.MODE === "production", // disable verbose logs in dev
             }}
           >
             <App />
