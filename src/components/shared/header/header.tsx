@@ -362,7 +362,12 @@ const Header: React.FC<HeaderProps> = () => {
       <header className="w-full h-16 bg-[var(--color-primary)] text-[var(--color-text-primary)] flex items-center justify-between px-4 sm:px-6 shadow-md z-20">
         {/* Left side - Logo + Navigation */}
         <div className="flex items-center gap-4 lg:gap-12 w-full lg:w-auto justify-between lg:justify-start">
-        <Tooltip title={authData?.church_name ? `${authData?.church_name} - ${authData?.isHeadQuarter ? "HQ" : "Branch"}` : ""} arrow>
+        <Tooltip title={authData?.church_name ? `${authData?.church_name} - ${authData?.isSuperAdmin && !authData?.isHeadQuarter 
+          ? "Church"
+          : authData?.isHeadQuarter
+          ? "HQ"
+          : "Branch"}
+        ` : ""} arrow>
           {authData?.logo ? (
             <img
               src={authData.logo}

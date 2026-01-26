@@ -384,17 +384,21 @@ export default function ViewChurch() {
               <Typography variant="h5" fontWeight="bold" color="var(--color-text-primary)">
                 {church.name}
               </Typography>
-              {authData?.isSuperAdmin && <IconButton onClick={() => setEditOpen(true)} sx={{ color: "var(--color-text-primary)" }}>
+                {authData?.isSuperAdmin && <IconButton onClick={() => setEditOpen(true)} sx={{ color: "var(--color-text-primary)" }}>
                 <EditIcon />
               </IconButton>}
             </Box>
 
             <Chip
-              label={church.isHeadQuarter ? "Headquarters" : "Branch"}
+              label={authData?.isSuperAdmin && !authData?.isHeadQuarter 
+              ? "Church"
+              : authData?.isHeadQuarter
+              ? "HQ"
+              : "Branch"}        
               size="small"
               color={church.isHeadQuarter ? "success" : "primary"}
               sx={{ fontWeight: 500 }}
-            />
+            />            
 
             <Typography variant="body1" color="var(--color-text-secondary)">
               Church since: {since()}
