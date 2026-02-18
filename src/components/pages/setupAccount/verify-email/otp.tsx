@@ -306,7 +306,6 @@ const EmailVerification: React.FC = () => {
         console.error("Plan subscription error:", planError); // Debug log
         showPageToast(planError.message, "error");
         // Still navigate even if payment fails
-        navigate("/dashboard");
       }
 
     } catch (error: any) {
