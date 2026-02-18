@@ -14,7 +14,12 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Check as CheckIcon } from '@mui/icons-material';
+import {
+  Check as CheckIcon,
+  AutoAwesome as SparkleIcon,
+  TrendingUp as TrendingIcon,
+  Verified as VerifiedIcon,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../reduxstore/redux';
@@ -49,7 +54,7 @@ export default function PricingSection() {
   // State
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
-  const [branches, setBranches] = useState<number>(2); // Start at 2 for Pro plan
+  const [branches, setBranches] = useState<number>(2);
   const [yearlyStandard, setYearlyStandard] = useState(false);
   const [yearlyPro, setYearlyPro] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -86,7 +91,7 @@ export default function PricingSection() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const response = await fetch('https://testchurch.bookbank.com.ng/plan/all-plans');
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/plan/all-plans`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         setPlans(data.data || []);
@@ -107,14 +112,14 @@ export default function PricingSection() {
   const nonTrialPlans = plans.filter(p => !p.isTrial);
 
   const trialPlan = trialPlans.length > 0
-  ? trialPlans.reduce((prev, curr) =>
-      (curr.trialDurationDays || 0) > (prev.trialDurationDays || 0) ? curr : prev
-    )
-  : null;
+    ? trialPlans.reduce((prev, curr) =>
+        (curr.trialDurationDays || 0) > (prev.trialDurationDays || 0) ? curr : prev
+      )
+    : null;
   const standardPlan = nonTrialPlans.find((p) => parseFloat(p.pricingConfig.extraBranchPercent) === 0);
   const proPlan = nonTrialPlans.find((p) => parseFloat(p.pricingConfig.extraBranchPercent) > 0);
 
-  // Calculations (display only)
+  // Calculations
   const stdBase = standardPlan ? parseFloat(standardPlan.pricingConfig.basePlanPrice) : 0;
   const stdDiscount = standardPlan ? parseFloat(standardPlan.pricingConfig.annualDiscount) : 0;
   const stdYearly = stdBase * 12 * (1 - stdDiscount);
@@ -136,7 +141,6 @@ export default function PricingSection() {
 
   const openFlutterwavePayment = (paymentUrlData: any) => {
     const flutterwave = (window as any).FlutterwaveCheckout;
-
     if (!flutterwave) {
       setErrorMsg('Payment service is not available at the moment.');
       return;
@@ -153,13 +157,12 @@ export default function PricingSection() {
       customizations: {
         title: 'ChurchSet Subscription',
         description: 'Complete your plan subscription',
-        logo: '', // Add your logo URL here if available
+        logo: '',
       },
       callback: (response: any) => {
         console.log('Flutterwave response:', response);
         if (response.status === 'successful') {
           setErrorMsg(null);
-          // Clear stored plan data
           localStorage.removeItem('selectedPlan');
           localStorage.removeItem('pendingSubscriptionToken');
           showPageToast('Payment completed successfully! Redirecting...');
@@ -177,12 +180,10 @@ export default function PricingSection() {
 
   const handleSelectPlan = async (plan: Plan | undefined, isYearly: boolean, selectedBranches: number = 1) => {
     if (!plan) return;
-
     setErrorMsg(null);
     setSubmitting(true);
 
     try {
-      // Pro plan validation
       if (plan.id === proPlan?.id && selectedBranches < 2) {
         setErrorMsg('Pro plan requires at least 2 branches.');
         setSubmitting(false);
@@ -195,19 +196,17 @@ export default function PricingSection() {
         branchCount: selectedBranches,
       };
 
-      // Store plan selection for recovery if needed
       localStorage.setItem('selectedPlan', JSON.stringify(payload));
-
       const token = localStorage.getItem('pendingSubscriptionToken') || authData?.token;
 
       if (!token) {
-        localStorage.setItem('pendingSubscriptionToken', 'true'); // Flag for redirect back
+        localStorage.setItem('pendingSubscriptionToken', 'true');
         navigate('/login');
         return;
       }
 
       const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'https://testchurch.bookbank.com.ng'}/plan/subscribe`,
+        `${import.meta.env.VITE_API_BASE_URL}/plan/subscribe`,
         {
           method: 'POST',
           headers: {
@@ -225,14 +224,9 @@ export default function PricingSection() {
 
       const data = await res.json();
 
-      // Check if payment is required
-      if (
-        data?.paymentUrl &&
-        data.paymentUrl?.payment?.amount > 0
-      ) {
+      if (data?.paymentUrl && data.paymentUrl?.payment?.amount > 0) {
         openFlutterwavePayment(data.paymentUrl);
       } else {
-        // Free plan or trial - no payment needed
         localStorage.removeItem('selectedPlan');
         localStorage.removeItem('pendingSubscriptionToken');
         showPageToast('Plan activated successfully!');
@@ -247,9 +241,51 @@ export default function PricingSection() {
 
   if (loadingPlans) {
     return (
-      <Box sx={{ py: 10, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading plans...</Typography>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: 'var(--color-surface)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            width: '200%',
+            height: '200%',
+            background: 'radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.15) 0%, transparent 50%)',
+            animation: 'rotate 30s linear infinite',
+          },
+          '@keyframes rotate': {
+            '0%': { transform: 'rotate(0deg)' },
+            '100%': { transform: 'rotate(360deg)' },
+          },
+        }}
+      >
+        <Box sx={{ textAlign: 'center', zIndex: 1 }}>
+          <CircularProgress
+            size={60}
+            thickness={3}
+            sx={{
+              color: 'var(--color-accent)',
+              filter: 'drop-shadow(0 0 20px rgba(18, 2, 46, 0.6))',
+            }}
+          />
+          <Typography
+            sx={{
+              mt: 3,
+              color: 'var(--color-text-primary)',
+              fontSize: '1.1rem',
+              fontWeight: 500,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Loading Plans...
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -259,84 +295,319 @@ export default function PricingSection() {
       component="section"
       id="pricing"
       sx={{
-        py: { xs: 9, md: 10 },
-        px: { xs: 3, lg: 8 },
-        bgcolor: 'grey.50',
-        background: 'linear-gradient(to bottom, #f9fafb, #ffffff)',
+        minHeight: '100vh',
+        py: { xs: 8, md: 12 },
+        px: { xs: 2, sm: 3, lg: 6 },
+        bgcolor: 'var(--color-surface)',
+        position: 'relative',
+        overflow: 'hidden',
+        // Animated gradient overlay
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(20, 9, 39, 0.12) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(32, 24, 45, 0.08) 0%, transparent 50%)',
+          animation: 'pulse 8s ease-in-out infinite',
+          pointerEvents: 'none',
+        },
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 0.5 },
+          '50%': { opacity: 1 },
+        },
+        // Floating orbs
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          width: '600px',
+          height: '600px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(26, 15, 45, 0.08) 0%, transparent 70%)',
+          top: '-300px',
+          right: '-200px',
+          filter: 'blur(60px)',
+          animation: 'float 20s ease-in-out infinite',
+        },
+        '@keyframes float': {
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(-100px, 50px)' },
+        },
       }}
     >
-      <Box sx={{ maxWidth: '7xl', mx: 'auto' }}>
-        <Box sx={{ textAlign: 'center', mb: 12 }}>
-          <Chip
-            label="ChurchSet"
+      <Box sx={{ maxWidth: '1400px', mx: 'auto', position: 'relative', zIndex: 1 }}>
+        {/* Header Section */}
+        <Box
+          sx={{
+            textAlign: 'center',
+            mb: { xs: 6, md: 10 },
+            animation: 'fadeInDown 1s ease-out',
+            '@keyframes fadeInDown': {
+              '0%': { opacity: 0, transform: 'translateY(-30px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
+          <Box
             sx={{
-              mb: 2,
-              bgcolor: 'purple.50',
-              color: 'purple.main',
-              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 3,
+              px: 3,
+              py: 1.2,
+              borderRadius: '50px',
+              background: 'var(--color-surface-glass)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid var(--color-border-glass)',
+              boxShadow: '0 8px 32px rgba(31, 15, 59, 0.15)',
             }}
-          />
-          <Typography variant="h3" fontWeight="bold" sx={{ mb: 2 }}>
-            Start Managing Your Church Today
+          >
+            <SparkleIcon sx={{ fontSize: 18, color: 'var(--color-accent)' }} />
+            <Typography
+              sx={{
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                background: 'linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              ChurchSet Pricing
+            </Typography>
+          </Box>
+
+          <Typography
+            variant="h2"
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: '2rem', sm: '2.75rem', md: '3.5rem' },
+              mb: 2.5,
+              background: 'linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+            }}
+          >
+            Choose Your Ministry Plan
           </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ maxWidth: '2xl', mx: 'auto' }}>
-            Choose the plan that fits your ministry. No hidden fees.
+
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'var(--color-text-secondary)',
+              maxWidth: '700px',
+              mx: 'auto',
+              fontSize: { xs: '1rem', md: '1.15rem' },
+              lineHeight: 1.7,
+              fontWeight: 400,
+            }}
+          >
+            Empower your ministry with tools designed for growth. Transparent pricing, no hidden fees.
           </Typography>
         </Box>
 
+        {/* Alerts */}
         {!scriptReady && !scriptError && (
-          <Alert severity="info" sx={{ mb: 4, maxWidth: 600, mx: 'auto' }}>
-            Initializing secure payment system...
-          </Alert>
+          <Box
+            sx={{
+              mb: 4,
+              maxWidth: 600,
+              mx: 'auto',
+              animation: 'fadeIn 0.5s ease-out',
+              '@keyframes fadeIn': {
+                '0%': { opacity: 0 },
+                '100%': { opacity: 1 },
+              },
+            }}
+          >
+            <Alert
+              severity="info"
+              icon={<CircularProgress size={18} sx={{ color: 'var(--color-accent)' }} />}
+              sx={{
+                borderRadius: '16px',
+                backdropFilter: 'blur(20px)',
+                background: 'var(--color-surface-glass)',
+                border: '1px solid var(--color-border-glass)',
+                color: 'var(--color-text-secondary)',
+                '& .MuiAlert-icon': { color: 'var(--color-accent)' },
+              }}
+            >
+              Initializing secure payment system...
+            </Alert>
+          </Box>
         )}
 
         {errorMsg && (
-          <Alert severity="error" sx={{ mb: 4, maxWidth: 600, mx: 'auto' }} onClose={() => setErrorMsg(null)}>
-            {errorMsg}
-          </Alert>
+          <Box
+            sx={{
+              mb: 4,
+              maxWidth: 600,
+              mx: 'auto',
+              animation: 'shake 0.5s ease-out',
+              '@keyframes shake': {
+                '0%, 100%': { transform: 'translateX(0)' },
+                '25%': { transform: 'translateX(-10px)' },
+                '75%': { transform: 'translateX(10px)' },
+              },
+            }}
+          >
+            <Alert
+              severity="error"
+              onClose={() => setErrorMsg(null)}
+              sx={{
+                borderRadius: '16px',
+                backdropFilter: 'blur(20px)',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#fca5a5',
+                '& .MuiAlert-icon': { color: '#f87171' },
+              }}
+            >
+              {errorMsg}
+            </Alert>
+          </Box>
         )}
 
-        <Grid container spacing={4} justifyContent="center">
+        {/* Pricing Cards */}
+        <Grid
+          container
+          spacing={{ xs: 3, md: 4 }}
+          justifyContent="center"
+          sx={{
+            animation: 'fadeInUp 1s ease-out 0.3s both',
+            '@keyframes fadeInUp': {
+              '0%': { opacity: 0, transform: 'translateY(40px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' },
+            },
+          }}
+        >
           {/* Free Plan */}
           {trialPlan && (
             <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4 }}>
               <Card
                 sx={{
-                  position: 'relative',
                   height: '100%',
-                  border: '2px solid',
-                  borderColor: 'gray.100',
-                  boxShadow: 6,
-                  borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': { transform: 'translateY(-8px)', boxShadow: 12 },
+                  background: 'var(--color-surface-glass)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid var(--color-border-glass)',
+                  borderRadius: '24px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    background: 'linear-gradient(90deg, var(--color-accent), rgba(44, 31, 66, 0.5))',
+                  },
+                  '&:hover': {
+                    transform: 'translateY(-12px)',
+                    boxShadow: '0 20px 60px rgba(24, 5, 56, 0.25)',
+                    border: '1px solid var(--color-border-glass)',
+                    '&::after': {
+                      opacity: 1,
+                    },
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.05) 0%, transparent 70%)',
+                    opacity: 0,
+                    transition: 'opacity 0.4s ease',
+                  },
                 }}
               >
-
-                <CardContent sx={{ p: 6 }}>
-                  <Typography variant="h5" fontWeight="bold" gutterBottom>
-                    {trialPlan.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Perfect for getting started
-                  </Typography>
-
-                  <Box sx={{ my: 4, textAlign: 'center' }}>      
-                    <Typography variant="body2" color="text.secondary">
-                      <span className="text-5xl font-bold text-gray-900">₦0</span>
-                      <span className="text-gray-600">/month</span>                    
+                <CardContent sx={{ p: { xs: 3, md: 4 }, position: 'relative', zIndex: 1 }}>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 700,
+                        color: 'var(--color-text-primary)',
+                        mb: 1,
+                        fontSize: { xs: '1.5rem', md: '1.75rem' },
+                      }}
+                    >
+                      {trialPlan.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'var(--color-text-muted)',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Perfect for getting started
                     </Typography>
                   </Box>
 
-                  <Box component="ul" sx={{ mb: 6, pl: 0, listStyle: 'none' }}>
+                  <Box sx={{ my: 4, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                      <Typography
+                        sx={{
+                          fontSize: { xs: '1.5rem', md: '2.5rem' },
+                          fontWeight: 800,
+                          background: 'linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ₦0
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ color: 'var(--color-text-muted)', mt: 1, fontSize: '0.9rem' }}>
+                      per month
+                    </Typography>
+                  </Box>
+
+                  <Box component="ul" sx={{ mb: 4, pl: 0, listStyle: 'none', '& > li': { mb: 1.5 } }}>
                     {[
-                      'All features',
+                      'All core features included',
                       '24/7 customer support',
-                      `${trialPlan.trialDurationDays || 30}-day trial`,
-                    ].map((f) => (
-                      <Box component="li" key={f} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                        <CheckIcon sx={{ color: 'purple.900' }} />
-                        <Typography variant="body2">{f}</Typography>
+                      `${trialPlan.trialDurationDays || 30}-day free trial`,
+                    ].map((f, i) => (
+                      <Box
+                        component="li"
+                        key={f}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          animation: `slideIn 0.5s ease-out ${i * 0.1}s both`,
+                          '@keyframes slideIn': {
+                            '0%': { opacity: 0, transform: 'translateX(-10px)' },
+                            '100%': { opacity: 1, transform: 'translateX(0)' },
+                          },
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: 'var(--color-surface-glass)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckIcon sx={{ fontSize: 14, color: 'var(--color-accent)' }} />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                          {f}
+                        </Typography>
                       </Box>
                     ))}
                   </Box>
@@ -347,16 +618,29 @@ export default function PricingSection() {
                     disabled={submitting}
                     onClick={() => handleSelectPlan(trialPlan, false)}
                     sx={{
-                      py: 1.5,
-                      background: 'linear-gradient(to right, #1e293b, #6b21a8)',
-                      '&:hover': { background: 'linear-gradient(to right, #111827, #5b21b6)' },
+                      py: 1.8,
+                      borderRadius: '12px',
+                      background: 'var(--color-text-primary)',
+                      color: 'var(--color-accent-contrast)',
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      textTransform: 'none',
+                      letterSpacing: '0.02em',
+                      boxShadow: '0 8px 24px rgba(124, 58, 237, 0.3)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'var(--color-text-primary)',
+                        opacity: 0.9,
+                        boxShadow: '0 12px 32px rgba(124, 58, 237, 0.5)',
+                        transform: 'translateY(-2px)',
+                      },
                       '&:disabled': {
-                        background: 'linear-gradient(to right, #94a3b8, #c084fc)',
-                        color: 'rgba(255, 255, 255, 0.5)',
+                        background: 'var(--color-surface-glass)',
+                        color: 'var(--color-text-muted)',
                       },
                     }}
                   >
-                    {submitting ? 'Processing...' : 'Get Started Now'}
+                    {submitting ? 'Processing...' : 'Start Free Trial'}
                   </Button>
                 </CardContent>
               </Card>
@@ -368,69 +652,188 @@ export default function PricingSection() {
             <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4 }}>
               <Card
                 sx={{
-                  position: 'relative',
                   height: '100%',
-                  border: '2px solid',
-                  borderColor: 'purple.900',
-                  boxShadow: 6,
-                  borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': { transform: 'translateY(-8px)', boxShadow: 12 },
+                  background: 'var(--color-surface-glass)',
+                  backdropFilter: 'blur(20px)',
+                  border: '2px solid var(--color-text-primary)',
+                  borderTop: '0px',
+                  borderRadius: '24px',
+                  boxShadow: '0 12px 40px rgba(30, 8, 67, 0.4)',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    background: 'linear-gradient(90deg, var(--color-accent), rgba(0, 0, 0, 0.5))',
+                  },
+                  '&:hover': {
+                    transform: 'translateY(-12px) scale(1.02)',
+                    boxShadow: '0 24px 60px rgba(25, 5, 61, 0.6)',
+                    border: '2px solid var(--color-accent)',
+                  },
                 }}
               >
-                <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
-                  <Chip label="Popular" color="primary" size="small" />
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 20,
+                    right: 20,
+                    zIndex: 2,
+                  }}
+                >
+                  <Chip
+                    icon={<TrendingIcon sx={{ fontSize: 16 }} />}
+                    label="Most Popular"
+                    size="small"
+                    sx={{
+                      background: 'var(--color-accent)',
+                      color: 'var(--color-accent-contrast)',
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                      px: 1.5,
+                      boxShadow: '0 4px 12px rgba(30, 8, 67, 0.4)',
+                      '& .MuiChip-icon': { color: 'var(--color-accent-contrast)' },
+                    }}
+                  />
                 </Box>
 
-                <CardContent sx={{ p: 6 }}>
-                  <Typography variant="h5" fontWeight="bold" gutterBottom>
-                    {standardPlan.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    For growing ministries
-                  </Typography>
-
-                  <Box sx={{ my: 4, textAlign: 'center' }}>
+                <CardContent sx={{ p: { xs: 3, md: 4 }, position: 'relative', zIndex: 1 }}>
+                  <Box sx={{ mb: 3 }}>
                     <Typography
-                      variant="h3"
-                      fontWeight="bold"
+                      variant="h5"
                       sx={{
-                        background: 'linear-gradient(to right, #1a1a1a, #6b21a8)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
+                        fontWeight: 700,
+                        color: 'var(--color-text-primary)',
+                        mb: 1,
+                        fontSize: { xs: '1.5rem', md: '1.75rem' },
                       }}
                     >
-                      {yearlyStandard ? formatPrice(stdYearly) : formatPrice(stdBase)}
+                      {standardPlan.name}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      /{yearlyStandard ? 'year' : 'month'}
+                    <Typography variant="body2" sx={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                      For growing ministries
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ my: 4, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                      <Typography
+                        sx={{
+                          fontSize: { xs: '1.5rem', md: '2.5rem' },
+                          fontWeight: 800,
+                          background: 'linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          lineHeight: 1,
+                        }}
+                      >
+                        {yearlyStandard ? formatPrice(stdYearly) : formatPrice(stdBase)}
+                      </Typography>
+                    </Box>
+                    <Typography sx={{ color: 'var(--color-text-muted)', mt: 1, fontSize: '0.9rem' }}>
+                      per {yearlyStandard ? 'year' : 'month'}
                     </Typography>
 
                     {stdDiscount > 0 && (
-                      <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                        <Typography>Monthly</Typography>
-                        <Switch checked={yearlyStandard} onChange={() => setYearlyStandard(!yearlyStandard)} />
-                        <Typography color={yearlyStandard ? 'purple.700' : 'text.secondary'}>
-                          Yearly – Save {Math.round(stdDiscount * 100)}%
+                      <Box
+                        sx={{
+                          mt: 3,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 2,
+                          px: 2,
+                          py: 1.5,
+                          borderRadius: '12px',
+                          background: 'var(--color-surface-glass)',
+                          border: '1px solid var(--color-border-glass)',
+                        }}
+                      >
+                        <Typography sx={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                          Monthly
                         </Typography>
+                        <Switch
+                          checked={yearlyStandard}
+                          onChange={() => setYearlyStandard(!yearlyStandard)}
+                          sx={{
+                            '& .MuiSwitch-switchBase.Mui-checked': {
+                              color: 'var(--color-accent)',
+                              '& + .MuiSwitch-track': {
+                                backgroundColor: 'var(--color-accent)',
+                              },
+                            },
+                          }}
+                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography
+                            sx={{
+                              color: yearlyStandard ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                              fontSize: '0.85rem',
+                              fontWeight: yearlyStandard ? 600 : 400,
+                            }}
+                          >
+                            Yearly
+                          </Typography>
+                          <Chip
+                            label={`Save ${Math.round(stdDiscount * 100)}%`}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              background: yearlyStandard ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : 'rgba(34, 197, 94, 0.2)',
+                              color: yearlyStandard ? '#fff' : '#4ade80',
+                              border: 'none',
+                            }}
+                          />
+                        </Box>
                       </Box>
                     )}
                   </Box>
 
-                  <Box component="ul" sx={{ mb: 6, pl: 0, listStyle: 'none' }}>
+                  <Box component="ul" sx={{ mb: 4, pl: 0, listStyle: 'none', '& > li': { mb: 1.5 } }}>
                     {[
                       'Unlimited workforce',
-                      'People management',
-                      'Plan worship services',
-                      'Manage attendance',
+                      'Complete people management',
+                      'Worship service planning',
+                      'Attendance tracking',
                       'Priority support 24/7',
-                      'Advanced analytics',
+                      'Advanced analytics dashboard',
                       'SMS & Email messaging',
                       'Custom branding',
-                    ].map((f) => (
-                      <Box component="li" key={f} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                        <CheckIcon sx={{ color: 'purple.900' }} />
-                        <Typography variant="body2">{f}</Typography>
+                    ].map((f, i) => (
+                      <Box
+                        component="li"
+                        key={f}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          animation: `slideIn 0.5s ease-out ${i * 0.1}s both`,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: 'var(--color-surface-glass)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckIcon sx={{ fontSize: 14, color: 'var(--color-accent)' }} />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                          {f}
+                        </Typography>
                       </Box>
                     ))}
                   </Box>
@@ -441,16 +844,29 @@ export default function PricingSection() {
                     disabled={submitting}
                     onClick={() => handleSelectPlan(standardPlan, yearlyStandard, 1)}
                     sx={{
-                      py: 1.5,
-                      background: 'linear-gradient(to right, #1e293b, #6b21a8)',
-                      '&:hover': { background: 'linear-gradient(to right, #111827, #5b21b6)' },
+                      py: 1.8,
+                      borderRadius: '12px',
+                      background: 'var(--color-text-primary)',
+                      color: 'var(--color-accent-contrast)',
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      textTransform: 'none',
+                      letterSpacing: '0.02em',
+                      boxShadow: '0 8px 24px rgba(34, 9, 78, 0.4)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'var(--color-text-primary)',
+                        opacity: 0.9,
+                        boxShadow: '0 12px 32px rgba(24, 7, 54, 0.6)',
+                        transform: 'translateY(-2px)',
+                      },
                       '&:disabled': {
-                        background: 'linear-gradient(to right, #94a3b8, #c084fc)',
-                        color: 'rgba(255, 255, 255, 0.5)',
+                        background: 'var(--color-surface-glass)',
+                        color: 'var(--color-text-muted)',
                       },
                     }}
                   >
-                    {submitting ? 'Processing...' : 'Get Started Now'}
+                    {submitting ? 'Processing...' : 'Get Started'}
                   </Button>
                 </CardContent>
               </Card>
@@ -462,85 +878,222 @@ export default function PricingSection() {
             <Grid size={{ xs: 12, sm: 6, md: 6, lg: 4 }}>
               <Card
                 sx={{
-                  position: 'relative',
                   height: '100%',
-                  border: '2px solid',
-                  borderColor: 'indigo.900',
-                  boxShadow: 6,
-                  borderRadius: 4,
-                  transition: 'all 0.3s ease',
-                  '&:hover': { transform: 'translateY(-8px)', boxShadow: 12 },
+                  background: 'var(--color-surface-glass)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid var(--color-border-glass)',
+                  borderRadius: '24px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    background: 'linear-gradient(90deg, var(--color-accent), rgba(0, 0, 0, 0.5))',
+                  },
+                  '&:hover': {
+                    transform: 'translateY(-12px)',
+                    boxShadow: '0 20px 60px rgba(34, 10, 74, 0.35)',
+                    border: '1px solid var(--color-border-glass)',
+                  },
                 }}
               >
-                <CardContent sx={{ p: 6 }}>
-                  <Typography variant="h5" fontWeight="bold" gutterBottom>
-                    {proPlan.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    For ministries with multiple branches
-                  </Typography>
+                <CardContent sx={{ p: { xs: 3, md: 4 }, position: 'relative', zIndex: 1 }}>
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          fontWeight: 700,
+                          color: 'var(--color-text-primary)',
+                          fontSize: { xs: '1.5rem', md: '1.75rem' },
+                        }}
+                      >
+                        {proPlan.name}
+                      </Typography>
+                      <VerifiedIcon sx={{ fontSize: 22, color: 'var(--color-accent)' }} />
+                    </Box>
+                    <Typography variant="body2" sx={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                      For multi-branch ministries
+                    </Typography>
+                  </Box>
 
                   <Box sx={{ my: 4 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography fontWeight="bold">Branches: {branches}</Typography>
-                      <Typography color="text.secondary">Max 50</Typography>
-                    </Box>
-                    <MuiSlider
-                      value={branches}
-                      onChange={(_, v) => setBranches(v as number)}
-                      min={2}
-                      max={50}
-                      step={1}
-                      valueLabelDisplay="auto"
-                      sx={{ color: 'indigo.700' }}
-                    />
-                    {branches < 2 && (
-                      <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                        Pro plan requires at least 2 branches
-                      </Typography>
-                    )}
-                  </Box>
-
-                  <Box sx={{ mb: 6, textAlign: 'center' }}>
-                    <Typography
-                      variant="h3"
-                      fontWeight="bold"
+                    <Box
                       sx={{
-                        background: 'linear-gradient(to right, #1e293b, #4338ca)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
+                        p: 2.5,
+                        borderRadius: '16px',
+                        background: 'var(--color-surface-glass)',
+                        border: '1px solid var(--color-border-glass)',
+                        mb: 2,
                       }}
                     >
-                      {yearlyPro ? formatPrice(proYearly) : formatPrice(proMonthly)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      /{yearlyPro ? 'year' : 'month'}
-                    </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Typography sx={{ fontWeight: 600, color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>
+                          Branches: {branches}
+                        </Typography>
+                        <Typography sx={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                          Max 50
+                        </Typography>
+                      </Box>
+                      <MuiSlider
+                        value={branches}
+                        onChange={(_, v) => setBranches(v as number)}
+                        min={2}
+                        max={50}
+                        step={1}
+                        valueLabelDisplay="auto"
+                        sx={{
+                          color: 'var(--color-text-primary)',
+                          '& .MuiSlider-thumb': {
+                            width: 20,
+                            height: 20,
+                            background: 'var(--color-text-primary)',
+                            boxShadow: '0 4px 12px rgba(124, 58, 237, 0.4)',
+                            '&:hover, &.Mui-focusVisible': {
+                              boxShadow: '0 0 0 8px rgba(124, 58, 237, 0.16)',
+                            },
+                          },
+                          '& .MuiSlider-track': {
+                            background: 'var(--color-text-primary)',
+                            border: 'none',
+                          },
+                          '& .MuiSlider-rail': {
+                            background: 'var(--color-border-glass)',
+                          },
+                        }}
+                      />
+                      {branches < 2 && (
+                        <Typography
+                          variant="caption"
+                          sx={{ color: '#f87171', mt: 1, display: 'block', fontSize: '0.75rem' }}
+                        >
+                          Pro plan requires at least 2 branches
+                        </Typography>
+                      )}
+                    </Box>
 
-                    <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                      <Typography>Monthly</Typography>
-                      <Switch checked={yearlyPro} onChange={() => setYearlyPro(!yearlyPro)} />
-                      <Typography color={yearlyPro ? 'indigo.700' : 'text.secondary'}>
-                        Yearly {proDiscount > 0 && `– Save ${Math.round(proDiscount * 100)}%`}
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                        <Typography
+                          sx={{
+                            fontSize: { xs: '1.5rem', md: '2.5rem' },
+                            fontWeight: 800,
+                            background: 'linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-accent) 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {yearlyPro ? formatPrice(proYearly) : formatPrice(proMonthly)}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ color: 'var(--color-text-muted)', mt: 1, fontSize: '0.9rem' }}>
+                        per {yearlyPro ? 'year' : 'month'}
                       </Typography>
+
+                      <Box
+                        sx={{
+                          mt: 3,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 2,
+                          px: 2,
+                          py: 1.5,
+                          borderRadius: '12px',
+                          background: 'var(--color-surface-glass)',
+                          border: '1px solid var(--color-border-glass)',
+                        }}
+                      >
+                        <Typography sx={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                          Monthly
+                        </Typography>
+                        <Switch
+                          checked={yearlyPro}
+                          onChange={() => setYearlyPro(!yearlyPro)}
+                          sx={{
+                            '& .MuiSwitch-switchBase.Mui-checked': {
+                              color: 'var(--color-accent)',
+                              '& + .MuiSwitch-track': {
+                                backgroundColor: 'var(--color-accent)',
+                              },
+                            },
+                          }}
+                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography
+                            sx={{
+                              color: yearlyPro ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                              fontSize: '0.85rem',
+                              fontWeight: yearlyPro ? 600 : 400,
+                            }}
+                          >
+                            Yearly
+                          </Typography>
+                          {proDiscount > 0 && (
+                            <Chip
+                              label={`Save ${Math.round(proDiscount * 100)}%`}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                background: yearlyPro ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)' : 'rgba(34, 197, 94, 0.2)',
+                                color: yearlyPro ? '#fff' : '#4ade80',
+                                border: 'none',
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
                     </Box>
                   </Box>
 
-                  <Box component="ul" sx={{ mb: 6, pl: 0, listStyle: 'none' }}>
+                  <Box component="ul" sx={{ mb: 4, pl: 0, listStyle: 'none', '& > li': { mb: 1.5 } }}>
                     {[
                       'Unlimited workforce',
-                      'People management',
-                      'Plan worship services',
-                      'Manage attendance',
+                      'Complete people management',
+                      'Worship service planning',
+                      'Attendance tracking',
                       'Priority support 24/7',
-                      'Advanced analytics',
+                      'Advanced analytics dashboard',
                       'SMS & Email messaging',
-                      'Branch management',
+                      'Multi-branch management',
                       'Custom branding',
-                    ].map((f) => (
-                      <Box component="li" key={f} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                        <CheckIcon sx={{ color: 'indigo.900' }} />
-                        <Typography variant="body2">{f}</Typography>
+                    ].map((f, i) => (
+                      <Box
+                        component="li"
+                        key={f}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                          animation: `slideIn 0.5s ease-out ${i * 0.1}s both`,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: 'var(--color-surface-glass)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <CheckIcon sx={{ fontSize: 14, color: 'var(--color-accent)' }} />
+                        </Box>
+                        <Typography variant="body2" sx={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+                          {f}
+                        </Typography>
                       </Box>
                     ))}
                   </Box>
@@ -551,16 +1104,29 @@ export default function PricingSection() {
                     disabled={submitting || branches < 2}
                     onClick={() => handleSelectPlan(proPlan, yearlyPro, branches)}
                     sx={{
-                      py: 1.5,
-                      background: 'linear-gradient(to right, #1e293b, #4338ca)',
-                      '&:hover': { background: 'linear-gradient(to right, #111827, #3730a3)' },
+                      py: 1.8,
+                      borderRadius: '12px',
+                      background: 'var(--color-text-primary)',
+                      color: 'var(--color-accent-contrast)',
+                      fontWeight: 600,
+                      fontSize: '0.95rem',
+                      textTransform: 'none',
+                      letterSpacing: '0.02em',
+                      boxShadow: '0 8px 24px rgba(40, 25, 64, 0.3)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'var(--color-text-primary)',
+                        opacity: 0.9,
+                        boxShadow: '0 12px 32px rgba(27, 0, 67, 0.5)',
+                        transform: 'translateY(-2px)',
+                      },
                       '&:disabled': {
-                        background: 'linear-gradient(to right, #94a3b8, #818cf8)',
-                        color: 'rgba(255, 255, 255, 0.5)',
+                        background: 'var(--color-surface-glass)',
+                        color: 'var(--color-text-muted)',
                       },
                     }}
                   >
-                    {submitting ? 'Processing...' :  'Get Started Now'}
+                    {submitting ? 'Processing...' : 'Get Started'}
                   </Button>
                 </CardContent>
               </Card>
