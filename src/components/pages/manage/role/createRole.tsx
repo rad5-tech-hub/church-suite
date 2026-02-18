@@ -397,7 +397,7 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
           {/* Role Name */}
           <TextField
             fullWidth
-            label="Role Name *"
+            label="Role Name"
             name="name"
             value={formData.name}
             onChange={handleChange}
@@ -430,7 +430,7 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             "&.Mui-focused": { color: "var(--color-text-primary)" },
             }}
         >
-            Access Level *
+            Access Level
         </InputLabel>
 
         <Select
@@ -438,7 +438,7 @@ const CreateRoleModel: React.FC<DepartmentModalProps> = ({ open, onClose, onSucc
             name="type"
             value={formData.type}
             onChange={handleSelectChange}
-            label="Type *"
+            label="Access Level"
             disabled={loading}
             sx={{
             color: "var(--color-text-primary)",

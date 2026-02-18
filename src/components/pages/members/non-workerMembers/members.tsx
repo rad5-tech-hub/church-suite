@@ -48,7 +48,6 @@ interface FormData {
   birthDay: string;
   nationalityCode: string;
   state: string;
-  LGA: string;
   nationality: string;
   comments: string;
   branchId: string;
@@ -126,7 +125,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     nationalityCode: '',
     birthDay: "",
     state: "",
-    LGA: "",
     nationality: "",
     comments: "",
     branchId: "",
@@ -150,35 +148,42 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
 
   // Fetch Branches
   const fetchBranches = useCallback(async () => {
+    // Early return - most important guard
     if (isFetchingBranches || hasFetchedBranches) return;
+
     setIsFetchingBranches(true);
     setBranchesError('');
+
     try {
       const response = await Api.get('/church/get-branches');
       const branchList = response.data.branches || [];
+
       setBranches(branchList);
       setHasFetchedBranches(true);
 
-      // Auto-select user's branch
-      if (authData?.branchId && !formData.branchId) {
-        const userBranch = branchList.find((b: Branch) => b.id === authData.branchId);
-        if (userBranch) {
-          setFormData((prev) => ({ ...prev, branchId: userBranch.id }));
+      // Only auto-select if we still don't have a value
+      setFormData((prev) => {
+        // Important: check current state inside updater
+        if (authData?.branchId && !prev.branchId) {
+          const userBranch = branchList.find((b: Branch) => b.id === authData.branchId);
+          if (userBranch) {
+            return { ...prev, branchId: userBranch.id };
+          }
         }
-      }
+        return prev;
+      });
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
-      showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
   }, [
     isFetchingBranches,
     hasFetchedBranches,
-    authData?.branchId,
-    formData.branchId,
+    authData?.branchId,     // stable or nullish most of the time
+    // DO NOT put formData.branchId here!
   ]);
-
+  
   useEffect(() => {
     if (!hasFetchedBranches && !isFetchingBranches) {
       fetchBranches();
@@ -333,7 +338,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
 
       await Api.post(`/member/non-worker?${params.toString()}`, payload);
 
-      showPageToast("Worker created successfully!", "success");
+      showPageToast("Member created successfully!", "success");
 
       setFormData({
         name: "",
@@ -349,7 +354,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         birthDay: "",
         state: "",
         nationalityCode: '',
-        LGA: "",
         nationality: "",
         comments: "",
         branchId: "",
@@ -363,9 +367,9 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         onClose();
       }, 1500);
     } catch (error: any) {
-      console.error("Error creating worker:", error.response?.data || error.message);
+      console.error("Error creating member:", error.response?.data || error.message);
 
-      let errorMessage = "Failed to create worker. Please try again.";
+      let errorMessage = "Failed to create member. Please try again.";
 
       if (error.response?.data?.error?.message) {
         errorMessage = `${error.response.data.error.message} Please try again.`;
@@ -786,7 +790,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               nationality: newValue?.name || "",
               nationalityCode: newValue?.iso2 || "",  // ← Store ISO2 code here
               state: "",        // ← Reset state when country changes
-              LGA: ""           // ← Optional: reset LGA too
             }));
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
@@ -900,33 +903,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
             '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
             '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
-          }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          label="LGA *"
-          name="LGA"
-          value={formData.LGA}
-          onChange={handleChange}
-          variant="outlined"
-          placeholder="Enter local government area"
-          disabled={isLoading}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
-            sx: {
-              color: "var(--color-text-primary)",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              fontSize: isLargeScreen ? "1rem" : undefined,
-            },
-          }}
-          InputLabelProps={{
-            sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "var(--color-text-primary)",
-              "&.Mui-focused": { color: "var(--color-text-primary)" },
-            },
           }}
         />
       </Grid>

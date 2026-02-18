@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { IoCallOutline, IoMailOutline, IoLocationOutline } from 'react-icons/io5';
 import { PiChurchLight } from 'react-icons/pi';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../../reduxstore/redux';
 import { setChurchData } from '../../../reduxstore/datamanager';
+import { useSearchParams } from 'react-router-dom';
 
 interface ChurchFormData {
   churchName: string;
@@ -19,13 +20,43 @@ const SetupChurch: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const churchData = useSelector((state: RootState) => state.church);
+  const [searchParams] = useSearchParams();
+  const branchParam = searchParams.get('branch'); // "true" | "false" | null
+
+  const branchFromQuery =
+  branchParam === 'true'
+    ? true
+    : branchParam === 'false'
+    ? false
+    : null;
+  const billingCycleParam = searchParams.get('billingCycle'); // "monthly" | "annual" | null
+  const branchCountParam = searchParams.get('branchCount'); // number as string | null
+  const planId = searchParams.get('planId');
+
+  const branchCount = branchParam === 'true'
+    ? branchCountParam
+      ? parseInt(branchCountParam, 10)
+      : 2 // default to 2 if branch=true but no branchCount passed
+    : undefined; // undefined if branch=false or not present
+
+  useEffect(() => {
+    if (planId) {
+      const selectedPlan: { planId: string; billingCycle?: string; branchCount?: number } = { planId };
+
+      if (billingCycleParam) selectedPlan.billingCycle = billingCycleParam;
+      if (branchCount !== undefined) selectedPlan.branchCount = branchCount;
+
+      localStorage.setItem('selectedPlan', JSON.stringify(selectedPlan));
+      console.log('Saved plan:', selectedPlan);
+    }
+  }, [planId, billingCycleParam, branchCount]);
 
   const [formData, setFormData] = useState<ChurchFormData>({
     churchName: churchData.churchName || '',
     churchEmail: churchData.churchEmail || '',
     churchPhone: churchData.churchPhone || '',
     churchLocation: churchData.churchLocation || '',
-    isHeadquarter: churchData.isHeadquarter || false,
+    isHeadquarter: branchFromQuery !== null ? branchFromQuery : churchData.isHeadquarter || '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -236,12 +267,12 @@ const SetupChurch: React.FC = () => {
               <IoLocationOutline className="text-gray-400 mr-3 text-xl" />
             )}
 
-            {renderSelectField(
+            {branchFromQuery === null && renderSelectField(
               'isHeadquarter',
-              'Use Churchset as?',
+              'Does your church have branches?',
               [
-                { value: 'true', label: 'A Multiple Branches/Church' },
-                { value: 'false', label: 'A Single Branch/Church' }
+                { value: 'true', label: 'Yes, we have branches' },
+                { value: 'false', label: 'No, just one church for now!' }
               ],
               true
             )}

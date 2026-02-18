@@ -217,7 +217,7 @@ const EmptyState: React.FC<{ error: string | null; isLargeScreen: boolean; onAdd
         py: 1,
         fontSize: isLargeScreen ? "0.875rem" : undefined,
         color: "var(--color-primary)",
-        "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+        "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
       }}
     >
       Add New Member
@@ -410,7 +410,6 @@ const ViewMembers: React.FC = () => {
         const errorMessage = error.response?.data?.message || "Failed to load members. Please try again later.";
         handleStateChange("error", errorMessage);
         handleStateChange("loading", false);
-        showPageToast(errorMessage, "error");
         return {
           members: [],
           pagination: { hasNextPage: false, nextPage: null },
@@ -944,7 +943,7 @@ const ViewMembers: React.FC = () => {
                   textTransform: "none",
                   color: "var(--color-primary)",
                   fontSize: { xs: "1rem", sm: "1rem" },
-                  "&:hover": { backgroundColor: "#363740", opacity: 0.9 },
+                  "&:hover": { backgroundColor: "var(--color-text-primary)", opacity: 0.9 },
                   width: { xs: "100%", sm: "auto" },
                   minWidth: "max-content",
                 }}
@@ -953,7 +952,7 @@ const ViewMembers: React.FC = () => {
               </Button>
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
+          {state.filteredMembers.length > 0 && (<Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
@@ -1021,7 +1020,7 @@ const ViewMembers: React.FC = () => {
                 renderDesktopFilters()
               )}
             </Box>
-          </Grid>
+          </Grid>) }
         </Grid>
 
         {state.loading && state.filteredMembers.length === 0 && (

@@ -1433,7 +1433,7 @@ const ViewAdmins: React.FC = () => {
   return (
     <DashboardManager>
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: "100%", width: '100%'}}>
-        <Grid container spacing={1} sx={{ mb: 3 }}>
+        <Grid container spacing={1}>
           <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
               variant="h5"
@@ -1470,7 +1470,7 @@ const ViewAdmins: React.FC = () => {
               Create Admin +
             </Button>
           </Grid>
-          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: { xs: 2, lg: 0 } }}>
+          <Grid size={{ xs: 12, md: 12, lg: 12 }} sx={{ mt: { xs: 3, lg: 4}, mb: 2 }}>
             <Box>
               {useMediaQuery('(max-width:1023px)') ? (
                 <>
@@ -1683,6 +1683,7 @@ const ViewAdmins: React.FC = () => {
           </TableContainer>
         )}
 
+        {/* Three Dot Menu action button  of admin */}
         <Menu
           id="admin-menu"
           anchorEl={state.anchorEl}
@@ -1734,6 +1735,7 @@ const ViewAdmins: React.FC = () => {
           </MenuItem>
         </Menu>
 
+        {/* Assign Role Dialog to admin */}
         <Dialog
           open={state.assignRoleOpen}
           onClose={() => handleStateChange("assignRoleOpen", false)}
@@ -1792,6 +1794,7 @@ const ViewAdmins: React.FC = () => {
               <Select
                 labelId="role-select-label"
                 multiple
+                label="Select Role(s)"
                 value={state.selectedRoleIds}
                 onChange={(e) =>
                   handleStateChange("selectedRoleIds", e.target.value as string[])
@@ -1807,6 +1810,7 @@ const ViewAdmins: React.FC = () => {
                   "& .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#777280",
                   },
+                  "& .MuiSelect-select": { color: "var(--color-text-primary)" },
                   "& .MuiSelect-icon": { color: "var(--color-text-primary)" },
                   "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "var(--color-text-primary)" },
                 }}
@@ -1857,6 +1861,7 @@ const ViewAdmins: React.FC = () => {
           </DialogActions>
         </Dialog>
 
+        {/* Delete admin Dialog */}
         <Dialog
           open={state.confirmModalOpen}
           onClose={() => handleStateChange("confirmModalOpen", false)}

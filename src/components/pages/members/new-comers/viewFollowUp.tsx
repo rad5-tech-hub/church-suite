@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -54,6 +53,7 @@ import Api from '../../../shared/api/api';
 import { RootState } from '../../../reduxstore/redux';
 import { MdOutlineEdit } from 'react-icons/md';
 import EditRegistrationModal from './editNewcomers';
+import EventOccurrenceSelectionDialog from './eventOccurancesSelectionDialog';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { Dayjs } from 'dayjs';
@@ -562,7 +562,6 @@ const ViewFollowUp: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const authData = useSelector((state: RootState) => state?.auth?.authData);
-  const navigate = useNavigate();
   const [branchesLoaded, setBranchesLoaded] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
@@ -586,6 +585,7 @@ const ViewFollowUp: React.FC = () => {
     isModalOpen: false,
     editModalOpen: false,
     commentDialogOpen: false,
+    eventSelectionDialogOpen: false, // NEW
     currentFollowUp: null as FollowUp | null,
     isBranchSelectOpen: false,
     isDrawerOpen: false,
@@ -636,7 +636,6 @@ const ViewFollowUp: React.FC = () => {
       console.error('Failed to fetch branches:', error);
       const errorMessage = error.response?.data?.message || 'Failed to load branches. Please try again.';
       setBranchesError(errorMessage);
-      showPageToast(errorMessage, 'error');
     } finally {
       setBranchesLoading(false);
     }
@@ -669,7 +668,6 @@ const ViewFollowUp: React.FC = () => {
         handleStateChange('selectedEventId', '');
       } catch (error) {
         console.error('Failed to fetch events:', error);
-        showPageToast('Failed to load events. Please try again.', 'error');
         handleStateChange('events', []);
         handleStateChange('selectedEventId', '');
       } finally {
@@ -736,7 +734,6 @@ const ViewFollowUp: React.FC = () => {
         handleStateChange('pagination', { hasNextPage: false, nextPage: null });
         handleStateChange('error', 'Failed to load Newcomers. Please try again later.');
         handleStateChange('loading', false);
-        showPageToast('Failed to load Newcomers', 'error');
         return { followUps: [], pagination: { hasNextPage: false, nextPage: null } };
       }
     },
@@ -788,8 +785,6 @@ const ViewFollowUp: React.FC = () => {
         isDrawerOpen: false,
         isSearching: false,
       }));
-
-      showPageToast('Search completed successfully!', 'success');
     } catch (error: any) {
       console.error('❌ Error searching follow-ups:', error);
       const errorMessage = error.response?.data?.message || 'Failed to search follow-ups. Please try again.';
@@ -938,7 +933,7 @@ const ViewFollowUp: React.FC = () => {
       showPageToast(errorMessage, 'error');
       handleStateChange('loading', false);
     }
-  }, [state.currentFollowUp, handleStateChange]);
+  }, [state.currentFollowUp, handleStateChange, authData?.branchId]);
 
   const showConfirmation = (action: string) => {
     setState((prev) => ({ ...prev, actionType: action, confirmModalOpen: true }));
@@ -1011,12 +1006,22 @@ const ViewFollowUp: React.FC = () => {
     }
   }, [authData]);
 
+  // Event Selection Dialog Handlers
+  const handleEventSelectionClose = useCallback(() => {
+    handleStateChange('eventSelectionDialogOpen', false);
+  }, [handleStateChange]);
+
+  const handleEventSelectionSuccess = useCallback(() => {
+    handleStateChange('eventSelectionDialogOpen', false);
+    refreshFollowUps();
+  }, [handleStateChange, refreshFollowUps]);
+
   // Fetch branches on mount, but only if authData is available
   useEffect(() => {
     if (authData?.branchId && !branchesLoaded && !branchesLoading && !branchesError) {
       fetchBranches();
     }
-  }, [fetchBranches, authData?.branchId]);
+  }, [fetchBranches, authData?.branchId, branchesLoaded, branchesLoading, branchesError]);
 
   // Fetch follow-ups on mount
   useEffect(() => {
@@ -1487,8 +1492,9 @@ const ViewFollowUp: React.FC = () => {
     </Box>
   );
 
+  // Updated handleAddFollowUp function
   function handleAddFollowUp(): void {
-    navigate('/programs');
+    handleStateChange('eventSelectionDialogOpen', true);
   }
 
   return (
@@ -1496,7 +1502,7 @@ const ViewFollowUp: React.FC = () => {
       <Box sx={{ py: 4, px: { xs: 2, sm: 3 }, minHeight: '100%' }}>
         {/* Header */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, lg: 7 }}>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }}>
             <Typography
               variant={isMobile ? 'h5' : 'h5'}
               component="h4"
@@ -1506,6 +1512,26 @@ const ViewFollowUp: React.FC = () => {
               <LiaLongArrowAltRightSolid className="text-[var(--color-text-primary)]" />
               <span className="text-[var(--color-text-primary)]">Newcomers</span>
             </Typography>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6, lg: 6 }} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+            <Button
+              variant="contained"
+              onClick={handleAddFollowUp}
+              sx={{
+                backgroundColor: 'var(--color-text-primary)',
+                px: { xs: 2, sm: 2 },
+                mt: 2,
+                borderRadius: 50,
+                py: 1,
+                fontSize: isLargeScreen ? '0.875rem' : undefined,
+                color: 'var(--color-primary)',
+                '&:hover': { backgroundColor: 'var(--color-text-primary)', opacity: 0.9 },
+              }}
+            >
+              Add Newcomer
+            </Button>
+          </Grid>
+          {state.filteredFollowUps.length > 0 && ( <Box>
             {isMobile ? (
               <Box sx={{ display: 'flex', width: '100%', mt: 2 }}>
                 <Box
@@ -1608,8 +1634,8 @@ const ViewFollowUp: React.FC = () => {
               renderDesktopFilters()
             )}
             {isMobile && renderMobileFilters()}
-          </Grid>
-        </Grid>
+          </Box>)}
+        </Grid>      
 
         {/* Loading State */}
         {state.loading && state.filteredFollowUps.length === 0 && (
@@ -1634,8 +1660,8 @@ const ViewFollowUp: React.FC = () => {
                 borderRadius: 1,
                 overflowX: 'auto',
                 mb: 4,
-                maxHeight: '500px', // Set a fixed height for the table
-                overflowY: 'auto', // Enable vertical scrolling
+                maxHeight: '500px',
+                overflowY: 'auto',
                 '&::-webkit-scrollbar': {
                   width: '8px',
                 },
@@ -1771,6 +1797,13 @@ const ViewFollowUp: React.FC = () => {
             setState((prev) => ({ ...prev, editModalOpen: false, currentFollowUp: null }));
           }}
           memberId={state.currentFollowUp?.id || ''}
+        />
+
+        {/* Event Selection Dialog */}
+        <EventOccurrenceSelectionDialog
+          open={state.eventSelectionDialogOpen}
+          onClose={handleEventSelectionClose}
+          onSuccess={handleEventSelectionSuccess}
         />
       </Box>
     </DashboardManager>

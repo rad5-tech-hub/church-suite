@@ -45,7 +45,6 @@ interface FormData {
   birthMonth: string;
   birthDay: string;
   state: string;
-  LGA: string;
   nationality: string;
   departmentIds: string[];
   unitIds: string[];
@@ -125,7 +124,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
     birthMonth: '',
     birthDay: '',
     state: '',
-    LGA: '',
     nationality: '',
     departmentIds: [],
     unitIds: [],
@@ -164,7 +162,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
       setBranches(response.data.branches || []);
       setHasFetchedBranches(true);
     } catch (error: any) {
-      setBranchesError('Failed to load branches. Please try again.');
     } finally {
       setIsFetchingBranches(false);
     }
@@ -227,7 +224,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
         birthMonth: member.birthMonth || "",
         birthDay: member.birthDay || "",
         state: member.state || "",
-        LGA: member.LGA || "",
         nationality: member.nationality || "",
         departmentIds: member.departments?.map((dept: { id: string }) => dept.id) || [],
         unitIds: member.units?.map((unit: { id: string }) => unit.id) || [],
@@ -965,33 +961,6 @@ const EditMemberModal = ({ open, onClose, onSuccess, memberId }: EditMemberModal
             '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
             '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
             '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
-          }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          label="LGA *"
-          name="LGA"
-          value={formData.LGA}
-          onChange={handleChange}
-          variant="outlined"
-          placeholder="Enter local government area"
-          disabled={isLoading}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
-            sx: {
-              color: "var(--color-text-primary)",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              fontSize: isLargeScreen ? "1rem" : undefined,
-            },
-          }}
-          InputLabelProps={{
-            sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "var(--color-text-primary)",
-              "&.Mui-focused": { color: "var(--color-text-primary)" },
-            },
           }}
         />
       </Grid>

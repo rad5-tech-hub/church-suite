@@ -301,10 +301,14 @@ const Form: React.FC<FormProps> = ({ open, onClose, onSuccess, formId }) => {
 
     if (
       !checkedFields.fullname &&
-      !checkedFields.phoneNumber &&
-      !Object.values(checkedQuestions).some((v) => v)
+      !checkedFields.phoneNumber
     ) {
       showPageToast("At least one field or question must be selected", "error");
+      return;
+    }
+
+    if (!Object.values(checkedQuestions).some(v => v)) {
+      showPageToast("You must select at least one custom question", "error");
       return;
     }
 

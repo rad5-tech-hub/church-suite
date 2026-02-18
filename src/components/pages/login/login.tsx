@@ -144,11 +144,22 @@ const Login: React.FC<LoginFormProps> = () => {
         }
       );
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        const apiError = data as ApiError;
-        throw new Error(apiError.error?.message || "Login failed");
+      const data = await response.json();      
+
+      // ✅ Handle Subscription Required FIRST
+      if (data?.requiresSubscription) {
+        toast.warning("Subscription required. Please subscribe to continue.", {
+          position: "top-center",
+          autoClose: 3000,
+        });
+
+        // Optionally store token if needed
+        if (data.accessToken) {
+          localStorage.setItem("pendingSubscriptionToken", data.accessToken);
+        }
+
+        navigate("/pricing", { replace: true });
+        return; // 🚨 STOP further login logic
       }
 
       // Handle different response structures

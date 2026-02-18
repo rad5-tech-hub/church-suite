@@ -72,14 +72,14 @@ const Sidebar: React.FC = () => {
         scrollbarColor: "var(--color-text-muted) transparent",
       }}
     >
-      <nav className="flex-1 flex flex-col items-center mt-10">
+      <nav className="flex-1 flex flex-col items-center mt-10 mb-3">
         <ul className="space-y-6 md:space-y-8">
           {currentItems.map((item: any) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center w-16 h-16 md:w-20 md:h-20 rounded-full transition-all duration-300 ${
+                  `flex flex-col items-center justify-center w-14 h-14 md:w-19 md:h-19 rounded-full transition-all duration-300 ${
                     isActive
                       ? "bg-[var(--color-text-primary)] text-[var(--color-primary)] shadow-lg scale-105"
                       : "bg-[var(--color-surface-glass)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] hover:shadow-md hover:scale-105"

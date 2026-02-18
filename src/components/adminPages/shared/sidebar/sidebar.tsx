@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
             {[
               { to: "/admin-dashboard", icon: LuLayoutDashboard, label: "Dashboard" },
               { to: "/admin-manage/churches", icon: LuChurch, label: "Manage Churches" },
-              { to: "/billing/subscriptions", icon: LuCreditCard, label: "Subscriptions & Plans" },
+              { to: "/admin-subscriptions", icon: LuCreditCard, label: "Subscriptions & Plans" },
               { to: "/admin-activations", icon: LuCircleCheck, label: "Activation Center" },
               { to: "/admin-supports", icon: LuMessageCircleQuestion, label: "Support Center" },
               { to: "/logs", icon: LuHistory, label: "Activity Logs" },

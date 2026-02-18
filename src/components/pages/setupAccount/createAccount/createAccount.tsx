@@ -301,7 +301,7 @@ const submitChurchData = async (formData: FormData) => {
           <div className="bg-white p-8 rounded-lg max-w-md mx-4 shadow-xl text-center">
             <h3 className="text-2xl font-bold mb-4 text-gray-800">Congratulations!</h3>
             <p className="mb-4 text-gray-600">
-              You've successfully submitted your church information! 🎉
+              You are one final step to finish your church setup! 🎉
             </p>
             <p className="mb-6 text-gray-600">
               To fully complete the setup and manage your church, please create an administrative account using a valid email address.

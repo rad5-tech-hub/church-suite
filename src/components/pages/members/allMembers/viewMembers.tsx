@@ -451,8 +451,7 @@ const ViewMembers: React.FC = () => {
         });
         const errorMessage = error.response?.data?.message || "Failed to load members. Please try again later.";
         handleStateChange("error", errorMessage);
-        handleStateChange("loading", false);
-        showPageToast(errorMessage, "error");
+        handleStateChange("loading", false);        
         return {
           members: [],
           pagination: { hasNextPage: false, nextPage: null },
@@ -561,7 +560,6 @@ const ViewMembers: React.FC = () => {
         isDrawerOpen: false,
         isSearching: false,
       }));
-      showPageToast("Search completed successfully!", "success");
     } catch (error: any) {
       console.error("Error searching members:", {
         message: error.message,
@@ -1297,7 +1295,7 @@ const ViewMembers: React.FC = () => {
               </Button>
             </Box>
           </Grid>
-          <Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
+          {state.filteredMembers.length > 0 && ( <Grid size={{ xs: 12, lg: 7 }} sx={{ mt: { xs: 2, md: 0 } }}>
             <Box sx={{ mt: 2 }}>
               {isMobile ? (
                 <Box sx={{ display: "flex", width: "100%" }}>
@@ -1365,7 +1363,7 @@ const ViewMembers: React.FC = () => {
                 renderDesktopFilters()
               )}
             </Box>
-          </Grid>
+          </Grid>)}
         </Grid>
 
         {state.loading && state.filteredMembers.length === 0 && (

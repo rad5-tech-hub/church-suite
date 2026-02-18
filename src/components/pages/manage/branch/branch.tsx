@@ -205,7 +205,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ open, onClose, onSuccess }) =
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Branch Name *"
+                label="Branch Name"
                 id="name"
                 name="name"
                 value={formData.name}
