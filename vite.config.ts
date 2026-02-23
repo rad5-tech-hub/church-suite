@@ -43,7 +43,9 @@ export default defineConfig({
       type: "module"      },
     }),
   ],
-
+server:{
+  allowedHosts: ['.ngrok-free.app', '.ngrok-free.app:5173', 'localhost', 'localhost:5173',"unprinted-nondissipatedly-bell.ngrok-free.dev"],
+},
   // ✅ Vitest setup added here
   test: {
     environment: "jsdom",        // Simulates the browser

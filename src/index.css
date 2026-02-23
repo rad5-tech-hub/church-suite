@@ -1,42 +1,126 @@
 @import "tailwindcss";
 /* @import url('https://fonts.googleapis.com/css2?family=Overlock:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap'); */
 
-/* Dark MODE */
+/* ────────────────────────────────────────────────
+   DARK MODE
+──────────────────────────────────────────────── */
 :root[data-theme="dark"] {
   --color-primary: #0d1421;
   --color-text-primary: #f6f4fe;
-  --color-text-secondary: rgba(246, 244, 254, 0.7);   /* was rgba(255,255,255,0.7) */
+  --color-text-secondary: rgba(246, 244, 254, 0.7);
   --color-text-muted: rgba(246, 244, 254, 0.6);
   --color-surface: #1a1a2e;
   --color-surface-glass: rgba(255, 255, 255, 0.08);
   --color-border-glass: rgba(255, 255, 255, 0.1);
   --color-border-subtle: rgba(255, 255, 255, 0.05);
   --color-icon: #f6f4fe;
-  --color-accent: #7c3aed;          /* purple/violet accent – choose your brand color */
-  --color-accent-contrast: #ffffff;  /* white text on accent */
-}
-
-/* LIGHT MODE */
-:root[data-theme="light"] {
-  --color-primary: #ffffff;
-  --color-text-primary: #160f38;               /* your dark text */
-  --color-text-secondary: rgba(22, 15, 56, 0.78);
-  --color-text-muted: rgba(22, 15, 56, 0.60);
-  --color-surface: #f8f9fc;                    /* light surface / cards */
-  --color-surface-glass: rgba(22, 15, 56, 0.06);  /* subtle tint */
-  --color-border-glass: rgba(22, 15, 56, 0.12);
-  --color-border-subtle: rgba(22, 15, 56, 0.08);
-  --color-icon: #160f38;
-  --color-accent: #6d28d9;          /* slightly darker purple for light mode */
+  --color-accent: #7c3aed;
   --color-accent-contrast: #ffffff;
 }
 
-/* Smooth transition */
+/* ────────────────────────────────────────────────
+   LIGHT MODE
+──────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --color-primary: #ffffff;
+  --color-text-primary: #160f38;
+  --color-text-secondary: rgba(22, 15, 56, 0.78);
+  --color-text-muted: rgba(22, 15, 56, 0.60);
+  --color-surface: #f8f9fc;
+  --color-surface-glass: rgba(22, 15, 56, 0.06);
+  --color-border-glass: rgba(22, 15, 56, 0.12);
+  --color-border-subtle: rgba(22, 15, 56, 0.08);
+  --color-icon: #160f38;
+  --color-accent: #6d28d9;
+  --color-accent-contrast: #ffffff;
+}
+
+/* ────────────────────────────────────────────────
+   IMPROVED GLOBAL AUTOFILL STYLES – 2026 reliable
+   - Background matches surface (kills yellow/white/blue)
+   - Text color follows theme (light in dark mode, dark in light mode)
+──────────────────────────────────────────────── */
+
+/* Base autofill background override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  background-color: transparent !important;
+  background-image: none !important;
+  
+  /* Override browser's autofill background with huge inset shadow */
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset !important;
+          box-shadow: 0 0 0 1000px var(--color-surface) inset !important;
+  
+  /* Long transition delay helps override stick */
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+/* Theme-specific text color enforcement */
+:root[data-theme="dark"] input:-webkit-autofill,
+:root[data-theme="dark"] input:-webkit-autofill:hover,
+:root[data-theme="dark"] input:-webkit-autofill:focus,
+:root[data-theme="dark"] input:-webkit-autofill:active,
+:root[data-theme="dark"] textarea:-webkit-autofill,
+:root[data-theme="dark"] textarea:-webkit-autofill:hover,
+:root[data-theme="dark"] textarea:-webkit-autofill:focus,
+:root[data-theme="dark"] textarea:-webkit-autofill:active,
+:root[data-theme="dark"] select:-webkit-autofill,
+:root[data-theme="dark"] select:-webkit-autofill:hover,
+:root[data-theme="dark"] select:-webkit-autofill:focus,
+:root[data-theme="dark"] select:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-text-primary) !important; /* light text */
+          color: var(--color-text-primary) !important;
+}
+
+:root[data-theme="light"] input:-webkit-autofill,
+:root[data-theme="light"] input:-webkit-autofill:hover,
+:root[data-theme="light"] input:-webkit-autofill:focus,
+:root[data-theme="light"] input:-webkit-autofill:active,
+:root[data-theme="light"] textarea:-webkit-autofill,
+:root[data-theme="light"] textarea:-webkit-autofill:hover,
+:root[data-theme="light"] textarea:-webkit-autofill:focus,
+:root[data-theme="light"] textarea:-webkit-autofill:active,
+:root[data-theme="light"] select:-webkit-autofill,
+:root[data-theme="light"] select:-webkit-autofill:hover,
+:root[data-theme="light"] select:-webkit-autofill:focus,
+:root[data-theme="light"] select:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--color-text-primary) !important; /* dark text */
+          color: var(--color-text-primary) !important;
+}
+
+/* Extra insurance for Chrome's internal autofill pseudo (sometimes used) */
+input:-internal-autofill-selected,
+input:-internal-autofill-selected:hover,
+input:-internal-autofill-selected:focus,
+input:-internal-autofill-selected:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset !important;
+          box-shadow: 0 0 0 1000px var(--color-surface) inset !important;
+  -webkit-text-fill-color: var(--color-text-primary) !important;
+          color: var(--color-text-primary) !important;
+}
+
+/* ────────────────────────────────────────────────
+   General styles
+──────────────────────────────────────────────── */
+
+/* Smooth transition for theme changes */
 * {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+/* Hide time gutter in react-big-calendar (if you're using it) */
 .rbc-time-gutter {
   display: none !important;
 }
-

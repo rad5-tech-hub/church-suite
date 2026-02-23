@@ -10,10 +10,12 @@ const Login = React.lazy(() => import("./login/login"));
 const SetupChurch = React.lazy(() => import("./setupAccount/createChurch/setupstep1"));
 const ViewChurch = React.lazy(() => import("./churchSettings/viewChurch"));
 const SetupStep2 = React.lazy(() => import("./setupAccount/churchLogo/setupstep2"));
+const Pricing = React.lazy(() => import("./pricing/pricing"));
 const Dashboard = React.lazy(() => import("./dashboard/dashboard"));
 const AdminDashboard = React.lazy(() => import("../adminPages/dashboard/dashboard"));
 const AdminSupports = React.lazy(() => import("../adminPages/supports/supports"));
 const AdminActivation = React.lazy(() => import("../adminPages/activations/activation"));
+const Subscriptions = React.lazy(() => import("../adminPages/subscriptions/viewsubscriptions"));
 const AdminManagingChurches = React.lazy(() => import("../adminPages/manageChurches/manageChurches"));
 const ViewBranches = React.lazy(() => import("./manage/branch/viewBranches"));
 const ViewDepartment = React.lazy(() => import("./manage/department/viewDepartment"));
@@ -78,8 +80,9 @@ const AppRoutes: React.FC = () => {
     <Router>
       <Suspense fallback={<LoadingSpinner />}>
         <Routes>
-          {/* Public Routes */}
+          {/* Admin Routes */}
           <Route path="/" element={<Login />} />
+          <Route path="/pricing" element={<Pricing/>} />
           <Route path="/admin-login" element={<Login />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/setup-church" element={<SetupChurch />} />
@@ -89,6 +92,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/members" element={<MemberQrcodepage />} />        
           <Route path="/admin-dashboard" element={<PrivateRoute><AdminDashboard /> </PrivateRoute> } />
           <Route path="/admin-supports" element={<PrivateRoute> <AdminSupports /></PrivateRoute> } />
+          <Route path="/admin-subscriptions" element={<PrivateRoute> <Subscriptions /></PrivateRoute> } />
           <Route path="/admin-activations" element={<PrivateRoute> <AdminActivation /> </PrivateRoute> } />
           <Route path="/admin-manage/churches" element={<PrivateRoute> <AdminManagingChurches /> </PrivateRoute> } />
 

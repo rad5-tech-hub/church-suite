@@ -34,7 +34,6 @@ interface Member {
   ageFrom: number;
   ageTo: number;
   state: string;
-  LGA: string;
   nationality: string;
   maritalStatus: string;
   memberFor: number;

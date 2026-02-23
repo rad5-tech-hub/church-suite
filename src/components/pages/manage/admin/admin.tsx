@@ -674,7 +674,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Admin Phone No *"
+                label="Admin Phone No "
                 id="phone"
                 name="phone"
                 type="tel"
@@ -722,7 +722,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
                   name="scopeLevel"
                   value={formData.scopeLevel}
                   onChange={handleScopeLevelChange}
-                  label="Scope Level *"
+                  label="Admin Level *"
                   disabled={loading}
                   sx={{
                     color: "var(--color-text-primary)",
@@ -1064,12 +1064,13 @@ const AdminModal: React.FC<AdminModalProps> = ({ open, onClose }) => {
             <Grid size={{ xs: 12, md: 6 }} >
               <FormControl fullWidth error={!!roleError}>
                 <InputLabel id="role-select-label" sx={{ color: "var(--color-text-primary)" }}>
-                  Select Role(s)
+                  Select Roles
                 </InputLabel>
 
                 <Select
                   labelId="role-select-label"
                   multiple
+                  label="Select Roles"
                   value={formData.roleIds}
                   onOpen={() => formData.scopeLevel ? fetchRoles() : null}
                   onChange={handleRoleChange}

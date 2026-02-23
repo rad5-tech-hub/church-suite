@@ -550,7 +550,7 @@ const ViewBranches: React.FC = () => {
           </Grid>
 
           {/* ==================== FILTER BAR ==================== */}
-          <Grid
+          {state.filteredBranches.length > 0 && (<Grid
             size={{ xs: 12, lg: 7 }}
             sx={{
               display: "flex",  
@@ -719,7 +719,7 @@ const ViewBranches: React.FC = () => {
                   </Button>
                 </Box>
             </Box>
-          </Grid>
+          </Grid>)}
         </Grid>
 
         {/* ==================== MOBILE DRAWER ==================== */}

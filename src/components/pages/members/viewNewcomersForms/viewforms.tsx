@@ -108,7 +108,6 @@ const ViewForms: React.FC = () => {
         console.error("Failed to fetch forms:", error);
         handleStateChange("error", "Failed to load forms. Please try again later.");
         handleStateChange("loading", false);
-        showPageToast("Failed to load forms", "error");
         throw error;
       }
     },

@@ -732,7 +732,7 @@ const ViewDepartment: React.FC = () => {
               Create Department +
             </Button>}    
           </Grid>
-          <Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
+          {state.filteredDepartments.length > 0 && (<Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
             {/* Desktop View */}
             <Box
               sx={{
@@ -948,7 +948,7 @@ const ViewDepartment: React.FC = () => {
                 </Button>
               </Box>
             </Box>        
-          </Grid>
+          </Grid>)}
         </Grid>
 
         <Drawer

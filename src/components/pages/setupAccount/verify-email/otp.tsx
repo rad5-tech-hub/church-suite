@@ -22,6 +22,12 @@ interface VerificationRequest {
   otp: string;
 }
 
+type SelectedPlan = {
+  planId?: string;
+  billingCycle?: "monthly" | "annual";
+  branchCount?: number;
+};
+
 interface AuthPayload {
   backgroundImg: string;
   branchId: string;
@@ -44,6 +50,7 @@ interface AuthPayload {
 
 const EmailVerification: React.FC = () => {
   usePageToast("email-verification");
+  const [scriptLoaded, setScriptLoaded] = useState(false);  
   // const theme = useTheme();
   // const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
@@ -52,8 +59,170 @@ const EmailVerification: React.FC = () => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [paymentInProgress, setPaymentInProgress] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+
+  const subscribeToPlan = async (token: string): Promise<void> => {
+    const storedPlan = localStorage.getItem("selectedPlan");
+    if (!storedPlan) {navigate("/pricing"); return;};
+
+    const parsed: SelectedPlan = JSON.parse(storedPlan);
+    if (!parsed.planId) return;
+
+    const payload: Record<string, any> = {
+      planId: parsed.planId,
+    };
+
+    if (parsed.billingCycle) {
+      payload.billingCycle = parsed.billingCycle;
+    }
+
+    if (typeof parsed.branchCount === "number") {
+      payload.branchCount = parsed.branchCount;
+    }
+
+    const url = `${import.meta.env.VITE_API_BASE_URL}/plan/subscribe`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || "Plan subscription failed");
+    }
+
+    /**
+     * ✅ PAYMENT HANDLING - FIXED
+     */
+    const paymentData = data?.paymentUrl?.payment;
+    const customerData = data?.paymentUrl?.customer;
+    const metaData = data?.paymentUrl?.meta;
+
+    console.log("Payment data received:", { paymentData, customerData, metaData }); // Debug log
+
+    // ✅ Fixed: Check if payment data exists and amount is greater than 0
+    if (paymentData && paymentData.amount && Number(paymentData.amount) > 0) {
+      console.log("Opening Flutterwave checkout..."); // Debug log
+      
+      const paymentSuccessful = await openFlutterwave({
+        public_key: data?.paymentUrl?.public_key || "FLWPUBK_TEST-03a84b4942d4732853fa6e1ccef980d3-X",
+        tx_ref: paymentData.tx_ref,
+        amount: Number(paymentData.amount),
+        currency: paymentData.currency || "NGN",
+        customer: customerData,
+        meta: metaData,
+      });
+
+      if (!paymentSuccessful) {
+        throw new Error("Payment was cancelled or failed");
+      }
+      
+      console.log("Payment completed successfully"); // Debug log
+    } else {
+      console.log("No payment required or invalid payment data"); // Debug log
+    }
+
+    // ✅ Cleanup after success
+    localStorage.removeItem("selectedPlan");
+  };
+
+  const openFlutterwave = (data: {
+  public_key: string;
+  tx_ref: string;
+  amount: number;
+  currency?: string;
+  customer: {
+    email: string;
+    name?: string;
+    phone_number?: string;
+  };
+  meta?: Record<string, any>;
+}): Promise<boolean> => {
+  if (!scriptLoaded) {
+    console.error("Flutterwave script not loaded"); // Debug log
+    showPageToast("Payment service not ready", "error");
+    return Promise.resolve(false);
+  }
+
+  console.log("Opening Flutterwave modal with data:", data); // Debug log
+  setPaymentInProgress(true);
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    try {
+      const modal = window.FlutterwaveCheckout({
+        public_key: data.public_key,
+        tx_ref: data.tx_ref,
+        amount: data.amount,
+        currency: data.currency || "NGN",
+        payment_options: "card,banktransfer,ussd,mobilemoney",
+        customer: data.customer,
+        meta: data.meta,
+        customizations: {
+          title: "Churchset Subscription",
+          description: "Complete your plan subscription",
+        },
+
+        callback: (response: any) => {
+          console.log("Payment callback received:", response); // Debug log
+          if (settled) return;
+          settled = true;
+          setPaymentInProgress(false);
+          modal.close();
+          resolve(response.status === "successful");
+        },
+
+        onclose: () => {
+          console.log("Payment modal closed"); // Debug log
+          if (settled) return;
+          settled = true;
+          setPaymentInProgress(false);
+          resolve(false);
+        },
+      });
+      
+      console.log("Flutterwave modal created successfully"); // Debug log
+    } catch (err) {
+      console.error("Error creating Flutterwave modal:", err); // Debug log
+      if (!settled) {
+        settled = true;
+        setPaymentInProgress(false);
+        resolve(false);
+      }
+    }
+  });
+};
+
+  /* ---------- LOAD FLUTTERWAVE SCRIPT ---------- */
+  useEffect(() => {
+    if (window.FlutterwaveCheckout) {
+      setScriptLoaded(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.async = true;
+    script.onload = () => setScriptLoaded(true);
+    script.onerror = () =>
+      showPageToast("Failed to load payment service", "error");
+    document.body.appendChild(script);
+
+    return () => {
+      const el = document.querySelector(
+        'script[src="https://checkout.flutterwave.com/v3.js"]'
+      );
+      el?.parentNode?.removeChild(el);
+    };
+  }, []);
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem('email');
@@ -122,16 +291,26 @@ const EmailVerification: React.FC = () => {
         department: decodedToken.department || "",
       };
 
-      // ✅ Step 6: Update app state and navigate
+      // ✅ Step 6: Update app state
       dispatch(setAuthData(authPayload));
       await new Promise((resolve) => setTimeout(resolve, 100));
       sessionStorage.clear();
+      
+      // ✅ Step 7: Handle plan subscription and payment
+      try {
+        await subscribeToPlan(responseData.accessToken);
+        showPageToast("Email verified successfully!", "success");
+        await persistor.flush();
+        navigate("/dashboard");
+      } catch (planError: any) {
+        console.error("Plan subscription error:", planError); // Debug log
+        showPageToast(planError.message, "error");
+        // Still navigate even if payment fails
+      }
 
-      showPageToast("Email verified successfully!", "success");
-      await persistor.flush();
-      navigate("/dashboard");
     } catch (error: any) {
-      // ✅ Step 7: Handle any unexpected errors
+      // ✅ Step 8: Handle any unexpected errors
+      console.error("Verification error:", error); // Debug log
       showPageToast(error.message || "An unexpected error occurred.", "error");
     }
   };
@@ -261,7 +440,7 @@ const EmailVerification: React.FC = () => {
           variant="contained"
           fullWidth
           onClick={handleVerify}
-          disabled={!allFilled || loading}
+          disabled={!allFilled || loading || paymentInProgress}
           sx={{
             py: 1.5,
             borderRadius: '25px',
@@ -272,11 +451,11 @@ const EmailVerification: React.FC = () => {
             }
           }}
         >
-          {loading ? 'Verifying...' : 'Verify email'}
+          {loading ? 'Verifying...' : paymentInProgress ? 'Processing payment...' : 'Verify email'}
         </Button>
 
         <Typography variant="body2" sx={{ mt: 2 }}>
-          Didn’t receive the email?{' '}
+          Didn't receive the email?{' '}
           <Button
             variant="text"
             onClick={handleResend}

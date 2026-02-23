@@ -182,7 +182,7 @@ const EmptyState: React.FC<{
       justifyContent: "center",
     }}
   >
-    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted", mb: 2 }} />
+    <EmptyIcon sx={{ fontSize: 60, color: "var(--color-text-muted)", mb: 2 }} />
     <Typography
       variant="h6"
       color="var(--color-text-muted)"
@@ -839,7 +839,7 @@ const ViewUnit: React.FC = () => {
               Create Unit +
             </Button>
           </Grid>
-          <Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
+          {state.units.length > 0 && (<Grid size={{ xs: 12, lg: 8 }} sx={{ display: "flex", alignItems: "center", mt: { xs: 2, lg: 0 }, }}>
 
             {/* Desktop View */}
             <Box
@@ -1067,7 +1067,7 @@ const ViewUnit: React.FC = () => {
                 </Button>
               </Box>
             </Box>
-          </Grid>
+          </Grid>)}
         </Grid>
 
         <Drawer

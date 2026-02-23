@@ -52,7 +52,6 @@ interface FormData {
   birthDay: string;
   state: string;
   nationalityCode: string;
-  LGA: string;
   nationality: string;
   departmentIds: string[];
   unitIds: string[];
@@ -145,7 +144,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
     birthMonth: "",
     birthDay: "",
     state: "",
-    LGA: "",
     nationalityCode: "",  
     nationality: "",
     departmentIds: [],
@@ -202,7 +200,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
       }
     } catch (error: any) {
       setBranchesError('Failed to load branches. Please try again.');
-      showPageToast('Failed to load branches. Please try again.', 'error');
     } finally {
       setIsFetchingBranches(false);
     }
@@ -448,8 +445,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
         ageTo: null,
         birthMonth: "",
         birthDay: "",
-        state: "",
-        LGA: "",
+        state: "",      
         nationality: "",
         nationalityCode: "", 
         departmentIds: [],
@@ -884,7 +880,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
               nationality: newValue?.name || "",
               nationalityCode: newValue?.iso2 || "",  // ← Store ISO2 code here
               state: "",        // ← Reset state when country changes
-              LGA: ""           // ← Optional: reset LGA too
             }));
           }}
           isOptionEqualToValue={(option, value) => option.name === value?.name}
@@ -998,33 +993,6 @@ const MemberModal: React.FC<MemberModalProps> = ({ open, onClose, onSuccess }) =
           sx={{ '& .MuiAutocomplete-inputRoot': { paddingLeft: '6px' },
             '& .MuiAutocomplete-popupIndicator': { color: 'var(--color-text-primary)' },
             '& .MuiSvgIcon-root': { color: 'var(--color-text-primary)' },
-          }}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <TextField
-          fullWidth
-          label="LGA *"
-          name="LGA"
-          value={formData.LGA}
-          onChange={handleChange}
-          variant="outlined"
-          placeholder="Enter local government area"
-          disabled={isLoading}
-          InputProps={{
-            startAdornment: <InputAdornment position="start"><BsGeoAlt style={{ color: 'var(--color-text-primary)' }} /></InputAdornment>,
-            sx: {
-              color: "var(--color-text-primary)",
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#777280" },
-              fontSize: isLargeScreen ? "1rem" : undefined,
-            },
-          }}
-          InputLabelProps={{
-            sx: {
-              fontSize: isLargeScreen ? "1rem" : undefined,
-              color: "var(--color-text-primary)",
-              "&.Mui-focused": { color: "var(--color-text-primary)" },
-            },
           }}
         />
       </Grid>
