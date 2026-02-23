@@ -381,7 +381,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Amount *"
+                label="Amount "
                 id="amount"
                 name="amount"
                 value={formData.amount.toLocaleString()}
@@ -411,7 +411,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Description *"
+                label="Description "
                 id="description"
                 name="description"
                 value={formData.description}
@@ -481,7 +481,7 @@ const CreateAccountDialog: React.FC<AdminModalProps> = ({ open, onClose, onSucce
                 </InputLabel>
 
                 <Select
-                  label="Level"
+                  label="Transaction For"
                   id="scopeLevel"
                   name="scopeLevel"
                   value={formData.scopeLevel}
