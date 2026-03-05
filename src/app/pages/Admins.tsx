@@ -193,7 +193,9 @@ export function Admins() {
     const q = searchTerm.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || (a.phone && a.phone.includes(q));
   });
-  const rolesForLevel = roles.filter((r) => r.level === formLevel);
+  const rolesForLevel = roles.filter((r) =>
+    r.level === formLevel || (formLevel === 'unit' && r.level === 'department')
+  );
   const departmentsForSelection = formBranchIds.length > 0
     ? departments.filter((d) => d.branchId && formBranchIds.includes(d.branchId))
     : departments;

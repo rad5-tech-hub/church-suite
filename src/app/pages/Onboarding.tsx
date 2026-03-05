@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp';
 import { useChurch } from '../context/ChurchContext';
 import { useAuth } from '../context/AuthContext';
-import { createChurch, loginApi, verifyAdmin, resendVerificationEmail } from '../api';
+import { createChurch, verifyAdmin, resendVerificationEmail } from '../api';
 
 type OnboardingStep = 'welcome' | 'church-type' | 'church-details' | 'admin-account' | 'verify-otp' | 'complete';
 
@@ -61,7 +61,7 @@ function extractApiError(err: any, fallback: string): string {
 export function Onboarding() {
   const navigate = useNavigate();
   const { completeOnboarding, loadChurchFromServer } = useChurch();
-  const { setCurrentAdmin } = useAuth();
+  const { signIn } = useAuth();
   const [step, setStep] = useState<OnboardingStep>('welcome');
   const [churchType, setChurchType] = useState<'single' | 'multi'>('single');
   const [churchName, setChurchName] = useState('');
@@ -118,11 +118,12 @@ export function Onboarding() {
 
     try {
       // 1. Create church + admin via the real API (backend sends OTP email)
+      const isHQ = churchType === 'multi';
       await createChurch({
         churchName: churchName || 'My Church',
         address: churchAddress,
         phone: churchPhone,
-        isHeadQuarter: true,
+        isHeadQuarter: isHQ,
         name: trimmedName,
         adminEmail: trimmedEmail,
         adminPassword: trimmedPassword,
@@ -148,10 +149,16 @@ export function Onboarding() {
       // 1. Verify the OTP (confirms email with the backend)
       await verifyAdmin({ email: trimmedEmail, otp: otp.trim().toUpperCase() });
 
-      // 2. Sign in to get full session with tenant info
-      const loginResponse = await loginApi({ email: trimmedEmail, password: adminPassword });
+      // 2. Sign in via AuthContext — this sets the access token, writes churchset_is_hq
+      //    to sessionStorage, and sets currentAdmin all in one place.
+      const { error: signInError } = await signIn(trimmedEmail, adminPassword);
+      if (signInError) {
+        setError(signInError);
+        return;
+      }
 
       // 3. Hydrate church context from server (real branchId, churchId, etc.)
+      //    isHeadQuarter is now correctly available via sessionStorage set above
       try { await loadChurchFromServer(); } catch { /* non-fatal */ }
 
       // 4. Complete onboarding in local context
@@ -163,18 +170,7 @@ export function Onboarding() {
         adminEmail: trimmedEmail,
       });
 
-      // 5. Set current admin in AuthContext
-      setCurrentAdmin({
-        id: loginResponse.user?.id ?? '',
-        churchId: loginResponse.tenant?.id ?? '',
-        name: trimmedName,
-        email: trimmedEmail,
-        isSuperAdmin: true,
-        roleId: '',
-        level: 'church',
-        status: 'active',
-        createdAt: new Date(),
-      });
+      // currentAdmin is already set by signIn() above
 
       setStep('complete');
     } catch (err: any) {

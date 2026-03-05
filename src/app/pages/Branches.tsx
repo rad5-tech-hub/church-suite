@@ -43,8 +43,7 @@ import { fetchDepartments, fetchMembers, createBranch, editBranch, deleteBranchA
 type DialogMode = 'create' | 'edit' | 'view' | null;
 
 export function Branches() {
-  const { church, branches, addBranch, updateBranch, deleteBranch } = useChurch();
-  const { isHeadQuarter } = useAuth();
+  const { church, branches, addBranch, updateBranch, deleteBranch, isHeadQuarter } = useChurch();
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);

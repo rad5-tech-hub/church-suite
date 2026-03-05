@@ -3,6 +3,7 @@ import { Church, Branch } from '../types';
 import { fetchChurchConfig, fetchBranches } from '../api';
 import { useAuth } from './AuthContext';
 
+
 // Default church used before onboarding
 const defaultMockChurch: Church = {
   id: 'church-default',
@@ -14,6 +15,8 @@ const defaultMockChurch: Church = {
 interface ChurchContextType {
   church: Church;
   branches: Branch[];
+  /** True when this church has multi-branch subscription — derived from church.type from the API */
+  isHeadQuarter: boolean;
   setChurchType: (type: 'single' | 'multi') => void;
   setChurchName: (name: string) => void;
   updateChurch: (updates: Partial<Omit<Church, 'id' | 'createdAt'>>) => void;
@@ -131,10 +134,13 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
       const config = await fetchChurchConfig();
 
       if (config && config.id) {
+        // Use isHeadQuarter directly from the API response — single source of truth
+        const hq = Boolean(config.isHeadQuarter);
+        const derivedType: 'single' | 'multi' = hq ? 'multi' : 'single';
         const loadedChurch: Church = {
           id: config.id,
           name: config.name ?? config.churchName ?? '',
-          type: config.type ?? 'single',
+          type: derivedType,
           currency: config.currency,
           reportingMode: config.reportingMode,
           logoUrl: config.logoUrl ?? config.logo,
@@ -295,11 +301,15 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
     return churchId;
   };
 
+  // Derived from church.type which comes from the API — always in sync
+  const isHeadQuarter = church.type === 'multi';
+
   return (
     <ChurchContext.Provider
       value={{
         church,
         branches,
+        isHeadQuarter,
         setChurchType,
         setChurchName,
         updateChurch,

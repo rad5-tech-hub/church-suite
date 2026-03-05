@@ -7,7 +7,7 @@ interface AuthContextType {
   currentAdmin: Admin | null;
   accessToken: string | null;
   isLoading: boolean;
-  /** True when the church signed up with the multi-branch option (isHeadQuarter from JWT) */
+  /** True when the church signed up with the multi-branch option (derived from JWT) */
   isHeadQuarter: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string }>;
   signOut: () => Promise<void>;
@@ -63,13 +63,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Access token lives in memory only (set by apiClient); state mirrors it for reactivity
   const [accessToken, setAccessTokenState] = useState<string | null>(() => getAccessToken());
   const [isLoading, setIsLoading] = useState(true);
-  const [isHeadQuarter, setIsHeadQuarter] = useState<boolean>(() => {
+
+  // Derive isHeadQuarter: JWT claims are authoritative (server-signed, tamper-proof).
+  // Fall back to sessionStorage cache written at login if the JWT doesn't carry the claim.
+  const isHeadQuarter = (() => {
+    const token = accessToken || getAccessToken();
+    if (token) {
+      const claims = decodeJwtClaims(token);
+      if (claims.isHeadQuarter != null) return Boolean(claims.isHeadQuarter);
+    }
+    // Fallback: value stored from login response body
     try {
-      const stored = sessionStorage.getItem(TENANT_META_HQ_KEY);
-      // Default true so existing sessions without the flag still work
-      return stored === null ? true : stored === 'true';
-    } catch { return true; }
-  });
+      return sessionStorage.getItem(TENANT_META_HQ_KEY) === 'true';
+    } catch { return false; }
+  })();
 
   // Persist current admin to sessionStorage (cleared when browser tab closes)
   const persistAdmin = (admin: Admin | null) => {
@@ -90,7 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             await refreshAccessToken();
             token = getAccessToken();
-            if (token) setAccessTokenState(token);
+            if (token) {
+              setAccessTokenState(token);
+            }
           } catch {
             // No valid refresh token — clear stale session and force login
             setAccessToken(null);
@@ -142,22 +151,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let userIsSuperAdmin = response.user?.isSuperAdmin ?? false;
       let tenantId = response.tenant?.id ?? '';
       let tenantName = response.tenant?.name ?? '';
-      let tenantIsHq = response.tenant?.isHeadQuarter ?? true;
+
+      // Always decode JWT — it is the authoritative source for isHeadQuarter
+      const claims = decodeJwtClaims(response.accessToken);
+      const adminBranchId = claims.branchId || undefined;
+
+      // JWT claims take priority; fall back to response body.
+      // null means "unknown" — we won't overwrite an existing sessionStorage value in that case.
+      const tenantIsHq: boolean | null =
+        claims.isHeadQuarter != null
+          ? Boolean(claims.isHeadQuarter)
+          : response.tenant?.isHeadQuarter != null
+            ? Boolean(response.tenant.isHeadQuarter)
+            : null;
 
       if (!userId && response.accessToken) {
-        const claims = decodeJwtClaims(response.accessToken);
         userId = claims.id ?? '';
         userName = claims.name ?? email;
         userEmail = claims.email ?? email;
         userIsSuperAdmin = claims.isSuperAdmin ?? false;
         tenantId = claims.tenantId ?? '';
         tenantName = claims.church_name ?? '';
-        tenantIsHq = claims.isHeadQuarter ?? true;
       }
-
-      // Also extract branchId from JWT claims (always available there)
-      const claims = decodeJwtClaims(response.accessToken);
-      const adminBranchId = claims.branchId || undefined;
 
       // Build admin from login response
       const admin: Admin = {
@@ -179,15 +194,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTenantId(tenantId);
       }
 
-      // Store tenant info in sessionStorage (non-sensitive metadata, tab-scoped)
-      if (tenantId || tenantName) {
-        try {
-          sessionStorage.setItem(TENANT_META_NAME_KEY, tenantName);
+      // Store tenant info in sessionStorage.
+      // Only write the HQ flag if we actually know the value — otherwise preserve
+      // any existing value (e.g. set during onboarding before the 403 login response).
+      try {
+        if (tenantName) sessionStorage.setItem(TENANT_META_NAME_KEY, tenantName);
+        if (tenantIsHq !== null) {
           sessionStorage.setItem(TENANT_META_HQ_KEY, String(tenantIsHq));
-        } catch { /* ignore */ }
-      }
-
-      setIsHeadQuarter(tenantIsHq);
+        }
+      } catch { /* ignore */ }
 
       setCurrentAdminState(admin);
       persistAdmin(admin);
@@ -210,7 +225,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);          // clear from sessionStorage + memory
     setAccessTokenState(null);
     setCurrentAdminState(null);
-    setIsHeadQuarter(true);
     persistAdmin(null);
     try {
       sessionStorage.removeItem(TENANT_META_NAME_KEY);

@@ -50,7 +50,7 @@ interface MenuItem {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { church } = useChurch();
+  const { church, isHeadQuarter } = useChurch();
   const { currentAdmin, accessToken, isLoading, signOut } = useAuth();
   const { brandColors } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -84,7 +84,7 @@ export function Layout({ children }: LayoutProps) {
 
     // Church level menu items
     if (admin.level === 'church') {
-      if (church.type === 'multi') {
+      if (isHeadQuarter) {
         items.push({
           id: 'branches',
           label: 'Branches',
@@ -490,7 +490,7 @@ export function Layout({ children }: LayoutProps) {
             </div>
 
             {/* Upgrade CTA for Single Church */}
-            {church.type === 'single' && admin.level === 'church' && (
+            {!isHeadQuarter && admin.level === 'church' && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <Link to="/subscription" onClick={() => setIsSidebarOpen(false)}>
                   <div className="p-3 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg text-white hover:shadow-lg transition-shadow cursor-pointer">
