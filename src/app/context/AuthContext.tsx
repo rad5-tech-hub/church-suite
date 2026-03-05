@@ -7,6 +7,8 @@ interface AuthContextType {
   currentAdmin: Admin | null;
   accessToken: string | null;
   isLoading: boolean;
+  /** True when the church signed up with the multi-branch option (isHeadQuarter from JWT) */
+  isHeadQuarter: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string }>;
   signOut: () => Promise<void>;
   /** Called after onboarding to set the current admin without going through login page */
@@ -61,6 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Access token lives in memory only (set by apiClient); state mirrors it for reactivity
   const [accessToken, setAccessTokenState] = useState<string | null>(() => getAccessToken());
   const [isLoading, setIsLoading] = useState(true);
+  const [isHeadQuarter, setIsHeadQuarter] = useState<boolean>(() => {
+    try {
+      const stored = sessionStorage.getItem(TENANT_META_HQ_KEY);
+      // Default true so existing sessions without the flag still work
+      return stored === null ? true : stored === 'true';
+    } catch { return true; }
+  });
 
   // Persist current admin to sessionStorage (cleared when browser tab closes)
   const persistAdmin = (admin: Admin | null) => {
@@ -178,6 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch { /* ignore */ }
       }
 
+      setIsHeadQuarter(tenantIsHq);
+
       setCurrentAdminState(admin);
       persistAdmin(admin);
 
@@ -199,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);          // clear from sessionStorage + memory
     setAccessTokenState(null);
     setCurrentAdminState(null);
+    setIsHeadQuarter(true);
     persistAdmin(null);
     try {
       sessionStorage.removeItem(TENANT_META_NAME_KEY);
@@ -233,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentAdmin,
         accessToken,
         isLoading,
+        isHeadQuarter,
         signIn,
         signOut,
         setCurrentAdmin,

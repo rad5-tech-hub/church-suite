@@ -31,9 +31,11 @@ import {
   MoreVertical,
   MapPin,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { useChurch } from '../context/ChurchContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Branch, Department, Member } from '../types';
 import { fetchDepartments, fetchMembers, createBranch, editBranch, deleteBranchApi } from '../api';
@@ -41,8 +43,8 @@ import { fetchDepartments, fetchMembers, createBranch, editBranch, deleteBranchA
 type DialogMode = 'create' | 'edit' | 'view' | null;
 
 export function Branches() {
-  const navigate = useNavigate();
   const { church, branches, addBranch, updateBranch, deleteBranch } = useChurch();
+  const { isHeadQuarter } = useAuth();
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -56,13 +58,6 @@ export function Branches() {
   const [allMembers, setAllMembers] = useState<Member[]>([]);
 
 
-
-  // Redirect single church users to subscription page
-  useEffect(() => {
-    if (church.type === 'single') {
-      navigate('/subscription');
-    }
-  }, [church.type, navigate]);
 
   // Load API data
   useEffect(() => {
@@ -160,8 +155,36 @@ export function Branches() {
   const getMembersForBranch = (branchId: string) =>
     allMembers.filter((m) => m.branchId === branchId);
 
-  // Don't render anything for single church (redirect will happen)
-  if (church.type === 'single') return null;
+  // If the church did not enable multi-branch, show a locked state
+  if (!isHeadQuarter) {
+    return (
+      <Layout>
+        <PageHeader
+          title="Church Branches"
+          description="Manage all your church locations."
+        />
+        <div className="p-4 md:p-6">
+          <Card className="max-w-lg mx-auto mt-8">
+            <CardContent className="p-8 flex flex-col items-center text-center gap-4">
+              <div className="p-4 bg-gray-100 rounded-full">
+                <Lock className="w-8 h-8 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Multi-Branch Not Enabled</h3>
+                <p className="text-sm text-gray-500">
+                  Your current plan does not include multi-branch support.
+                  To create and manage multiple church locations, please upgrade to a plan that includes multi-branch.
+                </p>
+              </div>
+              <Button asChild className="mt-2">
+                <Link to="/subscription">View Subscription Plans</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
