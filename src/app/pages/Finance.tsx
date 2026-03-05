@@ -1,0 +1,1672 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router';
+import { Layout } from '../components/Layout';
+import { PageHeader } from '../components/PageHeader';
+import { BibleLoader } from '../components/BibleLoader';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Progress } from '../components/ui/progress';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Textarea } from '../components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  DollarSign,
+  Plus,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  BookOpen,
+  Tag,
+  Target,
+  Loader2,
+  Trash2,
+  Users,
+  Building2,
+  Layers,
+  Box,
+  CalendarDays,
+  AlertCircle,
+  CheckCircle,
+  Edit,
+  Eye,
+} from 'lucide-react';
+import { useChurch } from '../context/ChurchContext';
+import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import {
+  CollectionType,
+  LedgerEntry,
+  StandaloneCollection,
+  StandaloneCollectionEntry,
+  Collection,
+  Department,
+  Unit,
+  Program,
+} from '../types';
+import {
+  fetchCollectionTypes,
+  fetchLedgerEntries,
+  fetchStandaloneCollections,
+  fetchCollections,
+  fetchDepartments,
+  fetchUnits,
+  fetchPrograms,
+  updateAccount,
+  createCollection,
+} from '../api';
+
+type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
+
+function RequiredStar() {
+  return <span className="text-red-500 ml-0.5">*</span>;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CURRENCIES
+// ═══════════════════════════════════════════════════════════════
+const CURRENCIES: { code: string; symbol: string; name: string }[] = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+  { code: 'GHS', symbol: '₵', name: 'Ghanaian Cedi' },
+  { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
+  { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+  { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
+  { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
+  { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' },
+  { code: 'XAF', symbol: 'FCFA', name: 'Central African CFA Franc' },
+  { code: 'TZS', symbol: 'TSh', name: 'Tanzanian Shilling' },
+  { code: 'UGX', symbol: 'USh', name: 'Ugandan Shilling' },
+  { code: 'RWF', symbol: 'RF', name: 'Rwandan Franc' },
+];
+
+export { CURRENCIES };
+
+function getCurrencySymbol(code?: string): string {
+  return CURRENCIES.find(c => c.code === code)?.symbol || '$';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════
+export function Finance() {
+  const { church, branches } = useChurch();
+  const { currentAdmin } = useAuth();
+  const { brandColors } = useTheme();
+  const isMultiBranch = church.type === 'multi' && branches.length > 0;
+  const isSuperAdmin = currentAdmin?.isSuperAdmin ?? false;
+  const adminLevel = currentAdmin?.level || 'church';
+  const currSymbol = getCurrencySymbol(church.currency);
+
+  // Data
+  const [collectionTypes, setCollectionTypes] = useState<CollectionType[]>([]);
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
+  const [standaloneColls, setStandaloneColls] = useState<StandaloneCollection[]>([]);
+  const [programColls, setProgramColls] = useState<Collection[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Filters — sync tab with URL query param so sidebar links work
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as FinanceTab | null;
+  const [activeTabState, setActiveTabState] = useState<FinanceTab>(
+    tabFromUrl && ['ledger', 'collections', 'fundraisers'].includes(tabFromUrl) ? tabFromUrl : 'ledger'
+  );
+  const activeTab = activeTabState;
+  const setActiveTab = (tab: FinanceTab) => {
+    setActiveTabState(tab);
+    setSearchParams({ tab }, { replace: true });
+  };
+  // Sync from URL changes (e.g., sidebar nav clicks)
+  useEffect(() => {
+    const t = searchParams.get('tab') as FinanceTab | null;
+    if (t && ['ledger', 'collections', 'fundraisers'].includes(t) && t !== activeTabState) {
+      setActiveTabState(t);
+    }
+  }, [searchParams]);
+
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'branch' | 'department' | 'unit'>('all');
+  const [scopeFilterId, setScopeFilterId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [programFilter, setProgramFilter] = useState('');
+
+  // ─── Ledger Dialog ─────────────────────────────
+  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [ledgerType, setLedgerType] = useState<'income' | 'expense'>('income');
+  const [ledgerAmount, setLedgerAmount] = useState('');
+  const [ledgerDesc, setLedgerDesc] = useState('');
+  const [ledgerDate, setLedgerDate] = useState(new Date().toISOString().split('T')[0]);
+  const [ledgerBranchId, setLedgerBranchId] = useState('');
+  const [ledgerDeptId, setLedgerDeptId] = useState('');
+  const [ledgerUnitId, setLedgerUnitId] = useState('');
+  const [ledgerProgramId, setLedgerProgramId] = useState('');
+  const [ledgerErrors, setLedgerErrors] = useState<Record<string, string>>({});
+  const ledgerFormRef = useRef<HTMLDivElement>(null);
+
+  // ─── Collection Type Dialog ────────────────────
+  const [ctOpen, setCtOpen] = useState(false);
+  const [ctName, setCtName] = useState('');
+  const [ctScope, setCtScope] = useState<'church' | 'branch' | 'department' | 'unit'>('church');
+  const [ctScopeId, setCtScopeId] = useState('');
+  const [ctErrors, setCtErrors] = useState<Record<string, string>>({});
+  const ctFormRef = useRef<HTMLDivElement>(null);
+
+  // ─── Fundraiser Dialog ─────────────────────────
+  const [fundOpen, setFundOpen] = useState(false);
+  const [fundName, setFundName] = useState('');
+  const [fundDesc, setFundDesc] = useState('');
+  const [fundTarget, setFundTarget] = useState('');
+  const [fundDueDate, setFundDueDate] = useState('');
+  const [fundScope, setFundScope] = useState<'church' | 'branch' | 'department' | 'unit'>('church');
+  const [fundScopeId, setFundScopeId] = useState('');
+  const [fundErrors, setFundErrors] = useState<Record<string, string>>({});
+  const fundFormRef = useRef<HTMLDivElement>(null);
+
+  // ─── Donation Dialog ───────────────────────────
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [donateFundId, setDonateFundId] = useState('');
+  const [donateName, setDonateName] = useState('');
+  const [donateAmount, setDonateAmount] = useState('');
+  const [donateDate, setDonateDate] = useState(new Date().toISOString().split('T')[0]);
+  const [donateErrors, setDonateErrors] = useState<Record<string, string>>({});
+  const donateFormRef = useRef<HTMLDivElement>(null);
+
+  // ─── View Fundraiser Dialog ────────────────────
+  const [viewFundId, setViewFundId] = useState<string | null>(null);
+
+  // ─── Delete dialogs ────────────────────────────
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'ledger' | 'ct' | 'fund'; id: string; name: string } | null>(null);
+
+  // ═══════════════ LOAD DATA ═══════════════
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [cts, les, scs, pcs, deps, uns, progs] = await Promise.all([
+        fetchCollectionTypes(),
+        fetchLedgerEntries(),
+        fetchStandaloneCollections(),
+        fetchCollections(),
+        fetchDepartments(),
+        fetchUnits(),
+        fetchPrograms(branches[0]?.id),
+      ]);
+      setCollectionTypes(cts as CollectionType[]);
+      setLedgerEntries(les as LedgerEntry[]);
+      setStandaloneColls(scs as StandaloneCollection[]);
+      setProgramColls(pcs as Collection[]);
+      setDepartments((deps as Department[]));
+      setUnits((uns as Unit[]));
+      setPrograms(progs as Program[]);
+    } catch (err) {
+      console.error('Failed to load finance data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [church.id, branches]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const { showToast } = useToast();
+
+  // ═══════════════ SCOPE HELPERS ═══════════════
+  const getDeptName = (id?: string) => departments.find(d => d.id === id)?.name || '';
+  const getUnitName = (id?: string) => units.find(u => u.id === id)?.name || '';
+  const getBranchName = (id?: string) => {
+    if (!id) return '';
+    return branches.find(b => b.id === id)?.name || id === church.id ? church.name : '';
+  };
+  const getProgramName = (id?: string) => programs.find(p => p.id === id)?.name || '';
+
+  const getScopeName = (scope: string, scopeId?: string) => {
+    switch (scope) {
+      case 'church': return 'Church-wide';
+      case 'branch': return getBranchName(scopeId) || 'Branch';
+      case 'department': return getDeptName(scopeId) || 'Department';
+      case 'unit': return getUnitName(scopeId) || 'Unit';
+      default: return '';
+    }
+  };
+
+  // Determine what scopes the current admin can access
+  const canAccessScope = (branchId?: string, deptId?: string, unitId?: string): boolean => {
+    if (isSuperAdmin || adminLevel === 'church') return true;
+    if (adminLevel === 'branch') {
+      return branchId === currentAdmin?.branchId;
+    }
+    if (adminLevel === 'department') {
+      return deptId === currentAdmin?.departmentId;
+    }
+    if (adminLevel === 'unit') {
+      return unitId === currentAdmin?.unitId;
+    }
+    return false;
+  };
+
+  // Which scopes can the admin create in?
+  const getCreatableScopes = () => {
+    if (isSuperAdmin) return ['church', 'branch', 'department', 'unit'] as const;
+    if (adminLevel === 'branch') return ['branch', 'department', 'unit'] as const;
+    if (adminLevel === 'department') return ['department', 'unit'] as const;
+    if (adminLevel === 'unit') return ['unit'] as const;
+    return ['church', 'branch', 'department', 'unit'] as const;
+  };
+
+  // Auto-set scope ID for non-super-admins
+  const getDefaultScopeId = (scope: string) => {
+    if (scope === 'church') return '';
+    if (scope === 'branch' && adminLevel === 'branch') return currentAdmin?.branchId || '';
+    if (scope === 'department' && (adminLevel === 'department' || adminLevel === 'branch')) return currentAdmin?.departmentId || '';
+    if (scope === 'unit') return currentAdmin?.unitId || '';
+    return '';
+  };
+
+  // Filtered departments based on admin scope
+  const getFilteredDepts = (branchId?: string) => {
+    let deps = departments;
+    if (branchId) deps = deps.filter(d => d.branchId === branchId);
+    if (adminLevel === 'department') deps = deps.filter(d => d.id === currentAdmin?.departmentId);
+    return deps;
+  };
+
+  const getFilteredUnits = (deptId?: string) => {
+    let uns = units;
+    if (deptId) uns = uns.filter(u => u.departmentId === deptId);
+    if (adminLevel === 'unit') uns = uns.filter(u => u.id === currentAdmin?.unitId);
+    return uns;
+  };
+
+  // ═══════════════ FILTER LEDGER ENTRIES ═══════════════
+  const filteredLedger = ledgerEntries.filter(e => {
+    // Role-based access
+    if (!canAccessScope(e.branchId, e.departmentId, e.unitId)) return false;
+    // Scope filter
+    if (scopeFilter === 'branch' && scopeFilterId && e.branchId !== scopeFilterId) return false;
+    if (scopeFilter === 'department' && scopeFilterId && e.departmentId !== scopeFilterId) return false;
+    if (scopeFilter === 'unit' && scopeFilterId && e.unitId !== scopeFilterId) return false;
+    // Program filter
+    if (programFilter && programFilter !== 'all') {
+      if (programFilter === 'no-program' && e.programId) return false;
+      if (programFilter !== 'no-program' && e.programId !== programFilter) return false;
+    }
+    // Search
+    if (searchTerm && !e.description.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const ledgerIncome = filteredLedger.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+  const ledgerExpense = filteredLedger.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+  const ledgerBalance = ledgerIncome - ledgerExpense;
+
+  // ═══════════════ FILTER COLLECTION TYPES ═══════════════
+  const filteredCTs = collectionTypes.filter(ct => {
+    if (searchTerm && !ct.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    // Role-based: show church-wide to everyone, scoped only to relevant admins
+    if (ct.scope === 'church') return true;
+    if (ct.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === ct.scopeId;
+    if (ct.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === ct.scopeId;
+    if (ct.scope === 'unit') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || adminLevel === 'department' || currentAdmin?.unitId === ct.scopeId;
+    return true;
+  });
+
+  // ═══════════════ FILTER FUNDRAISERS ═══════════════
+  const filteredFundraisers = standaloneColls.filter(sc => {
+    if (searchTerm && !sc.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (sc.scope === 'church') return true;
+    if (sc.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === sc.scopeId;
+    if (sc.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === sc.scopeId;
+    if (sc.scope === 'unit') return true; // show if relevant
+    return true;
+  });
+
+  // ═══════════════ SCROLL TO ERROR ═══════════════
+  const scrollToError = (ref: React.RefObject<HTMLDivElement | null>, fieldId: string) => {
+    setTimeout(() => {
+      const el = ref.current?.querySelector(`[data-field="${fieldId}"]`) as HTMLElement;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  // ═══════════════ SAVE LEDGER ENTRY ═══════════════
+  const handleSaveLedger = async () => {
+    const errors: Record<string, string> = {};
+    const rawAmount = ledgerAmount.replace(/,/g, '');
+    if (!rawAmount || parseFloat(rawAmount) <= 0) errors.amount = 'Enter a valid amount greater than 0.';
+    if (!ledgerDesc.trim()) errors.desc = 'A description is required so the entry can be identified in the ledger.';
+    if (!ledgerDate) errors.date = 'Select the date of this transaction.';
+
+    if (Object.keys(errors).length) {
+      setLedgerErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      scrollToError(ledgerFormRef, firstKey);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none' ? ledgerBranchId : undefined;
+      const cleanDeptId = ledgerDeptId && ledgerDeptId !== 'none' ? ledgerDeptId : undefined;
+      await updateAccount(
+        {
+          amount: parseFloat(ledgerAmount.replace(/,/g, '')),
+          description: ledgerDesc.trim(),
+          type: ledgerType === 'income' ? 'credit' : 'debit',
+        },
+        cleanBranchId,
+        cleanDeptId
+      );
+      await loadData();
+      setLedgerOpen(false);
+      resetLedgerForm();
+      showToast(`${ledgerType === 'income' ? 'Income' : 'Expense'} entry recorded successfully.`);
+    } catch (err) {
+      console.error('Failed to save ledger entry:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetLedgerForm = () => {
+    setLedgerType('income');
+    setLedgerAmount('');
+    setLedgerDesc('');
+    setLedgerDate(new Date().toISOString().split('T')[0]);
+    setLedgerBranchId('');
+    setLedgerDeptId('');
+    setLedgerUnitId('');
+    setLedgerProgramId('');
+    setLedgerErrors({});
+  };
+
+  // ═══════════════ SAVE COLLECTION TYPE ═══════════════
+  const handleSaveCT = async () => {
+    const errors: Record<string, string> = {};
+    if (!ctName.trim()) errors.name = 'Enter a name for this collection type (e.g. "Tithe", "Offering").';
+    if (ctScope !== 'church' && !ctScopeId) errors.scopeId = 'Select which area this collection type applies to.';
+    // Check duplicate
+    if (ctName.trim() && collectionTypes.some(ct => ct.name.toLowerCase() === ctName.trim().toLowerCase() && ct.scope === ctScope && (ct.scopeId || '') === (ctScopeId || ''))) {
+      errors.name = 'A collection type with this name already exists at this scope.';
+    }
+
+    if (Object.keys(errors).length) {
+      setCtErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      scrollToError(ctFormRef, firstKey);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createCollection(
+        {
+          name: ctName.trim(),
+          scopeType: (ctScope === 'unit' ? 'department' : ctScope) as 'church' | 'branch' | 'department',
+          branchIds: ctScope === 'branch' && ctScopeId ? [ctScopeId] : undefined,
+          departmentIds: ctScope === 'department' && ctScopeId ? [ctScopeId] : undefined,
+        },
+        ctScope === 'branch' ? ctScopeId : undefined,
+        ctScope === 'department' ? ctScopeId : undefined
+      );
+      await loadData();
+      setCtOpen(false);
+      resetCtForm();
+      showToast(`Collection type "${ctName.trim()}" created successfully.`);
+    } catch (err) {
+      console.error('Failed to save collection type:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetCtForm = () => {
+    setCtName('');
+    setCtScope('church');
+    setCtScopeId('');
+    setCtErrors({});
+  };
+
+  // ═══════════════ SAVE FUNDRAISER ═══════════════
+  const handleSaveFund = async () => {
+    const errors: Record<string, string> = {};
+    if (!fundName.trim()) errors.name = 'Enter a name for this fundraiser (e.g. "New Church Bus").';
+    if (!fundTarget || parseFloat(fundTarget.replace(/,/g, '')) <= 0) errors.target = 'Enter the target amount for this fundraiser.';
+    if (!fundDueDate) errors.dueDate = 'Select a due date for this fundraiser.';
+    if (fundScope !== 'church' && !fundScopeId) errors.scopeId = 'Select which area this fundraiser applies to.';
+
+    if (Object.keys(errors).length) {
+      setFundErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      scrollToError(fundFormRef, firstKey);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const collBranchId = fundScope === 'branch' ? fundScopeId : undefined;
+      const collDeptId = fundScope === 'department' ? fundScopeId : undefined;
+      await createCollection(
+        {
+          name: fundName.trim(),
+          description: fundDesc.trim() || undefined,
+          scopeType: (fundScope === 'unit' ? 'department' : fundScope) as 'church' | 'branch' | 'department',
+          branchIds: collBranchId ? [collBranchId] : undefined,
+          departmentIds: collDeptId ? [collDeptId] : undefined,
+          endTime: fundDueDate || undefined,
+        },
+        collBranchId,
+        collDeptId
+      );
+      await loadData();
+      setFundOpen(false);
+      resetFundForm();
+      showToast(`Fundraiser "${fundName.trim()}" created successfully.`);
+    } catch (err: any) {
+      const msg = err?.details?.[0]?.message || err?.message || 'Failed to create fundraiser';
+      console.error('Failed to save fundraiser:', err);
+      showToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetFundForm = () => {
+    setFundName('');
+    setFundDesc('');
+    setFundTarget('');
+    setFundDueDate('');
+    setFundScope('church');
+    setFundScopeId('');
+    setFundErrors({});
+  };
+
+  // ═══════════════ SAVE DONATION ═══════════════
+  const handleSaveDonation = async () => {
+    const errors: Record<string, string> = {};
+    if (!donateName.trim()) errors.name = 'Enter the donor\'s name.';
+    if (!donateAmount || parseFloat(donateAmount.replace(/,/g, '')) <= 0) errors.amount = 'Enter a valid donation amount.';
+    if (!donateDate) errors.date = 'Select the date of the donation.';
+
+    if (Object.keys(errors).length) {
+      setDonateErrors(errors);
+      const firstKey = Object.keys(errors)[0];
+      scrollToError(donateFormRef, firstKey);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const fund = standaloneColls.find(s => s.id === donateFundId);
+      const branchId = fund?.scope === 'branch' ? fund?.scopeId : undefined;
+      await updateAccount(
+        {
+          amount: parseFloat(donateAmount.replace(/,/g, '')),
+          description: `Donation from ${donateName.trim()} for "${fund?.name || 'Fundraiser'}"`,
+          type: 'credit',
+        },
+        branchId,
+        undefined
+      );
+      await loadData();
+      setDonateOpen(false);
+      resetDonateForm();
+      showToast(`Donation of ${currSymbol}${parseFloat(donateAmount.replace(/,/g, '')).toLocaleString()} from ${donateName.trim()} recorded.`);
+    } catch (err) {
+      console.error('Failed to save donation:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetDonateForm = () => {
+    setDonateName('');
+    setDonateAmount('');
+    setDonateDate(new Date().toISOString().split('T')[0]);
+    setDonateErrors({});
+  };
+
+  // ═══════════════ DELETE ═══════════════
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      // Delete operations remove from local UI state; server deletion isn't yet exposed by the API.
+      if (deleteTarget.type === 'ledger') {
+        setLedgerEntries(prev => prev.filter(e => e.id !== deleteTarget.id));
+      } else if (deleteTarget.type === 'ct') {
+        setCollectionTypes(prev => prev.filter(c => c.id !== deleteTarget.id));
+      } else if (deleteTarget.type === 'fund') {
+        setStandaloneColls(prev => prev.filter(s => s.id !== deleteTarget.id));
+      }
+      setDeleteTarget(null);
+      showToast(`"${deleteTarget.name}" deleted successfully.`);
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ═══════════════ SCOPE SELECTOR COMPONENT ═══════════════
+  const ScopeSelector = ({
+    scope,
+    setScope,
+    scopeId,
+    setScopeId,
+    errors,
+    fieldPrefix,
+  }: {
+    scope: 'church' | 'branch' | 'department' | 'unit';
+    setScope: (v: 'church' | 'branch' | 'department' | 'unit') => void;
+    scopeId: string;
+    setScopeId: (v: string) => void;
+    errors: Record<string, string>;
+    fieldPrefix: string;
+  }) => {
+    const creatableScopes = getCreatableScopes();
+    return (
+      <div className="space-y-4">
+        <div data-field={`${fieldPrefix}-scope`}>
+          <Label>Scope<RequiredStar /></Label>
+          <p className="text-xs text-gray-500 mb-2">
+            {isSuperAdmin
+              ? 'Choose whether this applies church-wide or to a specific branch, department, or unit.'
+              : `You can create this for your assigned ${adminLevel} or any area within it.`
+            }
+          </p>
+          <Select value={scope} onValueChange={(v) => { setScope(v as any); setScopeId(''); }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {creatableScopes.includes('church') && <SelectItem value="church">Church-wide (all branches)</SelectItem>}
+              {creatableScopes.includes('branch') && isMultiBranch && <SelectItem value="branch">Specific Branch</SelectItem>}
+              {creatableScopes.includes('department') && <SelectItem value="department">Specific Department</SelectItem>}
+              {creatableScopes.includes('unit') && <SelectItem value="unit">Specific Unit</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {scope === 'branch' && isMultiBranch && (
+          <div data-field="scopeId">
+            <Label>Branch<RequiredStar /></Label>
+            <Select value={scopeId} onValueChange={setScopeId}>
+              <SelectTrigger><SelectValue placeholder="Select branch..." /></SelectTrigger>
+              <SelectContent>
+                {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {errors.scopeId && <p className="text-xs text-red-500 mt-1">{errors.scopeId}</p>}
+          </div>
+        )}
+
+        {scope === 'department' && (
+          <div data-field="scopeId">
+            <Label>Department<RequiredStar /></Label>
+            <Select value={scopeId} onValueChange={setScopeId}>
+              <SelectTrigger><SelectValue placeholder="Select department..." /></SelectTrigger>
+              <SelectContent>
+                {getFilteredDepts(adminLevel === 'branch' ? currentAdmin?.branchId : undefined).map(d => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.scopeId && <p className="text-xs text-red-500 mt-1">{errors.scopeId}</p>}
+          </div>
+        )}
+
+        {scope === 'unit' && (
+          <div data-field="scopeId">
+            <Label>Unit<RequiredStar /></Label>
+            <Select value={scopeId} onValueChange={setScopeId}>
+              <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
+              <SelectContent>
+                {getFilteredUnits(adminLevel === 'department' ? currentAdmin?.departmentId : undefined).map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.scopeId && <p className="text-xs text-red-500 mt-1">{errors.scopeId}</p>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════
+  return (
+    <Layout>
+      <PageHeader
+        title="Finance"
+        description="Manage your church's income, expenses, collection types, and fundraising campaigns."
+      />
+
+      <div className="p-4 md:p-6 space-y-6">
+        {loading ? (
+          <BibleLoader message="Loading financial records..." />
+        ) : (
+          <>
+            {/* ═══════════════ SCOPE FILTER BAR ═══════════════ */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <Eye className="w-4 h-4" />
+                    View:
+                  </div>
+                  <Select
+                    value={scopeFilter}
+                    onValueChange={(v) => {
+                      setScopeFilter(v as any);
+                      setScopeFilterId('');
+                    }}
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Finances</SelectItem>
+                      {isMultiBranch && <SelectItem value="branch">By Branch</SelectItem>}
+                      <SelectItem value="department">By Department</SelectItem>
+                      <SelectItem value="unit">By Unit</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {scopeFilter === 'branch' && isMultiBranch && (
+                    <Select value={scopeFilterId} onValueChange={setScopeFilterId}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select branch..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {scopeFilter === 'department' && (
+                    <Select value={scopeFilterId} onValueChange={setScopeFilterId}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select department..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getFilteredDepts().map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {scopeFilter === 'unit' && (
+                    <Select value={scopeFilterId} onValueChange={setScopeFilterId}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select unit..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getFilteredUnits().map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {activeTab === 'ledger' && programs.length > 0 && (
+                    <Select value={programFilter} onValueChange={setProgramFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="All Programs" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Programs</SelectItem>
+                        <SelectItem value="no-program">Manual Entries Only</SelectItem>
+                        {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  <div className="relative flex-1 min-w-[200px] ml-auto">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  {scopeFilter === 'all'
+                    ? 'Showing all financial records across the entire church. Use the filters above to narrow down by branch, department, or unit.'
+                    : scopeFilter === 'branch'
+                    ? 'Filtered by branch — you\'re viewing income and expenses for a specific branch location.'
+                    : scopeFilter === 'department'
+                    ? 'Filtered by department — you\'re seeing finances tied to a specific department or outreach.'
+                    : 'Filtered by unit — you\'re looking at finances for a specific unit within a department.'
+                  }
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* ═══════════════ TABS ═══════════════ */}
+            <Tabs value={activeTab} onValueChange={v => setActiveTab(v as FinanceTab)}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="ledger" className="gap-2">
+                  <BookOpen className="w-4 h-4" /> Finance Ledger
+                </TabsTrigger>
+                <TabsTrigger value="collections" className="gap-2">
+                  <Tag className="w-4 h-4" /> Collections
+                </TabsTrigger>
+                <TabsTrigger value="fundraisers" className="gap-2">
+                  <Target className="w-4 h-4" /> Fundraisers
+                </TabsTrigger>
+              </TabsList>
+
+              {/* ═══════════════ LEDGER TAB ═══════════════ */}
+              <TabsContent value="ledger" className="space-y-4">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-green-50">
+                        <TrendingUp className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Total Income</p>
+                        <p className="text-xl font-bold text-green-600">{currSymbol}{ledgerIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-red-50">
+                        <TrendingDown className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Total Expenses</p>
+                        <p className="text-xl font-bold text-red-600">{currSymbol}{ledgerExpense.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${ledgerBalance >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                        <DollarSign className={`w-5 h-5 ${ledgerBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Balance</p>
+                        <p className={`text-xl font-bold ${ledgerBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                          {ledgerBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(ledgerBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Add Button */}
+                <div className="flex justify-end">
+                  <Button onClick={() => { resetLedgerForm(); setLedgerOpen(true); }}>
+                    <Plus className="w-4 h-4 mr-2" /> Record Entry
+                  </Button>
+                </div>
+
+                {filteredLedger.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-16 text-center">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
+                        <BookOpen className="w-8 h-8 text-blue-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No ledger entries yet</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        The finance ledger tracks all income and expenses. Click "Record Entry" to add your first income or expense record. Collections from managed programs also appear here automatically.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    {/* Mobile card list */}
+                    <CardContent className="p-3 md:hidden space-y-2">
+                      {(() => {
+                        let runningBalance = 0;
+                        return filteredLedger.slice().reverse().map((entry) => {
+                          runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
+                          const scope = entry.unitId ? getUnitName(entry.unitId)
+                            : entry.departmentId ? getDeptName(entry.departmentId)
+                            : entry.branchId ? getBranchName(entry.branchId) : 'Church';
+                          return (
+                            <div key={entry.id} className="border rounded-lg p-3 bg-white space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm text-gray-900 truncate">{entry.description}</p>
+                                  <p className="text-xs text-gray-400 mt-0.5">{new Date(entry.date).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className={`text-sm font-bold ${entry.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {entry.type === 'income' ? '+' : '-'}{currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  </span>
+                                  {!entry.programId && (
+                                    <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 p-1 h-auto"
+                                      onClick={() => setDeleteTarget({ type: 'ledger', id: entry.id, name: entry.description })}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Badge variant={entry.type === 'income' ? 'default' : 'destructive'} className="text-xs">
+                                    {entry.type === 'income' ? 'Income' : 'Expense'}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">{scope}</Badge>
+                                  {entry.programId && <span className="text-xs text-gray-400">{getProgramName(entry.programId)}</span>}
+                                </div>
+                                <span className={`text-xs font-semibold ${runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                  Bal: {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        }).reverse();
+                      })()}
+                    </CardContent>
+                    {/* Desktop table */}
+                    <CardContent className="p-0 hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Scope</TableHead>
+                            <TableHead>Program</TableHead>
+                            <TableHead className="text-right">Income</TableHead>
+                            <TableHead className="text-right">Expense</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(() => {
+                            let runningBalance = 0;
+                            return filteredLedger.slice().reverse().map((entry) => {
+                              runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
+                              return (
+                                <TableRow key={entry.id}>
+                                  <TableCell className="text-sm whitespace-nowrap">
+                                    {new Date(entry.date).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell className="font-medium text-sm max-w-xs truncate">
+                                    {entry.description}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="text-xs">
+                                      {entry.unitId ? getUnitName(entry.unitId) :
+                                        entry.departmentId ? getDeptName(entry.departmentId) :
+                                          entry.branchId ? getBranchName(entry.branchId) : 'Church'}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-gray-500">
+                                    {entry.programId ? getProgramName(entry.programId) || '—' : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-green-600">
+                                    {entry.type === 'income' ? `${currSymbol}${entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold text-red-600">
+                                    {entry.type === 'expense' ? `${currSymbol}${entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}
+                                  </TableCell>
+                                  <TableCell className={`text-right font-semibold ${runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                                    {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                  <TableCell>
+                                    {!entry.programId && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-red-500 hover:text-red-700 p-1"
+                                        onClick={() => setDeleteTarget({ type: 'ledger', id: entry.id, name: entry.description })}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            }).reverse();
+                          })()}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* ═══════════════ COLLECTIONS TAB ═══════════════ */}
+              <TabsContent value="collections" className="space-y-6">
+                {/* Collection Types Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Collection Types</h3>
+                      <p className="text-sm text-gray-500">
+                        Define the types of collections your church accepts (e.g. Tithe, Offering). These show up as options when creating programs.
+                      </p>
+                    </div>
+                    <Button onClick={() => { resetCtForm(); setCtOpen(true); }} size="sm">
+                      <Plus className="w-4 h-4 mr-1" /> Add Type
+                    </Button>
+                  </div>
+
+                  {filteredCTs.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-purple-50 mb-3">
+                          <Tag className="w-7 h-7 text-purple-400" />
+                        </div>
+                        <h3 className="text-base font-semibold text-gray-900 mb-2">No collection types defined</h3>
+                        <p className="text-gray-500 text-sm max-w-md mx-auto">
+                          Create collection types like "Tithe", "Offering", or "Special Appeal" so they can be assigned to programs during creation.
+                          {isSuperAdmin
+                            ? ' As a Super Admin, you can create church-wide types that apply to all branches.'
+                            : ` You can create types for your assigned ${adminLevel}.`}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Church-wide types */}
+                      {filteredCTs.filter(ct => ct.scope === 'church').length > 0 && (
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Building2 className="w-4 h-4 text-blue-500" />
+                              <span className="text-sm font-semibold text-gray-700">Church-wide Collection Types</span>
+                              <Badge variant="outline" className="text-xs ml-1">All Branches</Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {filteredCTs.filter(ct => ct.scope === 'church').map(ct => (
+                                <div key={ct.id} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm font-medium">
+                                  {ct.name}
+                                  {isSuperAdmin && (
+                                    <button
+                                      className="ml-1 text-blue-400 hover:text-red-500"
+                                      onClick={() => setDeleteTarget({ type: 'ct', id: ct.id, name: ct.name })}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Scoped types */}
+                      {filteredCTs.filter(ct => ct.scope !== 'church').length > 0 && (
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Layers className="w-4 h-4 text-purple-500" />
+                              <span className="text-sm font-semibold text-gray-700">Scoped Collection Types</span>
+                            </div>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Level</TableHead>
+                                  <TableHead>Assigned To</TableHead>
+                                  <TableHead className="w-10"></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {filteredCTs.filter(ct => ct.scope !== 'church').map(ct => (
+                                  <TableRow key={ct.id}>
+                                    <TableCell className="font-medium">{ct.name}</TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className="capitalize">{ct.scope}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-gray-600">{getScopeName(ct.scope, ct.scopeId)}</TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-red-500 hover:text-red-700 p-1"
+                                        onClick={() => setDeleteTarget({ type: 'ct', id: ct.id, name: ct.name })}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Program Collections */}
+                <div>
+                  <div className="mb-4">
+                    <h3 className="text-base font-semibold text-gray-900">Program Collections</h3>
+                    <p className="text-sm text-gray-500">
+                      Collections recorded through program management. These are automatically added when you manage a program and enter collection amounts.
+                    </p>
+                  </div>
+
+                  {programColls.length === 0 ? (
+                    <Card>
+                      <CardContent className="py-10 text-center">
+                        <p className="text-gray-500 text-sm">
+                          No program collections have been recorded yet. Go to <strong>Programs & Events</strong> to manage a program and enter collection amounts.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Collection Name</TableHead>
+                              <TableHead>Program</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {programColls
+                              .filter(c => {
+                                if (searchTerm && !c.name.toLowerCase().includes(searchTerm.toLowerCase()) && !getProgramName(c.programId).toLowerCase().includes(searchTerm.toLowerCase())) return false;
+                                return true;
+                              })
+                              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                              .map(c => (
+                                <TableRow key={c.id}>
+                                  <TableCell className="text-sm">{new Date(c.date).toLocaleDateString()}</TableCell>
+                                  <TableCell className="font-medium">{c.name}</TableCell>
+                                  <TableCell><Badge variant="outline">{getProgramName(c.programId) || '-'}</Badge></TableCell>
+                                  <TableCell className="text-right font-semibold text-green-600">{currSymbol}{c.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+
+              {/* ═══════════════ FUNDRAISERS TAB ═══════════════ */}
+              <TabsContent value="fundraisers" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Fundraisers</h3>
+                    <p className="text-sm text-gray-500">
+                      Standalone fundraising campaigns with target amounts and donor tracking (e.g. "Buy a New Church Bus").
+                    </p>
+                  </div>
+                  <Button onClick={() => { resetFundForm(); setFundOpen(true); }}>
+                    <Plus className="w-4 h-4 mr-2" /> New Fundraiser
+                  </Button>
+                </div>
+
+                {filteredFundraisers.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-16 text-center">
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 mb-4">
+                        <Target className="w-8 h-8 text-amber-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No fundraisers created yet</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        Create a fundraiser for special projects like building renovations, equipment purchases, or mission trips. Set a target amount, due date, and track individual donations.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredFundraisers.map(fund => {
+                      const raised = fund.entries.reduce((s, e) => s + e.amount, 0);
+                      const pct = fund.targetAmount > 0 ? Math.min((raised / fund.targetAmount) * 100, 100) : 0;
+                      const isOverdue = new Date(fund.dueDate) < new Date() && pct < 100;
+                      const isComplete = pct >= 100;
+                      return (
+                        <Card key={fund.id} className={`${isComplete ? 'border-green-200 bg-green-50/30' : isOverdue ? 'border-orange-200 bg-orange-50/30' : ''}`}>
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-gray-900 truncate">{fund.name}</h4>
+                                {fund.description && (
+                                  <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">{fund.description}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                {isComplete && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                {isOverdue && <AlertCircle className="w-4 h-4 text-orange-500" />}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 mb-3">
+                              <Badge variant="outline" className="text-xs capitalize">{getScopeName(fund.scope, fund.scopeId)}</Badge>
+                              <Badge variant="outline" className={`text-xs ${isOverdue ? 'text-orange-600 border-orange-300' : ''}`}>
+                                <CalendarDays className="w-3 h-3 mr-1" />
+                                Due: {new Date(fund.dueDate).toLocaleDateString()}
+                              </Badge>
+                            </div>
+
+                            <div className="mb-3">
+                              <div className="flex justify-between text-sm mb-1.5">
+                                <span className="text-gray-600">
+                                  {currSymbol}{raised.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
+                                </span>
+                                <span className="font-semibold text-gray-900">
+                                  {currSymbol}{fund.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} goal
+                                </span>
+                              </div>
+                              <Progress value={pct} className="h-2.5" />
+                              <p className="text-xs text-gray-500 mt-1">{pct.toFixed(1)}% — {fund.entries.length} donation{fund.entries.length !== 1 ? 's' : ''}</p>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => setViewFundId(fund.id)}
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1" /> View
+                              </Button>
+                              {!isComplete && (
+                                <Button
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => {
+                                    setDonateFundId(fund.id);
+                                    resetDonateForm();
+                                    setDonateOpen(true);
+                                  }}
+                                >
+                                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Donation
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 px-2"
+                                onClick={() => setDeleteTarget({ type: 'fund', id: fund.id, name: fund.name })}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
+      </div>
+
+      {/* ═══════════════ LEDGER ENTRY DIALOG ═══════════════ */}
+      <Dialog open={ledgerOpen} onOpenChange={v => { if (!v) setLedgerOpen(false); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Ledger Entry</DialogTitle>
+            <DialogDescription>
+              Add an income or expense entry to the finance ledger. Each entry must have a description.
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={ledgerFormRef} className="space-y-4 pt-2">
+            {/* Type Switcher */}
+            <div data-field="type">
+              <Label>Entry Type<RequiredStar /></Label>
+              <div className="flex gap-2 mt-1.5">
+                <button
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                    ledgerType === 'income' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setLedgerType('income')}
+                >
+                  <TrendingUp className="w-4 h-4" /> Income
+                </button>
+                <button
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 text-sm font-medium transition-all ${
+                    ledgerType === 'expense' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                  }`}
+                  onClick={() => setLedgerType('expense')}
+                >
+                  <TrendingDown className="w-4 h-4" /> Expense
+                </button>
+              </div>
+            </div>
+
+            <div data-field="amount">
+              <Label>Amount ({currSymbol})<RequiredStar /></Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={ledgerAmount}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  const parts = raw.split('.');
+                  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                  const formatted = parts.length > 1 ? `${intPart}.${parts[1].slice(0, 2)}` : intPart;
+                  setLedgerAmount(formatted);
+                  setLedgerErrors(p => ({ ...p, amount: '' }));
+                }}
+                placeholder="0.00"
+              />
+              {ledgerErrors.amount && <p className="text-xs text-red-500 mt-1">{ledgerErrors.amount}</p>}
+            </div>
+
+            <div data-field="desc">
+              <Label>Description<RequiredStar /></Label>
+              <Textarea
+                value={ledgerDesc}
+                onChange={e => { setLedgerDesc(e.target.value); setLedgerErrors(p => ({ ...p, desc: '' })); }}
+                placeholder="e.g. Purchase of sound equipment, Sunday offering proceeds..."
+                rows={2}
+              />
+              {ledgerErrors.desc && <p className="text-xs text-red-500 mt-1">{ledgerErrors.desc}</p>}
+            </div>
+
+            <div data-field="date">
+              <Label>Date<RequiredStar /></Label>
+              <Input
+                type="date"
+                value={ledgerDate}
+                onChange={e => { setLedgerDate(e.target.value); setLedgerErrors(p => ({ ...p, date: '' })); }}
+              />
+              {ledgerErrors.date && <p className="text-xs text-red-500 mt-1">{ledgerErrors.date}</p>}
+            </div>
+
+            {/* Optional Scope */}
+            <Separator />
+            <p className="text-xs text-gray-500">If this income or expense belongs to a particular branch, department, or unit, you can tag it below. This helps you see exactly where the money is coming from or going to. If it's a general church entry, just leave these blank.</p>
+
+            {isMultiBranch && (
+              <div>
+                <Label>Branch</Label>
+                <Select value={ledgerBranchId} onValueChange={v => { setLedgerBranchId(v); setLedgerDeptId(''); setLedgerUnitId(''); }}>
+                  <SelectTrigger><SelectValue placeholder="Church level (no branch)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Church level</SelectItem>
+                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
+              <Label>Department</Label>
+              <Select value={ledgerDeptId} onValueChange={v => { setLedgerDeptId(v); setLedgerUnitId(''); }}>
+                <SelectTrigger><SelectValue placeholder="No department" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No department</SelectItem>
+                  {getFilteredDepts(ledgerBranchId && ledgerBranchId !== 'none' ? ledgerBranchId : undefined).map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {ledgerDeptId && ledgerDeptId !== 'none' && (
+              <div>
+                <Label>Unit</Label>
+                <Select value={ledgerUnitId} onValueChange={setLedgerUnitId}>
+                  <SelectTrigger><SelectValue placeholder="No unit" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No unit</SelectItem>
+                    {getFilteredUnits(ledgerDeptId).map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Optional Program Tag */}
+            {programs.length > 0 && (
+              <div>
+                <Label>Tag a Program <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <p className="text-xs text-gray-500 mb-1.5">Link this entry to a specific program so you can track finances per program later.</p>
+                <Select value={ledgerProgramId} onValueChange={setLedgerProgramId}>
+                  <SelectTrigger><SelectValue placeholder="No program" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No program</SelectItem>
+                    {programs.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setLedgerOpen(false)}>Cancel</Button>
+              <Button className="flex-1" disabled={saving} onClick={handleSaveLedger}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Record {ledgerType === 'income' ? 'Income' : 'Expense'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ COLLECTION TYPE DIALOG ═══════════════ */}
+      <Dialog open={ctOpen} onOpenChange={v => { if (!v) setCtOpen(false); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Collection Type</DialogTitle>
+            <DialogDescription>
+              Define a type of collection (e.g. "Tithe", "Offering") that can be assigned to programs.
+              {isSuperAdmin && ' Church-wide types apply to all branches.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={ctFormRef} className="space-y-4 pt-2">
+            <div data-field="name">
+              <Label>Collection Type Name<RequiredStar /></Label>
+              <Input
+                value={ctName}
+                onChange={e => { setCtName(e.target.value); setCtErrors(p => ({ ...p, name: '' })); }}
+                placeholder='e.g. "Tithe", "Offering", "Building Fund"'
+              />
+              {ctErrors.name && <p className="text-xs text-red-500 mt-1">{ctErrors.name}</p>}
+            </div>
+
+            <ScopeSelector
+              scope={ctScope}
+              setScope={setCtScope}
+              scopeId={ctScopeId}
+              setScopeId={setCtScopeId}
+              errors={ctErrors}
+              fieldPrefix="ct"
+            />
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setCtOpen(false)}>Cancel</Button>
+              <Button className="flex-1" disabled={saving} onClick={handleSaveCT}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Create Collection Type
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ FUNDRAISER DIALOG ═══════════════ */}
+      <Dialog open={fundOpen} onOpenChange={v => { if (!v) setFundOpen(false); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Fundraiser</DialogTitle>
+            <DialogDescription>
+              Set up a fundraising campaign with a target amount and due date. Track individual donations from members and contributors.
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={fundFormRef} className="space-y-4 pt-2">
+            <div data-field="name">
+              <Label>Fundraiser Name<RequiredStar /></Label>
+              <Input
+                value={fundName}
+                onChange={e => { setFundName(e.target.value); setFundErrors(p => ({ ...p, name: '' })); }}
+                placeholder='e.g. "New Church Bus", "Building Renovation"'
+              />
+              {fundErrors.name && <p className="text-xs text-red-500 mt-1">{fundErrors.name}</p>}
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={fundDesc}
+                onChange={e => setFundDesc(e.target.value)}
+                placeholder="Optional description of the fundraiser's purpose..."
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div data-field="target">
+                <Label>Target Amount ({currSymbol})<RequiredStar /></Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={fundTarget}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = raw.split('.');
+                    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                    const formatted = parts.length > 1 ? `${intPart}.${parts[1].slice(0, 2)}` : intPart;
+                    setFundTarget(formatted);
+                    setFundErrors(p => ({ ...p, target: '' }));
+                  }}
+                  placeholder="0.00"
+                />
+                {fundErrors.target && <p className="text-xs text-red-500 mt-1">{fundErrors.target}</p>}
+              </div>
+              <div data-field="dueDate">
+                <Label>Due Date<RequiredStar /></Label>
+                <Input
+                  type="date"
+                  value={fundDueDate}
+                  onChange={e => { setFundDueDate(e.target.value); setFundErrors(p => ({ ...p, dueDate: '' })); }}
+                />
+                {fundErrors.dueDate && <p className="text-xs text-red-500 mt-1">{fundErrors.dueDate}</p>}
+              </div>
+            </div>
+
+            <ScopeSelector
+              scope={fundScope}
+              setScope={setFundScope}
+              scopeId={fundScopeId}
+              setScopeId={setFundScopeId}
+              errors={fundErrors}
+              fieldPrefix="fund"
+            />
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setFundOpen(false)}>Cancel</Button>
+              <Button className="flex-1" disabled={saving} onClick={handleSaveFund}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Create Fundraiser
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ DONATION DIALOG ═══════════════ */}
+      <Dialog open={donateOpen} onOpenChange={v => { if (!v) setDonateOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Donation</DialogTitle>
+            <DialogDescription>
+              Add a donation entry for "{standaloneColls.find(s => s.id === donateFundId)?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div ref={donateFormRef} className="space-y-4 pt-2">
+            <div data-field="name">
+              <Label>Donor Name<RequiredStar /></Label>
+              <Input
+                value={donateName}
+                onChange={e => { setDonateName(e.target.value); setDonateErrors(p => ({ ...p, name: '' })); }}
+                placeholder="Full name of the donor"
+              />
+              {donateErrors.name && <p className="text-xs text-red-500 mt-1">{donateErrors.name}</p>}
+            </div>
+
+            <div data-field="amount">
+              <Label>Amount ({currSymbol})<RequiredStar /></Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={donateAmount}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  const parts = raw.split('.');
+                  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                  const formatted = parts.length > 1 ? `${intPart}.${parts[1].slice(0, 2)}` : intPart;
+                  setDonateAmount(formatted);
+                  setDonateErrors(p => ({ ...p, amount: '' }));
+                }}
+                placeholder="0.00"
+              />
+              {donateErrors.amount && <p className="text-xs text-red-500 mt-1">{donateErrors.amount}</p>}
+            </div>
+
+            <div data-field="date">
+              <Label>Date<RequiredStar /></Label>
+              <Input
+                type="date"
+                value={donateDate}
+                onChange={e => { setDonateDate(e.target.value); setDonateErrors(p => ({ ...p, date: '' })); }}
+              />
+              {donateErrors.date && <p className="text-xs text-red-500 mt-1">{donateErrors.date}</p>}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setDonateOpen(false)}>Cancel</Button>
+              <Button className="flex-1" disabled={saving} onClick={handleSaveDonation}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Record Donation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ VIEW FUNDRAISER DIALOG ═══════════════ */}
+      <Dialog open={!!viewFundId} onOpenChange={() => setViewFundId(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {(() => {
+            const fund = standaloneColls.find(s => s.id === viewFundId);
+            if (!fund) return null;
+            const raised = fund.entries.reduce((s, e) => s + e.amount, 0);
+            const pct = fund.targetAmount > 0 ? Math.min((raised / fund.targetAmount) * 100, 100) : 0;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{fund.name}</DialogTitle>
+                  <DialogDescription>
+                    {fund.description || 'Fundraising campaign details and donation history.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="capitalize">{getScopeName(fund.scope, fund.scopeId)}</Badge>
+                    <Badge variant="outline">
+                      <CalendarDays className="w-3 h-3 mr-1" />
+                      Due: {new Date(fund.dueDate).toLocaleDateString()}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-medium text-gray-700">
+                        {currSymbol}{raised.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        of {currSymbol}{fund.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <Progress value={pct} className="h-3" />
+                    <p className="text-xs text-gray-500 mt-1.5">{pct.toFixed(1)}% of goal reached</p>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-900">Donations ({fund.entries.length})</h4>
+                      {pct < 100 && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setDonateFundId(fund.id);
+                            resetDonateForm();
+                            setDonateOpen(true);
+                            setViewFundId(null);
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                        </Button>
+                      )}
+                    </div>
+
+                    {fund.entries.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4">No donations recorded yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {fund.entries
+                          .slice()
+                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                          .map((entry, idx) => (
+                            <div key={entry.id || idx} className="flex items-center justify-between px-3 py-2 bg-white border border-gray-100 rounded-lg">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{entry.donorName}</p>
+                                <p className="text-xs text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
+                              </div>
+                              <p className="text-sm font-semibold text-green-600">
+                                {currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ DELETE CONFIRM ═══════════════ */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteTarget?.type === 'ledger' ? 'Ledger Entry' : deleteTarget?.type === 'ct' ? 'Collection Type' : 'Fundraiser'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>"{deleteTarget?.name}"</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </Layout>
+  );
+}
