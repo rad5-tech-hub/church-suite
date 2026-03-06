@@ -24,7 +24,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import {
   fetchNewcomers, createFollowUp, editFollowUp, fetchNewcomerForms, fetchPrograms, fetchMembers, createMember,
-  fetchNewcomerTrainingClasses, saveNewcomerTrainingClasses, saveNewcomers,
+  fetchNewcomerTrainingClasses, saveNewcomers,
   fetchSMSWallet, sendSms,
   createCustomForm, createCustomQuestions,
 } from '../api';
@@ -322,11 +322,8 @@ export function FollowUp() {
     if (!tcName.trim()) return;
     setSaving(true);
     try {
-      const all = await fetchNewcomerTrainingClasses();
       const cls: NewcomerTrainingClass = { id: `tc-${Date.now()}`, churchId: church.id, name: tcName.trim(), description: tcDescription.trim() || undefined, durationWeeks: tcDuration ? parseInt(tcDuration) : undefined, createdAt: new Date() };
-      const updated = [...(all as NewcomerTrainingClass[]), cls];
-      await saveNewcomerTrainingClasses(updated);
-      setTrainingClasses(updated.filter(t => t.churchId === church.id));
+      setTrainingClasses(prev => [...prev, cls]);
       setCreateClassOpen(false); setTcName(''); setTcDescription(''); setTcDuration('');
       showToast(`Training class "${cls.name}" created.`);
     } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
@@ -337,34 +334,21 @@ export function FollowUp() {
     if (!assignClassId || assignTrainingTargets.length === 0) return;
     setSaving(true);
     try {
-      const ids = assignTrainingTargets.map(n => n.id);
-      const all = await fetchNewcomers(branches[0]?.id);
-      const updated = (all as Newcomer[]).map(n => ids.includes(n.id) ? { ...n, trainingClassId: assignClassId, trainingStatus: (n.trainingStatus === 'not-enrolled' || !n.trainingStatus) ? 'started' as NewcomerTrainingStatus : n.trainingStatus } : n);
-      await saveNewcomers(updated);
-      setNewcomers(updated.filter(n => n.churchId === church.id));
+      const ids = new Set(assignTrainingTargets.map(n => n.id));
+      setNewcomers(prev => prev.map(n => ids.has(n.id) ? { ...n, trainingClassId: assignClassId, trainingStatus: (n.trainingStatus === 'not-enrolled' || !n.trainingStatus) ? 'started' as NewcomerTrainingStatus : n.trainingStatus } : n));
       setAssignTrainingTargets([]); setAssignClassId(''); setSelectedIds([]);
-      showToast(`${ids.length} newcomer(s) assigned to training.`);
+      showToast(`${ids.size} newcomer(s) assigned to training.`);
     } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
     finally { setSaving(false); }
   };
 
-  const handleUpdateTrainingStatus = async (ncId: string, status: NewcomerTrainingStatus) => {
-    const all = await fetchNewcomers(branches[0]?.id);
-    const updated = (all as Newcomer[]).map(n => n.id === ncId ? { ...n, trainingStatus: status } : n);
-    await saveNewcomers(updated);
-    setNewcomers(updated.filter(n => n.churchId === church.id));
+  const handleUpdateTrainingStatus = (ncId: string, status: NewcomerTrainingStatus) => {
+    setNewcomers(prev => prev.map(n => n.id === ncId ? { ...n, trainingStatus: status } : n));
   };
 
   const handleDeleteClass = async (cls: NewcomerTrainingClass) => {
-    const all = await fetchNewcomerTrainingClasses();
-    const updated = (all as NewcomerTrainingClass[]).filter(c => c.id !== cls.id);
-    await saveNewcomerTrainingClasses(updated);
-    setTrainingClasses(updated.filter(t => t.churchId === church.id));
-    // Unassign newcomers from this class
-    const allNC = await fetchNewcomers(branches[0]?.id);
-    const updNC = (allNC as Newcomer[]).map(n => n.trainingClassId === cls.id ? { ...n, trainingClassId: undefined, trainingStatus: 'not-enrolled' as NewcomerTrainingStatus } : n);
-    await saveNewcomers(updNC);
-    setNewcomers(updNC.filter(n => n.churchId === church.id));
+    setTrainingClasses(prev => prev.filter(c => c.id !== cls.id));
+    setNewcomers(prev => prev.map(n => n.trainingClassId === cls.id ? { ...n, trainingClassId: undefined, trainingStatus: 'not-enrolled' as NewcomerTrainingStatus } : n));
     showToast(`"${cls.name}" deleted.`);
   };
 

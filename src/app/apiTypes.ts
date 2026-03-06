@@ -398,6 +398,7 @@ export interface EditFollowUpRequest {
   birthMonth?: number;
   birthDay?: number;
   formId?: string;
+  adminComment?: string;
   answers?: { questionId: string; answer: string }[];
 }
 
