@@ -53,7 +53,7 @@ import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme, lightenColor, DEFAULT_PRIMARY, DEFAULT_PRIMARY_LIGHT } from '../context/ThemeContext';
-import { editAdmin, saveChurchConfig } from '../api';
+import { editAdmin, saveChurchConfig, uploadLogoWithProgress } from '../api';
 import { CURRENCIES } from './Finance';
 
 type ProfileTab = 'personal' | 'church' | 'appearance' | 'help';
@@ -211,6 +211,7 @@ export function Profile() {
   });
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoUploadProgress, setLogoUploadProgress] = useState(0);
 
   // Personal form
   const [personalName, setPersonalName] = useState(currentAdmin?.name || '');
@@ -393,30 +394,40 @@ export function Profile() {
     }
   };
 
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Reset the input so the same file can be re-selected if needed
+    e.target.value = '';
     if (file.size > 500 * 1024) {
       showToast('Logo file is too large. Please choose an image under 500KB.', 'error');
       return;
     }
-    // Show local preview immediately
-    const localUrl = URL.createObjectURL(file);
-    updateChurch({ logoUrl: localUrl });
     setLogoUploading(true);
-    try {
-      const res = await saveChurchConfig({ logo: file });
-      const logoUrl = res?.church?.logo ?? res?.logo ?? res?.data?.logo ?? undefined;
-      updateChurch({ logoUrl: logoUrl || localUrl });
-      showSaved();
-    } catch (err: any) {
-      // Revert local preview on failure
-      updateChurch({ logoUrl: undefined });
-      showToast(err?.body?.message || 'Failed to upload logo. Please try again.', 'error');
-    } finally {
+    setLogoUploadProgress(0);
+    // Convert to a stable data URL for immediate preview (avoids revoked blob-URL issues)
+    const reader = new FileReader();
+    reader.onerror = () => {
+      showToast('Failed to read the file. Please try again.', 'error');
       setLogoUploading(false);
-      URL.revokeObjectURL(localUrl);
-    }
+      setLogoUploadProgress(0);
+    };
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      updateChurch({ logoUrl: dataUrl });
+      try {
+        const serverLogoUrl = await uploadLogoWithProgress(file, setLogoUploadProgress);
+        if (serverLogoUrl) updateChurch({ logoUrl: serverLogoUrl });
+        showSaved();
+      } catch (err: any) {
+        updateChurch({ logoUrl: undefined });
+        showToast(err?.body?.message || err?.message || 'Failed to upload logo. Please try again.', 'error');
+      } finally {
+        setLogoUploading(false);
+        setLogoUploadProgress(0);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleRemoveLogo = async () => {
@@ -997,6 +1008,22 @@ export function Profile() {
                           onChange={handleLogoChange}
                         />
                       </div>
+
+                      {/* Upload progress bar */}
+                      {logoUploading && (
+                        <div className="space-y-1 mt-1">
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>Uploading logo…</span>
+                            <span>{logoUploadProgress}%</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all duration-200"
+                              style={{ width: `${logoUploadProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {/* Watermark preview */}
                       {church.logoUrl && (

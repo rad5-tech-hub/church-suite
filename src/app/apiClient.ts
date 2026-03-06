@@ -208,6 +208,9 @@ export async function apiFetch<T = any>(
   return body as T;
 }
 
+/** Returns the configured API base URL. */
+export function getApiBaseUrl(): string { return API_BASE_URL; }
+
 /**
  * Helper to build query string from an object
  */

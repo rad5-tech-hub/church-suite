@@ -568,27 +568,7 @@ export function Roles() {
               </div>
             </div>
 
-            {/* Branch Selector */}
-            {branches.length > 0 && (
-              <div className="space-y-2">
-                <Label>Branch {roleLevel !== 'church' ? '*' : ''}</Label>
-                <Select value={roleBranchId} onValueChange={setRoleBranchId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b: any) => (
-                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500">
-                  {roleLevel === 'church'
-                    ? 'Optionally assign this role to a specific branch'
-                    : 'Select which branch this role applies to'}
-                </p>
-              </div>
-            )}
+            {/* Branch Selector intentionally omitted — branch is resolved server-side from tenant context */}
 
             <Separator />
 

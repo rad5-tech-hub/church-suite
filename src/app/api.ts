@@ -2,7 +2,7 @@
 // All API calls mapped to the real backend at https://testchurch.bookbank.com.ng
 // Maintains backward-compatible exports so existing pages continue to work.
 
-import { apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims } from './apiClient';
+import { apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims, getApiBaseUrl } from './apiClient';
 import type {
   LoginRequest,
   LoginResponse,
@@ -578,6 +578,54 @@ export async function saveChurchConfig(config: any) {
   return apiFetch<any>('/church/edit-church', {
     method: 'PATCH',
     body: formData,
+  });
+}
+
+/**
+ * Upload a church logo via XHR so upload progress can be tracked.
+ * Resolves with the Cloudinary URL returned by the server, or undefined.
+ */
+export function uploadLogoWithProgress(
+  file: File,
+  onProgress: (pct: number) => void
+): Promise<string | undefined> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('PATCH', `${getApiBaseUrl()}/church/edit-church`);
+
+    const token = getAccessToken();
+    const tenantId = getTenantId();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    if (tenantId) xhr.setRequestHeader('x-tenant-id', tenantId);
+    xhr.withCredentials = true;
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const res = JSON.parse(xhr.responseText);
+          resolve(res?.church?.logo ?? res?.logo ?? undefined);
+        } catch { resolve(undefined); }
+      } else {
+        try {
+          const body = JSON.parse(xhr.responseText);
+          reject({ body: { message: body?.error?.message || body?.message || `Upload failed (${xhr.status})` } });
+        } catch {
+          reject({ body: { message: `Upload failed (${xhr.status})` } });
+        }
+      }
+    };
+
+    xhr.onerror = () => reject({ body: { message: 'Network error. Please check your connection.' } });
+    xhr.ontimeout = () => reject({ body: { message: 'Upload timed out. Please try again.' } });
+
+    xhr.send(formData);
   });
 }
 
