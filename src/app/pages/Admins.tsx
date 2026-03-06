@@ -324,7 +324,13 @@ export function Admins() {
         branchId: formLevel === 'branch' ? formBranchIds[0] || undefined : undefined,
         departmentId: ['department', 'unit'].includes(formLevel) ? formDepartmentIds[0] || undefined : undefined,
         unitId: formLevel === 'unit' ? formUnitIds[0] || undefined : undefined,
-        branchIds: formLevel === 'branch' && formBranchIds.length > 0 ? formBranchIds : undefined,
+        branchIds: (() => {
+          if (formLevel === 'church') return undefined;
+          if (formBranchIds.length > 0) return formBranchIds;
+          // Single-church: auto-resolve the only branch
+          const fallback = loggedInAdmin?.branchId || branches[0]?.id;
+          return fallback ? [fallback] : undefined;
+        })(),
         departmentIds: ['department', 'unit'].includes(formLevel) && formDepartmentIds.length > 0 ? formDepartmentIds : undefined,
         unitIds: formLevel === 'unit' && formUnitIds.length > 0 ? formUnitIds : undefined,
         customPermissions: showCustomizePermissions ? formCustomPermissions : undefined,
@@ -879,6 +885,36 @@ export function Admins() {
                 {formBranchIds.length <= 1 && (
                   <p className="text-xs text-purple-700">Select one or more branches. This administrator will have access to the selected branches and their departments/units.</p>
                 )}
+              </div>
+            )}
+
+            {/* Conditional: Branch Selection for Department/Unit admins (multi-church only) */}
+            {(formLevel === 'department' || formLevel === 'unit') && church.type === 'multi' && (
+              <div className="space-y-2 bg-purple-50 p-4 rounded-lg border border-purple-100">
+                <Label>Select Branch *</Label>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {branches.map((b) => (
+                    <label key={b.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-purple-100/50 cursor-pointer">
+                      <Checkbox
+                        checked={formBranchIds.includes(b.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFormBranchIds(prev => [...prev, b.id]);
+                          } else {
+                            setFormBranchIds(prev => prev.filter(id => id !== b.id));
+                            // Clear departments/units that belonged to this branch
+                            const branchDeptIds = departments.filter(d => d.branchId === b.id).map(d => d.id);
+                            setFormDepartmentIds(prev => prev.filter(id => !branchDeptIds.includes(id)));
+                            const branchUnitIds = units.filter(u => branchDeptIds.includes(u.departmentId)).map(u => u.id);
+                            setFormUnitIds(prev => prev.filter(id => !branchUnitIds.includes(id)));
+                          }
+                        }}
+                      />
+                      <span className="text-sm text-gray-700">{b.name} {b.isHeadquarters ? '(HQ)' : ''}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-purple-700">Select the branch this administrator belongs to. Only departments from the selected branch will appear below.</p>
               </div>
             )}
 
