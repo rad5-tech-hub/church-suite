@@ -246,7 +246,7 @@ export function Analytics() {
     })),
   [filteredFundraisers]);
 
-  const currency = church.currency || 'USD';
+  const currency = church.currency || 'NGN';
   const currencySymbol = currency === 'NGN' ? '\u20A6' : currency === 'GBP' ? '\u00A3' : currency === 'EUR' ? '\u20AC' : '$';
 
   // ──────── COPY DATA SNIPPET ────────

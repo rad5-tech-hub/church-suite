@@ -210,6 +210,7 @@ export function Profile() {
     return 'personal';
   });
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   // Personal form
   const [personalName, setPersonalName] = useState(currentAdmin?.name || '');
@@ -225,7 +226,7 @@ export function Profile() {
   const [churchPhone, setChurchPhone] = useState(church.phone || '');
   const [churchEmail, setChurchEmail] = useState(church.email || '');
   const [churchWebsite, setChurchWebsite] = useState(church.website || '');
-  const [churchCurrency, setChurchCurrency] = useState(church.currency || 'USD');
+  const [churchCurrency, setChurchCurrency] = useState(church.currency || 'NGN');
   const [churchReportingMode, setChurchReportingMode] = useState(church.reportingMode || 'hierarchical');
 
   // Color customization
@@ -260,7 +261,7 @@ export function Profile() {
     setChurchPhone(church.phone || '');
     setChurchEmail(church.email || '');
     setChurchWebsite(church.website || '');
-    setChurchCurrency(church.currency || 'USD');
+    setChurchCurrency(church.currency || 'NGN');
     setChurchReportingMode(church.reportingMode || 'hierarchical');
   }, [church]);
 
@@ -395,17 +396,26 @@ export function Profile() {
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setSaving(true);
+    if (file.size > 500 * 1024) {
+      showToast('Logo file is too large. Please choose an image under 500KB.', 'error');
+      return;
+    }
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    updateChurch({ logoUrl: localUrl });
+    setLogoUploading(true);
     try {
       const res = await saveChurchConfig({ logo: file });
-      // Server returns Cloudinary URL; fall back to local preview if missing
       const logoUrl = res?.church?.logo ?? res?.logo ?? res?.data?.logo ?? undefined;
-      updateChurch({ logoUrl: logoUrl || church.logoUrl });
+      updateChurch({ logoUrl: logoUrl || localUrl });
       showSaved();
     } catch (err: any) {
-      showToast(err?.body?.message || 'Failed to upload logo.', 'error');
+      // Revert local preview on failure
+      updateChurch({ logoUrl: undefined });
+      showToast(err?.body?.message || 'Failed to upload logo. Please try again.', 'error');
     } finally {
-      setSaving(false);
+      setLogoUploading(false);
+      URL.revokeObjectURL(localUrl);
     }
   };
 
@@ -959,10 +969,14 @@ export function Profile() {
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={logoUploading}
                           onClick={() => logoInputRef.current?.click()}
                         >
-                          <Upload className="w-4 h-4 mr-1.5" />
-                          {church.logoUrl ? 'Change Logo' : 'Upload Logo'}
+                          {logoUploading ? (
+                            <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Uploading…</>
+                          ) : (
+                            <><Upload className="w-4 h-4 mr-1.5" />{church.logoUrl ? 'Change Logo' : 'Upload Logo'}</>
+                          )}
                         </Button>
                         {church.logoUrl && (
                           <Button

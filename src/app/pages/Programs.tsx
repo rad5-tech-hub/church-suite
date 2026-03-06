@@ -551,7 +551,7 @@ export function Programs() {
         // Create via real API
         await createEvent({
           title: cName.trim(),
-          date: eventDate ? new Date(eventDate + 'T00:00:00').toISOString() : new Date().toISOString(),
+          date: eventDate ? new Date(eventDate + 'T12:00:00').toISOString() : new Date().toISOString(),
           recurrenceType: (recurrenceMap[cType] || 'none') as any,
           branchId: eventBranchId,
           departmentIds: cDeptIds.length > 0 ? cDeptIds : undefined,

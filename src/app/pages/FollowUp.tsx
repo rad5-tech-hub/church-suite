@@ -17,14 +17,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   UserPlus, Phone, Mail, MessageSquare, Plus, Search, Calendar, AlertCircle, CheckCircle, Loader2, X,
   GraduationCap, ArrowRight, Users, LayoutGrid, List, Trash2, Clock, TrendingUp, MapPin, ExternalLink, RefreshCw, Send,
+  FileText, Copy, Link,
 } from 'lucide-react';
 import { Newcomer, NewcomerForm, Program, Member, NewcomerTrainingClass, NewcomerTrainingStatus, SMSWallet } from '../types';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import {
   fetchNewcomers, createFollowUp, editFollowUp, fetchNewcomerForms, fetchPrograms, fetchMembers, createMember,
-  fetchNewcomerTrainingClasses,
+  fetchNewcomerTrainingClasses, saveNewcomerTrainingClasses, saveNewcomers,
   fetchSMSWallet, sendSms,
+  createCustomForm, createCustomQuestions,
 } from '../api';
 import { BibleLoader } from '../components/BibleLoader';
 
@@ -101,6 +103,12 @@ export function FollowUp() {
   const [tcName, setTcName] = useState('');
   const [tcDescription, setTcDescription] = useState('');
   const [tcDuration, setTcDuration] = useState('');
+
+  // Create form dialog
+  const [createFormOpen, setCreateFormOpen] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formVisitType, setFormVisitType] = useState<'first-timer' | 'second-timer'>('first-timer');
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -206,7 +214,7 @@ export function FollowUp() {
         phoneNo: moveTarget.phone || undefined,
         address: moveTarget.address || undefined,
         branchId: moveTarget.branchId || branches[0]?.id,
-      });
+      }, church.id, moveTarget.branchId || branches[0]?.id);
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
       setMoveTarget(null);
       showToast(`${moveTarget.firstName} ${moveTarget.lastName} has been moved to the Members directory. You can update their full details in the Members section.`);
@@ -218,7 +226,7 @@ export function FollowUp() {
   const handleAddFollowUp = async (type: 'call' | 'sms' | 'email' | 'note') => {
     if (!selectedNewcomer || !followUpComment.trim()) return;
     try {
-      await editFollowUp(selectedNewcomer.id, { adminComment: followUpComment.trim() });
+      await editFollowUp(selectedNewcomer.id, { adminComment: followUpComment.trim() }, selectedNewcomer.branchId || branches[0]?.id);
       const upd = newcomers.map(n => n.id === selectedNewcomer.id ? { ...n, followUps: [...(n.followUps || []), { id: `fu-${Date.now()}`, newcomerId: selectedNewcomer.id, adminId: 'admin', comment: followUpComment.trim(), type, createdAt: new Date() }] } : n);
       setNewcomers(upd);
       setFollowUpComment('');
@@ -297,7 +305,7 @@ export function FollowUp() {
             phoneNo: nc.phone || undefined,
             address: nc.address || undefined,
             branchId: nc.branchId || branches[0]?.id,
-          })
+          }, church.id, nc.branchId || branches[0]?.id)
         )
       );
       const movedIds = new Set(targets.map(n => n.id));
@@ -358,6 +366,31 @@ export function FollowUp() {
     await saveNewcomers(updNC);
     setNewcomers(updNC.filter(n => n.churchId === church.id));
     showToast(`"${cls.name}" deleted.`);
+  };
+
+  // ──────── CREATE FORM ────────
+  const handleCreateForm = async () => {
+    if (!formName.trim()) return;
+    setSaving(true);
+    try {
+      const brId = branches[0]?.id;
+      await createCustomForm({
+        name: formName.trim(),
+        description: formDescription.trim() || undefined,
+      }, brId);
+      await loadData();
+      setCreateFormOpen(false);
+      setFormName(''); setFormDescription(''); setFormVisitType('first-timer');
+      showToast(`Form "${formName.trim()}" created.`);
+    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleCopyShareLink = (form: NewcomerForm) => {
+    if (form.shareableLink) {
+      navigator.clipboard.writeText(form.shareableLink);
+      showToast('Form link copied to clipboard.');
+    }
   };
 
   // Bulk toggle
@@ -669,8 +702,20 @@ export function FollowUp() {
 
           {/* ═══ FORMS TAB ═══ */}
           <TabsContent value="forms" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">Create and share forms with newcomers to collect their information digitally.</p>
+              <Button size="sm" onClick={() => { setFormName(''); setFormDescription(''); setFormVisitType('first-timer'); setCreateFormOpen(true); }}>
+                <Plus className="w-4 h-4 mr-1" />Create Form
+              </Button>
+            </div>
             {newcomerForms.length === 0 ? (
-              <Card><CardContent className="py-12 text-center"><p className="text-gray-500">No collection forms have been created yet. Forms shared with visitors will appear here.</p></CardContent></Card>
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 mb-1">No collection forms yet</p>
+                  <p className="text-sm text-gray-400">Create a form to collect visitor information digitally. You'll get a shareable link you can send out or display as a QR code.</p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {newcomerForms.map((form) => (
@@ -694,6 +739,18 @@ export function FollowUp() {
                           {form.fields.length > 3 && <p className="text-xs text-gray-500">+{form.fields.length - 3} more</p>}
                         </div>
                       </div>
+                      {form.shareableLink && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleCopyShareLink(form)}>
+                            <Copy className="w-3.5 h-3.5 mr-1.5" />Copy Link
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={form.shareableLink} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Open
+                            </a>
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -1085,6 +1142,37 @@ export function FollowUp() {
               <Button variant="outline" className="flex-1" onClick={() => setCreateClassOpen(false)}>Cancel</Button>
               <Button className="flex-1" disabled={!tcName.trim() || saving} onClick={handleCreateClass}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create Class
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ CREATE FORM DIALOG ═══ */}
+      <Dialog open={createFormOpen} onOpenChange={(o) => { if (!o) setCreateFormOpen(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Collection Form</DialogTitle>
+            <DialogDescription>Build a form to collect newcomer information. Once created, you'll get a shareable link to distribute.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Form Name<RequiredStar /></Label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="e.g., First Timer Registration" /></div>
+            <div><Label>Description <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="What is this form for?" /></div>
+            <div>
+              <Label>Visitor Type</Label>
+              <Select value={formVisitType} onValueChange={(v: 'first-timer' | 'second-timer') => setFormVisitType(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="first-timer">First Timer</SelectItem>
+                  <SelectItem value="second-timer">Second Timer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setCreateFormOpen(false)}>Cancel</Button>
+              <Button className="flex-1" disabled={!formName.trim() || saving} onClick={handleCreateForm}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create Form
               </Button>
             </div>
           </div>

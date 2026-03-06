@@ -483,7 +483,6 @@ export function Finance() {
         {
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
-          scopeType: (fundScope === 'unit' ? 'department' : fundScope) as 'church' | 'branch' | 'department',
           branchIds: collBranchId ? [collBranchId] : undefined,
           departmentIds: collDeptId ? [collDeptId] : undefined,
           endTime: fundDueDate || undefined,

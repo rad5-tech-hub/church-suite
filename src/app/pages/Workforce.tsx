@@ -347,7 +347,12 @@ export function Workforce() {
         fetchProgramInstances(),
       ]);
       setMembers(membersData as Member[]);
-      setWorkforce(workforceData as WorkforceMember[]);
+      const mappedWorkforce = (workforceData as any[]).map(item => ({
+        ...item,
+        memberId: item.memberId || item.id,
+        roadmapMarkers: item.roadmapMarkers || [],
+      }));
+      setWorkforce(mappedWorkforce as WorkforceMember[]);
       setTrainingPrograms(trainingData as TrainingProgram[]);
       setDepartments(deptsData as Department[]);
       setUnits(unitsData as Unit[]);
@@ -438,7 +443,7 @@ export function Workforce() {
     if (!selectedMemberId || !addDeptId) return;
     setSaving(true);
     try {
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       // Allow multiple departments — only block exact same dept+unit combo
       const duplicate = (allWf as WorkforceMember[]).some(w =>
         w.memberId === selectedMemberId && w.departmentId === addDeptId && (w.unitId || '') === (addUnitId || '')
@@ -476,7 +481,7 @@ export function Workforce() {
     if (!editTarget || !editDeptId) return;
     setSaving(true);
     try {
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       const updated = (allWf as WorkforceMember[]).map(w =>
         w.id === editTarget.id
           ? {
@@ -504,7 +509,7 @@ export function Workforce() {
     setSaving(true);
     const name = getMemberName(deleteTarget.memberId);
     try {
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       const updated = (allWf as WorkforceMember[]).filter(w => w.id !== deleteTarget.id);
       await saveWorkforce(updated);
       setWorkforce(updated.filter(w => w.churchId === church.id));
@@ -531,7 +536,7 @@ export function Workforce() {
     if (!pName.trim()) return;
     setSaving(true);
     try {
-      const allProgs = await fetchTrainingPrograms();
+      const allProgs = [...trainingPrograms];
       let updated: TrainingProgram[];
       if (editProgram) {
         updated = (allProgs as TrainingProgram[]).map(p =>
@@ -566,7 +571,7 @@ export function Workforce() {
     setSaving(true);
     try {
       // Remove from all workforce roadmaps
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       const updatedWf = (allWf as WorkforceMember[]).map(w => ({
         ...w,
         roadmapMarkers: w.roadmapMarkers.filter(m => m.programId !== deleteProgram.id),
@@ -574,7 +579,7 @@ export function Workforce() {
       await saveWorkforce(updatedWf);
       setWorkforce(updatedWf.filter(w => w.churchId === church.id));
 
-      const allProgs = await fetchTrainingPrograms();
+      const allProgs = [...trainingPrograms];
       const updated = (allProgs as TrainingProgram[]).filter(p => p.id !== deleteProgram.id);
       await saveTrainingPrograms(updated);
       setTrainingPrograms(updated.filter(p => p.churchId === church.id));
@@ -602,7 +607,7 @@ export function Workforce() {
         programId: assignProgramId,
         status: 'not-started',
       };
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       const updated = (allWf as WorkforceMember[]).map(w =>
         w.id === assignTarget.id
           ? { ...w, roadmapMarkers: [...w.roadmapMarkers, newMarker] }
@@ -628,7 +633,7 @@ export function Workforce() {
   const updateMarkerStatus = async (workerId: string, markerId: string, newStatus: RoadmapStatus) => {
     setSaving(true);
     try {
-      const allWf = await fetchWorkforce();
+      const allWf = [...workforce];
       const updated = (allWf as WorkforceMember[]).map(w => {
         if (w.id !== workerId) return w;
         return {

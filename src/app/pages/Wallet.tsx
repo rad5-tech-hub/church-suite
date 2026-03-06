@@ -75,8 +75,15 @@ export function Wallet() {
     if (!branchId) { showToast('No branch found', 'error'); return; }
     setTopping(true);
     try {
-      await createOrFundWallet(branchId, { action: 'fund', walletId: wallet.id, amount });
-      showToast(`${amount.toLocaleString()} credits added successfully.`);
+      const res = await createOrFundWallet(branchId, { action: 'fund', walletId: wallet.id, amount } as any);
+      // API may return a payment URL for external payment processing
+      const paymentUrl = res?.authorization_url || res?.data?.authorization_url || res?.paymentUrl || res?.data?.link;
+      if (paymentUrl) {
+        window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+        showToast('Payment page opened. Complete payment to add credits.');
+      } else {
+        showToast(`${amount.toLocaleString()} credits added successfully.`);
+      }
       setTopUpOpen(false);
       setTopUpAmount('');
       await loadData();

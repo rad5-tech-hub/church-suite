@@ -406,7 +406,7 @@ export interface EditFollowUpRequest {
 export interface CreateCollectionRequest {
   name: string;
   description?: string;
-  scopeType: 'church' | 'branch' | 'department';
+  scopeType?: 'church' | 'branch' | 'department';
   type?: string;
   endTime?: string;
   branchIds?: string[];

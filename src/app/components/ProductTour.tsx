@@ -399,6 +399,22 @@ function SpotlightStep({
       tooltipStyle.top = 80;
       tooltipStyle.transform = 'translateY(0)';
     }
+    // Clamp bottom: ensure tooltip doesn't extend below the viewport
+    const maxTop = window.innerHeight - 280;
+    if (topVal > maxTop) {
+      tooltipStyle.top = maxTop;
+      tooltipStyle.transform = 'translateY(0)';
+    }
+  }
+
+  if (step.placement === 'bottom' || step.placement === 'top') {
+    const leftVal = typeof tooltipStyle.left === 'number' ? tooltipStyle.left : 0;
+    // Clamp horizontally so tooltip doesn't overflow right edge
+    const maxLeft = window.innerWidth - 380;
+    if (leftVal > maxLeft) {
+      tooltipStyle.left = maxLeft;
+      tooltipStyle.transform = 'translateX(0)';
+    }
   }
 
   return (
