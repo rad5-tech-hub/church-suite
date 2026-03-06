@@ -595,6 +595,7 @@ export function uploadLogoWithProgress(
 
     const xhr = new XMLHttpRequest();
     xhr.open('PATCH', `${getApiBaseUrl()}/church/edit-church`);
+    xhr.timeout = 120_000; // 2 minutes — enough for large images on slow connections
 
     const token = getAccessToken();
     const tenantId = getTenantId();

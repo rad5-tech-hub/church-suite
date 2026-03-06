@@ -399,10 +399,8 @@ export function Profile() {
     if (!file) return;
     // Reset the input so the same file can be re-selected if needed
     e.target.value = '';
-    if (file.size > 500 * 1024) {
-      showToast('Logo file is too large. Please choose an image under 500KB.', 'error');
-      return;
-    }
+    // Snapshot the current logo so we can restore it if the upload fails
+    const previousLogoUrl = church.logoUrl;
     setLogoUploading(true);
     setLogoUploadProgress(0);
     // Convert to a stable data URL for immediate preview (avoids revoked blob-URL issues)
@@ -420,7 +418,8 @@ export function Profile() {
         if (serverLogoUrl) updateChurch({ logoUrl: serverLogoUrl });
         showSaved();
       } catch (err: any) {
-        updateChurch({ logoUrl: undefined });
+        // Restore the previous logo instead of clearing it
+        updateChurch({ logoUrl: previousLogoUrl });
         showToast(err?.body?.message || err?.message || 'Failed to upload logo. Please try again.', 'error');
       } finally {
         setLogoUploading(false);
@@ -448,10 +447,12 @@ export function Profile() {
   };
 
   const isSuperAdmin = currentAdmin?.isSuperAdmin ?? false;
+  // Show church settings to any church-level admin (isSuperAdmin may not be reliably set by all API responses)
+  const canManageChurch = isSuperAdmin || currentAdmin?.level === 'church';
 
   const tabs: { id: ProfileTab; label: string; icon: React.ReactNode }[] = [
     { id: 'personal', label: 'My Profile', icon: <User className="w-4 h-4" /> },
-    ...(isSuperAdmin ? [{ id: 'church' as ProfileTab, label: 'Church Details', icon: <Church className="w-4 h-4" /> }] : []),
+    ...(canManageChurch ? [{ id: 'church' as ProfileTab, label: 'Church Details', icon: <Church className="w-4 h-4" /> }] : []),
     { id: 'appearance', label: 'Appearance', icon: <Palette className="w-4 h-4" /> },
     { id: 'help', label: 'Help & FAQ', icon: <HelpCircle className="w-4 h-4" /> },
   ];
@@ -670,7 +671,7 @@ export function Profile() {
         )}
 
         {/* ============ CHURCH DETAILS (Super Admin Only) ============ */}
-        {activeTab === 'church' && isSuperAdmin && (
+        {activeTab === 'church' && canManageChurch && (
           <Card>
             <CardContent className="p-6 space-y-6">
               <div>
@@ -804,7 +805,7 @@ export function Profile() {
                     <Label htmlFor="church-reporting-mode">Reporting Mode</Label>
                     <Select
                       value={churchReportingMode}
-                      onValueChange={(value) => setChurchReportingMode(value)}
+                      onValueChange={(value) => setChurchReportingMode(value as 'hierarchical' | 'direct')}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select reporting mode" />
@@ -891,7 +892,7 @@ export function Profile() {
                         className={`w-10 h-10 rounded-lg border-2 transition-all hover:scale-110 ${
                           selectedColor === preset.color ? 'border-gray-900 ring-2 ring-offset-2' : 'border-transparent'
                         }`}
-                        style={{ backgroundColor: preset.color, ringColor: preset.color }}
+                        style={{ backgroundColor: preset.color }}
                         title={preset.name}
                       />
                     ))}
@@ -935,8 +936,8 @@ export function Profile() {
               </CardContent>
             </Card>
 
-            {/* ─── Church Logo (Super Admin only) ─── */}
-            {isSuperAdmin && (
+            {/* ─── Church Logo ─── */}
+            {canManageChurch && (
               <Card>
                 <CardContent className="p-6 space-y-6">
                   <div>
@@ -973,7 +974,7 @@ export function Profile() {
                           {church.logoUrl ? 'Logo uploaded' : 'No logo yet'}
                         </p>
                         <p className="text-xs text-gray-500">
-                          Upload a PNG, JPG, or WebP file up to 500KB. The logo will appear as a very faint watermark behind every page so it never interferes with readability.
+                          Upload a PNG, JPG, or WebP image. The logo will appear as a very faint watermark behind every page so it never interferes with readability.
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
