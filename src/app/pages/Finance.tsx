@@ -116,7 +116,7 @@ const CURRENCIES: { code: string; symbol: string; name: string }[] = [
 export { CURRENCIES };
 
 function getCurrencySymbol(code?: string): string {
-  return CURRENCIES.find(c => c.code === code)?.symbol || '$';
+  return CURRENCIES.find(c => c.code === code)?.symbol || '₦';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -446,8 +446,10 @@ export function Finance() {
       setCtOpen(false);
       resetCtForm();
       showToast(`Collection type "${ctName.trim()}" created successfully.`);
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.body?.message || err?.message || 'Failed to create collection type';
       console.error('Failed to save collection type:', err);
+      showToast(msg, 'error');
     } finally {
       setSaving(false);
     }
@@ -479,13 +481,15 @@ export function Finance() {
     try {
       const collBranchId = fundScope === 'branch' ? fundScopeId : undefined;
       const collDeptId = fundScope === 'department' ? fundScopeId : undefined;
+      const endTimeIso = fundDueDate ? new Date(fundDueDate).toISOString() : undefined;
       await createCollection(
         {
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
+          scopeType: (fundScope === 'unit' ? 'department' : fundScope) as 'church' | 'branch' | 'department',
           branchIds: collBranchId ? [collBranchId] : undefined,
           departmentIds: collDeptId ? [collDeptId] : undefined,
-          endTime: fundDueDate || undefined,
+          endTime: endTimeIso,
         },
         collBranchId,
         collDeptId

@@ -725,11 +725,13 @@ export function Members() {
       {/* ══════ VIEW DIALOG ══════ */}
       <Dialog open={dialogMode === 'view'} onOpenChange={() => { setDialogMode(null); setSelectedMember(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{selectedMember?.fullName}</DialogTitle><DialogDescription>Member details and contact info</DialogDescription></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{selectedMember?.fullName}</DialogTitle>
+            <DialogDescription>Member details and contact info</DialogDescription>
+          </DialogHeader>
           {selectedMember && (
             <div className="space-y-4 mt-2">
-              {isInWorkforce(selectedMember.id) && <Badge className="bg-blue-100 text-blue-700 border-0"><Briefcase className="w-3 h-3 mr-1" />In Workforce</Badge>}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 <InfoBlock label="Gender" value={selectedMember.gender} capitalize />
                 <InfoBlock label="Marital Status" value={selectedMember.maritalStatus} capitalize />
                 <InfoBlock label="Year Joined" value={String(selectedMember.yearJoined)} />
@@ -737,21 +739,45 @@ export function Members() {
                 <InfoBlock label="Birthday" value={formatBirthday(selectedMember)} />
                 <InfoBlock label="Country" value={selectedMember.country} />
                 <InfoBlock label="State" value={selectedMember.state} />
-                {showMultiBranch && <InfoBlock label="Branch" value={getBranchName(selectedMember.branchId) || '-'} />}
+                <InfoBlock label="Branch" value={getBranchName(selectedMember.branchId) || '-'} />
               </div>
               <Separator />
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-gray-700">Contact</h4>
-                <button onClick={() => setContactAction({ type: 'phone', value: selectedMember.phone, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"><Phone className="w-4 h-4 text-blue-600" /><span className="text-sm">{selectedMember.phone}</span></button>
-                {selectedMember.whatsapp && <a href={`https://wa.me/${selectedMember.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-green-50 transition-colors"><MessageCircle className="w-4 h-4 text-green-600" /><span className="text-sm">{selectedMember.whatsapp}</span><Badge variant="outline" className="ml-auto text-xs text-green-700">WhatsApp</Badge></a>}
-                {selectedMember.email && <button onClick={() => setContactAction({ type: 'email', value: selectedMember.email!, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"><Mail className="w-4 h-4 text-blue-600" /><span className="text-sm">{selectedMember.email}</span></button>}
+                <button onClick={() => setContactAction({ type: 'phone', value: selectedMember.phone, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors text-left">
+                  <Phone className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span className="text-sm text-gray-800">{selectedMember.phone}</span>
+                </button>
+                {selectedMember.email && (
+                  <button onClick={() => setContactAction({ type: 'email', value: selectedMember.email!, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors text-left">
+                    <Mail className="w-4 h-4 text-blue-500 shrink-0" />
+                    <span className="text-sm text-gray-800">{selectedMember.email}</span>
+                  </button>
+                )}
+                {selectedMember.whatsapp && (
+                  <a href={`https://wa.me/${selectedMember.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-green-50 transition-colors">
+                    <MessageCircle className="w-4 h-4 text-green-600 shrink-0" />
+                    <span className="text-sm text-gray-800">{selectedMember.whatsapp}</span>
+                  </a>
+                )}
               </div>
               <Separator />
-              <InfoBlock label="Address" value={selectedMember.address} />
-              <div className="flex gap-3 pt-2">
-                {!isInWorkforce(selectedMember.id) && <Button variant="outline" className="flex-1" onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }}><Briefcase className="w-4 h-4 mr-2" />Move to Workforce</Button>}
-                <Button variant="outline" className="flex-1" onClick={() => setDialogMode('edit')}><Edit className="w-4 h-4 mr-2" />Edit</Button>
-                <Button variant="outline" className="flex-1 text-red-600 hover:bg-red-50" onClick={() => { setDialogMode(null); setDeleteTarget(selectedMember); }}><Trash2 className="w-4 h-4 mr-2" />Delete</Button>
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Address</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {[selectedMember.address, selectedMember.state, selectedMember.country].filter(Boolean).join(', ')}
+                </p>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }} disabled={isInWorkforce(selectedMember.id)}>
+                  <Briefcase className="w-4 h-4 mr-1.5" />Move to Workforce
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => setDialogMode('edit')}>
+                  <Edit className="w-4 h-4 mr-1.5" />Edit
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1 text-red-600 hover:bg-red-50 hover:text-red-600 border-red-200" onClick={() => { setDialogMode(null); setDeleteTarget(selectedMember); }}>
+                  <Trash2 className="w-4 h-4 mr-1.5" />Delete
+                </Button>
               </div>
             </div>
           )}

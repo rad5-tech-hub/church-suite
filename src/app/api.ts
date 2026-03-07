@@ -844,9 +844,48 @@ export const saveCollections = async (_collections: any[]) => {
   return { success: true };
 };
 
-export const fetchCollectionTypes = async () => [];
+export async function fetchCollectionTypes(): Promise<any[]> {
+  try {
+    const res = await apiFetch<any>('/church/get-collection-attributes');
+    const items = Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
+    return items.map((c: any) => ({
+      id: c.id,
+      churchId: c.churchId || '',
+      name: c.name || '',
+      scope: c.scopeType || 'church',
+      scopeId: c.branchId || c.departmentId || c.unitId || undefined,
+      createdBy: c.createdBy || '',
+      createdAt: new Date(c.createdAt || Date.now()),
+    }));
+  } catch {
+    return [];
+  }
+}
 export const saveCollectionTypes = async (_types: any[]) => ({ success: true });
-export const fetchStandaloneCollections = async () => [];
+export async function fetchStandaloneCollections(): Promise<any[]> {
+  try {
+    const res = await apiFetch<any>('/church/get-collection-attributes');
+    const items = Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
+    // Items with endTime are fundraisers; show all with endTime or description as fundraisers
+    return items
+      .filter((c: any) => c.endTime)
+      .map((c: any) => ({
+        id: c.id,
+        churchId: c.churchId || '',
+        name: c.name || '',
+        description: c.description || '',
+        targetAmount: c.targetAmount || 0,
+        dueDate: new Date(c.endTime),
+        scope: c.scopeType || 'church',
+        scopeId: c.branchId || c.departmentId || undefined,
+        entries: [],
+        createdBy: c.createdBy || '',
+        createdAt: new Date(c.createdAt || Date.now()),
+      }));
+  } catch {
+    return [];
+  }
+}
 export const saveStandaloneCollections = async (_collections: any[]) => ({ success: true });
 
 // ═══════════════════════════════════════════════════════════════
