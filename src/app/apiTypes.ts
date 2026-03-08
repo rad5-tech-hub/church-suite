@@ -410,6 +410,8 @@ export interface CreateCollectionRequest {
   scopeType?: 'church' | 'branch' | 'department';
   type?: string;
   endTime?: string;
+  branchId?: string;
+  departmentId?: string;
   branchIds?: string[];
   departmentIds?: string[];
   members?: { memberId: string; departmentId: string }[];

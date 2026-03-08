@@ -808,15 +808,99 @@ export const saveNewcomerForms = async (_forms: any[]) => {
 // COLLECTIONS
 // ═══════════════════════════════════════════════════════════════
 
-/** GET /church/get-all-collections/:branchId */
-export async function fetchCollections(branchId?: string): Promise<any[]> {
-  if (branchId) {
-    const res = await apiFetch<any>(`/church/get-all-collections/${branchId}`);
-    return Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
-  }
+const COLLECTION_ADMIN_CACHE_KEY = 'churchset_current_admin';
+const COLLECTION_CHURCH_CACHE_KEY = 'churchset_church_data';
+const PROGRAM_COLLECTIONS_KEY = 'churchset_program_collections';
+
+function readSessionJson<T>(key: string): T | null {
   try {
-    const res = await apiFetch<any>('/church/get-collection-attributes');
-    return Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
+    const raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : null;
+  } catch {
+    return null;
+  }
+}
+
+function dedupeCollections(items: any[]): any[] {
+  const seen = new Set<string>();
+  return items.filter((item: any) => {
+    const key = item?.id || [item?.name, item?.scopeType, item?.scopeId, item?.branchId, item?.departmentId].filter(Boolean).join(':');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchCollectionsByBranch(branchId: string, query?: Record<string, string | boolean | undefined>): Promise<any[]> {
+  const res = await apiFetch<any>(`/church/get-all-collections/${branchId}${buildQuery(query || {})}`);
+  return Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
+}
+
+function getCachedCollectionContext() {
+  const admin = readSessionJson<any>(COLLECTION_ADMIN_CACHE_KEY) || {};
+  const churchData = readSessionJson<any>(COLLECTION_CHURCH_CACHE_KEY) || {};
+  const storedBranches = Array.isArray(churchData?.branches) ? churchData.branches : [];
+  const branchIds = Array.from(new Set([
+    admin?.branchId,
+    ...(Array.isArray(admin?.branchIds) ? admin.branchIds : []),
+    ...storedBranches.map((branch: any) => branch?.id),
+  ].filter(Boolean)));
+
+  return {
+    adminLevel: admin?.level,
+    branchIds,
+    churchId: churchData?.church?.id || admin?.churchId,
+    departmentId: admin?.departmentId || admin?.departmentIds?.[0],
+  };
+}
+
+async function fetchCollectionCatalog(branchId?: string): Promise<any[]> {
+  try {
+    if (branchId) {
+      return dedupeCollections(await fetchCollectionsByBranch(branchId));
+    }
+
+    const context = getCachedCollectionContext();
+    if (context.branchIds.length === 0) {
+      return [];
+    }
+
+    if (context.departmentId) {
+      return dedupeCollections(await fetchCollectionsByBranch(context.branchIds[0], { departmentId: context.departmentId }));
+    }
+
+    if (context.adminLevel === 'branch') {
+      return dedupeCollections(await fetchCollectionsByBranch(context.branchIds[0], { branch: true }));
+    }
+
+    const requests: Promise<any[]>[] = context.branchIds.map((id: string) => fetchCollectionsByBranch(id, { branch: true }));
+    if (context.churchId) {
+      requests.unshift(fetchCollectionsByBranch(context.branchIds[0], { churchId: context.churchId }));
+    }
+
+    const results = await Promise.all(requests);
+    return dedupeCollections(results.flat());
+  } catch {
+    return [];
+  }
+}
+
+/** GET locally stored program collections */
+export async function fetchCollections(branchId?: string): Promise<any[]> {
+  try {
+    const churchId = getCachedCollectionContext().churchId;
+    const raw = localStorage.getItem(PROGRAM_COLLECTIONS_KEY);
+    const items = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    return items
+      .filter((item: any) => (!churchId || item?.churchId === churchId) && (!branchId || item?.branchId === branchId))
+      .map((item: any) => ({
+        ...item,
+        date: item?.date ? new Date(item.date) : new Date(),
+        createdAt: item?.createdAt ? new Date(item.createdAt) : new Date(),
+      }));
   } catch {
     return [];
   }
@@ -824,9 +908,12 @@ export async function fetchCollections(branchId?: string): Promise<any[]> {
 
 /** POST /church/create-collection?branchId=...&departmentId=... */
 export async function createCollection(data: CreateCollectionRequest, branchId?: string, departmentId?: string) {
-  return apiFetch<any>(`/church/create-collection${buildQuery({ branchId, departmentId })}`, {
+  const resolvedBranchId = branchId || data.branchId || data.branchIds?.[0];
+  const resolvedDepartmentId = departmentId || data.departmentId || data.departmentIds?.[0];
+  const { branchId: _branchId, departmentId: _departmentId, ...payload } = data;
+  return apiFetch<any>(`/church/create-collection${buildQuery({ branchId: resolvedBranchId, departmentId: resolvedDepartmentId })}`, {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -839,21 +926,20 @@ export async function editCollection(collectionId: string, data: any, department
 }
 
 // Backward-compat aliases
-export const saveCollections = async (_collections: any[]) => {
-  console.warn('saveCollections: bulk save not supported by real API');
+export const saveCollections = async (collections: any[]) => {
+  try { localStorage.setItem(PROGRAM_COLLECTIONS_KEY, JSON.stringify(collections)); } catch { /* ignore */ }
   return { success: true };
 };
 
 export async function fetchCollectionTypes(): Promise<any[]> {
   try {
-    const res = await apiFetch<any>('/church/get-collection-attributes');
-    const items = Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
+    const items = await fetchCollectionCatalog();
     return items.map((c: any) => ({
       id: c.id,
       churchId: c.churchId || '',
       name: c.name || '',
       scope: c.scopeType || 'church',
-      scopeId: c.branchId || c.departmentId || c.unitId || undefined,
+      scopeId: c.scopeId || c.branchId || c.departmentId || c.unitId || undefined,
       createdBy: c.createdBy || '',
       createdAt: new Date(c.createdAt || Date.now()),
     }));
@@ -864,9 +950,7 @@ export async function fetchCollectionTypes(): Promise<any[]> {
 export const saveCollectionTypes = async (_types: any[]) => ({ success: true });
 export async function fetchStandaloneCollections(): Promise<any[]> {
   try {
-    const res = await apiFetch<any>('/church/get-collection-attributes');
-    const items = Array.isArray(res.collections) ? res.collections : Array.isArray(res) ? res : [];
-    // Items with endTime are fundraisers; show all with endTime or description as fundraisers
+    const items = await fetchCollectionCatalog();
     return items
       .filter((c: any) => c.endTime)
       .map((c: any) => ({
@@ -877,7 +961,7 @@ export async function fetchStandaloneCollections(): Promise<any[]> {
         targetAmount: c.targetAmount || 0,
         dueDate: new Date(c.endTime),
         scope: c.scopeType || 'church',
-        scopeId: c.branchId || c.departmentId || undefined,
+        scopeId: c.scopeId || c.branchId || c.departmentId || undefined,
         entries: [],
         createdBy: c.createdBy || '',
         createdAt: new Date(c.createdAt || Date.now()),
@@ -1247,8 +1331,20 @@ export const saveWorkforce = async (_workforce: any[]) => {
 export const fetchTrainingPrograms = async () => [];
 export const saveTrainingPrograms = async (_programs: any[]) => ({ success: true });
 
-export const fetchNewcomerTrainingClasses = async () => [];
-export const saveNewcomerTrainingClasses = async (_classes: any[]) => ({ success: true });
+const NEWCOMER_CLASSES_KEY = 'churchset_newcomer_training_classes';
+export const fetchNewcomerTrainingClasses = async (): Promise<any[]> => {
+  try { return JSON.parse(localStorage.getItem(NEWCOMER_CLASSES_KEY) || '[]'); } catch { return []; }
+};
+export const saveNewcomerTrainingClasses = async (classes: any[]) => {
+  try { localStorage.setItem(NEWCOMER_CLASSES_KEY, JSON.stringify(classes)); } catch { /* ignore */ }
+  return { success: true };
+};
 
-export const fetchMemberTrainingClasses = async () => [];
-export const saveMemberTrainingClasses = async (_classes: any[]) => ({ success: true });
+const MEMBER_CLASSES_KEY = 'churchset_member_training_classes';
+export const fetchMemberTrainingClasses = async (): Promise<any[]> => {
+  try { return JSON.parse(localStorage.getItem(MEMBER_CLASSES_KEY) || '[]'); } catch { return []; }
+};
+export const saveMemberTrainingClasses = async (classes: any[]) => {
+  try { localStorage.setItem(MEMBER_CLASSES_KEY, JSON.stringify(classes)); } catch { /* ignore */ }
+  return { success: true };
+};

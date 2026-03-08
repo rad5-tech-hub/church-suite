@@ -311,6 +311,39 @@ export function Finance() {
     return uns;
   };
 
+  const resolveCollectionScopeContext = (scope: 'church' | 'branch' | 'department' | 'unit', scopeId: string) => {
+    const normalizedScope: 'church' | 'branch' | 'department' = scope === 'unit' ? 'department' : scope;
+    const selectedUnit = scope === 'unit' ? units.find(u => u.id === scopeId) : undefined;
+    const departmentId = scope === 'department'
+      ? scopeId
+      : scope === 'unit'
+        ? selectedUnit?.departmentId || currentAdmin?.departmentId || ''
+        : '';
+    const selectedDepartment = departmentId ? departments.find(d => d.id === departmentId) : undefined;
+    const fallbackBranchId = currentAdmin?.branchId || branches[0]?.id || departments.find(d => d.branchId)?.branchId || '';
+    const branchId = scope === 'branch'
+      ? scopeId
+      : scope === 'department' || scope === 'unit'
+        ? selectedDepartment?.branchId || fallbackBranchId
+        : fallbackBranchId;
+
+    return {
+      scopeType: normalizedScope,
+      branchId: branchId || undefined,
+      departmentId: departmentId || undefined,
+      branchIds: normalizedScope === 'church'
+        ? (branches.length > 0
+          ? branches.map(b => b.id)
+          : branchId
+            ? [branchId]
+            : undefined)
+        : normalizedScope === 'branch' && branchId
+          ? [branchId]
+          : undefined,
+      departmentIds: normalizedScope === 'department' && departmentId ? [departmentId] : undefined,
+    };
+  };
+
   // ═══════════════ FILTER LEDGER ENTRIES ═══════════════
   const filteredLedger = ledgerEntries.filter(e => {
     // Role-based access
@@ -430,17 +463,29 @@ export function Finance() {
       return;
     }
 
+    const collectionContext = resolveCollectionScopeContext(ctScope, ctScopeId);
+    if (!collectionContext.branchId) {
+      showToast('No branch found. Please create a branch first.', 'error');
+      return;
+    }
+    if (collectionContext.scopeType === 'department' && ctScope !== 'church' && !collectionContext.departmentId) {
+      showToast('The selected scope could not be matched to a department.', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       await createCollection(
         {
           name: ctName.trim(),
-          scopeType: (ctScope === 'unit' ? 'department' : ctScope) as 'church' | 'branch' | 'department',
-          branchIds: ctScope === 'branch' && ctScopeId ? [ctScopeId] : undefined,
-          departmentIds: ctScope === 'department' && ctScopeId ? [ctScopeId] : undefined,
+          scopeType: collectionContext.scopeType,
+          branchId: collectionContext.branchId,
+          departmentId: collectionContext.departmentId,
+          branchIds: collectionContext.branchIds,
+          departmentIds: collectionContext.departmentIds,
         },
-        ctScope === 'branch' ? ctScopeId : undefined,
-        ctScope === 'department' ? ctScopeId : undefined
+        collectionContext.branchId,
+        collectionContext.departmentId
       );
       await loadData();
       setCtOpen(false);
@@ -477,22 +522,32 @@ export function Finance() {
       return;
     }
 
+    const collectionContext = resolveCollectionScopeContext(fundScope, fundScopeId);
+    if (!collectionContext.branchId) {
+      showToast('No branch found. Please create a branch first.', 'error');
+      return;
+    }
+    if (collectionContext.scopeType === 'department' && fundScope !== 'church' && !collectionContext.departmentId) {
+      showToast('The selected scope could not be matched to a department.', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
-      const collBranchId = fundScope === 'branch' ? fundScopeId : undefined;
-      const collDeptId = fundScope === 'department' ? fundScopeId : undefined;
       const endTimeIso = fundDueDate ? new Date(fundDueDate).toISOString() : undefined;
       await createCollection(
         {
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
-          scopeType: (fundScope === 'unit' ? 'department' : fundScope) as 'church' | 'branch' | 'department',
-          branchIds: collBranchId ? [collBranchId] : undefined,
-          departmentIds: collDeptId ? [collDeptId] : undefined,
+          scopeType: collectionContext.scopeType,
+          branchId: collectionContext.branchId,
+          departmentId: collectionContext.departmentId,
+          branchIds: collectionContext.branchIds,
+          departmentIds: collectionContext.departmentIds,
           endTime: endTimeIso,
         },
-        collBranchId,
-        collDeptId
+        collectionContext.branchId,
+        collectionContext.departmentId
       );
       await loadData();
       setFundOpen(false);
@@ -534,15 +589,18 @@ export function Finance() {
     setSaving(true);
     try {
       const fund = standaloneColls.find(s => s.id === donateFundId);
-      const branchId = fund?.scope === 'branch' ? fund?.scopeId : undefined;
+      const collectionContext = resolveCollectionScopeContext(
+        (fund?.scope as 'church' | 'branch' | 'department' | 'unit') || 'church',
+        fund?.scopeId || ''
+      );
       await updateAccount(
         {
           amount: parseFloat(donateAmount.replace(/,/g, '')),
           description: `Donation from ${donateName.trim()} for "${fund?.name || 'Fundraiser'}"`,
           type: 'credit',
         },
-        branchId,
-        undefined
+        collectionContext.branchId,
+        collectionContext.departmentId
       );
       await loadData();
       setDonateOpen(false);
@@ -611,7 +669,7 @@ export function Finance() {
               : `You can create this for your assigned ${adminLevel} or any area within it.`
             }
           </p>
-          <Select value={scope} onValueChange={(v) => { setScope(v as any); setScopeId(''); }}>
+          <Select value={scope} onValueChange={(v) => { setScope(v as any); setScopeId(getDefaultScopeId(v)); }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {creatableScopes.includes('church') && <SelectItem value="church">Church-wide (all branches)</SelectItem>}
