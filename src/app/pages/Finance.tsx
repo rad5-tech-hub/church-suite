@@ -130,6 +130,21 @@ export function Finance() {
   const isSuperAdmin = currentAdmin?.isSuperAdmin ?? false;
   const adminLevel = currentAdmin?.level || 'church';
   const currSymbol = getCurrencySymbol(church.currency);
+  const accessibleBranchIds = currentAdmin?.branchIds?.length
+    ? currentAdmin.branchIds
+    : currentAdmin?.branchId
+      ? [currentAdmin.branchId]
+      : [];
+  const accessibleDepartmentIds = currentAdmin?.departmentIds?.length
+    ? currentAdmin.departmentIds
+    : currentAdmin?.departmentId
+      ? [currentAdmin.departmentId]
+      : [];
+  const accessibleUnitIds = currentAdmin?.unitIds?.length
+    ? currentAdmin.unitIds
+    : currentAdmin?.unitId
+      ? [currentAdmin.unitId]
+      : [];
 
   // Data
   const [collectionTypes, setCollectionTypes] = useState<CollectionType[]>([]);
@@ -217,28 +232,94 @@ export function Finance() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cts, les, scs, pcs, deps, uns, progs] = await Promise.all([
+      const [cts, scs, pcs, deps, uns, progs] = await Promise.all([
         fetchCollectionTypes(),
-        fetchLedgerEntries(),
         fetchStandaloneCollections(),
         fetchCollections(),
         fetchDepartments(),
         fetchUnits(),
         fetchPrograms(branches[0]?.id),
       ]);
+
+      const resolvedDepartments = deps as Department[];
+      const resolvedUnits = uns as Unit[];
+      const ledgerQueries: Array<{ branchId?: string; departmentId?: string }> = [];
+      const seenLedgerQueries = new Set<string>();
+      const addLedgerQuery = (branchId?: string, departmentId?: string) => {
+        const key = `${branchId || 'church'}:${departmentId || 'all'}`;
+        if (seenLedgerQueries.has(key)) return;
+        seenLedgerQueries.add(key);
+        ledgerQueries.push({ branchId, departmentId });
+      };
+
+      if (isSuperAdmin || adminLevel === 'church') {
+        addLedgerQuery();
+        branches.forEach((branch) => addLedgerQuery(branch.id));
+        resolvedDepartments.forEach((department) => {
+          if (department.branchId) addLedgerQuery(department.branchId, department.id);
+        });
+      } else if (adminLevel === 'branch') {
+        const branchIds = currentAdmin?.branchIds?.length
+          ? currentAdmin.branchIds
+          : currentAdmin?.branchId
+            ? [currentAdmin.branchId]
+            : [];
+        branchIds.forEach((branchId) => addLedgerQuery(branchId));
+        resolvedDepartments
+          .filter((department) => department.branchId && branchIds.includes(department.branchId))
+          .forEach((department) => addLedgerQuery(department.branchId || undefined, department.id));
+      } else {
+        const branchIds = currentAdmin?.branchIds?.length
+          ? currentAdmin.branchIds
+          : currentAdmin?.branchId
+            ? [currentAdmin.branchId]
+            : [];
+        const departmentIds = currentAdmin?.departmentIds?.length
+          ? currentAdmin.departmentIds
+          : currentAdmin?.departmentId
+            ? [currentAdmin.departmentId]
+            : [];
+
+        if (departmentIds.length > 0) {
+          departmentIds.forEach((departmentId) => {
+            const department = resolvedDepartments.find((item) => item.id === departmentId);
+            addLedgerQuery(department?.branchId || branchIds[0], departmentId);
+          });
+        } else if (adminLevel === 'unit' && currentAdmin?.unitId) {
+          const unit = resolvedUnits.find((item) => item.id === currentAdmin.unitId);
+          const departmentId = unit?.departmentId || currentAdmin.departmentId;
+          const department = resolvedDepartments.find((item) => item.id === departmentId);
+          addLedgerQuery(department?.branchId || branchIds[0], departmentId);
+        } else {
+          branchIds.forEach((branchId) => addLedgerQuery(branchId));
+        }
+      }
+
+      const ledgerResults = await Promise.all(
+        ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId))
+      );
+      const mergedLedger = Array.from(
+        new Map(
+          ledgerResults.flat().map((entry) => [
+            entry.id || `${entry.branchId || 'church'}:${entry.departmentId || 'all'}:${entry.createdAt.toISOString()}:${entry.description}:${entry.amount}:${entry.type}`,
+            entry,
+          ])
+        ).values()
+      );
+
       setCollectionTypes(cts as CollectionType[]);
-      setLedgerEntries(les as LedgerEntry[]);
+      setLedgerEntries(mergedLedger as LedgerEntry[]);
       setStandaloneColls(scs as StandaloneCollection[]);
       setProgramColls(pcs as Collection[]);
-      setDepartments((deps as Department[]));
-      setUnits((uns as Unit[]));
+      setDepartments(resolvedDepartments);
+      setUnits(resolvedUnits);
       setPrograms(progs as Program[]);
     } catch (err) {
       console.error('Failed to load finance data:', err);
     } finally {
       setLoading(false);
     }
-  }, [church.id, branches]);
+  }, [adminLevel, branches, currentAdmin, isSuperAdmin]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -267,13 +348,14 @@ export function Finance() {
   const canAccessScope = (branchId?: string, deptId?: string, unitId?: string): boolean => {
     if (isSuperAdmin || adminLevel === 'church') return true;
     if (adminLevel === 'branch') {
-      return branchId === currentAdmin?.branchId;
+      return !!branchId && accessibleBranchIds.includes(branchId);
     }
     if (adminLevel === 'department') {
-      return deptId === currentAdmin?.departmentId;
+      return !!deptId && accessibleDepartmentIds.includes(deptId);
     }
     if (adminLevel === 'unit') {
-      return unitId === currentAdmin?.unitId;
+      if (unitId && accessibleUnitIds.includes(unitId)) return true;
+      return !!deptId && accessibleDepartmentIds.includes(deptId);
     }
     return false;
   };
@@ -290,9 +372,9 @@ export function Finance() {
   // Auto-set scope ID for non-super-admins
   const getDefaultScopeId = (scope: string) => {
     if (scope === 'church') return '';
-    if (scope === 'branch' && adminLevel === 'branch') return currentAdmin?.branchId || '';
-    if (scope === 'department' && (adminLevel === 'department' || adminLevel === 'branch')) return currentAdmin?.departmentId || '';
-    if (scope === 'unit') return currentAdmin?.unitId || '';
+    if (scope === 'branch' && adminLevel === 'branch') return accessibleBranchIds[0] || '';
+    if (scope === 'department' && (adminLevel === 'department' || adminLevel === 'branch')) return accessibleDepartmentIds[0] || '';
+    if (scope === 'unit') return accessibleUnitIds[0] || '';
     return '';
   };
 
@@ -300,14 +382,14 @@ export function Finance() {
   const getFilteredDepts = (branchId?: string) => {
     let deps = departments;
     if (branchId) deps = deps.filter(d => d.branchId === branchId);
-    if (adminLevel === 'department') deps = deps.filter(d => d.id === currentAdmin?.departmentId);
+    if (adminLevel === 'department') deps = deps.filter(d => accessibleDepartmentIds.includes(d.id));
     return deps;
   };
 
   const getFilteredUnits = (deptId?: string) => {
     let uns = units;
     if (deptId) uns = uns.filter(u => u.departmentId === deptId);
-    if (adminLevel === 'unit') uns = uns.filter(u => u.id === currentAdmin?.unitId);
+    if (adminLevel === 'unit') uns = uns.filter(u => accessibleUnitIds.includes(u.id));
     return uns;
   };
 
@@ -320,7 +402,7 @@ export function Finance() {
         ? selectedUnit?.departmentId || currentAdmin?.departmentId || ''
         : '';
     const selectedDepartment = departmentId ? departments.find(d => d.id === departmentId) : undefined;
-    const fallbackBranchId = currentAdmin?.branchId || branches[0]?.id || departments.find(d => d.branchId)?.branchId || '';
+    const fallbackBranchId = accessibleBranchIds[0] || branches[0]?.id || departments.find(d => d.branchId)?.branchId || '';
     const branchId = scope === 'branch'
       ? scopeId
       : scope === 'department' || scope === 'unit'
@@ -412,8 +494,18 @@ export function Finance() {
 
     setSaving(true);
     try {
-      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none' ? ledgerBranchId : undefined;
-      const cleanDeptId = ledgerDeptId && ledgerDeptId !== 'none' ? ledgerDeptId : undefined;
+      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
+        ? ledgerBranchId
+        : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
+          ? accessibleBranchIds[0]
+          : undefined;
+      const cleanDeptId = ledgerDeptId && ledgerDeptId !== 'none'
+        ? ledgerDeptId
+        : adminLevel === 'department'
+          ? accessibleDepartmentIds[0]
+          : adminLevel === 'unit'
+            ? accessibleDepartmentIds[0] || units.find((unit) => accessibleUnitIds.includes(unit.id))?.departmentId
+            : undefined;
       await updateAccount(
         {
           amount: parseFloat(ledgerAmount.replace(/,/g, '')),
@@ -625,7 +717,6 @@ export function Finance() {
     if (!deleteTarget) return;
     setSaving(true);
     try {
-      // Delete operations remove from local UI state; server deletion isn't yet exposed by the API.
       if (deleteTarget.type === 'ledger') {
         setLedgerEntries(prev => prev.filter(e => e.id !== deleteTarget.id));
       } else if (deleteTarget.type === 'ct') {
@@ -1731,3 +1822,4 @@ export function Finance() {
     </Layout>
   );
 }
+

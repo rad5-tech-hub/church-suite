@@ -444,6 +444,7 @@ export interface CreateRoleRequest {
   branchId?: string;
   permissions?: string[];
   permissionGroup?: string[];
+  granularPermissions?: Record<string, string[]>;
 }
 
 export interface EditRoleRequest {
@@ -452,6 +453,9 @@ export interface EditRoleRequest {
   scopeLevel?: string;
   permissions?: string[];
   permissionGroup?: string[];
+  granularPermissions?: Record<string, string[]>;
+  currentPermissions?: any[];
+  currentPermissionGroups?: any[];
 }
 
 export interface AssignRoleRequest {

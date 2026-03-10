@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Admin } from '../types';
-import { loginApi, logoutApi, fetchAdmins, refreshAccessToken } from '../api';
+import { loginApi, logoutApi, fetchAdmin, fetchAdminPermissionState, refreshAccessToken } from '../api';
 import { getAccessToken, setAccessToken, setTenantId, decodeJwtClaims } from '../apiClient';
 
 interface AuthContextType {
@@ -19,37 +19,101 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// sessionStorage key — cleared automatically when the browser tab/window closes
+// sessionStorage key - cleared automatically when the browser tab/window closes
 const ADMIN_CACHE_KEY = 'churchset_current_admin';
 const TENANT_META_NAME_KEY = 'churchset_tenant_name';
 const TENANT_META_HQ_KEY = 'churchset_is_hq';
 const CHURCH_DATA_KEY = 'churchset_church_data';
 
+function normalizeGranularPermissions(granularPermissions?: Record<string, string[]>) {
+  return Object.fromEntries(
+    Object.entries(granularPermissions || {})
+      .filter(([, actions]) => Array.isArray(actions) && actions.length > 0)
+      .map(([permissionId, actions]) => [permissionId, Array.from(new Set(actions.filter(Boolean)))])
+  );
+}
+
+// Removed hasResolvedPermissionState
+
+function mergePermissionState(
+  admin: Admin,
+  permissionState?: {
+    roleId?: string;
+    permissions?: string[];
+    granularPermissions?: Record<string, string[]>;
+  } | null
+): Admin {
+  return {
+    ...admin,
+    roleId: permissionState?.roleId || admin.roleId,
+    permissions: Array.isArray(permissionState?.permissions)
+      ? Array.from(new Set(permissionState.permissions.filter(Boolean)))
+      : (Array.isArray(admin.permissions) ? Array.from(new Set(admin.permissions.filter(Boolean))) : []),
+    granularPermissions: normalizeGranularPermissions(permissionState?.granularPermissions ?? admin.granularPermissions),
+  };
+}
+
 /** Map API admin response to the internal Admin type */
 function mapApiAdminToAdmin(apiAdmin: any): Admin {
-  const id = apiAdmin.id as string;
-  // Restore profile picture from localStorage (no server-side endpoint for this)
-  let profilePicture: string | undefined;
-  try {
-    profilePicture = localStorage.getItem(`churchset_profile_pic_${id}`) ?? undefined;
-  } catch { /* ignore */ }
+  const branchIds = Array.isArray(apiAdmin.branchIds) && apiAdmin.branchIds.length > 0
+    ? apiAdmin.branchIds.filter(Boolean)
+    : Array.isArray(apiAdmin.branches)
+      ? apiAdmin.branches.map((branch: any) => branch?.id).filter(Boolean)
+      : apiAdmin.branchId
+        ? [apiAdmin.branchId]
+        : [];
+  const validLevels = ['church', 'branch', 'department', 'unit', 'member'];
+  const rawLevel = apiAdmin.level || apiAdmin.scopeLevel || apiAdmin.roles?.[0]?.scopeLevel || apiAdmin.role?.scopeLevel;
+  const level = apiAdmin.isSuperAdmin
+    ? 'church'
+    : rawLevel === 'member' || rawLevel === 'unit'
+      ? 'unit'
+      : validLevels.includes(rawLevel)
+        ? rawLevel
+        : 'church';
   return {
-    id,
+    id: apiAdmin.id as string,
     churchId: apiAdmin.churchId || '',
     name: apiAdmin.name,
     email: apiAdmin.email,
     phone: apiAdmin.phone,
     isSuperAdmin: apiAdmin.isSuperAdmin ?? false,
-    roleId: '',
-    level: apiAdmin.scopeLevel === 'member' ? 'unit' : (apiAdmin.scopeLevel || 'church'),
-    status: apiAdmin.isActive === false ? 'suspended' : 'active',
-    branchId: apiAdmin.branchId || undefined,
-    branchIds: apiAdmin.branchId ? [apiAdmin.branchId] : [],
-    departmentIds: (apiAdmin.departments || []).map((d: any) => d.id),
-    unitIds: (apiAdmin.units || []).map((u: any) => u.id),
-    createdAt: new Date(apiAdmin.createdAt),
-    profilePicture,
+    roleId: apiAdmin.roleId || apiAdmin.roles?.[0]?.id || '',
+    level,
+    status: apiAdmin.status || (apiAdmin.isActive === false ? 'suspended' : 'active'),
+    branchId: apiAdmin.branchId || apiAdmin.branch?.id || branchIds[0] || undefined,
+    branchIds,
+    departmentIds: Array.isArray(apiAdmin.departmentIds) && apiAdmin.departmentIds.length > 0
+      ? apiAdmin.departmentIds
+      : (apiAdmin.departments || []).map((d: any) => d.id),
+    unitIds: Array.isArray(apiAdmin.unitIds) && apiAdmin.unitIds.length > 0
+      ? apiAdmin.unitIds
+      : (apiAdmin.units || []).map((u: any) => u.id),
+    permissions: Array.isArray(apiAdmin.permissions) ? Array.from(new Set(apiAdmin.permissions.filter(Boolean))) : [],
+    granularPermissions: normalizeGranularPermissions(apiAdmin.granularPermissions),
+    createdAt: apiAdmin.createdAt instanceof Date ? apiAdmin.createdAt : new Date(apiAdmin.createdAt || Date.now()),
+    profilePicture: apiAdmin.profilePicture,
   };
+}
+
+function normalizeEmail(value?: string | null) {
+  return (value || '').trim().toLowerCase();
+}
+
+function findMatchingAdminRecord(admins: any[], cachedAdmin: Admin | null, claims: Record<string, any>) {
+  const claimId = String(claims.id || claims.userId || '').trim();
+  const claimEmail = normalizeEmail(claims.email);
+  const cachedEmail = normalizeEmail(cachedAdmin?.email);
+
+  return admins.find((admin: any) => {
+    const adminEmail = normalizeEmail(admin?.email);
+    return Boolean(
+      (claimId && admin?.id === claimId) ||
+      (claimEmail && adminEmail === claimEmail) ||
+      (cachedAdmin?.id && admin?.id === cachedAdmin.id) ||
+      (cachedEmail && adminEmail === cachedEmail)
+    );
+  });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -101,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setAccessTokenState(token);
             }
           } catch {
-            // No valid refresh token — clear stale session and force login
+            // No valid refresh token - clear stale session and force login
             setAccessToken(null);
             setTenantId(null);
             setAccessTokenState(null);
@@ -111,14 +175,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (token) {
           try {
-            const admins = await fetchAdmins();
-            if (admins && admins.length > 0) {
-              const admin: Admin = mapApiAdminToAdmin(admins[0]);
-              setCurrentAdminState(admin);
-              persistAdmin(admin);
+            const claims = decodeJwtClaims(token);
+            // Start with the cached admin (already loaded from sessionStorage as initial state)
+            let resolvedAdmin: Admin | null = currentAdmin;
+            try {
+              if (claims.id) {
+                const adminResponse = await fetchAdmin(String(claims.id));
+                if (adminResponse && adminResponse.admin) {
+                  resolvedAdmin = mapApiAdminToAdmin(adminResponse.admin);
+                }
+              }
+            } catch {
+              // fetchAdmins can return 403 for limited-permission admins - the token is
+              // still valid. Fall back to the cached admin from sessionStorage. If there's
+              // no cached admin either, build a minimal one from the JWT claims so the
+              // session stays alive and the user can continue working.
+              if (!resolvedAdmin && claims.id) {
+                const adminBranchId = claims.branchId || undefined;
+                resolvedAdmin = {
+                  id: String(claims.id),
+                  churchId: claims.churchId || '',
+                  name: claims.name ?? '',
+                  email: claims.email ?? '',
+                  isSuperAdmin: claims.isSuperAdmin ?? false,
+                  roleId: '',
+                  level: claims.isSuperAdmin ? 'church' : 'branch',
+                  status: 'active',
+                  createdAt: new Date(),
+                  branchId: adminBranchId,
+                  branchIds: adminBranchId ? [adminBranchId] : [],
+                };
+              }
+            }
+            if (resolvedAdmin && resolvedAdmin.id) {
+              try {
+                const permissionState = await fetchAdminPermissionState(resolvedAdmin.id, resolvedAdmin.level);
+                resolvedAdmin = mergePermissionState(resolvedAdmin, permissionState);
+              } catch {
+                // Keep the cached admin when permission hydration is unavailable.
+              }
+            }
+            if (resolvedAdmin) {
+              setCurrentAdminState(resolvedAdmin);
+              persistAdmin(resolvedAdmin);
             }
           } catch {
-            // Token unusable — wipe everything
+            // Token genuinely unusable - wipe everything
             setAccessToken(null);
             setTenantId(null);
             setAccessTokenState(null);
@@ -135,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
+  const signIn = async (email: string, password: string): Promise<{ error?: string; warning?: string }> => {
     try {
       const response = await loginApi({ email, password });
 
@@ -152,12 +254,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let tenantId = response.tenant?.id ?? '';
       let tenantName = response.tenant?.name ?? '';
 
-      // Always decode JWT — it is the authoritative source for isHeadQuarter
+      // Always decode JWT - it is the authoritative source for isHeadQuarter
       const claims = decodeJwtClaims(response.accessToken);
       const adminBranchId = claims.branchId || undefined;
 
       // JWT claims take priority; fall back to response body.
-      // null means "unknown" — we won't overwrite an existing sessionStorage value in that case.
+      // null means "unknown" - we won't overwrite an existing sessionStorage value in that case.
       const tenantIsHq: boolean | null =
         claims.isHeadQuarter != null
           ? Boolean(claims.isHeadQuarter)
@@ -195,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Store tenant info in sessionStorage.
-      // Only write the HQ flag if we actually know the value — otherwise preserve
+      // Only write the HQ flag if we actually know the value - otherwise preserve
       // any existing value (e.g. set during onboarding before the 403 login response).
       try {
         if (tenantName) sessionStorage.setItem(TENANT_META_NAME_KEY, tenantName);
@@ -204,10 +306,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch { /* ignore */ }
 
-      setCurrentAdminState(admin);
-      persistAdmin(admin);
+      let resolvedAdmin = admin;
+      try {
+        if (admin.id) {
+          const adminResponse = await fetchAdmin(admin.id);
+          if (adminResponse && adminResponse.admin) {
+            resolvedAdmin = mapApiAdminToAdmin(adminResponse.admin);
+          }
+        }
+      } catch {
+        // Some admins cannot fetch their own profile. Fall back to the JWT-based session.
+      }
 
-      // Surface subscription warning — non-blocking, user still gets in
+      if (resolvedAdmin.id) {
+        try {
+          const permissionState = await fetchAdminPermissionState(resolvedAdmin.id, resolvedAdmin.level);
+          resolvedAdmin = mergePermissionState(resolvedAdmin, permissionState);
+        } catch {
+          // Keep the JWT-based admin if live permission hydration fails.
+        }
+      }
+
+      setCurrentAdminState(resolvedAdmin);
+      persistAdmin(resolvedAdmin);
+
+      // Surface subscription warning - non-blocking, user still gets in
       if ((response as any).requiresSubscription) {
         return { warning: 'Your church subscription is inactive. Some features may be limited.' };
       }
@@ -240,16 +363,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAdmin = async () => {
     if (!currentAdmin) return;
+
+    let updatedAdmin: Admin | null = null;
+
     try {
-      const admins = await fetchAdmins();
-      const apiAdmin = admins.find((a: any) => a.id === currentAdmin.id || a.email === currentAdmin.email);
-      if (apiAdmin) {
-        const updated = mapApiAdminToAdmin(apiAdmin);
-        setCurrentAdminState(updated);
-        persistAdmin(updated);
+      if (currentAdmin.id) {
+        const adminResponse = await fetchAdmin(currentAdmin.id);
+        if (adminResponse && adminResponse.admin) {
+          updatedAdmin = mapApiAdminToAdmin(adminResponse.admin);
+        }
       }
     } catch (err) {
       console.error('Failed to refresh admin:', err);
+    }
+
+    if (updatedAdmin && updatedAdmin.id) {
+      try {
+        const permissionState = await fetchAdminPermissionState(updatedAdmin.id, updatedAdmin.level);
+        updatedAdmin = mergePermissionState(updatedAdmin, permissionState);
+      } catch (err) {
+        console.error('Failed to refresh admin permissions:', err);
+      }
+    }
+
+    if (updatedAdmin) {
+      setCurrentAdminState(updatedAdmin);
+      persistAdmin(updatedAdmin);
     }
   };
 
@@ -278,3 +417,7 @@ export function useAuth() {
   }
   return context;
 }
+
+
+
+

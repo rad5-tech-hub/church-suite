@@ -1,8 +1,8 @@
-// ─── Church Suite API Service ────────────────────────────────
 // All API calls mapped to the real backend at https://testchurch.bookbank.com.ng
 // Maintains backward-compatible exports so existing pages continue to work.
 
 import { apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims, getApiBaseUrl } from './apiClient';
+import { buildRolePermissionPayload, extractUnmappedBackendRolePermissions, mapBackendRolePermissions, normalizePermissionCatalog, type PermissionCatalogGroup } from './utils/rolePermissionMapping';
 import type {
   LoginRequest,
   LoginResponse,
@@ -53,40 +53,179 @@ import type {
 // Re-export the core fetch so existing imports still work
 export { apiFetch } from './apiClient';
 
-// ═══════════════════════════════════════════════════════════════
-// API → INTERNAL TYPE MAPPERS
+let permissionCatalogCache: PermissionCatalogGroup[] | null = null;
+let permissionCatalogPromise: Promise<PermissionCatalogGroup[]> | null = null;
+
+async function requestPermissionCatalog(): Promise<PermissionCatalogGroup[]> {
+  const res = await apiFetch<any>('/tenants/permission-groups');
+  return normalizePermissionCatalog(extractPermissionCatalogResponse(res));
+}
+
+export async function getPermissionCatalog(): Promise<PermissionCatalogGroup[]> {
+  if (permissionCatalogCache && permissionCatalogCache.length > 0) {
+    return permissionCatalogCache;
+  }
+
+  if (!permissionCatalogPromise) {
+    permissionCatalogPromise = requestPermissionCatalog()
+      .then((groups) => {
+        permissionCatalogCache = Array.isArray(groups) && groups.length > 0 ? groups : null;
+        return permissionCatalogCache || [];
+      })
+      .catch(() => [])
+      .finally(() => {
+        permissionCatalogPromise = null;
+      });
+  }
+
+  return permissionCatalogPromise;
+}
+
+function normalizeScopeLevel(scopeLevel?: string | null) {
+  if (!scopeLevel) return undefined;
+  const normalized = String(scopeLevel).trim().toLowerCase();
+  return normalized === 'member' ? 'unit' : normalized;
+}
+
+function normalizeGranularPermissions(granularPermissions?: Record<string, string[]>) {
+  return Object.fromEntries(
+    Object.entries(granularPermissions || {})
+      .filter(([, actions]) => Array.isArray(actions) && actions.length > 0)
+      .map(([permissionId, actions]) => [permissionId, Array.from(new Set(actions.filter(Boolean)))])
+  );
+}
+
+function hasResolvedRolePermissions(role: any) {
+  return Array.isArray(role?.permissions) || Array.isArray(role?.permissionGroups);
+}
+
+function extractRolesFromAdminRoleResponse(payload: any) {
+  const candidates = [
+    payload?.data?.roles,
+    payload?.roles,
+    payload?.admin?.roles,
+    payload?.data?.role ? [payload.data.role] : null,
+    payload?.role ? [payload.role] : null,
+    payload?.admin?.role ? [payload.admin.role] : null,
+  ];
+
+  const roles = candidates.find((candidate) => Array.isArray(candidate) && candidate.length > 0);
+  return Array.isArray(roles) ? roles : [];
+}
+
+function mergeRolePermissionState(
+  roles: any[],
+  scopeLevel: string | undefined,
+  catalog: PermissionCatalogGroup[]
+) {
+  const permissionIds = new Set<string>();
+  const granularPermissions = new Map<string, Set<string>>();
+
+  for (const role of Array.isArray(roles) ? roles : []) {
+    const mapped = mapBackendRolePermissions({
+      permissions: Array.isArray(role?.permissions) ? role.permissions : [],
+      permissionGroups: Array.isArray(role?.permissionGroups) ? role.permissionGroups : [],
+      scopeLevel: normalizeScopeLevel(scopeLevel || role?.scopeLevel),
+      catalog,
+    });
+
+    mapped.permissions.forEach((permissionId) => permissionIds.add(permissionId));
+    Object.entries(mapped.granularPermissions || {}).forEach(([permissionId, actions]) => {
+      if (!granularPermissions.has(permissionId)) {
+        granularPermissions.set(permissionId, new Set<string>());
+      }
+      actions.forEach((action) => granularPermissions.get(permissionId)?.add(action));
+    });
+  }
+
+  return {
+    permissions: Array.from(permissionIds),
+    granularPermissions: Object.fromEntries(
+      Array.from(granularPermissions.entries()).map(([permissionId, actions]) => [permissionId, Array.from(actions)])
+    ),
+  };
+}
+
+async function enrichAdminWithAccess(admin: any, catalog: PermissionCatalogGroup[]) {
+  const existingRoles = Array.isArray(admin?.roles) ? admin.roles : [];
+  let roles = existingRoles;
+  const needsRoleLookup = roles.length === 0 || roles.some((role: any) => !hasResolvedRolePermissions(role));
+
+  if (needsRoleLookup && admin?.id) {
+    try {
+      const roleRes = await fetchAdminRole(admin.id);
+      const resolvedRoles = extractRolesFromAdminRoleResponse(roleRes);
+      if (resolvedRoles.length > 0) {
+        roles = resolvedRoles;
+      }
+    } catch {
+      // Keep whatever role data we already have.
+    }
+  }
+
+  const permissionState = mergeRolePermissionState(roles, admin?.level || admin?.scopeLevel || roles?.[0]?.scopeLevel, catalog);
+
+  return {
+    ...admin,
+    roleId: admin?.roleId || roles?.[0]?.id || '',
+    roles,
+    permissions: permissionState.permissions,
+    granularPermissions: permissionState.granularPermissions,
+  };
+}
 // The backend returns different field names / shapes from the
 // internal types used by page components.  These mappers bridge
 // the gap so all consuming pages get correctly shaped data.
-// ═══════════════════════════════════════════════════════════════
 
-/** Map a raw API admin → internal Admin shape */
+/** Map a raw API admin to the internal Admin shape */
 function mapApiAdmin(a: any): any {
-  // Clamp scopeLevel to valid AdminLevel values
-  const validLevels = ['church', 'branch', 'department', 'unit'];
-  const level = validLevels.includes(a.scopeLevel) ? a.scopeLevel : 'church';
+  const validLevels = ['church', 'branch', 'department', 'unit', 'member'];
+  const rawLevel = a.level || a.scopeLevel || a.roles?.[0]?.scopeLevel || a.role?.scopeLevel;
+  const level = a.isSuperAdmin
+    ? 'church'
+    : rawLevel === 'member' || rawLevel === 'unit'
+      ? 'unit'
+      : validLevels.includes(rawLevel)
+        ? rawLevel
+        : 'church';
+  const branchIds = Array.isArray(a.branchIds) && a.branchIds.length > 0
+    ? a.branchIds.filter(Boolean)
+    : Array.isArray(a.branches)
+      ? a.branches.map((branch: any) => branch?.id).filter(Boolean)
+      : a.branchId
+        ? [a.branchId]
+        : [];
+  const departmentIds = Array.isArray(a.departmentIds) && a.departmentIds.length > 0
+    ? a.departmentIds.filter(Boolean)
+    : a.departments?.map((d: any) => d.id) || [];
+  const unitIds = Array.isArray(a.unitIds) && a.unitIds.length > 0
+    ? a.unitIds.filter(Boolean)
+    : a.units?.map((u: any) => u.id) || [];
+
   return {
     id: a.id,
     churchId: a.churchId || '',
     name: a.name || '',
     email: a.email || '',
     phone: a.phone || '',
-    roleId: '',
+    roleId: a.roleId || a.roles?.[0]?.id || '',
     level,
     isSuperAdmin: a.isSuperAdmin || false,
-    status: a.isActive === false || a.isDeleted ? 'suspended' : 'active',
-    branchId: a.branchId || a.branch?.id || null,
-    departmentId: a.departments?.[0]?.id,
-    unitId: a.units?.[0]?.id,
-    branchIds: a.branchId ? [a.branchId] : [],
-    departmentIds: a.departments?.map((d: any) => d.id) || [],
-    unitIds: a.units?.map((u: any) => u.id) || [],
-    createdAt: new Date(a.createdAt),
+    status: (a.isDeleted || a.isActive === false) ? 'suspended' : 'active',
+    branchId: a.branchId || a.branch?.id || branchIds[0] || null,
+    departmentId: departmentIds[0],
+    unitId: unitIds[0],
+    branchIds,
+    departmentIds,
+    unitIds,
+    permissions: Array.isArray(a.permissions) ? Array.from(new Set(a.permissions.filter(Boolean))) : [],
+    granularPermissions: normalizeGranularPermissions(a.granularPermissions),
+    createdAt: new Date(a.createdAt || Date.now()),
     _raw: a,
   };
 }
 
-/** Map a raw API member → internal Member shape */
+/** Map a raw API member to the internal Member shape */
 function mapApiMember(m: any): any {
   return {
     id: m.id,
@@ -105,17 +244,17 @@ function mapApiMember(m: any): any {
     maritalStatus: (m.maritalStatus || 'single').toLowerCase(),
     address: m.address || '',
     ageRange: m.ageFrom && m.ageTo ? `${m.ageFrom}-${m.ageTo}` : undefined,
-    birthdayMonth: m.birthMonth || 0,
-    birthdayDay: m.birthDay || 0,
+    birthdayMonth: parseInt(m.birthMonth || '0', 10) || 0,
+    birthdayDay: parseInt(m.birthDay || '0', 10) || 0,
     country: m.nationality || '',
     state: m.state || '',
     roadmapMarkers: Array.isArray(m.roadmapMarkers) ? m.roadmapMarkers : [],
-    createdAt: new Date(m.createdAt),
+    createdAt: new Date(m.createdAt || Date.now()),
     _raw: m,
   };
 }
 
-/** Map a raw API event → internal Program shape */
+/** Map a raw API event to the internal Event shape */
 function mapApiEvent(ev: any): any {
   const recurrenceToType: Record<string, string> = {
     none: 'one-time',
@@ -145,7 +284,7 @@ function mapApiEvent(ev: any): any {
   };
 }
 
-/** Map a raw API follow-up → internal Newcomer shape */
+/** Map a raw API follow-up to the internal FollowUp shape */
 function mapApiFollowUp(f: any): any {
   const parts = (f.name || '').trim().split(/\s+/);
   return {
@@ -172,9 +311,133 @@ function mapApiFollowUp(f: any): any {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
+const MEMBER_OVERRIDES_KEY = 'churchset_member_overrides';
+const NEWCOMER_OVERRIDES_KEY = 'churchset_newcomer_overrides';
+const HIDDEN_ADMIN_IDS_KEY = 'churchset_hidden_admin_ids';
+const HIDDEN_MEMBER_IDS_KEY = 'churchset_hidden_member_ids';
+const HIDDEN_NEWCOMER_IDS_KEY = 'churchset_hidden_newcomer_ids';
+const HIDDEN_LEDGER_IDS_KEY = 'churchset_hidden_ledger_ids';
+const HIDDEN_COLLECTION_TYPE_IDS_KEY = 'churchset_hidden_collection_type_ids';
+const HIDDEN_FUNDRAISER_IDS_KEY = 'churchset_hidden_fundraiser_ids';
+const WORKFORCE_ROADMAPS_KEY = 'churchset_workforce_roadmaps';
+
+function readLocalJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore local storage write failures
+  }
+}
+
+function readHiddenIdSet(key: string): Set<string> {
+  return new Set(readLocalJson<string[]>(key, []).filter(Boolean));
+}
+
+function addHiddenIds(key: string, ids: string[]) {
+  const next = Array.from(new Set([...readLocalJson<string[]>(key, []), ...ids.filter(Boolean)]));
+  writeLocalJson(key, next);
+}
+
+function uniqueIds(values: Array<string | undefined | null>) {
+  return Array.from(new Set(values.filter(Boolean) as string[]));
+}
+
+function arraysEqualAsSets(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((item) => rightSet.has(item));
+}
+
+function buildWorkforceEntryId(memberId: string, departmentId: string, unitId?: string) {
+  return `wf-${memberId}-${departmentId}-${unitId || 'none'}`;
+}
+
+function normalizeRoadmapMarkers(markers: any[]) {
+  return (Array.isArray(markers) ? markers : []).map((marker: any) => ({
+    ...marker,
+    startDate: marker?.startDate ? new Date(marker.startDate) : undefined,
+    completionDate: marker?.completionDate ? new Date(marker.completionDate) : undefined,
+  }));
+}
+
+function pickMemberLocalOverride(member: any) {
+  return {
+    fullName: member.fullName,
+    branchId: member.branchId,
+    phone: member.phone,
+    whatsapp: member.whatsapp,
+    email: member.email,
+    address: member.address,
+    ageRange: member.ageRange,
+    birthdayYear: member.birthdayYear,
+    trainingClassId: member.trainingClassId,
+    trainingStatus: member.trainingStatus,
+  };
+}
+
+function pickNewcomerLocalOverride(newcomer: any) {
+  return {
+    email: newcomer.email,
+    visitType: newcomer.visitType,
+    visitDate: newcomer.visitDate,
+    programId: newcomer.programId,
+    trainingClassId: newcomer.trainingClassId,
+    trainingStatus: newcomer.trainingStatus,
+    movedToMemberId: newcomer.movedToMemberId,
+    followUps: newcomer.followUps,
+  };
+}
+
+export async function hideMemberLocally(memberId: string) {
+  addHiddenIds(HIDDEN_MEMBER_IDS_KEY, [memberId]);
+  return { success: true };
+}
+
+export async function hideAdminLocally(adminId: string) {
+  addHiddenIds(HIDDEN_ADMIN_IDS_KEY, [adminId]);
+  return { success: true };
+}
+
+export async function hideNewcomersLocally(newcomerIds: string[]) {
+  addHiddenIds(HIDDEN_NEWCOMER_IDS_KEY, newcomerIds);
+  return { success: true };
+}
+
+export async function markNewcomerMovedToMember(newcomerId: string, movedToMemberId = 'moved') {
+  const overrides = readLocalJson<Record<string, any>>(NEWCOMER_OVERRIDES_KEY, {});
+  overrides[newcomerId] = {
+    ...(overrides[newcomerId] || {}),
+    movedToMemberId,
+  };
+  writeLocalJson(NEWCOMER_OVERRIDES_KEY, overrides);
+  return { success: true };
+}
+
+export async function hideLedgerEntryLocally(entryId: string) {
+  addHiddenIds(HIDDEN_LEDGER_IDS_KEY, [entryId]);
+  return { success: true };
+}
+
+export async function hideCollectionTypeLocally(collectionTypeId: string) {
+  addHiddenIds(HIDDEN_COLLECTION_TYPE_IDS_KEY, [collectionTypeId]);
+  return { success: true };
+}
+
+export async function hideFundraiserLocally(fundraiserId: string) {
+  addHiddenIds(HIDDEN_FUNDRAISER_IDS_KEY, [fundraiserId]);
+  return { success: true };
+}
+
 // AUTH / SETUP
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /church/create-church (multipart form-data) */
 export async function createChurch(data: CreateChurchRequest) {
@@ -294,15 +557,29 @@ export async function resetPassword(data: ResetPasswordRequest, token: string) {
 // Backward compat aliases
 export const signupAdmin = createChurch;
 
-// ═══════════════════════════════════════════════════════════════
 // ADMINS
-// ═══════════════════════════════════════════════════════════════
+
+export function resolveFallbackBranchId(branchId?: string) {
+  if (branchId) return branchId;
+  const scope = getCachedAdminScope();
+  if (scope.branchId) return scope.branchId;
+  const churchDataStr = typeof window !== 'undefined' ? sessionStorage.getItem('churchset_church_data') : null;
+  const churchData = churchDataStr ? JSON.parse(churchDataStr) : null;
+  if (churchData?.branches?.length > 0) {
+    return churchData.branches[0].id;
+  }
+  return undefined;
+}
 
 /** GET /church/view-admins */
-export async function fetchAdmins(): Promise<any[]> {
-  const res = await apiFetch<ViewAdminsResponse>('/church/view-admins');
+export async function fetchAdmins(branchId?: string): Promise<any[]> {
+  const resolved = resolveFallbackBranchId(branchId);
+  const q = resolved ? buildQuery({ branchId: resolved }) : '';
+  const res = await apiFetch<ViewAdminsResponse>(`/church/view-admins${q}`);
   const raw = res.admins || [];
-  return raw.map(mapApiAdmin);
+  const catalog = raw.length > 0 ? await getPermissionCatalog() : [];
+  const enriched = await Promise.all(raw.map((admin: any) => enrichAdminWithAccess(admin, catalog)));
+  return enriched.map(mapApiAdmin);
 }
 
 /** GET /church/an-admin/:adminId */
@@ -326,9 +603,9 @@ export async function editAdmin(adminId: string, data: EditAdminRequest) {
   });
 }
 
-/** PATCH /church/delete-admin/:adminId (suspend / soft delete) */
+/** PATCH /church/suspend-admin/:adminId (suspend / soft delete) */
 export async function suspendAdmin(adminId: string) {
-  return apiFetch<any>(`/church/delete-admin/${adminId}`, {
+  return apiFetch<any>(`/church/suspend-admin/${adminId}`, {
     method: 'PATCH',
   });
 }
@@ -373,9 +650,7 @@ export const deleteAdminUser = async (data: { authUserId?: string; adminId: stri
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // BRANCHES
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /church/get-branches */
 export async function fetchBranches(): Promise<ApiBranch[]> {
@@ -412,13 +687,11 @@ export const saveBranches = async (_branches: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // DEPARTMENTS
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /church/get-departments */
-export async function fetchDepartments(): Promise<ApiDepartment[]> {
-  const res = await apiFetch<any>('/church/get-departments');
+export async function fetchDepartments(branchId?: string): Promise<ApiDepartment[]> {
+  const res = await apiFetch<any>(`/church/get-departments${buildQuery({ branchId: resolveDepartmentBranchId(branchId) })}`);
   return Array.isArray(res.departments) ? res.departments : Array.isArray(res) ? res : [];
 }
 
@@ -445,9 +718,9 @@ export async function suspendDepartment(deptId: string, branchId: string) {
   });
 }
 
-/** DELETE /church/delete-dept/suspend-dept/:deptId/branch/:branchId */
+/** DELETE /church/delete-dept/:deptId/branch/:branchId */
 export async function deleteDepartmentApi(deptId: string, branchId: string) {
-  return apiFetch<any>(`/church/delete-dept/suspend-dept/${deptId}/branch/${branchId}`, {
+  return apiFetch<any>(`/church/delete-dept/${deptId}/branch/${branchId}`, {
     method: 'DELETE',
   });
 }
@@ -458,14 +731,15 @@ export const saveDepartments = async (_departments: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // UNITS
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /church/all-units */
-export async function fetchUnits(): Promise<ApiUnit[]> {
-  const res = await apiFetch<any>('/church/all-units');
-  return Array.isArray(res.units) ? res.units : Array.isArray(res) ? res : [];
+export async function fetchUnits(branchId?: string): Promise<ApiUnit[]> {
+  const resolved = resolveFallbackBranchId(branchId);
+  const q = resolved ? buildQuery({ branchId: resolved }) : '';
+  const res = await apiFetch<any>(`/church/all-units${q}`);
+  const units = Array.isArray(res.units) ? res.units : Array.isArray(res) ? res : [];
+  return units.filter((unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false);
 }
 
 /** GET /church/a-department/:deptId/branch/:branchId (units of a department) */
@@ -489,10 +763,17 @@ export async function editUnit(unitId: string, data: EditUnitRequest) {
   });
 }
 
-/** PATCH /church/delete-unit/:unitId */
-export async function deleteUnit(unitId: string) {
-  return apiFetch<any>(`/church/delete-unit/${unitId}`, {
+/** PATCH /church/soft-delete-unit/:unitId/branch/:branchId */
+export async function softDeleteUnit(unitId: string, branchId: string) {
+  return apiFetch<any>(`/church/soft-delete-unit/${unitId}/branch/${branchId}`, {
     method: 'PATCH',
+  });
+}
+
+/** DELETE /church/delete-unit/:unitId/branch/:branchId */
+export async function deleteUnit(unitId: string, branchId: string) {
+  return apiFetch<any>(`/church/delete-unit/${unitId}/branch/${branchId}`, {
+    method: 'DELETE',
   });
 }
 
@@ -502,15 +783,23 @@ export const saveUnits = async (_units: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // MEMBERS (Workers)
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /member/all-members */
-export async function fetchMembers(): Promise<any[]> {
-  const res = await apiFetch<any>('/member/all-members');
+export async function fetchMembers(branchId?: string): Promise<any[]> {
+  const resolved = resolveFallbackBranchId(branchId);
+  const q = resolved ? buildQuery({ branchId: resolved }) : '';
+  const res = await apiFetch<any>(`/member/all-members${q}`);
+  const hiddenIds = readHiddenIdSet(HIDDEN_MEMBER_IDS_KEY);
+  const overrides = readLocalJson<Record<string, any>>(MEMBER_OVERRIDES_KEY, {});
   const raw = Array.isArray(res.data) ? res.data : Array.isArray(res.members) ? res.members : Array.isArray(res) ? res : [];
-  return raw.map(mapApiMember);
+  return raw
+    .filter((member: any) => member?.isDeleted !== true && member?.isActive !== false && !hiddenIds.has(member.id))
+    .map(mapApiMember)
+    .map((member: any) => ({
+      ...member,
+      ...(overrides[member.id] || {}),
+    }));
 }
 
 /** GET /member/a-member/:memberId */
@@ -536,20 +825,29 @@ export async function editMember(memberId: string, branchId: string, data: EditM
 
 /** PATCH /member/suspend-member/:memberId/branch/:branchId */
 export async function suspendMember(memberId: string, branchId: string) {
-  return apiFetch<any>(`/member/suspend-member/${memberId}/branch/${branchId}`, {
+  const response = await apiFetch<any>(`/member/suspend-member/${memberId}/branch/${branchId}`, {
     method: 'PATCH',
   });
+  addHiddenIds(HIDDEN_MEMBER_IDS_KEY, [memberId]);
+  return response;
 }
 
 // Backward-compat aliases
-export const saveMembers = async (_members: any[]) => {
-  console.warn('saveMembers: bulk save not supported by real API');
+export const saveMembers = async (members: any[]) => {
+  const existing = readLocalJson<Record<string, any>>(MEMBER_OVERRIDES_KEY, {});
+  const next = { ...existing };
+  for (const member of Array.isArray(members) ? members : []) {
+    if (!member?.id) continue;
+    next[member.id] = {
+      ...(existing[member.id] || {}),
+      ...pickMemberLocalOverride(member),
+    };
+  }
+  writeLocalJson(MEMBER_OVERRIDES_KEY, next);
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // CHURCH
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /church/get-church */
 export async function fetchChurchConfig(_churchId?: string): Promise<any> {
@@ -595,7 +893,7 @@ export function uploadLogoWithProgress(
 
     const xhr = new XMLHttpRequest();
     xhr.open('PATCH', `${getApiBaseUrl()}/church/edit-church`);
-    xhr.timeout = 120_000; // 2 minutes — enough for large images on slow connections
+    xhr.timeout = 120_000; // 2 minutes for large uploads
 
     const token = getAccessToken();
     const tenantId = getTenantId();
@@ -630,9 +928,7 @@ export function uploadLogoWithProgress(
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
 // EVENTS / PROGRAMS
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /church/create-event */
 export async function createEvent(data: CreateEventRequest) {
@@ -649,7 +945,7 @@ export async function fetchPrograms(branchId?: string): Promise<any[]> {
     const raw = Array.isArray(res.events) ? res.events : Array.isArray(res) ? res : [];
     return raw.map(mapApiEvent);
   } catch {
-    // API may require branchId — return empty if not provided
+    // API may require branchId; include it when available
     return [];
   }
 }
@@ -718,9 +1014,7 @@ export const saveProgramInstances = async (_instances: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // FOLLOW-UP MANAGEMENT
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /member/add-follow-up?churchId=...&branchId=... */
 export async function createFollowUp(data: CreateFollowUpRequest, churchId?: string, branchId?: string) {
@@ -734,10 +1028,18 @@ export async function createFollowUp(data: CreateFollowUpRequest, churchId?: str
 export async function fetchNewcomers(branchId?: string): Promise<any[]> {
   try {
     const res = await apiFetch<any>(`/member/get-follow-up${buildQuery({ branchId })}`);
+    const hiddenIds = readHiddenIdSet(HIDDEN_NEWCOMER_IDS_KEY);
+    const overrides = readLocalJson<Record<string, any>>(NEWCOMER_OVERRIDES_KEY, {});
     const raw = Array.isArray(res.results) ? res.results : Array.isArray(res.followUps) ? res.followUps : Array.isArray(res.followUp) ? res.followUp : Array.isArray(res) ? res : [];
-    return raw.map(mapApiFollowUp);
+    return raw
+      .filter((item: any) => !hiddenIds.has(item.id))
+      .map(mapApiFollowUp)
+      .map((newcomer: any) => ({
+        ...newcomer,
+        ...(overrides[newcomer.id] || {}),
+      }));
   } catch {
-    // API requires branchId — return empty if not provided
+    // API requires branchId; include it when available
     return [];
   }
 }
@@ -788,14 +1090,23 @@ export async function fetchNewcomerForms(branchId?: string): Promise<any[]> {
     const res = await apiFetch<any>(`/follow/all-forms${buildQuery({ branchId })}`);
     return Array.isArray(res.forms) ? res.forms : Array.isArray(res) ? res : [];
   } catch {
-    // API requires branchId or churchId — return empty if not provided
+    // API requires branchId or churchId; include both when available
     return [];
   }
 }
 
 // Backward-compat aliases
-export const saveNewcomers = async (_newcomers: any[]) => {
-  console.warn('saveNewcomers: bulk save not supported by real API');
+export const saveNewcomers = async (newcomers: any[]) => {
+  const existing = readLocalJson<Record<string, any>>(NEWCOMER_OVERRIDES_KEY, {});
+  const next = { ...existing };
+  for (const newcomer of Array.isArray(newcomers) ? newcomers : []) {
+    if (!newcomer?.id) continue;
+    next[newcomer.id] = {
+      ...(existing[newcomer.id] || {}),
+      ...pickNewcomerLocalOverride(newcomer),
+    };
+  }
+  writeLocalJson(NEWCOMER_OVERRIDES_KEY, next);
   return { success: true };
 };
 
@@ -804,12 +1115,10 @@ export const saveNewcomerForms = async (_forms: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // COLLECTIONS
-// ═══════════════════════════════════════════════════════════════
 
-const COLLECTION_ADMIN_CACHE_KEY = 'churchset_current_admin';
-const COLLECTION_CHURCH_CACHE_KEY = 'churchset_church_data';
+const ADMIN_CACHE_KEY = 'churchset_current_admin';
+const CHURCH_CACHE_KEY = 'churchset_church_data';
 const PROGRAM_COLLECTIONS_KEY = 'churchset_program_collections';
 
 function readSessionJson<T>(key: string): T | null {
@@ -819,6 +1128,64 @@ function readSessionJson<T>(key: string): T | null {
   } catch {
     return null;
   }
+}
+
+function normalizeAdminLevel(rawLevel?: string | null) {
+  if (!rawLevel) return undefined;
+  return rawLevel === 'member' ? 'unit' : rawLevel;
+}
+
+function getCachedAdminScope() {
+  const cachedAdmin = readSessionJson<any>(ADMIN_CACHE_KEY) || {};
+  const churchData = readSessionJson<any>(CHURCH_CACHE_KEY) || {};
+  const token = getAccessToken();
+  const claims = token ? decodeJwtClaims(token) : {};
+  const storedBranches = Array.isArray(churchData?.branches) ? churchData.branches : [];
+
+  const branchIds = Array.from(new Set([
+    claims.branchId,
+    ...(Array.isArray(claims.branchIds) ? claims.branchIds : []),
+    cachedAdmin?.branchId,
+    ...(Array.isArray(cachedAdmin?.branchIds) ? cachedAdmin.branchIds : []),
+    ...storedBranches.map((branch: any) => branch?.id),
+  ].filter(Boolean)));
+
+  const departmentIds = Array.from(new Set([
+    claims.departmentId,
+    ...(Array.isArray(claims.departmentIds) ? claims.departmentIds : []),
+    cachedAdmin?.departmentId,
+    ...(Array.isArray(cachedAdmin?.departmentIds) ? cachedAdmin.departmentIds : []),
+  ].filter(Boolean)));
+
+  const unitIds = Array.from(new Set([
+    claims.unitId,
+    ...(Array.isArray(claims.unitIds) ? claims.unitIds : []),
+    cachedAdmin?.unitId,
+    ...(Array.isArray(cachedAdmin?.unitIds) ? cachedAdmin.unitIds : []),
+  ].filter(Boolean)));
+
+  const level =
+    normalizeAdminLevel(claims.scopeLevel || claims.level) ||
+    normalizeAdminLevel(cachedAdmin?.level) ||
+    (claims.isSuperAdmin ? 'church' : undefined);
+
+  return {
+    level,
+    branchId: branchIds[0],
+    branchIds,
+    departmentId: departmentIds[0],
+    departmentIds,
+    unitId: unitIds[0],
+    unitIds,
+    churchId: claims.churchId || churchData?.church?.id || cachedAdmin?.churchId,
+  };
+}
+
+function resolveDepartmentBranchId(branchId?: string) {
+  if (branchId) return branchId;
+  const scope = getCachedAdminScope();
+  const isDepartmentScoped = scope.level === 'department' || scope.level === 'unit' || !!scope.departmentId || !!scope.unitId;
+  return isDepartmentScoped ? scope.branchId : undefined;
 }
 
 function dedupeCollections(items: any[]): any[] {
@@ -837,8 +1204,8 @@ async function fetchCollectionsByBranch(branchId: string, query?: Record<string,
 }
 
 function getCachedCollectionContext() {
-  const admin = readSessionJson<any>(COLLECTION_ADMIN_CACHE_KEY) || {};
-  const churchData = readSessionJson<any>(COLLECTION_CHURCH_CACHE_KEY) || {};
+  const admin = readSessionJson<any>(ADMIN_CACHE_KEY) || {};
+  const churchData = readSessionJson<any>(CHURCH_CACHE_KEY) || {};
   const storedBranches = Array.isArray(churchData?.branches) ? churchData.branches : [];
   const branchIds = Array.from(new Set([
     admin?.branchId,
@@ -933,6 +1300,7 @@ export const saveCollections = async (collections: any[]) => {
 
 export async function fetchCollectionTypes(): Promise<any[]> {
   try {
+    const hiddenIds = readHiddenIdSet(HIDDEN_COLLECTION_TYPE_IDS_KEY);
     const items = await fetchCollectionCatalog();
     return items.map((c: any) => ({
       id: c.id,
@@ -942,7 +1310,7 @@ export async function fetchCollectionTypes(): Promise<any[]> {
       scopeId: c.scopeId || c.branchId || c.departmentId || c.unitId || undefined,
       createdBy: c.createdBy || '',
       createdAt: new Date(c.createdAt || Date.now()),
-    }));
+    })).filter((collectionType: any) => !hiddenIds.has(collectionType.id));
   } catch {
     return [];
   }
@@ -950,6 +1318,7 @@ export async function fetchCollectionTypes(): Promise<any[]> {
 export const saveCollectionTypes = async (_types: any[]) => ({ success: true });
 export async function fetchStandaloneCollections(): Promise<any[]> {
   try {
+    const hiddenIds = readHiddenIdSet(HIDDEN_FUNDRAISER_IDS_KEY);
     const items = await fetchCollectionCatalog();
     return items
       .filter((c: any) => c.endTime)
@@ -965,16 +1334,15 @@ export async function fetchStandaloneCollections(): Promise<any[]> {
         entries: [],
         createdBy: c.createdBy || '',
         createdAt: new Date(c.createdAt || Date.now()),
-      }));
+      }))
+      .filter((collection: any) => !hiddenIds.has(collection.id));
   } catch {
     return [];
   }
 }
 export const saveStandaloneCollections = async (_collections: any[]) => ({ success: true });
 
-// ═══════════════════════════════════════════════════════════════
 // WALLET & SMS
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /wallet/fund-wallet/:branchId */
 export async function createOrFundWallet(branchId: string, data: CreateWalletRequest) {
@@ -988,7 +1356,7 @@ export async function createOrFundWallet(branchId: string, data: CreateWalletReq
 export async function fetchSMSWallet(): Promise<any> {
   try {
     const res = await apiFetch<any>('/wallet/my-wallet');
-    // API returns { wallets: [...] } as an array — pick the first one
+    // API returns { wallets: [...] } as an array
     const raw = Array.isArray(res.wallets) ? res.wallets[0]
       : Array.isArray(res.wallet) ? res.wallet[0]
       : res.wallet ?? res ?? null;
@@ -1018,46 +1386,127 @@ export const saveSMSWallet = async (_wallet: any) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // ROLES & PERMISSIONS
-// ═══════════════════════════════════════════════════════════════
+
+function extractPermissionCatalogResponse(payload: any): any[] {
+  const directCandidates = [
+    payload?.data,
+    payload?.permissionGroups,
+    payload?.groups,
+    payload?.permissions,
+    payload?.data?.permissionGroups,
+    payload?.data?.groups,
+    payload?.data?.permissions,
+    payload?.data?.data,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  return [];
+}
 
 /** GET /tenants/permission-groups */
-export async function fetchPermissionGroups(): Promise<any[]> {
+export async function fetchPermissionGroups(): Promise<PermissionCatalogGroup[]> {
   try {
-    const res = await apiFetch<any>('/tenants/permission-groups');
-    return Array.isArray(res.data) ? res.data : [];
+    const normalized = await requestPermissionCatalog();
+    if (normalized.length > 0) {
+      permissionCatalogCache = normalized;
+    }
+    return normalized;
   } catch {
     return [];
   }
 }
 
 /** POST /tenants/create-role */
-export async function createRole(data: CreateRoleRequest) {
+export async function createRole(data: CreateRoleRequest & { granularPermissions?: Record<string, string[]> }) {
+  const { granularPermissions, permissions: _permissions, ...rest } = data;
+  const catalog = await getPermissionCatalog();
+  const mapped = buildRolePermissionPayload({
+    permissionIds: _permissions || [],
+    granularPermissions,
+    catalog,
+  });
+
+  if ((_permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
+    throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
+  }
+
+  const payload: CreateRoleRequest = {
+    ...rest,
+    ...(mapped.permissions.length > 0 ? { permissions: mapped.permissions } : {}),
+    ...(mapped.permissionGroup.length > 0 ? { permissionGroup: mapped.permissionGroup } : {}),
+  };
+
   return apiFetch<any>('/tenants/create-role', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
 /** PATCH /tenants/edit-role/:roleId?branchId=... */
-export async function editRole(roleId: string, data: EditRoleRequest, branchId?: string) {
+export async function editRole(
+  roleId: string,
+  data: EditRoleRequest & {
+    granularPermissions?: Record<string, string[]>;
+    currentPermissions?: any[];
+    currentPermissionGroups?: any[];
+  },
+  branchId?: string
+) {
+  const {
+    granularPermissions,
+    currentPermissions,
+    currentPermissionGroups,
+    ...rest
+  } = data;
+  const catalog = await getPermissionCatalog();
+  const mapped = buildRolePermissionPayload({
+    permissionIds: rest.permissions || [],
+    granularPermissions,
+    catalog,
+  });
+  if ((rest.permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
+    throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
+  }
+  const preserved = extractUnmappedBackendRolePermissions({
+    permissions: currentPermissions,
+    permissionGroups: currentPermissionGroups,
+    scopeLevel: rest.scopeLevel,
+    catalog,
+  });
+
+  const payload: EditRoleRequest = {
+    ...rest,
+    ...(rest.permissions ? { permissions: Array.from(new Set([...mapped.permissions, ...preserved.permissions])) } : {}),
+    ...(rest.permissions ? { permissionGroup: Array.from(new Set([...mapped.permissionGroup, ...preserved.permissionGroup])) } : {}),
+  };
+
   return apiFetch<any>(`/tenants/edit-role/${roleId}${buildQuery({ branchId })}`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
-/** DELETE /tenants/delete-role/:roleId */
+/** PATCH /tenants/delete-role/:roleId */
 export async function deleteRole(roleId: string) {
   return apiFetch<any>(`/tenants/delete-role/${roleId}`, {
-    method: 'DELETE',
+    method: 'PATCH',
   });
 }
 
 /** POST /tenants/assign-role?branchId=... */
 export async function assignRoleToAdmin(data: AssignRoleRequest, branchId?: string) {
-  return apiFetch<any>(`/tenants/assign-role${buildQuery({ branchId })}`, {
+  const resolved = resolveFallbackBranchId(branchId);
+  return apiFetch<any>(`/tenants/assign-role${buildQuery({ branchId: resolved })}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -1068,6 +1517,18 @@ export async function fetchAdminRole(adminId: string) {
   return apiFetch<any>(`/church/admin-role/${adminId}`);
 }
 
+export async function fetchAdminPermissionState(adminId: string, scopeLevel?: string) {
+  const [roleRes, catalog] = await Promise.all([fetchAdminRole(adminId), getPermissionCatalog()]);
+  const roles = extractRolesFromAdminRoleResponse(roleRes);
+  const permissionState = mergeRolePermissionState(roles, scopeLevel, catalog);
+
+  return {
+    roleId: roles[0]?.id || '',
+    roles,
+    permissions: permissionState.permissions,
+    granularPermissions: permissionState.granularPermissions,
+  };
+}
 /** PATCH /tenants/edit-admin-permission/:adminId */
 export async function editAdminPermission(adminId: string, data: EditAdminPermissionRequest) {
   return apiFetch<any>(`/tenants/edit-admin-permission/${adminId}`, {
@@ -1076,26 +1537,54 @@ export async function editAdminPermission(adminId: string, data: EditAdminPermis
   });
 }
 
-// fetchRoles — GET /tenants/all-roles?branchId=...
+// fetchRoles accepts multiple backend response shapes
 export async function fetchRoles(branchId?: string): Promise<any[]> {
   if (!branchId) return [];
   try {
-    const res = await apiFetch<any>(`/tenants/all-roles${buildQuery({ branchId })}`);
+    const [res, catalog] = await Promise.all([
+      apiFetch<any>(`/tenants/all-roles${buildQuery({ branchId })}`),
+      getPermissionCatalog(),
+    ]);
     const list = Array.isArray(res.data) ? res.data : Array.isArray(res.roles) ? res.roles : [];
-    return list.map((r: any) => ({
+
+    // Enrich each role with full permission details from /tenants/get-role/:id
+    const detailedList = await Promise.all(
+      list.map(async (r: any) => {
+        try {
+          const detail = await apiFetch<any>(`/tenants/get-role/${r.id}`);
+          const role = detail?.role ?? detail;
+          return {
+            ...r,
+            permissions: Array.isArray(role?.permissions) ? role.permissions
+              : Array.isArray(r.permissions) ? r.permissions : [],
+            permissionGroups: Array.isArray(role?.permissionGroups) ? role.permissionGroups
+              : Array.isArray(r.permissionGroups) ? r.permissionGroups : [],
+          };
+        } catch {
+          return r;
+        }
+      })
+    );
+
+    return detailedList.map((r: any) => ({
+      ...mapBackendRolePermissions({
+        permissions: Array.isArray(r.permissions) ? r.permissions : [],
+        permissionGroups: Array.isArray(r.permissionGroups) ? r.permissionGroups : [],
+        scopeLevel: r.scopeLevel,
+        catalog,
+      }),
       id: r.id,
       churchId: r.churchId || '',
       branchId: r.branchId,
       name: r.name,
       description: r.description || '',
+      rawPermissions: Array.isArray(r.permissions) ? r.permissions : [],
+      rawPermissionGroups: Array.isArray(r.permissionGroups) ? r.permissionGroups : [],
       level: (
         r.scopeLevel === 'church' ? 'church'
         : r.scopeLevel === 'branch' ? 'branch'
         : 'department'
       ) as any,
-      permissions: Array.isArray(r.permissions)
-        ? r.permissions.map((p: any) => (typeof p === 'string' ? p : p.id))
-        : [],
       createdAt: new Date(r.createdAt),
     }));
   } catch {
@@ -1108,9 +1597,7 @@ export const saveRoles = async (_roles: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // DASHBOARD
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /member/get-dashboard?scope=all&startDate=...&endDate=... */
 export async function fetchDashboard(params?: {
@@ -1123,9 +1610,7 @@ export async function fetchDashboard(params?: {
   return apiFetch<any>(`/member/get-dashboard${buildQuery(params || {})}`);
 }
 
-// ═══════════════════════════════════════════════════════════════
 // ACCOUNT / FINANCE
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /wallet/update-account?branchId=...&departmentId=... */
 export async function updateAccount(data: UpdateAccountRequest, branchId?: string, departmentId?: string) {
@@ -1136,31 +1621,76 @@ export async function updateAccount(data: UpdateAccountRequest, branchId?: strin
 }
 
 /** GET /wallet/get-account-record?branchId=... */
-export async function fetchAccountRecords(branchId?: string) {
-  return apiFetch<any>(`/wallet/get-account-record${buildQuery({ branchId })}`);
+export async function fetchAccountRecords(branchId?: string, departmentId?: string) {
+  return apiFetch<any>(`/wallet/get-account-record${buildQuery({ branchId, departmentId })}`);
 }
 
 // Backward-compat aliases for finance
-export const fetchLedgerEntries = async () => {
+function extractAccountRecordRows(response: any): any[] {
+  const results = response?.result?.results;
+  const data = response?.data;
+  return Array.isArray(results)
+    ? results
+    : Array.isArray(data)
+      ? data
+      : Array.isArray(response?.records)
+        ? response.records
+        : Array.isArray(response)
+          ? response
+          : [];
+}
+
+function getNextAccountRecordsPath(response: any): string | null {
+  const pagination = response?.result?.pagination || response?.pagination;
+  if (!pagination?.hasNextPage || typeof pagination?.nextPage !== 'string' || !pagination.nextPage) {
+    return null;
+  }
+
+  const nextPage = pagination.nextPage;
+  const apiBaseUrl = getApiBaseUrl();
+  if (nextPage.startsWith(apiBaseUrl)) {
+    return nextPage.slice(apiBaseUrl.length);
+  }
+
+  if (/^https?:\/\//i.test(nextPage)) {
+    try {
+      const parsed = new URL(nextPage);
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return null;
+    }
+  }
+
+  return nextPage.startsWith('/') ? nextPage : `/${nextPage}`;
+}
+
+export const fetchLedgerEntries = async (branchId?: string, departmentId?: string) => {
   try {
-    const res = await fetchAccountRecords();
-    // API returns { result: { results: [...], pagination: {...} } }
-    const results = res?.result?.results;
-    const raw = Array.isArray(results) ? results : Array.isArray(res.records) ? res.records : Array.isArray(res) ? res : [];
-    // Map API account records → internal LedgerEntry shape
+    const raw: any[] = [];
+    const seenPaths = new Set<string>();
+    let nextPath = `/wallet/get-account-record${buildQuery({ branchId, departmentId })}`;
+
+    while (nextPath && !seenPaths.has(nextPath)) {
+      seenPaths.add(nextPath);
+      const response = await apiFetch<any>(nextPath);
+      raw.push(...extractAccountRecordRows(response));
+      nextPath = getNextAccountRecordsPath(response) || '';
+    }
+
     return raw.map((r: any) => {
       const credit = parseFloat(r.credit) || 0;
       const debit = parseFloat(r.debit) || 0;
       return {
-        id: r.id || `le-${Math.random().toString(36).slice(2)}`,
+        id: r.id || [branchId || 'church', departmentId || 'all', r.createdAt || r.date || '', r.description || '', credit, debit].join(':'),
         churchId: r.churchId || r.tenantId || '',
-        branchId: r.branchId,
+        branchId: r.branchId || branchId,
+        departmentId: r.departmentId || departmentId,
         type: credit > 0 ? 'income' : 'expense',
         amount: credit > 0 ? credit : debit,
         description: r.description || '',
-        date: new Date(r.createdAt || r.date),
+        date: new Date(r.createdAt || r.date || Date.now()),
         createdBy: r.creator?.name || r.createdBy || '',
-        createdAt: new Date(r.createdAt),
+        createdAt: new Date(r.createdAt || r.date || Date.now()),
         _raw: r,
       };
     });
@@ -1174,9 +1704,7 @@ export const saveLedgerEntries = async (_entries: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // IMPORT / EXPORT
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /member/export */
 export async function exportMembersToExcel() {
@@ -1218,9 +1746,7 @@ export async function importFollowUp(file: File, branchId?: string) {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
 // NON-WORKER MEMBERS
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /member/non-worker?churchId=...&branchId=... */
 export async function createNonWorkerMember(data: any, churchId?: string, branchId?: string) {
@@ -1239,18 +1765,14 @@ export async function fetchAllChurchMembers(branchId?: string) {
   return raw.map(mapApiMember);
 }
 
-// ═══════════════════════════════════════════════════════════════
 // GROWTH / ANALYTICS
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /growth/event-metrics?branchId=...&metricType=...&startDate=...&endDate=... */
 export async function fetchGrowthMetrics(params: GrowthMetricsParams) {
   return apiFetch<any>(`/growth/event-metrics${buildQuery(params as any)}`);
 }
 
-// ═══════════════════════════════════════════════════════════════
 // REPORTS
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /tenants/write-report (multipart) */
 export async function createReport(data: CreateReportRequest) {
@@ -1277,9 +1799,7 @@ export const saveReports = async (_reports: any[]) => {
   return { success: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
 // NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════════
 
 /** GET /tenants/get-notifications */
 export async function fetchNotifications() {
@@ -1294,9 +1814,7 @@ export async function markNotificationRead(data: { socket_id: string; channel_na
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
 // SUBSCRIPTION / PLANS
-// ═══════════════════════════════════════════════════════════════
 
 /** POST /plan/subscribe */
 export async function subscribeToPlan(data: SubscribeRequest) {
@@ -1311,20 +1829,122 @@ export async function fetchPricingConfigs() {
   return apiFetch<any>('/plan/pricing-configs');
 }
 
-// ═══════════════════════════════════════════════════════════════
 // BACKWARD COMPAT STUBS
-// ═══════════════════════════════════════════════════════════════
 
 export const fetchWorkforce = async () => {
   try {
-    return await fetchMembers();
+    const [members, units] = await Promise.all([fetchMembers(), fetchUnits()]);
+    const roadmapStore = readLocalJson<Record<string, any[]>>(WORKFORCE_ROADMAPS_KEY, {});
+    const unitDeptMap = new Map((units as any[]).map((unit: any) => [unit.id, unit.departmentId]));
+    const workforce: any[] = [];
+
+    for (const member of members as any[]) {
+      const departmentIds = uniqueIds(
+        Array.isArray(member.departmentIds) && member.departmentIds.length > 0
+          ? member.departmentIds
+          : member.departmentId
+            ? [member.departmentId]
+            : []
+      );
+      if (departmentIds.length === 0) continue;
+
+      const unitIds = uniqueIds(
+        Array.isArray(member.unitIds) && member.unitIds.length > 0
+          ? member.unitIds
+          : member.unitId
+            ? [member.unitId]
+            : []
+      );
+
+      for (const departmentId of departmentIds) {
+        const matchingUnitId = unitIds.find((unitId) => unitDeptMap.get(unitId) === departmentId);
+        const entryId = buildWorkforceEntryId(member.id, departmentId, matchingUnitId);
+        workforce.push({
+          id: entryId,
+          churchId: member.churchId,
+          memberId: member.id,
+          branchId: member.branchId,
+          departmentId,
+          unitId: matchingUnitId,
+          roadmapMarkers: normalizeRoadmapMarkers(roadmapStore[entryId] || []),
+          createdAt: member.createdAt || new Date(),
+        });
+      }
+    }
+
+    return workforce;
   } catch {
     return [];
   }
 };
 
-export const saveWorkforce = async (_workforce: any[]) => {
-  console.warn('saveWorkforce: use createMember/editMember instead');
+export const saveWorkforce = async (workforce: any[]) => {
+  const entries = Array.isArray(workforce) ? workforce : [];
+  const roadmapStore = Object.fromEntries(
+    entries
+      .filter((entry) => entry?.id)
+      .map((entry) => [entry.id, Array.isArray(entry.roadmapMarkers) ? entry.roadmapMarkers : []])
+  );
+  writeLocalJson(WORKFORCE_ROADMAPS_KEY, roadmapStore);
+
+  try {
+    const members = await fetchMembers();
+    const groupedAssignments = new Map<string, { departmentIds: Set<string>; unitIds: Set<string> }>();
+
+    for (const entry of entries) {
+      if (!entry?.memberId || !entry?.departmentId) continue;
+      if (!groupedAssignments.has(entry.memberId)) {
+        groupedAssignments.set(entry.memberId, {
+          departmentIds: new Set<string>(),
+          unitIds: new Set<string>(),
+        });
+      }
+      const assignment = groupedAssignments.get(entry.memberId)!;
+      assignment.departmentIds.add(entry.departmentId);
+      if (entry.unitId) assignment.unitIds.add(entry.unitId);
+    }
+
+    const updates: Promise<any>[] = [];
+    for (const member of members as any[]) {
+      const desired = groupedAssignments.get(member.id);
+      const nextDepartmentIds = desired ? Array.from(desired.departmentIds) : [];
+      const nextUnitIds = desired ? Array.from(desired.unitIds) : [];
+      const currentDepartmentIds = uniqueIds(
+        Array.isArray(member.departmentIds) && member.departmentIds.length > 0
+          ? member.departmentIds
+          : member.departmentId
+            ? [member.departmentId]
+            : []
+      );
+      const currentUnitIds = uniqueIds(
+        Array.isArray(member.unitIds) && member.unitIds.length > 0
+          ? member.unitIds
+          : member.unitId
+            ? [member.unitId]
+            : []
+      );
+
+      if (
+        arraysEqualAsSets(currentDepartmentIds, nextDepartmentIds) &&
+        arraysEqualAsSets(currentUnitIds, nextUnitIds)
+      ) {
+        continue;
+      }
+
+      const branchId = member.branchId || member.branchIds?.[0];
+      if (!branchId) continue;
+
+      updates.push(editMember(member.id, branchId, {
+        departmentIds: nextDepartmentIds,
+        unitIds: nextUnitIds,
+      }));
+    }
+
+    await Promise.all(updates);
+  } catch {
+    // Keep local roadmap state even if backend assignment sync fails
+  }
+
   return { success: true };
 };
 
@@ -1348,3 +1968,4 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
   try { localStorage.setItem(MEMBER_CLASSES_KEY, JSON.stringify(classes)); } catch { /* ignore */ }
   return { success: true };
 };
+

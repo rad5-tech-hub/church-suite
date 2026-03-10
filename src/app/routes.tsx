@@ -3,6 +3,7 @@ import { RootLayout } from './components/RootLayout';
 import { Onboarding } from './pages/Onboarding';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { ResetPassword } from './pages/ResetPassword';
 import { Branches } from './pages/Branches';
 import { Departments } from './pages/Departments';
 import { Units } from './pages/Units';
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
       {
         path: '/login',
         Component: Login
+      },
+      {
+        path: '/reset-password',
+        Component: ResetPassword
       },
       {
         path: '/dashboard',

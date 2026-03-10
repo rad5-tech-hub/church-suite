@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
 import { BibleLoader } from '../components/BibleLoader';
@@ -42,7 +42,11 @@ import { PERMISSIONS, PERMISSION_CATEGORIES } from '../data/permissions';
 import { AdminLevel, Role, Admin } from '../types';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
-import { fetchRoles, createRole, editRole, deleteRole, fetchAdmins } from '../api';
+import { useAuth } from '../context/AuthContext';
+import { fetchRoles, createRole, editRole, deleteRole, fetchAdmins, fetchPermissionGroups } from '../api';
+import { resolvePrimaryBranchId } from '../utils/scope';
+import { deriveAssignablePermissions, buildRolePermissionPayload, mapBackendRolePermissions, type PermissionCatalogGroup } from '../utils/rolePermissionMapping';
+import { hasPermission } from '../utils/adminPermissions';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
 
@@ -57,7 +61,7 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
     label: 'Branch Level',
     icon: <GitBranch className="w-4 h-4" />,
     color: 'bg-purple-100 text-purple-800 border-purple-200',
-    description: 'Anyone with this role can only perform these actions on the specific branch they are assigned to — not across the entire church.',
+    description: 'Anyone with this role can only perform these actions on the specific branch they are assigned to - not across the entire church.',
   },
   department: {
     label: 'Department / Outreach Level',
@@ -75,6 +79,7 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
 
 export function Roles() {
   const { church, branches } = useChurch();
+  const { currentAdmin } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,32 +98,89 @@ export function Roles() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   /** Granular: which sub-actions are selected per permission */
   const [granularPerms, setGranularPerms] = useState<Record<string, string[]>>({});
+  const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalogGroup[]>([]);
+
+  const canCreateRole = hasPermission(currentAdmin, 'manage-roles', 'create');
+  const canEditRole = hasPermission(currentAdmin, 'manage-roles', 'edit');
+  const canDeleteRole = hasPermission(currentAdmin, 'manage-roles', 'delete');
 
   const { showToast } = useToast();
+  const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
 
   // Load from backend
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      try {
-        const [rolesData, adminsData] = await Promise.all([fetchRoles(branches[0]?.id), fetchAdmins()]);
-        setRoles(rolesData as Role[]);
-        setAdmins(adminsData as Admin[]);
-      } catch (err) {
-        console.error('Failed to load roles:', err);
-      } finally {
-        setLoading(false);
+      const [rolesResult, adminsResult, permissionGroupsResult] = await Promise.allSettled([
+        fetchRoles(primaryBranchId),
+        fetchAdmins(),
+        fetchPermissionGroups(),
+      ]);
+
+      if (rolesResult.status === 'fulfilled') {
+        setRoles(rolesResult.value as Role[]);
+      } else {
+        console.error('Failed to load roles:', rolesResult.reason);
+        setRoles([]);
       }
+
+      if (adminsResult.status === 'fulfilled') {
+        setAdmins(adminsResult.value as Admin[]);
+      } else {
+        console.error('Failed to load admins for role counts:', adminsResult.reason);
+        setAdmins([]);
+      }
+
+      if (permissionGroupsResult.status === 'fulfilled') {
+        setPermissionCatalog(permissionGroupsResult.value as PermissionCatalogGroup[]);
+      } else {
+        console.error('Failed to load permission groups:', permissionGroupsResult.reason);
+        setPermissionCatalog([]);
+      }
+
+      setLoading(false);
     };
     loadData();
-  }, [branches]);
+  }, [primaryBranchId]);
 
   // --- Derived ---
-  const filteredPermissions = PERMISSIONS.filter((p) => p.level.includes(roleLevel));
+  const permissionLibrary = useMemo(() => {
+    const levels: AdminLevel[] = ['church', 'branch', 'department', 'unit'];
+    return Array.from(
+      new Map(
+        levels
+          .flatMap((level) => deriveAssignablePermissions({ catalog: permissionCatalog, scopeLevel: level }))
+          .map((permission) => [permission.id, permission])
+      ).values()
+    );
+  }, [permissionCatalog]);
+
+  const permissionById = useMemo(
+    () => new Map(permissionLibrary.map((permission) => [permission.id, permission])),
+    [permissionLibrary]
+  );
+
+  const filteredPermissions = useMemo(
+    () => deriveAssignablePermissions({ catalog: permissionCatalog, scopeLevel: roleLevel }),
+    [permissionCatalog, roleLevel]
+  );
+
+  const visibleSelectedPermissionCount = filteredPermissions.filter((permission) => selectedPermissions.includes(permission.id)).length;
+
   const filteredRoles = roles.filter(r => {
     if (!searchTerm) return true;
     return r.name.toLowerCase().includes(searchTerm.toLowerCase()) || LEVEL_META[r.level].label.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  const resolvePermissionDefinition = (permissionId: string) => (
+    permissionById.get(permissionId) || PERMISSIONS.find((permission) => permission.id === permissionId)
+  );
+
+  const getRolePermissions = (permissionIds: string[]) => (
+    permissionIds
+      .map((permissionId) => resolvePermissionDefinition(permissionId))
+      .filter((permission): permission is (typeof PERMISSIONS)[number] => Boolean(permission))
+  );
 
   // --- Helpers ---
   const resetForm = () => {
@@ -166,7 +228,7 @@ export function Roles() {
   };
 
   const togglePermission = (permissionId: string) => {
-    const perm = PERMISSIONS.find(p => p.id === permissionId);
+    const perm = filteredPermissions.find(p => p.id === permissionId);
     if (perm?.actions && perm.actions.length > 0) {
       // Toggle all actions
       toggleAllActions(permissionId, perm.actions.map(a => a.id));
@@ -209,18 +271,32 @@ export function Roles() {
   // --- Handlers ---
 
   const openCreate = () => {
+    if (!canCreateRole) {
+      showToast('You do not have permission to create roles.', 'error');
+      return;
+    }
     resetForm();
     setSelectedRole(null);
     setDialogMode('create');
   };
 
   const openEdit = (role: Role) => {
+    if (!canEditRole) {
+      showToast('You do not have permission to edit roles.', 'error');
+      return;
+    }
     setSelectedRole(role);
     setRoleName(role.name);
     setRoleLevel(role.level);
-    setSelectedPermissions([...role.permissions]);
-    setGranularPerms(role.granularPermissions || {});
-    setRoleBranchId((role as any).branchId || branches[0]?.id || '');
+    setRoleBranchId((role as any).branchId || primaryBranchId || '');
+    const mapped = mapBackendRolePermissions({
+      permissions: (role as any).rawPermissions || role.permissions,
+      permissionGroups: (role as any).rawPermissionGroups || [],
+      scopeLevel: role.level,
+      catalog: permissionCatalog,
+    });
+    setSelectedPermissions(mapped.permissions);
+    setGranularPerms(mapped.granularPermissions);
     setDialogMode('edit');
   };
 
@@ -237,20 +313,31 @@ export function Roles() {
 
   const handleCreate = async () => {
     if (!roleName.trim()) return;
+    if (!canCreateRole) {
+      showToast('You do not have permission to create roles.', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      const payload = buildRolePermissionPayload({
+        permissionIds: selectedPermissions,
+        granularPermissions: granularPerms,
+        catalog: permissionCatalog,
+      });
       await createRole({
         name: roleName.trim(),
         scopeLevel: (roleLevel === 'unit' ? 'department' : roleLevel) as 'church' | 'branch' | 'department',
-        branchId: roleBranchId || branches[0]?.id || undefined,
-        // permissions require backend UUIDs — omit on create
+        branchId: roleBranchId || primaryBranchId || undefined,
+        permissions: payload.permissions,
+        permissionGroup: payload.permissionGroup,
       });
       closeDialog();
       showToast(`"${roleName.trim()}" role created successfully!`);
-      const rolesData = await fetchRoles(branches[0]?.id);
+      const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
     } catch (err: any) {
       console.error('Failed to create role:', err);
+      showToast(err?.body?.message || err?.message || 'Failed to create role.', 'error');
     } finally {
       setSaving(false);
     }
@@ -258,19 +345,33 @@ export function Roles() {
 
   const handleUpdate = async () => {
     if (!roleName.trim() || !selectedRole) return;
+    if (!canEditRole) {
+      showToast('You do not have permission to edit roles.', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      const payload = buildRolePermissionPayload({
+        permissionIds: selectedPermissions,
+        granularPermissions: granularPerms,
+        catalog: permissionCatalog,
+      });
       await editRole(selectedRole.id, {
         name: roleName.trim(),
+        description: (selectedRole as any).description || undefined,
         scopeLevel: (roleLevel === 'unit' ? 'department' : roleLevel) as string,
-        // permissions require backend UUIDs — omit on edit
-      });
+        permissions: payload.permissions,
+        permissionGroup: payload.permissionGroup,
+        currentPermissions: (selectedRole as any).rawPermissions,
+        currentPermissionGroups: (selectedRole as any).rawPermissionGroups,
+      }, roleBranchId || (selectedRole as any).branchId || primaryBranchId);
       closeDialog();
       showToast(`"${roleName.trim()}" role updated successfully!`);
-      const rolesData = await fetchRoles(branches[0]?.id);
+      const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
     } catch (err: any) {
       console.error('Failed to update role:', err);
+      showToast(err?.body?.message || err?.message || 'Failed to update role.', 'error');
     } finally {
       setSaving(false);
     }
@@ -278,32 +379,47 @@ export function Roles() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (!canDeleteRole) {
+      showToast('You do not have permission to delete roles.', 'error');
+      return;
+    }
     const name = deleteTarget.name;
     setSaving(true);
     try {
       await deleteRole(deleteTarget.id);
       setDeleteTarget(null);
       showToast(`"${name}" role deleted successfully!`);
-      const rolesData = await fetchRoles(branches[0]?.id);
+      const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
     } catch (err: any) {
       console.error('Failed to delete role:', err);
+      showToast(err?.body?.message || err?.message || 'Failed to delete role.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDuplicate = async (role: Role) => {
+    if (!canCreateRole) {
+      showToast('You do not have permission to duplicate roles.', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      const dupPayload = buildRolePermissionPayload({
+        permissionIds: role.permissions,
+        granularPermissions: role.granularPermissions,
+        catalog: permissionCatalog,
+      });
       await createRole({
         name: `${role.name} (Copy)`,
         scopeLevel: (role.level === 'unit' ? 'department' : role.level) as 'church' | 'branch' | 'department',
-        branchId: (role as any).branchId || branches[0]?.id || undefined,
-        permissions: [...role.permissions],
+        branchId: (role as any).branchId || primaryBranchId || undefined,
+        permissions: dupPayload.permissions,
+        permissionGroup: dupPayload.permissionGroup,
       });
       showToast(`"${role.name}" duplicated!`);
-      const rolesData = await fetchRoles(branches[0]?.id);
+      const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
     } catch (err: any) {
       console.error('Failed to duplicate role:', err);
@@ -317,11 +433,15 @@ export function Roles() {
       <PageHeader
         title="Roles & Permissions"
         description="Create custom roles with specific permissions for different levels of church administration. Roles define what actions administrators can perform."
-        action={{
-          label: 'Create Role',
-          onClick: openCreate,
-          icon: <Plus className="w-4 h-4 mr-2" />,
-        }}
+        action={
+          canCreateRole
+            ? {
+                label: 'Create Role',
+                onClick: openCreate,
+                icon: <Plus className="w-4 h-4 mr-2" />,
+              }
+            : undefined
+        }
       />
 
       <div className="p-4 md:p-6">
@@ -363,10 +483,12 @@ export function Roles() {
               <p className="text-gray-500 max-w-md mx-auto mb-6">
                 Roles haven't been set up because none have been created yet. Define your first role to control what your administrators can do and see within the church system.
               </p>
-              <Button onClick={openCreate}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Role
-              </Button>
+              {canCreateRole && (
+                <Button onClick={openCreate}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Role
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -392,7 +514,7 @@ export function Roles() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredRoles.map((role) => {
               const meta = LEVEL_META[role.level];
-              const rolePermissions = PERMISSIONS.filter((p) => role.permissions.includes(p.id));
+              const rolePermissions = getRolePermissions(role.permissions);
               const permissionsByCategory = PERMISSION_CATEGORIES.map((category) => ({
                 category,
                 permissions: rolePermissions.filter((p) => p.category === category),
@@ -458,32 +580,38 @@ export function Roles() {
                           <Eye className="w-3.5 h-3.5 mr-1" />
                           View
                         </Button>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(role)}>
-                          <Edit className="w-3.5 h-3.5 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleDuplicate(role)}
-                        >
-                          <Copy className="w-3.5 h-3.5 mr-1" />
-                          Duplicate
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => setDeleteTarget(role)}
-                          disabled={adminCount > 0}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        {canEditRole && (
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(role)}>
+                            <Edit className="w-3.5 h-3.5 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {canCreateRole && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleDuplicate(role)}
+                          >
+                            <Copy className="w-3.5 h-3.5 mr-1" />
+                            Duplicate
+                          </Button>
+                        )}
+                        {canDeleteRole && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setDeleteTarget(role)}
+                            disabled={adminCount > 0}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                       {adminCount > 0 && (
                         <p className="text-xs text-gray-400 text-center">
-                          Cannot delete — {adminCount} admin{adminCount !== 1 ? 's' : ''} assigned
+                          Cannot delete - {adminCount} admin{adminCount !== 1 ? 's' : ''} assigned
                         </p>
                       )}
                     </div>
@@ -568,7 +696,7 @@ export function Roles() {
               </div>
             </div>
 
-            {/* Branch Selector intentionally omitted — branch is resolved server-side from tenant context */}
+            {/* Branch selector intentionally omitted - branch is resolved server-side from tenant context */}
 
             <Separator />
 
@@ -583,7 +711,7 @@ export function Roles() {
                   </p>
                 </div>
                 <Badge variant="outline">
-                  {selectedPermissions.length} / {filteredPermissions.length} selected
+                  {visibleSelectedPermissionCount} / {filteredPermissions.length} selected
                 </Badge>
               </div>
 
@@ -627,11 +755,6 @@ export function Roles() {
                                   className="cursor-pointer text-sm font-medium text-gray-900"
                                 >
                                   {permission.name}
-                                  {permission.level.length < 4 && (
-                                    <span className="text-xs text-blue-600 ml-2">
-                                      ({permission.level.join(', ')} only)
-                                    </span>
-                                  )}
                                 </Label>
                                 <p className="text-xs text-gray-500 mt-0.5">{permission.description}</p>
                                 {permission.actions && permission.actions.length > 0 && (
@@ -665,15 +788,16 @@ export function Roles() {
             </div>
 
             <div className="flex gap-3 pt-4 border-t">
-              <Button variant="outline" className="flex-1" onClick={closeDialog}>
+              <Button variant="outline" className="flex-1" onClick={closeDialog} disabled={saving}>
                 Cancel
               </Button>
               <Button
                 className="flex-1"
                 onClick={dialogMode === 'create' ? handleCreate : handleUpdate}
-                disabled={!roleName.trim() || selectedPermissions.length === 0}
+                disabled={saving || !roleName.trim() || selectedPermissions.length === 0}
               >
-                {dialogMode === 'create' ? 'Create Role' : 'Save Changes'}
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {saving ? (dialogMode === 'create' ? 'Creating...' : 'Saving...') : (dialogMode === 'create' ? 'Create Role' : 'Save Changes')}
               </Button>
             </div>
           </div>
@@ -697,7 +821,7 @@ export function Roles() {
 
           {selectedRole && (() => {
             const meta = LEVEL_META[selectedRole.level];
-            const rolePermissions = PERMISSIONS.filter((p) => selectedRole.permissions.includes(p.id));
+            const rolePermissions = getRolePermissions(selectedRole.permissions);
             const permsByCategory = PERMISSION_CATEGORIES.map((cat) => ({
               category: cat,
               permissions: rolePermissions.filter((p) => p.category === cat),
@@ -777,30 +901,36 @@ export function Roles() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-3 border-t">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      closeDialog();
-                      openEdit(selectedRole);
-                    }}
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Role
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      closeDialog();
-                      handleDuplicate(selectedRole);
-                    }}
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Duplicate
-                  </Button>
-                </div>
+                {(canEditRole || canCreateRole) && (
+                  <div className="flex gap-3 pt-3 border-t">
+                    {canEditRole && (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          closeDialog();
+                          openEdit(selectedRole);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Role
+                      </Button>
+                    )}
+                    {canCreateRole && (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          closeDialog();
+                          handleDuplicate(selectedRole);
+                        }}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Duplicate
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -827,10 +957,10 @@ export function Roles() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Role
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white" disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              {saving ? 'Deleting...' : 'Delete Role'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -838,3 +968,9 @@ export function Roles() {
     </Layout>
   );
 }
+
+
+
+
+
+

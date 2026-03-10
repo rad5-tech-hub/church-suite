@@ -34,7 +34,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Member, WorkforceMember, Department, Unit, MemberTrainingClass, NewcomerTrainingStatus } from '../types';
-import { fetchMembers, createMember, editMember, suspendMember, saveWorkforce, fetchWorkforce, fetchDepartments, fetchUnits, fetchMemberTrainingClasses, saveMemberTrainingClasses, fetchBranches as fetchBranchesApi, createBranch } from '../api';
+import { fetchMembers, createMember, editMember, suspendMember, saveMembers, saveWorkforce, fetchWorkforce, fetchDepartments, fetchUnits, fetchMemberTrainingClasses, saveMemberTrainingClasses, fetchBranches as fetchBranchesApi, createBranch } from '../api';
 import { COUNTRIES, MONTHS, AGE_RANGES } from '../data/countries';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
@@ -122,7 +122,7 @@ export function Members() {
       let branchData = await fetchBranchesApi();
       let resolvedBranches: any[] = Array.isArray(branchData) ? branchData : [];
       if (resolvedBranches.length === 0) {
-        // No branches yet — auto-create a default HQ branch so member creation works
+        // No branches yet Ã¢â‚¬â€ auto-create a default HQ branch so member creation works
         await createBranch({ name: church.name || 'Main Branch' });
         const refetched = await fetchBranchesApi();
         resolvedBranches = Array.isArray(refetched) ? refetched : [];
@@ -166,6 +166,24 @@ export function Members() {
   }, [members, workforce]);
   const wfRatio = members.length > 0 ? Math.round((wfCount / members.length) * 100) : 0;
   const padTwo = (v: string) => v.padStart(2, '0');
+  const parseAgeRange = (range: string) => {
+    let ageFrom: number | undefined;
+    let ageTo: number | undefined;
+
+    if (/^\d+-\d+$/.test(range)) {
+      const [from, to] = range.split('-').map((value) => parseInt(value, 10));
+      ageFrom = from;
+      ageTo = to;
+    } else if (/^Under \d+$/i.test(range)) {
+      const limit = parseInt(range.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(limit)) ageTo = Math.max(limit - 1, 0);
+    } else if (/^\d+\+$/.test(range)) {
+      const floor = parseInt(range, 10);
+      if (!Number.isNaN(floor)) ageFrom = floor;
+    }
+
+    return { ageFrom, ageTo };
+  };
 
   const handleCreate = async () => {
     if (!isFormValid) return;
@@ -178,12 +196,21 @@ export function Members() {
         showToast('Unable to determine branch. Please refresh and try again.', 'error');
         setSaving(false); return;
       }
-      await createMember({
+
+      const { ageFrom, ageTo } = parseAgeRange(fAgeRange);
+      const normalizedEmail = fEmail.trim() || undefined;
+      const normalizedWhatsapp = fWhatsapp.trim() || undefined;
+      const normalizedBirthdayYear = fBirthdayYear ? parseInt(fBirthdayYear, 10) : undefined;
+
+      const created = await createMember({
         name: fFullName.trim(),
         address: fAddress.trim(),
         phoneNo: fPhone.trim(),
-        whatappNo: fWhatsapp.trim() || undefined,
+        whatappNo: normalizedWhatsapp,
+        email: normalizedEmail,
         sex: fGender,
+        ageFrom,
+        ageTo,
         birthMonth: fBirthdayMonth ? padTwo(fBirthdayMonth) : undefined,
         birthDay: fBirthdayDay ? padTwo(fBirthdayDay) : undefined,
         nationality: fCountry,
@@ -192,7 +219,25 @@ export function Members() {
         memberSince: fYearJoined,
         branchId: resolvedBranchId,
         departmentIds: [],
-      }, church.id, resolvedBranchId);
+      } as any, church.id, resolvedBranchId);
+
+      const createdId = created?.data?.id || created?.member?.id || created?.id;
+      if (createdId) {
+        await saveMembers([
+          {
+            id: createdId,
+            fullName: fFullName.trim(),
+            branchId: resolvedBranchId,
+            phone: fPhone.trim(),
+            whatsapp: normalizedWhatsapp,
+            email: normalizedEmail,
+            address: fAddress.trim(),
+            ageRange: fAgeRange || undefined,
+            birthdayYear: Number.isNaN(normalizedBirthdayYear) ? undefined : normalizedBirthdayYear,
+          },
+        ]);
+      }
+
       await loadData();
       setDialogMode(null);
       resetForm();
@@ -206,8 +251,13 @@ export function Members() {
     setSaving(true);
     try {
       const branchId = selectedMember.branchId || currentAdmin?.branchId || localBranches[0]?.id || branches[0]?.id || '';
+      const nextBranchId = showMultiBranch ? (fBranchId || branchId) : branchId;
+      const { ageFrom, ageTo } = parseAgeRange(fAgeRange);
+
       await editMember(selectedMember.id, branchId, {
         sex: fGender as 'male' | 'female',
+        ageFrom,
+        ageTo,
         birthMonth: fBirthdayMonth ? padTwo(fBirthdayMonth) : undefined,
         birthDay: fBirthdayDay ? padTwo(fBirthdayDay) : undefined,
         nationality: fCountry,
@@ -215,6 +265,30 @@ export function Members() {
         maritalStatus: fMaritalStatus,
         memberSince: fYearJoined,
       });
+
+      const updatedMembers = members.map((member) =>
+        member.id === selectedMember.id
+          ? {
+              ...member,
+              fullName: fFullName.trim(),
+              gender: fGender as 'male' | 'female',
+              phone: fPhone.trim(),
+              whatsapp: fWhatsapp.trim() || undefined,
+              email: fEmail.trim() || undefined,
+              yearJoined: parseInt(fYearJoined, 10) || member.yearJoined,
+              maritalStatus: fMaritalStatus as Member['maritalStatus'],
+              address: fAddress.trim(),
+              ageRange: fAgeRange || undefined,
+              birthdayMonth: parseInt(fBirthdayMonth, 10) || member.birthdayMonth,
+              birthdayDay: parseInt(fBirthdayDay, 10) || member.birthdayDay,
+              birthdayYear: fBirthdayYear ? parseInt(fBirthdayYear, 10) : undefined,
+              branchId: nextBranchId,
+              country: fCountry,
+              state: fState,
+            }
+          : member
+      );
+      await saveMembers(updatedMembers);
       await loadData();
       setDialogMode(null);
       setSelectedMember(null);
@@ -237,7 +311,7 @@ export function Members() {
     finally { setSaving(false); }
   };
 
-  // ──────── MOVE TO WORKFORCE ────────
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ MOVE TO WORKFORCE Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   const handleMoveToWorkforce = async () => {
     if (!moveDeptId || moveTargets.length === 0) return;
     setSaving(true);
@@ -329,9 +403,13 @@ export function Members() {
     setMembers(updated.filter(m => m.churchId === church.id));
   };
 
-  const getBranchName = (id?: string) => id ? branches.find(b => b.id === id)?.name || '' : '';
+  const getBranchName = (id?: string) => {
+    if (!id) return '';
+    return branches.find(b => b.id === id)?.name || localBranches.find(b => b.id === id)?.name || '';
+  };
   const getMonthName = (m: number) => MONTHS.find(mo => mo.value === m)?.label || '';
   const formatBirthday = (m: Member) => `${getMonthName(m.birthdayMonth)} ${m.birthdayDay}${m.birthdayYear ? `, ${m.birthdayYear}` : ''}`;
+  const formatMemberAddress = (member: Member) => [member.address, member.state, member.country].filter(Boolean).join(', ');
   const daysInMonth = (month: string) => { if (!month) return 31; const m = parseInt(month); if ([4, 6, 9, 11].includes(m)) return 30; if (m === 2) return 29; return 31; };
 
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
@@ -390,7 +468,7 @@ export function Members() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input placeholder="Search by name, phone, or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                  <Input type="search" name="member-directory-search" autoComplete="off" autoCorrect="off" spellCheck={false} data-lpignore="true" data-1p-ignore="true" placeholder="Search by name, phone, or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2">
                   <Filter className="w-4 h-4" />Filters<ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
@@ -526,7 +604,7 @@ export function Members() {
           )}
           </TabsContent>
 
-          {/* ═══ TRAINING TAB ═══ */}
+          {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â TRAINING TAB Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
           <TabsContent value="training" className="space-y-6">
             <Card><CardContent className="p-4">
               <p className="text-sm text-gray-600">
@@ -543,7 +621,7 @@ export function Members() {
               <Card><CardContent className="py-12 text-center">
                 <GraduationCap className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-700 mb-1">No training classes yet</h4>
-                <p className="text-sm text-gray-500 max-w-sm mx-auto mb-4">Create a member training class to start tracking progression — for example, "Leadership Class", "Marriage Seminar", or "Bible Study".</p>
+                <p className="text-sm text-gray-500 max-w-sm mx-auto mb-4">Create a member training class to start tracking progression Ã¢â‚¬â€ for example, "Leadership Class", "Marriage Seminar", or "Bible Study".</p>
                 <Button size="sm" onClick={() => setCreateClassOpen(true)}><Plus className="w-4 h-4 mr-1" />Create Your First Class</Button>
               </CardContent></Card>
             ) : (
@@ -596,7 +674,7 @@ export function Members() {
         )}
       </div>
 
-      {/* ══════ CREATE TRAINING CLASS DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CREATE TRAINING CLASS DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={createClassOpen} onOpenChange={(o) => { if (!o) setCreateClassOpen(false); }}>
         <DialogContent>
           <DialogHeader>
@@ -618,7 +696,7 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* ══════ ASSIGN TRAINING DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â ASSIGN TRAINING DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={assignTrainingTargets.length > 0} onOpenChange={() => { setAssignTrainingTargets([]); setAssignClassId(''); }}>
         <DialogContent>
           <DialogHeader>
@@ -653,7 +731,7 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* ══════ CREATE / EDIT DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CREATE / EDIT DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={dialogMode === 'create' || dialogMode === 'edit'} onOpenChange={() => { setDialogMode(null); setSelectedMember(null); resetForm(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -674,7 +752,7 @@ export function Members() {
               <div className="space-y-2"><Label>WhatsApp <span className="text-gray-400 font-normal">(optional)</span></Label><Input type="tel" value={fWhatsapp} onChange={e => setFWhatsapp(e.target.value)} placeholder="Same as phone if blank" /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Email <span className="text-gray-400 font-normal">(optional)</span></Label><Input type="email" value={fEmail} onChange={e => setFEmail(e.target.value)} placeholder="john@example.com" /></div>
+              <div className="space-y-2"><Label>Email <span className="text-gray-400 font-normal">(optional)</span></Label><Input type="email" name="member-email" autoComplete="email" value={fEmail} onChange={e => setFEmail(e.target.value)} placeholder="john@example.com" /></div>
               <div className="space-y-2"><Label>Year Joined Church *</Label>
                 <Select value={fYearJoined} onValueChange={setFYearJoined}><SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger><SelectContent>{Array.from({ length: 60 }, (_, i) => currentYear - i).map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
               </div>
@@ -722,61 +800,114 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* ══════ VIEW DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â VIEW DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={dialogMode === 'view'} onOpenChange={() => { setDialogMode(null); setSelectedMember(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedMember?.fullName}</DialogTitle>
-            <DialogDescription>Member details and contact info</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-[640px] border-0 bg-transparent p-0 shadow-none [&>button]:hidden">
           {selectedMember && (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="max-h-[90vh] overflow-y-auto rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_28px_70px_rgba(15,23,42,0.18)] sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <DialogHeader className="gap-1 pr-8 text-left">
+                  <DialogTitle className="text-[1.7rem] font-semibold tracking-tight text-gray-900">
+                    {selectedMember.fullName}
+                  </DialogTitle>
+                  <DialogDescription className="text-sm text-gray-500">
+                    Member details and contact info
+                  </DialogDescription>
+                </DialogHeader>
+                <button
+                  type="button"
+                  onClick={() => { setDialogMode(null); setSelectedMember(null); }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Close member details"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5">
                 <InfoBlock label="Gender" value={selectedMember.gender} capitalize />
                 <InfoBlock label="Marital Status" value={selectedMember.maritalStatus} capitalize />
                 <InfoBlock label="Year Joined" value={String(selectedMember.yearJoined)} />
                 <InfoBlock label="Age Range" value={selectedMember.ageRange || '-'} />
                 <InfoBlock label="Birthday" value={formatBirthday(selectedMember)} />
-                <InfoBlock label="Country" value={selectedMember.country} />
-                <InfoBlock label="State" value={selectedMember.state} />
+                <InfoBlock label="Country" value={selectedMember.country || '-'} />
+                <InfoBlock label="State" value={selectedMember.state || '-'} />
                 <InfoBlock label="Branch" value={getBranchName(selectedMember.branchId) || '-'} />
               </div>
-              <Separator />
-              <div className="space-y-2">
+
+              <Separator className="my-5 bg-gray-200" />
+
+              <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-gray-700">Contact</h4>
-                <button onClick={() => setContactAction({ type: 'phone', value: selectedMember.phone, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors text-left">
-                  <Phone className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span className="text-sm text-gray-800">{selectedMember.phone}</span>
+                <button
+                  onClick={() => setContactAction({ type: 'phone', value: selectedMember.phone, name: selectedMember.fullName })}
+                  className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-blue-50"
+                >
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                    <Phone className="h-4 w-4 text-blue-600" />
+                  </span>
+                  <span className="text-sm font-medium text-gray-800">{selectedMember.phone}</span>
                 </button>
                 {selectedMember.email && (
-                  <button onClick={() => setContactAction({ type: 'email', value: selectedMember.email!, name: selectedMember.fullName })} className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition-colors text-left">
-                    <Mail className="w-4 h-4 text-blue-500 shrink-0" />
-                    <span className="text-sm text-gray-800">{selectedMember.email}</span>
+                  <button
+                    onClick={() => setContactAction({ type: 'email', value: selectedMember.email!, name: selectedMember.fullName })}
+                    className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-blue-50"
+                  >
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                      <Mail className="h-4 w-4 text-blue-600" />
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">{selectedMember.email}</span>
                   </button>
                 )}
                 {selectedMember.whatsapp && (
-                  <a href={`https://wa.me/${selectedMember.whatsapp.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full p-3 rounded-lg bg-gray-50 hover:bg-green-50 transition-colors">
-                    <MessageCircle className="w-4 h-4 text-green-600 shrink-0" />
-                    <span className="text-sm text-gray-800">{selectedMember.whatsapp}</span>
+                  <a
+                    href={`https://wa.me/${selectedMember.whatsapp.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center gap-3 rounded-xl bg-gray-50 px-4 py-3 transition-colors hover:bg-green-50"
+                  >
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                      <MessageCircle className="h-4 w-4 text-green-600" />
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">{selectedMember.whatsapp}</span>
                   </a>
                 )}
               </div>
-              <Separator />
-              <div>
-                <p className="text-xs text-gray-500 mb-0.5">Address</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {[selectedMember.address, selectedMember.state, selectedMember.country].filter(Boolean).join(', ')}
+
+              <Separator className="my-5 bg-gray-200" />
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-gray-500">Address</p>
+                <p className="text-sm font-semibold leading-6 text-gray-900">
+                  {formatMemberAddress(selectedMember) || '-'}
                 </p>
               </div>
-              <div className="flex gap-2 pt-1">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }} disabled={isInWorkforce(selectedMember.id)}>
-                  <Briefcase className="w-4 h-4 mr-1.5" />Move to Workforce
+
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }}
+                  disabled={isInWorkforce(selectedMember.id)}
+                >
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  {isInWorkforce(selectedMember.id) ? 'In Workforce' : 'Move to Workforce'}
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => setDialogMode('edit')}>
-                  <Edit className="w-4 h-4 mr-1.5" />Edit
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  onClick={() => setDialogMode('edit')}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1 text-red-600 hover:bg-red-50 hover:text-red-600 border-red-200" onClick={() => { setDialogMode(null); setDeleteTarget(selectedMember); }}>
-                  <Trash2 className="w-4 h-4 mr-1.5" />Delete
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50 hover:text-red-600"
+                  onClick={() => { setDialogMode(null); setDeleteTarget(selectedMember); }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
                 </Button>
               </div>
             </div>
@@ -784,14 +915,14 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* ══════ DELETE CONFIRM ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DELETE CONFIRM Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Member</AlertDialogTitle><AlertDialogDescription>Are you sure you want to remove <strong>{deleteTarget?.fullName}</strong>? This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">{saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}Delete</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ══════ MOVE TO WORKFORCE DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â MOVE TO WORKFORCE DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={moveTargets.length > 0} onOpenChange={() => { setMoveTargets([]); setMoveDeptId(''); setMoveUnitId(''); setMoveBranchId(''); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -817,7 +948,7 @@ export function Members() {
               <Select value={moveDeptId} onValueChange={(v) => { setMoveDeptId(v); setMoveUnitId(''); }}>
                 <SelectTrigger><SelectValue placeholder="Select department or outreach" /></SelectTrigger>
                 <SelectContent>
-                  {moveDepts.length === 0 ? <SelectItem value="none" disabled>No departments found — create one first</SelectItem> : moveDepts.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.type})</SelectItem>)}
+                  {moveDepts.length === 0 ? <SelectItem value="none" disabled>No departments found Ã¢â‚¬â€ create one first</SelectItem> : moveDepts.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.type})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -842,7 +973,7 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* ═════ CONTACT ACTION DIALOG ══════ */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CONTACT ACTION DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={!!contactAction} onOpenChange={() => setContactAction(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Contact {contactAction?.name}</DialogTitle><DialogDescription>{contactAction?.type === 'phone' ? `How would you like to reach ${contactAction?.name}?` : `Send an email to ${contactAction?.name}?`}</DialogDescription></DialogHeader>
@@ -864,5 +995,12 @@ export function Members() {
 }
 
 function InfoBlock({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
-  return <div><p className="text-xs text-gray-500 mb-0.5">{label}</p><p className={`text-sm font-medium text-gray-900 ${capitalize ? 'capitalize' : ''}`}>{value}</p></div>;
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-medium text-gray-500">{label}</p>
+      <p className={`text-[15px] font-semibold leading-5 text-gray-900 ${capitalize ? 'capitalize' : ''}`}>
+        {value || '-'}
+      </p>
+    </div>
+  );
 }

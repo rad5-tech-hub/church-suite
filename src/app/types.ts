@@ -101,6 +101,10 @@ export interface Admin {
   branchIds?: string[];
   departmentIds?: string[];
   unitIds?: string[];
+  /** Live permissions resolved from the admin's assigned backend role(s) */
+  permissions?: string[];
+  /** Granular action map resolved from backend role permissions */
+  granularPermissions?: Record<string, string[]>;
   customPermissions?: string[]; // Override role permissions
   lastTempPassword?: string; // Last generated temporary password (for prototype testing)
   createdAt: Date;
@@ -314,7 +318,7 @@ export interface SMSMessage {
   createdAt: Date;
 }
 
-// ─── Finance Types ──────────────────────────────────────────
+// Finance Types
 
 /** Reusable collection type (e.g. "Tithe", "Offering") that can be assigned to programs */
 export interface CollectionType {
@@ -370,7 +374,7 @@ export interface StandaloneCollectionEntry {
   createdBy: string;
 }
 
-// ─── Reports Types ──────────────────────────────────────────
+// Reports Types
 
 export interface Report {
   id: string;

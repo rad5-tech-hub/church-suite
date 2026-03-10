@@ -18,10 +18,12 @@ import { useToast } from '../context/ToastContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Department } from '../types';
 import { fetchDepartments, createDepartment, editDepartment, deleteDepartmentApi, fetchUnits } from '../api';
+import { hasPermission } from '../utils/adminPermissions';
 
 export function Departments() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
+  const defaultBranchId = currentAdmin?.branchId || currentAdmin?.branchIds?.[0] || branches[0]?.id || '';
 
   // Data state
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -42,24 +44,28 @@ export function Departments() {
   const [description, setDescription] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
 
-  // Build valid branch IDs (includes all known branches regardless of church type)
-  const validBranchIds = useMemo(() => {
-    const ids = new Set<string>();
-    ids.add(church.id); // church ID itself (some APIs use it)
-    branches.forEach(b => ids.add(b.id));
-    return ids;
-  }, [church, branches]);
+  const canCreateDepartment = hasPermission(currentAdmin, 'manage-departments', 'create');
+  const canEditDepartment = hasPermission(currentAdmin, 'manage-departments', 'edit');
+  const canDeleteDepartment = hasPermission(currentAdmin, 'manage-departments', 'delete');
 
   // Load departments & unit counts from backend
   const loadData = useCallback(async () => {
+    if (!defaultBranchId) return;
     setLoading(true);
     try {
-      const [depts, units] = await Promise.all([fetchDepartments(), fetchUnits()]);
-      // Accept all departments: those with no branchId (single-church) or matching a known branch
-      const validDepts = (depts as unknown as Department[]).filter(d =>
-        !d.branchId || validBranchIds.has(d.branchId)
-      );
-      setDepartments(validDepts);
+      const [deptsResult, unitsResult] = await Promise.allSettled([
+        fetchDepartments(defaultBranchId), 
+        fetchUnits(),
+      ]);
+      const depts = deptsResult.status === 'fulfilled' ? deptsResult.value : [];
+      const units = unitsResult.status === 'fulfilled' ? unitsResult.value : [];
+      const normalizedDepartments = (depts as any[]).map((dept) => ({
+        ...dept,
+        branchId: dept.branchId || dept.branch?.id || null,
+        description: dept.description || '',
+        createdAt: dept.createdAt ? new Date(dept.createdAt) : new Date(),
+      }));
+      setDepartments(normalizedDepartments as Department[]);
       // Count units per department
       const counts: Record<string, number> = {};
       (units as any[]).forEach(u => {
@@ -71,7 +77,7 @@ export function Departments() {
     } finally {
       setLoading(false);
     }
-  }, [validBranchIds]);
+  }, [defaultBranchId]);
 
   useEffect(() => {
     loadData();
@@ -86,11 +92,19 @@ export function Departments() {
   };
 
   const openCreateDialog = () => {
+    if (!canCreateDepartment) {
+      showToast('You do not have permission to create departments or outreaches.', 'error');
+      return;
+    }
     resetForm();
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (dept: Department) => {
+    if (!canEditDepartment) {
+      showToast('You do not have permission to edit departments or outreaches.', 'error');
+      return;
+    }
     setEditingDept(dept);
     setName(dept.name);
     setType((dept.type?.toLowerCase() === 'outreach' ? 'outreach' : 'department') as 'department' | 'outreach');
@@ -102,11 +116,19 @@ export function Departments() {
   };
 
   const handleSave = async () => {
-    // Always resolve a branchId — API requires it
+    // Always resolve a branchId - API requires it
     const branchId = church.type === 'multi'
       ? selectedBranch
-      : currentAdmin?.branchId || branches[0]?.id;
+      : defaultBranchId;
     if (!name.trim()) return;
+    if (editingDept && !canEditDepartment) {
+      showToast('You do not have permission to edit departments or outreaches.', 'error');
+      return;
+    }
+    if (!editingDept && !canCreateDepartment) {
+      showToast('You do not have permission to create departments or outreaches.', 'error');
+      return;
+    }
     if (!branchId) {
       showToast('No branch found. Please create a branch first.', 'error');
       return;
@@ -133,10 +155,18 @@ export function Departments() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    if (!canDeleteDepartment) {
+      showToast('You do not have permission to delete departments or outreaches.', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const dept = departments.find(d => d.id === deleteId);
-      const delBranchId = dept?.branchId || currentAdmin?.branchId || branches[0]?.id || church.id;
+      const delBranchId = dept?.branchId || defaultBranchId;
+      if (!delBranchId) {
+        showToast('No branch found for this department. Please refresh and try again.', 'error');
+        return;
+      }
       await deleteDepartmentApi(deleteId, delBranchId);
       setDeleteId(null);
       showToast('Department deleted successfully.');
@@ -154,11 +184,15 @@ export function Departments() {
       <PageHeader
         title="Departments & Outreaches"
         description="Organize your church into departments and outreach programs. Departments handle internal operations (e.g., prayer team, sanctuary keepers), while outreaches cover external missions (e.g., prison outreach, community programs). Both work the same way in the system."
-        action={{
-          label: 'Create Department/Outreach',
-          onClick: openCreateDialog,
-          icon: <Plus className="w-4 h-4 mr-2" />
-        }}
+        action={
+          canCreateDepartment
+            ? {
+                label: 'Create Department/Outreach',
+                onClick: openCreateDialog,
+                icon: <Plus className="w-4 h-4 mr-2" />
+              }
+            : undefined
+        }
       />
 
       <div className="p-4 md:p-6">
@@ -166,7 +200,7 @@ export function Departments() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            <span className="ml-3 text-gray-500">Loading departments…</span>
+            <span className="ml-3 text-gray-500">Loading departments...</span>
           </div>
         ) : departments.length === 0 ? (
           <Card>
@@ -174,11 +208,15 @@ export function Departments() {
               <EmptyState
                 icon={<Layers className="w-8 h-8" />}
                 title="No departments or outreaches yet"
-                description="Create your first department or outreach to start organizing your church. Departments manage internal operations, outreaches handle external missions — both work the same way."
-                action={{
-                  label: 'Create First Department/Outreach',
-                  onClick: openCreateDialog
-                }}
+                description="Create your first department or outreach to start organizing your church. Departments manage internal operations, outreaches handle external missions - both work the same way."
+                action={
+                  canCreateDepartment
+                    ? {
+                        label: 'Create First Department/Outreach',
+                        onClick: openCreateDialog
+                      }
+                    : undefined
+                }
               />
             </CardContent>
           </Card>
@@ -226,26 +264,32 @@ export function Departments() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => openEditDialog(dept)}
-                      >
-                        <Edit className="w-3 h-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 hover:text-red-700"
-                        onClick={() => setDeleteId(dept.id)}
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
+                    {(canEditDepartment || canDeleteDepartment) && (
+                      <div className="flex gap-2 pt-2">
+                        {canEditDepartment && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => openEditDialog(dept)}
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {canDeleteDepartment && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-red-600 hover:text-red-700"
+                            onClick={() => setDeleteId(dept.id)}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -301,8 +345,8 @@ export function Departments() {
               </RadioGroup>
               <p className="text-xs text-gray-500">
                 {type === 'department'
-                  ? 'Departments handle internal church operations — e.g., prayer team, sanctuary keepers, choir.'
-                  : 'Outreaches handle external missions — e.g., prison outreach, community feeding, street evangelism.'}
+                  ? 'Departments handle internal church operations - e.g., prayer team, sanctuary keepers, choir.'
+                  : 'Outreaches handle external missions - e.g., prison outreach, community feeding, street evangelism.'}
                 {' '}Both function the same way in the system.
               </p>
             </div>
@@ -381,3 +425,4 @@ export function Departments() {
     </Layout>
   );
 }
+

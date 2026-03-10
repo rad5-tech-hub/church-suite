@@ -24,7 +24,7 @@ interface ChecklistItem {
 
 export function SetupChecklist() {
   const { church, branches } = useChurch();
-  const { currentAdmin } = useAuth();
+  const { currentAdmin, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -32,13 +32,25 @@ export function SetupChecklist() {
     try { return localStorage.getItem('churchset_checklist_dismissed') === 'true'; } catch { return false; }
   });
   const [openTutorial, setOpenTutorial] = useState<string | null>(null);
+  const derivedBranchId = currentAdmin?.branchId || currentAdmin?.branchIds?.[0] || (currentAdmin?.level && currentAdmin.level !== 'church' ? branches[0]?.id : undefined) || undefined;
+  const requiresScopedDepartments = currentAdmin?.level === 'department' || currentAdmin?.level === 'unit';
 
   const loadChecklist = useCallback(async () => {
+    if (authLoading) return;
+    if (currentAdmin?.level !== 'church' && !derivedBranchId) return;
+
+    setLoading(true);
     try {
-      const [deps, uns, admins, mems, wf, wallet] = await Promise.all([
-        fetchDepartments(), fetchUnits(), fetchAdmins(),
-        fetchMembers(), fetchWorkforce(), fetchSMSWallet(),
+      const [depsRes, unsRes, adminsRes, memsRes, wfRes, walletRes] = await Promise.allSettled([
+        fetchDepartments(derivedBranchId), fetchUnits(derivedBranchId), fetchAdmins(derivedBranchId),
+        fetchMembers(derivedBranchId), fetchWorkforce(derivedBranchId), fetchSMSWallet(),
       ]);
+      const deps = depsRes.status === 'fulfilled' ? depsRes.value : [];
+      const uns = unsRes.status === 'fulfilled' ? unsRes.value : [];
+      const admins = adminsRes.status === 'fulfilled' ? adminsRes.value : [];
+      const mems = memsRes.status === 'fulfilled' ? memsRes.value : [];
+      const wf = wfRes.status === 'fulfilled' ? wfRes.value : [];
+      const wallet = walletRes.status === 'fulfilled' ? walletRes.value : null;
 
       const cId = church.id;
       const churchAdmins = (admins as any[]).filter(a => a.churchId === cId && !a.isSuperAdmin);
@@ -57,7 +69,7 @@ export function SetupChecklist() {
           done: branches.length > 0,
           link: '/branches',
           multiBranchOnly: true,
-          tutorial: "Head over to the Branches page and click \"Add Branch\" — give it a name like \"Main Campus\" or \"North Branch.\" This is where your church's different locations live. You already have a headquarters branch if you set one up during onboarding, so feel free to add more!",
+          tutorial: "Head over to the Branches page and click \"Add Branch\" - give it a name like \"Main Campus\" or \"North Branch.\" This is where your church's different locations live. You already have a headquarters branch if you set one up during onboarding, so feel free to add more!",
         });
       }
 
@@ -76,7 +88,7 @@ export function SetupChecklist() {
         icon: <Box className="w-4 h-4" />,
         done: (uns as any[]).length > 0,
         link: '/units',
-        tutorial: "Units sit inside departments — for example, your Choir department might have a \"Soprano\" unit and a \"Tenor\" unit. Head to the Units page, pick which department it belongs to, and give it a name. This helps you organize people at a more detailed level.",
+        tutorial: "Units sit inside departments - for example, your Choir department might have a \"Soprano\" unit and a \"Tenor\" unit. Head to the Units page, pick which department it belongs to, and give it a name. This helps you organize people at a more detailed level.",
       });
 
       list.push({
@@ -85,7 +97,7 @@ export function SetupChecklist() {
         icon: <Users className="w-4 h-4" />,
         done: churchAdmins.length > 0,
         link: '/admins',
-        tutorial: "Go to Administrators and click \"Add Administrator.\" Fill in their name and email, pick their access level (church, branch, department, or unit), then assign them a role. A temporary password will be generated — share it with them so they can log in. You're the super admin, so they'll have whatever permissions their role allows.",
+        tutorial: "Go to Administrators and click \"Add Administrator.\" Fill in their name and email, pick their access level (church, branch, department, or unit), then assign them a role. A temporary password will be generated - share it with them so they can log in. You're the super admin, so they'll have whatever permissions their role allows.",
       });
 
       list.push({
@@ -94,7 +106,7 @@ export function SetupChecklist() {
         icon: <UsersRound className="w-4 h-4" />,
         done: churchMembers.length > 0,
         link: '/members',
-        tutorial: "Head to the Members page and click \"Add Member.\" Fill in their basic details — name, phone number, gender, year they joined, and so on. Members are the heart of your church database. Once they're in, you can assign them to the workforce, track their attendance, and much more.",
+        tutorial: "Head to the Members page and click \"Add Member.\" Fill in their basic details - name, phone number, gender, year they joined, and so on. Members are the heart of your church database. Once they're in, you can assign them to the workforce, track their attendance, and much more.",
       });
 
       list.push({
@@ -103,7 +115,7 @@ export function SetupChecklist() {
         icon: <TrendingUp className="w-4 h-4" />,
         done: churchWorkforce.length > 0,
         link: '/workforce',
-        tutorial: "Go to the Workforce page and click \"Add to Workforce.\" Search for a member you've already added, then assign them to a department (and optionally a unit). Workforce members are your active volunteers and workers — you can track their training progress and attendance from here.",
+        tutorial: "Go to the Workforce page and click \"Add to Workforce.\" Search for a member you've already added, then assign them to a department (and optionally a unit). Workforce members are your active volunteers and workers - you can track their training progress and attendance from here.",
       });
 
       list.push({
@@ -121,7 +133,7 @@ export function SetupChecklist() {
         icon: <Settings className="w-4 h-4" />,
         done: hasChurchSettings,
         link: '/profile',
-        tutorial: "Go to Settings (or click your profile at the top) to fill in your church's address, phone number, currency, and reporting mode. These settings affect how the entire platform behaves — for example, the currency you choose is used everywhere in Finance, and the reporting mode controls how reports flow between admins.",
+        tutorial: "Go to Settings (or click your profile at the top) to fill in your church's address, phone number, currency, and reporting mode. These settings affect how the entire platform behaves - for example, the currency you choose is used everywhere in Finance, and the reporting mode controls how reports flow between admins.",
       });
 
       setItems(list);
@@ -130,7 +142,7 @@ export function SetupChecklist() {
     } finally {
       setLoading(false);
     }
-  }, [church, branches]);
+  }, [authLoading, branches, church, derivedBranchId, requiresScopedDepartments]);
 
   useEffect(() => { loadChecklist(); }, [loadChecklist]);
 
@@ -152,7 +164,7 @@ export function SetupChecklist() {
   return (
     <div className="mx-6 mt-4 mb-2" data-tour="setup-checklist">
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl overflow-hidden">
-        {/* Header — always visible */}
+        {/* Header â€” always visible */}
         <div className="flex items-center justify-between px-4 py-3">
           <div
             role="button"
@@ -184,7 +196,7 @@ export function SetupChecklist() {
               </p>
               <p className="text-xs text-gray-500">
                 {completedCount === 0
-                  ? "Let's set up your church step by step — here's what to do first."
+                  ? "Let's set up your church step by step â€” here's what to do first."
                   : `Nice work! You've completed ${completedCount} of ${totalCount} steps so far.`}
               </p>
             </div>

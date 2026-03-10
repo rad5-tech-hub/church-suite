@@ -55,16 +55,23 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Admin, AdminLevel, Role, Department, Unit } from '../types';
+import { getManageableAdminLevels, hasAdminManagementPermission } from '../utils/adminPermissions';
 import {
   fetchAdmins,
-  saveAdmins,
+  fetchAdmin,
+  editAdmin,
+  assignRoleToAdmin,
+  suspendAdmin,
   fetchRoles,
   fetchDepartments,
   fetchUnits,
   createAdminUser,
   resetAdminPassword,
   deleteAdminUser,
+  editAdminPermission,
+  getPermissionCatalog,
 } from '../api';
+import { buildRolePermissionPayload } from '../utils/rolePermissionMapping';
 
 type DialogMode = 'create' | 'edit' | null;
 type ActionMode = 'delete' | 'suspend' | 'activate' | 'reset-password' | null;
@@ -116,6 +123,7 @@ export function Admins() {
   const [showTempPassword, setShowTempPassword] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [tempPasswordContext, setTempPasswordContext] = useState<'created' | 'reset' | 'view'>('created');
+  const [resetApiMessage, setResetApiMessage] = useState('');
 
   // Menu open state per admin
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -141,23 +149,33 @@ export function Admins() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [adminsData, rolesData, deptsData, unitsData] = await Promise.all([
-        fetchAdmins(),
-        fetchRoles(branches[0]?.id),
+      const roleBranchIds = Array.from(new Set([
+        ...branches.map((branch) => branch.id),
+        ...(loggedInAdmin?.branchIds || []),
+        loggedInAdmin?.branchId,
+      ].filter(Boolean)));
+      const [adminsData, roleResults, deptsData, unitsData] = await Promise.all([
+        roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchAdmins(branchId))) : fetchAdmins(),
+        roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchRoles(branchId))) : Promise.resolve([]),
         fetchDepartments(),
         fetchUnits(),
       ]);
-      // API already scopes by tenant — no client-side churchId filter needed
-      setAdmins(adminsData as Admin[]);
-      setRoles(rolesData as Role[]);
-      setDepartments(deptsData as Department[]);
-      setUnits(unitsData as Unit[]);
+      const mergedRoles = Array.isArray(roleResults)
+        ? Array.from(new Map((roleResults as any[]).flat().map((role: Role) => [role.id, role])).values())
+        : [];
+      const mergedAdmins = Array.isArray(adminsData)
+        ? Array.from(new Map((adminsData as any[]).flat().map((admin: Admin) => [admin.id, admin])).values())
+        : [];
+      setAdmins(mergedAdmins as Admin[]);
+      setRoles(mergedRoles as Role[]);
+      setDepartments(deptsData as unknown as Department[]);
+      setUnits(unitsData as unknown as Unit[]);
     } catch (err) {
       console.error('Failed to load admins data:', err);
     } finally {
       setLoading(false);
     }
-  }, [church.id, branches]);
+  }, [branches, loggedInAdmin?.branchId, loggedInAdmin?.branchIds]);
 
   useEffect(() => {
     loadData();
@@ -206,6 +224,25 @@ export function Admins() {
   const availablePermissionsForLevel = PERMISSIONS.filter((p) => p.level.includes(formLevel));
   const selectedRolePreset = roles.find((r) => r.id === formRoleId);
   const presetPermissionIds = selectedRolePreset?.permissions ?? [];
+  const creatableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'create')
+    .filter((level) => !(church.type === 'single' && level === 'branch'));
+  const editableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'edit')
+    .filter((level) => !(church.type === 'single' && level === 'branch'));
+  const formAccessLevels = dialogMode === 'edit' ? editableAdminLevels : creatableAdminLevels;
+  const defaultCreatableAdminLevel = creatableAdminLevels[0] || 'church';
+  const canCreateAnyAdmin = creatableAdminLevels.length > 0;
+  const canEditAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'edit') : false;
+  const canDeleteAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'delete') : false;
+  const canSuspendAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'suspend') : false;
+  const canResetPasswordForAdmin = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'reset-password') : false;
+  const canViewPasswordForAdmin = (admin: Admin | null | undefined) => canResetPasswordForAdmin(admin);
+  const hasAdminRowActions = (admin: Admin) => (
+    canEditAdminRecord(admin)
+    || canSuspendAdminRecord(admin)
+    || canDeleteAdminRecord(admin)
+    || canResetPasswordForAdmin(admin)
+    || canViewPasswordForAdmin(admin)
+  );
 
   const isCustomized =
     formRoleId &&
@@ -221,7 +258,7 @@ export function Admins() {
     setFormName('');
     setFormEmail('');
     setFormPhone('');
-    setFormLevel('church');
+    setFormLevel(defaultCreatableAdminLevel);
     setFormBranchIds([]);
     setFormDepartmentIds([]);
     setFormUnitIds([]);
@@ -234,7 +271,13 @@ export function Admins() {
   const { showToast } = useToast();
   const showSuccess = showToast;
 
-  const getRoleName = (roleId: string) => roles.find((r) => r.id === roleId)?.name ?? (roleId ? 'Unknown' : 'No role assigned');
+  const getRoleName = (admin: Admin) => {
+    const apiRoleNames = Array.isArray((admin as any)._raw?.roles)
+      ? (admin as any)._raw.roles.map((role: any) => role?.name).filter(Boolean)
+      : [];
+    if (apiRoleNames.length > 0) return apiRoleNames.join(', ');
+    return roles.find((r) => r.id === admin.roleId)?.name ?? (admin.roleId ? 'Unknown' : 'No role assigned');
+  };
   const getBranchName = (branchId?: string) => branches.find((b) => b.id === branchId)?.name ?? '';
   const getDeptName = (deptId?: string) => departments.find((d) => d.id === deptId)?.name ?? '';
   const getUnitName = (unitId?: string) => units.find((u) => u.id === unitId)?.name ?? '';
@@ -268,24 +311,65 @@ export function Admins() {
   // --- Handlers ---
 
   const openCreate = () => {
+    if (!canCreateAnyAdmin) {
+      showSuccess('You do not have permission to create administrators.', 'error');
+      return;
+    }
     resetForm();
     setDialogMode('create');
   };
 
-  const openEdit = (admin: Admin) => {
-    setSelectedAdmin(admin);
-    setFormName(admin.name);
-    setFormEmail(admin.email);
-    setFormPhone(admin.phone || '');
-    setFormLevel(admin.level);
-    setFormBranchIds(admin.branchIds?.length ? [...admin.branchIds] : admin.branchId ? [admin.branchId] : []);
-    setFormDepartmentIds(admin.departmentIds?.length ? [...admin.departmentIds] : admin.departmentId ? [admin.departmentId] : []);
-    setFormUnitIds(admin.unitIds?.length ? [...admin.unitIds] : admin.unitId ? [admin.unitId] : []);
-    setFormRoleId(admin.roleId);
-    setFormProfilePicture(admin.profilePicture);
-    if (admin.customPermissions && admin.customPermissions.length > 0) {
+  const openEdit = async (admin: Admin) => {
+    if (!canEditAdminRecord(admin)) {
+      showSuccess('You do not have permission to edit this administrator.', 'error');
+      return;
+    }
+    
+    setSaving(true);
+    let fullAdmin = admin;
+    try {
+      const res = await fetchAdmin(admin.id);
+      if (res && res.admin) {
+        // Overlay the rich data from the specific endpoint
+        const a = res.admin;
+        const validLevels = ['church', 'branch', 'department', 'unit', 'member'];
+        const rawLevel = a.level || a.scopeLevel || a.roles?.[0]?.scopeLevel || a.role?.scopeLevel;
+        const level = a.isSuperAdmin
+          ? 'church'
+          : rawLevel === 'member' || rawLevel === 'unit'
+            ? 'unit'
+            : validLevels.includes(rawLevel)
+              ? rawLevel
+              : 'church';
+              
+        fullAdmin = {
+          ...admin,
+          level,
+          branchIds: Array.isArray(a.branchIds) && a.branchIds.length > 0 ? a.branchIds : (a.branches?.map((b: any) => b.id) || []),
+          departmentIds: Array.isArray(a.departmentIds) && a.departmentIds.length > 0 ? a.departmentIds : (a.departments?.map((d: any) => d.id) || []),
+          unitIds: Array.isArray(a.unitIds) && a.unitIds.length > 0 ? a.unitIds : (a.units?.map((u: any) => u.id) || []),
+          roleId: a.roleId || a.roles?.[0]?.id || admin.roleId,
+        };
+      }
+    } catch (err) {
+      console.error('Failed to fetch full admin record:', err);
+    } finally {
+      setSaving(false);
+    }
+
+    setSelectedAdmin(fullAdmin);
+    setFormName(fullAdmin.name);
+    setFormEmail(fullAdmin.email);
+    setFormPhone(fullAdmin.phone || '');
+    setFormLevel(fullAdmin.level);
+    setFormBranchIds(fullAdmin.branchIds?.length ? [...fullAdmin.branchIds] : fullAdmin.branchId ? [fullAdmin.branchId] : []);
+    setFormDepartmentIds(fullAdmin.departmentIds?.length ? [...fullAdmin.departmentIds] : fullAdmin.departmentId ? [fullAdmin.departmentId] : []);
+    setFormUnitIds(fullAdmin.unitIds?.length ? [...fullAdmin.unitIds] : fullAdmin.unitId ? [fullAdmin.unitId] : []);
+    setFormRoleId(fullAdmin.roleId);
+    setFormProfilePicture(fullAdmin.profilePicture);
+    if (fullAdmin.customPermissions && fullAdmin.customPermissions.length > 0) {
       setTimeout(() => {
-        setFormCustomPermissions([...admin.customPermissions!]);
+        setFormCustomPermissions([...fullAdmin.customPermissions!]);
         setShowCustomizePermissions(true);
       }, 0);
     }
@@ -294,6 +378,20 @@ export function Admins() {
   };
 
   const openAction = (admin: Admin, mode: ActionMode) => {
+    const isAllowed =
+      mode === 'delete'
+        ? canDeleteAdminRecord(admin)
+        : mode === 'suspend' || mode === 'activate'
+          ? canSuspendAdminRecord(admin)
+          : mode === 'reset-password'
+            ? canResetPasswordForAdmin(admin)
+            : false;
+
+    if (!isAllowed) {
+      showSuccess('You do not have permission to manage this administrator.', 'error');
+      return;
+    }
+
     setSelectedAdmin(admin);
     setActionMode(mode);
     setOpenMenuId(null);
@@ -307,6 +405,10 @@ export function Admins() {
 
   const handleCreate = async () => {
     if (!formName.trim() || !formEmail.trim()) return;
+    if (!canCreateAnyAdmin || !hasAdminManagementPermission(loggedInAdmin, formLevel, 'create')) {
+      showSuccess('You do not have permission to create an administrator at this level.', 'error');
+      return;
+    }
     setSaving(true);
 
     try {
@@ -345,14 +447,12 @@ export function Admins() {
       });
 
       // Add to local state
-      // Reload admins list from API to get real server-assigned IDs
-      const freshAdmins = await fetchAdmins();
-      setAdmins(freshAdmins as Admin[]);
+      // Reload admins and related data
+      await loadData();
 
       setDialogMode(null);
       resetForm();
-
-      // API sends a verification email — no temp password returned
+      // API sends a verification email - no temp password returned
       showSuccess('Administrator created successfully. A verification email has been sent.');
     } catch (err: any) {
       console.error('Failed to create admin:', err);
@@ -364,34 +464,98 @@ export function Admins() {
 
   const handleUpdate = async () => {
     if (!formName.trim() || !formEmail.trim() || !selectedAdmin) return;
+    if (!canEditAdminRecord(selectedAdmin)) {
+      showSuccess('You do not have permission to edit this administrator.', 'error');
+      return;
+    }
     setSaving(true);
 
     try {
-      // Fetch ALL admins from server (not just filtered), update the specific one, save back
-      const allAdmins = await fetchAdmins();
-      const updatedAll = (allAdmins as Admin[]).map((a) =>
-        a.id === selectedAdmin.id
-          ? {
-              ...a,
-              name: formName.trim(),
-              email: formEmail.trim(),
-              phone: formPhone.trim() || undefined,
-              profilePicture: formProfilePicture,
-              roleId: formRoleId || a.roleId,
-              level: formLevel,
-              branchId: formLevel === 'branch' ? formBranchIds[0] || undefined : undefined,
-              departmentId: ['department', 'unit'].includes(formLevel) ? formDepartmentIds[0] || undefined : undefined,
-              unitId: formLevel === 'unit' ? formUnitIds[0] || undefined : undefined,
-              branchIds: formLevel === 'branch' && formBranchIds.length > 0 ? formBranchIds : undefined,
-              departmentIds: ['department', 'unit'].includes(formLevel) && formDepartmentIds.length > 0 ? formDepartmentIds : undefined,
-              unitIds: formLevel === 'unit' && formUnitIds.length > 0 ? formUnitIds : undefined,
-              customPermissions: showCustomizePermissions ? formCustomPermissions : undefined,
-            }
-          : a
-      );
-      await saveAdmins(updatedAll);
-      // Update local state
-      setAdmins(updatedAll);
+      const effectiveBranchIds =
+        formLevel === 'church'
+          ? []
+          : formBranchIds.length > 0
+            ? formBranchIds
+            : selectedAdmin.branchIds?.length
+              ? selectedAdmin.branchIds
+              : selectedAdmin.branchId
+                ? [selectedAdmin.branchId]
+                : loggedInAdmin?.branchId
+                  ? [loggedInAdmin.branchId]
+                  : branches[0]?.id
+                    ? [branches[0].id]
+                    : [];
+      const effectiveDepartmentIds = ['department', 'unit'].includes(formLevel) ? formDepartmentIds : [];
+      const effectiveBranchId = effectiveBranchIds[0];
+
+      const hasBaseChanges =
+        formName.trim() !== selectedAdmin.name ||
+        formEmail.trim() !== selectedAdmin.email ||
+        (formPhone.trim() || '') !== (selectedAdmin.phone || '') ||
+        formLevel !== selectedAdmin.level ||
+        effectiveBranchIds.join(',') !== (selectedAdmin.branchIds || []).join(',') ||
+        effectiveDepartmentIds.join(',') !== (selectedAdmin.departmentIds || []).join(',') ||
+        (formLevel === 'unit' && formUnitIds.join(',') !== (selectedAdmin.unitIds || []).join(','));
+
+      if (hasBaseChanges) {
+        await editAdmin(selectedAdmin.id, {
+          name: formName.trim(),
+          email: formEmail.trim(),
+          phone: formPhone.trim() || undefined,
+          scopeLevel: formLevel,
+          branchIds: effectiveBranchIds.length > 0 ? effectiveBranchIds : undefined,
+          departmentIds: effectiveDepartmentIds.length > 0 ? effectiveDepartmentIds : undefined,
+          ...(formLevel === 'unit' && formUnitIds.length > 0 ? { unitIds: formUnitIds } : {}),
+        } as any);
+      }
+
+      if (formRoleId && formRoleId !== selectedAdmin.roleId) {
+        await assignRoleToAdmin({
+          adminId: selectedAdmin.id,
+          roleIds: [formRoleId],
+        }, effectiveBranchId);
+      }
+
+      const originalPresetPermissions = selectedRolePreset?.permissions ?? [];
+      const currentPermissions = showCustomizePermissions ? formCustomPermissions : originalPresetPermissions;
+
+      const wasCustomized = selectedAdmin.customPermissions && selectedAdmin.customPermissions.length > 0;
+      const isNowCustomized = showCustomizePermissions && isCustomized;
+
+      if (isNowCustomized || wasCustomized) {
+        const catalog = await getPermissionCatalog();
+        
+        const target = buildRolePermissionPayload({
+          permissionIds: currentPermissions,
+          catalog
+        });
+
+        const defaultRole = buildRolePermissionPayload({
+          permissionIds: originalPresetPermissions,
+          catalog
+        });
+
+        const overrides: any[] = [];
+        
+        target.permissions.forEach(id => {
+          if (!defaultRole.permissions.includes(id)) overrides.push({ permissionId: id, isGranted: true });
+        });
+        target.permissionGroup.forEach(id => {
+          if (!defaultRole.permissionGroup.includes(id)) overrides.push({ permissionGroupId: id, isGranted: true });
+        });
+        
+        defaultRole.permissions.forEach(id => {
+          if (!target.permissions.includes(id)) overrides.push({ permissionId: id, isGranted: false });
+        });
+        defaultRole.permissionGroup.forEach(id => {
+          if (!target.permissionGroup.includes(id)) overrides.push({ permissionGroupId: id, isGranted: false });
+        });
+
+        await editAdminPermission(selectedAdmin.id, { overrides });
+      }
+
+
+      await loadData();
       closeDialog();
       showSuccess(`"${formName.trim()}" updated successfully.`);
     } catch (err: any) {
@@ -404,6 +568,10 @@ export function Admins() {
 
   const handleDelete = async () => {
     if (!selectedAdmin) return;
+    if (!canDeleteAdminRecord(selectedAdmin)) {
+      showSuccess('You do not have permission to delete this administrator.', 'error');
+      return;
+    }
     setSaving(true);
     const name = selectedAdmin.name;
 
@@ -426,17 +594,17 @@ export function Admins() {
 
   const handleToggleSuspend = async () => {
     if (!selectedAdmin) return;
+    if (!canSuspendAdminRecord(selectedAdmin)) {
+      showSuccess('You do not have permission to suspend or reactivate this administrator.', 'error');
+      return;
+    }
     setSaving(true);
     const newStatus = selectedAdmin.status === 'active' ? 'suspended' : 'active';
     const name = selectedAdmin.name;
 
     try {
-      // Fetch ALL admins, update the specific one, save back
-      const allAdmins = await fetchAdmins();
-      const updatedAll = (allAdmins as Admin[]).map(a => a.id === selectedAdmin.id ? { ...a, status: newStatus } : a);
-      await saveAdmins(updatedAll);
-      // Update local state
-      setAdmins(updatedAll as Admin[]);
+      await suspendAdmin(selectedAdmin.id);
+      await loadData();
       setActionMode(null);
       setSelectedAdmin(null);
       showSuccess(
@@ -446,6 +614,7 @@ export function Admins() {
       );
     } catch (err: any) {
       console.error('Failed to toggle suspend:', err);
+      showSuccess(`Error updating administrator: ${err.message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -453,6 +622,10 @@ export function Admins() {
 
   const handleResetPassword = async () => {
     if (!selectedAdmin) return;
+    if (!canResetPasswordForAdmin(selectedAdmin)) {
+      showSuccess('You do not have permission to reset this administrator\'s password.', 'error');
+      return;
+    }
     setSaving(true);
 
     try {
@@ -462,15 +635,18 @@ export function Admins() {
         adminId: selectedAdmin.id,
       });
 
-      // Update the local admin record with new temp password
-      setAdmins(prev => prev.map(a => a.id === selectedAdmin.id ? { ...a, lastTempPassword: result.tempPassword } : a));
+      // Update the local admin record with new temp password (if any)
+      const anyResult = result as any;
+      if (anyResult.tempPassword) {
+        setAdmins(prev => prev.map(a => a.id === selectedAdmin.id ? { ...a, lastTempPassword: anyResult.tempPassword } : a));
+      }
 
       setActionMode(null);
       const resetEmail = selectedAdmin.email;
       setSelectedAdmin(null);
-
-      // Show temp password dialog
-      setTempPassword(result.tempPassword);
+      // Show result dialog - use API message if no temp password was returned
+      setResetApiMessage(result.message || '');
+      setTempPassword(anyResult.tempPassword || '');
       setTempPasswordEmail(resetEmail);
       setShowTempPassword(false);
       setCopiedPassword(false);
@@ -485,6 +661,10 @@ export function Admins() {
   };
 
   const handleViewPassword = (admin: Admin) => {
+    if (!canViewPasswordForAdmin(admin)) {
+      showSuccess('You do not have permission to view this administrator\'s password history.', 'error');
+      return;
+    }
     setOpenMenuId(null);
     if (admin.lastTempPassword) {
       setTempPassword(admin.lastTempPassword);
@@ -505,12 +685,14 @@ export function Admins() {
     });
   };
 
+  const requiresBranchSelection =
+    church.type === 'multi' && (formLevel === 'branch' || formLevel === 'department' || formLevel === 'unit');
   const isFormValid =
     formName.trim() &&
     formEmail.trim() &&
+    formPhone.trim() &&
     formRoleId &&
-    (formLevel !== 'branch' || formBranchIds.length > 0) &&
-    (formLevel !== 'department' || formDepartmentIds.length > 0) &&
+    (!requiresBranchSelection || formBranchIds.length > 0) &&
     (formLevel !== 'unit' || (formDepartmentIds.length > 0 && formUnitIds.length > 0));
 
   return (
@@ -518,11 +700,15 @@ export function Admins() {
       <PageHeader
         title="Administrators"
         description="Manage your church administrators, and control what they can access across your entire church from here."
-        action={{
-          label: 'Add Administrator',
-          onClick: openCreate,
-          icon: <Plus className="w-4 h-4 mr-2" />,
-        }}
+        action={
+          canCreateAnyAdmin
+            ? {
+                label: 'Add Administrator',
+                onClick: openCreate,
+                icon: <Plus className="w-4 h-4 mr-2" />,
+              }
+            : undefined
+        }
       />
 
       <div className="p-4 md:p-6">
@@ -596,10 +782,12 @@ export function Admins() {
                   <p className="text-gray-500 max-w-md mx-auto mb-6">
                     Your administrator list is empty because no one has been added yet. Start by adding your first administrator to control access and manage roles across your church.
                   </p>
-                  <Button onClick={openCreate}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Administrator
-                  </Button>
+                  {canCreateAnyAdmin && (
+                    <Button onClick={openCreate}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Your First Administrator
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -636,21 +824,28 @@ export function Admins() {
                               <p className="text-xs text-gray-500">{admin.email}</p>
                             </div>
                           </div>
-                          <div className="relative">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                            {openMenuId === admin.id && (
-                              <AdminActionsMenu
-                                admin={admin}
-                                onEdit={() => openEdit(admin)}
-                                onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
-                                onDelete={() => openAction(admin, 'delete')}
-                                onResetPassword={() => openAction(admin, 'reset-password')}
-                                onViewPassword={() => handleViewPassword(admin)}
-                              />
-                            )}
-                          </div>
+                          {hasAdminRowActions(admin) && (
+                            <div className="relative">
+                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                              {openMenuId === admin.id && (
+                                <AdminActionsMenu
+                                  admin={admin}
+                                  canEdit={canEditAdminRecord(admin)}
+                                  canSuspend={canSuspendAdminRecord(admin)}
+                                  canDelete={canDeleteAdminRecord(admin)}
+                                  canResetPassword={canResetPasswordForAdmin(admin)}
+                                  canViewPassword={canViewPasswordForAdmin(admin)}
+                                  onEdit={() => openEdit(admin)}
+                                  onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
+                                  onDelete={() => openAction(admin, 'delete')}
+                                  onResetPassword={() => openAction(admin, 'reset-password')}
+                                  onViewPassword={() => handleViewPassword(admin)}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Badge className={getLevelBadgeColor(admin.level)}>
@@ -659,7 +854,7 @@ export function Admins() {
                           {getStatusBadge(admin)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          <span className="font-medium">Role:</span> {getRoleName(admin.roleId)}
+                          <span className="font-medium">Role:</span> {getRoleName(admin)}
                           {admin.customPermissions && admin.customPermissions.length > 0 && (
                             <Badge className="ml-1 bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1.5 py-0">
                               Customized
@@ -705,7 +900,7 @@ export function Admins() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <span className="text-sm">{getRoleName(admin.roleId)}</span>
+                              <span className="text-sm">{getRoleName(admin)}</span>
                               {admin.customPermissions && admin.customPermissions.length > 0 && (
                                 <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1.5 py-0">
                                   Customized
@@ -722,21 +917,28 @@ export function Admins() {
                             </TableCell>
                             <TableCell>{getStatusBadge(admin)}</TableCell>
                             <TableCell>
-                              <div className="flex justify-end relative">
-                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                                {openMenuId === admin.id && (
-                                  <AdminActionsMenu
-                                    admin={admin}
-                                    onEdit={() => openEdit(admin)}
-                                    onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
-                                    onDelete={() => openAction(admin, 'delete')}
-                                    onResetPassword={() => openAction(admin, 'reset-password')}
-                                    onViewPassword={() => handleViewPassword(admin)}
-                                  />
-                                )}
-                              </div>
+                              {hasAdminRowActions(admin) && (
+                                <div className="flex justify-end relative">
+                                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                  {openMenuId === admin.id && (
+                                    <AdminActionsMenu
+                                      admin={admin}
+                                      canEdit={canEditAdminRecord(admin)}
+                                      canSuspend={canSuspendAdminRecord(admin)}
+                                      canDelete={canDeleteAdminRecord(admin)}
+                                      canResetPassword={canResetPasswordForAdmin(admin)}
+                                      canViewPassword={canViewPasswordForAdmin(admin)}
+                                      onEdit={() => openEdit(admin)}
+                                      onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
+                                      onDelete={() => openAction(admin, 'delete')}
+                                      onResetPassword={() => openAction(admin, 'reset-password')}
+                                      onViewPassword={() => handleViewPassword(admin)}
+                                    />
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -825,7 +1027,7 @@ export function Admins() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-phone">Phone Number</Label>
+                  <Label htmlFor="admin-phone">Phone Number *</Label>
                   <Input id="admin-phone" type="tel" placeholder="+1 (555) 000-0000" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
                 </div>
               </div>
@@ -838,8 +1040,7 @@ export function Admins() {
                 <p className="text-xs text-gray-500 mt-1">This determines what parts of the church this administrator can manage</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(Object.keys(ACCESS_LEVEL_INFO) as AdminLevel[]).map((level) => {
-                  if (level === 'branch' && church.type === 'single') return null;
+                {formAccessLevels.map((level) => {
                   const info = ACCESS_LEVEL_INFO[level];
                   return (
                     <button
@@ -880,7 +1081,7 @@ export function Admins() {
                   ))}
                 </div>
                 {formBranchIds.length > 1 && (
-                  <p className="text-xs text-purple-700 font-medium">{formBranchIds.length} branches selected — this admin will manage all of them.</p>
+                  <p className="text-xs text-purple-700 font-medium">{formBranchIds.length} branches selected - this admin will manage all of them.</p>
                 )}
                 {formBranchIds.length <= 1 && (
                   <p className="text-xs text-purple-700">Select one or more branches. This administrator will have access to the selected branches and their departments/units.</p>
@@ -921,7 +1122,10 @@ export function Admins() {
             {/* Conditional: Department Selection (multi) */}
             {(formLevel === 'department' || formLevel === 'unit') && (
               <div className="space-y-2 bg-green-50 p-4 rounded-lg border border-green-100">
-                <Label>Select Department(s) / Outreach(es) *</Label>
+                <Label>
+                  Select Department(s) / Outreach(es)
+                  {formLevel === 'unit' ? ' *' : ''}
+                </Label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
                   {departmentsForSelection.map((d) => (
                     <label key={d.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-green-100/50 cursor-pointer">
@@ -947,7 +1151,7 @@ export function Admins() {
                 {formDepartmentIds.length <= 1 && (
                   <p className="text-xs text-green-700">
                     {formLevel === 'department'
-                      ? 'Select one or more departments/outreaches. This administrator will manage everything within them.'
+                      ? 'Optional: choose one or more departments/outreaches to narrow this administrator to specific teams within the selected branch.'
                       : 'First select the department(s), then choose units below.'}
                   </p>
                 )}
@@ -1134,27 +1338,31 @@ export function Admins() {
               {tempPasswordContext === 'created' ? (
                 <>A temporary password has been generated for <strong>{tempPasswordEmail}</strong>. Share this password with the administrator so they can log in.</>
               ) : tempPasswordContext === 'reset' ? (
-                <>A new temporary password has been generated for <strong>{tempPasswordEmail}</strong>. Their old password no longer works. Share this new password with them.</>
+                resetApiMessage && !tempPassword
+                  ? <>{resetApiMessage}</>
+                  : <>A new temporary password has been generated for <strong>{tempPasswordEmail}</strong>. Their old password no longer works. Share this new password with them.</>
               ) : (
                 <>This is the last temporary password generated for <strong>{tempPasswordEmail}</strong>. If it no longer works, use "Reset Password" to generate a new one.</>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <Label className="text-xs text-gray-500 mb-2 block">Temporary Password</Label>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-lg font-mono font-bold text-gray-900 tracking-wider">
-                  {showTempPassword ? tempPassword : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
-                </code>
-                <Button variant="ghost" size="sm" onClick={() => setShowTempPassword(!showTempPassword)}>
-                  {showTempPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={copyTempPassword}>
-                  {copiedPassword ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </Button>
+            {(tempPasswordContext !== 'reset' || tempPassword) && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <Label className="text-xs text-gray-500 mb-2 block">Temporary Password</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-lg font-mono font-bold text-gray-900 tracking-wider">
+                    {showTempPassword ? tempPassword : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
+                  </code>
+                  <Button variant="ghost" size="sm" onClick={() => setShowTempPassword(!showTempPassword)}>
+                    {showTempPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={copyTempPassword}>
+                    {copiedPassword ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {tempPasswordContext !== 'view' && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
@@ -1277,6 +1485,11 @@ export function Admins() {
 // --- Actions Dropdown Menu ---
 function AdminActionsMenu({
   admin,
+  canEdit,
+  canSuspend,
+  canDelete,
+  canResetPassword,
+  canViewPassword,
   onEdit,
   onSuspend,
   onDelete,
@@ -1284,41 +1497,58 @@ function AdminActionsMenu({
   onViewPassword,
 }: {
   admin: Admin;
+  canEdit: boolean;
+  canSuspend: boolean;
+  canDelete: boolean;
+  canResetPassword: boolean;
+  canViewPassword: boolean;
   onEdit: () => void;
   onSuspend: () => void;
   onDelete: () => void;
   onResetPassword: () => void;
   onViewPassword: () => void;
 }) {
+  const hasPrimaryActions = canEdit || canViewPassword || canResetPassword || canSuspend;
+
   return (
     <div
       className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
       onClick={(e) => e.stopPropagation()}
     >
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onEdit}>
-        <Edit className="w-4 h-4" />
-        Edit
-      </button>
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onViewPassword}>
-        <Eye className="w-4 h-4" />
-        View Password
-      </button>
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onResetPassword}>
-        <KeyRound className="w-4 h-4" />
-        Reset Password
-      </button>
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onSuspend}>
-        {admin.status === 'active' ? (
-          <><ShieldBan className="w-4 h-4 text-orange-500" /><span className="text-orange-700">Suspend</span></>
-        ) : (
-          <><ShieldCheck className="w-4 h-4 text-green-500" /><span className="text-green-700">Reactivate</span></>
-        )}
-      </button>
-      <div className="border-t border-gray-100 my-1" />
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={onDelete}>
-        <Trash2 className="w-4 h-4" />
-        Delete
-      </button>
+      {canEdit && (
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onEdit}>
+          <Edit className="w-4 h-4" />
+          Edit
+        </button>
+      )}
+      {canViewPassword && (
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onViewPassword}>
+          <Eye className="w-4 h-4" />
+          View Password
+        </button>
+      )}
+      {canResetPassword && (
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onResetPassword}>
+          <KeyRound className="w-4 h-4" />
+          Reset Password
+        </button>
+      )}
+      {canSuspend && (
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onSuspend}>
+          {admin.status === 'active' ? (
+            <><ShieldBan className="w-4 h-4 text-orange-500" /><span className="text-orange-700">Suspend</span></>
+          ) : (
+            <><ShieldCheck className="w-4 h-4 text-green-500" /><span className="text-green-700">Reactivate</span></>
+          )}
+        </button>
+      )}
+      {canDelete && hasPrimaryActions && <div className="border-t border-gray-100 my-1" />}
+      {canDelete && (
+        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={onDelete}>
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </button>
+      )}
     </div>
   );
 }

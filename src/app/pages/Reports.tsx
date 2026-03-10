@@ -25,6 +25,7 @@ import {
   fetchReports, saveReports, fetchAdmins, fetchMembers, fetchWorkforce,
   fetchNewcomers, fetchPrograms, fetchLedgerEntries, fetchDepartments, fetchUnits,
 } from '../api';
+import { resolvePrimaryBranchId } from '../utils/scope';
 
 const LEVEL_HIERARCHY: AdminLevel[] = ['unit', 'department', 'branch', 'church'];
 const LEVEL_LABELS: Record<AdminLevel, string> = { unit: 'Unit Head', department: 'Dept. Head', branch: 'Branch Head', church: 'Super Admin' };
@@ -32,6 +33,8 @@ const LEVEL_LABELS: Record<AdminLevel, string> = { unit: 'Unit Head', department
 export function Reports() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
+  const branchId = resolvePrimaryBranchId(branches, currentAdmin);
+  const departmentId = currentAdmin?.departmentId || currentAdmin?.departmentIds?.[0];
 
   const [reports, setReports] = useState<Report[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -77,16 +80,26 @@ export function Reports() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rpts, adms, deps, uns] = await Promise.all([
-        fetchReports(), fetchAdmins(), fetchDepartments(), fetchUnits(),
+      const roleBranchIds = Array.from(new Set([
+        ...branches.map((branch) => branch.id),
+        ...(currentAdmin?.branchIds || []),
+        currentAdmin?.branchId,
+      ].filter(Boolean)));
+      const adminPromises = roleBranchIds.length > 0
+        ? roleBranchIds.map((bid) => fetchAdmins(bid))
+        : [fetchAdmins()];
+
+      const [rpts, adminsData, deps, uns] = await Promise.all([
+        fetchReports(), Promise.all(adminPromises), fetchDepartments(), fetchUnits(),
       ]);
+      const mergedAdmins = Array.from(new Map(adminsData.flat().map((admin: Admin) => [admin.id, admin])).values());
       setReports(rpts as Report[]);
-      setAdmins((adms as Admin[]).filter(a => a.status === 'active'));
+      setAdmins((mergedAdmins as Admin[]).filter(a => a.status === 'active'));
       setDepartments(deps as Department[]);
       setUnits(uns as Unit[]);
     } catch (err) { console.error('Failed to load reports:', err); }
     finally { setLoading(false); }
-  }, [church.id]);
+  }, [church.id, branches, currentAdmin]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -208,17 +221,17 @@ export function Reports() {
           return { id, type: 'workforce-count', label: 'Workforce Size', value: `${count} active workers` };
         }
         case 'newcomers-count': {
-          const n = await fetchNewcomers(branches[0]?.id);
+          const n = await fetchNewcomers(branchId);
           const active = (n as any[]).filter(x => !x.movedToMemberId);
           return { id, type: 'newcomers-count', label: 'Active Newcomers', value: `${active.length} newcomers` };
         }
         case 'programs-summary': {
-          const p = await fetchPrograms(branches[0]?.id);
+          const p = await fetchPrograms(branchId);
           const count = (p as any[]).length;
           return { id, type: 'programs-summary', label: 'Programs', value: `${count} programs running` };
         }
         case 'finance-summary': {
-          const entries = await fetchLedgerEntries();
+          const entries = await fetchLedgerEntries(branchId, currentAdmin?.level === 'department' ? departmentId : undefined);
           const ce = entries as any[];
           const income = ce.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
           const expense = ce.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);

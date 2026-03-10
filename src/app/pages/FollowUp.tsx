@@ -24,7 +24,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import {
   fetchNewcomers, createFollowUp, editFollowUp, fetchNewcomerForms, fetchPrograms, fetchMembers, createMember,
-  fetchNewcomerTrainingClasses, saveNewcomers,
+  fetchNewcomerTrainingClasses, saveNewcomers, markNewcomerMovedToMember, hideNewcomersLocally,
   fetchSMSWallet, sendSms,
   createCustomForm, createCustomQuestions,
 } from '../api';
@@ -215,6 +215,7 @@ export function FollowUp() {
         address: moveTarget.address || undefined,
         branchId: moveTarget.branchId || branches[0]?.id,
       }, church.id, moveTarget.branchId || branches[0]?.id);
+      await markNewcomerMovedToMember(moveTarget.id);
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
       setMoveTarget(null);
       showToast(`${moveTarget.firstName} ${moveTarget.lastName} has been moved to the Members directory. You can update their full details in the Members section.`);
@@ -284,7 +285,7 @@ export function FollowUp() {
   const handleBulkDelete = async () => {
     setSaving(true);
     try {
-      // Remove from local state (no bulk-delete API endpoint available)
+      await hideNewcomersLocally(selectedIds);
       setNewcomers(prev => prev.filter(n => !selectedIds.includes(n.id)));
       setBulkDeleteOpen(false);
       showToast(`${selectedIds.length} newcomer(s) deleted.`);
@@ -308,6 +309,7 @@ export function FollowUp() {
           }, church.id, nc.branchId || branches[0]?.id)
         )
       );
+      await Promise.all(targets.map((newcomer) => markNewcomerMovedToMember(newcomer.id)));
       const movedIds = new Set(targets.map(n => n.id));
       setNewcomers(prev => prev.map(n => movedIds.has(n.id) ? { ...n, movedToMemberId: 'moved' } : n));
       setBulkMoveOpen(false);

@@ -47,8 +47,8 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-departments',
     name: 'Manage Departments & Outreaches',
     description: 'Create, edit, and delete departments (internal operations like prayer, sanctuary cleaning) and outreaches (external missions like prison outreach, community programs)',
-    level: ['church', 'branch'],
-    category: 'Church Management',
+    level: ['church', 'branch', 'department'],
+    category: 'Department Management',
     actions: CRUD_ACTIONS,
   },
   {
@@ -56,7 +56,7 @@ export const PERMISSIONS: Permission[] = [
     name: 'Manage Units',
     description: 'Create, edit, and delete units across all departments and outreaches',
     level: ['church', 'branch'],
-    category: 'Church Management',
+    category: 'Unit Management',
     actions: CRUD_ACTIONS,
   },
   {
@@ -115,7 +115,7 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-unit-admins',
     name: 'Manage Unit Admins',
     description: 'Create and manage unit-level administrators',
-    level: ['church', 'branch'],
+    level: ['church', 'branch', 'department'],
     category: 'Administration',
     actions: [
       { id: 'view', label: 'View' },
@@ -152,10 +152,10 @@ export const PERMISSIONS: Permission[] = [
   },
   {
     id: 'manage-department-units',
-    name: 'Manage Department/Outreach Units',
+    name: 'Manage Units',
     description: 'Create and manage units within your department or outreach',
     level: ['department'],
-    category: 'Department Management',
+    category: 'Unit Management',
     actions: CRUD_ACTIONS,
   },
 
@@ -273,6 +273,7 @@ export const PERMISSION_CATEGORIES = [
   'Church Management',
   'Administration',
   'Department Management',
+  'Unit Management',
   'Members',
   'Workforce',
   'Programs',

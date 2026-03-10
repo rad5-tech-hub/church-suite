@@ -33,6 +33,7 @@ import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useTheme } from '../context/ThemeContext';
 import { SetupChecklist } from './SetupChecklist';
+import { hasPermission } from '../utils/adminPermissions';
 
 interface LayoutProps {
   children: ReactNode;
@@ -299,7 +300,16 @@ export function Layout({ children }: LayoutProps) {
     navigate('/login');
   };
 
-  const menuItems = getMenuItems();
+  const isAllowedMenuItem = (item: MenuItem) => !item.permission || hasPermission(currentAdmin, item.permission);
+
+  const menuItems = getMenuItems()
+    .map((item) => item.submenu ? { ...item, submenu: item.submenu.filter(isAllowedMenuItem) } : item)
+    .filter((item) => {
+      if (item.submenu) {
+        return item.submenu.length > 0 || isAllowedMenuItem(item);
+      }
+      return isAllowedMenuItem(item);
+    });
 
   const isActive = (path: string) => {
     // Handle paths with query params (e.g., /finance?tab=ledger)

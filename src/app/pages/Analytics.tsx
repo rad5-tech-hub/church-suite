@@ -19,9 +19,10 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchMembers, fetchWorkforce, fetchNewcomers, fetchPrograms,
-  fetchLedgerEntries, fetchStandaloneCollections, fetchTrainingPrograms,
+  fetchLedgerEntries, fetchStandaloneCollections, fetchTrainingPrograms, fetchDepartments, fetchUnits,
 } from '../api';
-import { Member, WorkforceMember, Newcomer, Program, LedgerEntry, StandaloneCollection, TrainingProgram } from '../types';
+import { Member, WorkforceMember, Newcomer, Program, LedgerEntry, StandaloneCollection, TrainingProgram, Department, Unit } from '../types';
+import { resolvePrimaryBranchId } from '../utils/scope';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -52,9 +53,11 @@ function getPresetDates(preset: PeriodPreset): { from: string; to: string } {
   return { from: '', to: '' };
 }
 
-function isInRange(dateStr: string, from: string, to: string): boolean {
+function isInRange(dateValue: string | Date, from: string, to: string): boolean {
   if (!from && !to) return true;
-  const d = dateStr.slice(0, 10); // YYYY-MM-DD
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+  const d = date.toISOString().slice(0, 10);
   if (from && d < from) return false;
   if (to && d > to) return false;
   return true;
@@ -63,6 +66,30 @@ function isInRange(dateStr: string, from: string, to: string): boolean {
 export function Analytics() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
+  const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
+  const isSuperAdmin = currentAdmin?.isSuperAdmin ?? false;
+  const adminLevel = currentAdmin?.level || 'church';
+  const accessibleBranchIds = useMemo(() => (
+    currentAdmin?.branchIds?.length
+      ? currentAdmin.branchIds
+      : currentAdmin?.branchId
+        ? [currentAdmin.branchId]
+        : []
+  ), [currentAdmin?.branchId, currentAdmin?.branchIds]);
+  const accessibleDepartmentIds = useMemo(() => (
+    currentAdmin?.departmentIds?.length
+      ? currentAdmin.departmentIds
+      : currentAdmin?.departmentId
+        ? [currentAdmin.departmentId]
+        : []
+  ), [currentAdmin?.departmentId, currentAdmin?.departmentIds]);
+  const accessibleUnitIds = useMemo(() => (
+    currentAdmin?.unitIds?.length
+      ? currentAdmin.unitIds
+      : currentAdmin?.unitId
+        ? [currentAdmin.unitId]
+        : []
+  ), [currentAdmin?.unitId, currentAdmin?.unitIds]);
 
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>('overview');
@@ -98,21 +125,79 @@ export function Analytics() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const brId = branches[0]?.id;
-      const [m, w, n, p, l, f, tp] = await Promise.all([
-        fetchMembers(), fetchWorkforce(), fetchNewcomers(brId), fetchPrograms(brId),
-        fetchLedgerEntries(), fetchStandaloneCollections(), fetchTrainingPrograms(),
+      const [m, w, n, p, f, tp, deps, uns] = await Promise.all([
+        fetchMembers(),
+        fetchWorkforce(),
+        fetchNewcomers(primaryBranchId),
+        fetchPrograms(primaryBranchId),
+        fetchStandaloneCollections(),
+        fetchTrainingPrograms(),
+        fetchDepartments(),
+        fetchUnits(),
       ]);
+
+      const resolvedDepartments = deps as Department[];
+      const resolvedUnits = uns as Unit[];
+      const ledgerQueries: Array<{ branchId?: string; departmentId?: string }> = [];
+      const seenLedgerQueries = new Set<string>();
+      const addLedgerQuery = (branchId?: string, departmentId?: string) => {
+        const key = `${branchId || 'church'}:${departmentId || 'all'}`;
+        if (seenLedgerQueries.has(key)) return;
+        seenLedgerQueries.add(key);
+        ledgerQueries.push({ branchId, departmentId });
+      };
+
+      if (isSuperAdmin || adminLevel === 'church') {
+        addLedgerQuery();
+        branches.forEach((branch) => addLedgerQuery(branch.id));
+        resolvedDepartments.forEach((department) => {
+          if (department.branchId) addLedgerQuery(department.branchId, department.id);
+        });
+      } else if (adminLevel === 'branch') {
+        accessibleBranchIds.forEach((branchId) => addLedgerQuery(branchId));
+        resolvedDepartments
+          .filter((department) => department.branchId && accessibleBranchIds.includes(department.branchId))
+          .forEach((department) => addLedgerQuery(department.branchId || undefined, department.id));
+      } else if (accessibleDepartmentIds.length > 0) {
+        accessibleDepartmentIds.forEach((departmentId) => {
+          const department = resolvedDepartments.find((item) => item.id === departmentId);
+          addLedgerQuery(department?.branchId || accessibleBranchIds[0], departmentId);
+        });
+      } else if (adminLevel === 'unit' && accessibleUnitIds.length > 0) {
+        accessibleUnitIds.forEach((unitId) => {
+          const unit = resolvedUnits.find((item) => item.id === unitId);
+          const departmentId = unit?.departmentId;
+          const department = resolvedDepartments.find((item) => item.id === departmentId);
+          addLedgerQuery(department?.branchId || accessibleBranchIds[0], departmentId);
+        });
+      } else if (accessibleBranchIds.length > 0) {
+        accessibleBranchIds.forEach((branchId) => addLedgerQuery(branchId));
+      } else {
+        addLedgerQuery();
+      }
+
+      const ledgerResults = await Promise.all(
+        ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId))
+      );
+      const mergedLedger = Array.from(
+        new Map(
+          ledgerResults.flat().map((entry) => [
+            entry.id || `${entry.branchId || 'church'}:${entry.departmentId || 'all'}:${entry.createdAt.toISOString()}:${entry.description}:${entry.amount}:${entry.type}`,
+            entry,
+          ])
+        ).values()
+      );
+
       setMembers(m as Member[]);
       setWorkforce(w as WorkforceMember[]);
       setNewcomers(n as Newcomer[]);
       setPrograms(p as Program[]);
-      setLedger(l as LedgerEntry[]);
+      setLedger(mergedLedger as LedgerEntry[]);
       setFundraisers(f as StandaloneCollection[]);
       setTrainingPrograms(tp as TrainingProgram[]);
     } catch (err) { console.error('Analytics load error:', err); }
     finally { setLoading(false); }
-  }, [church.id, branches]);
+  }, [accessibleBranchIds, accessibleDepartmentIds, accessibleUnitIds, adminLevel, branches, isSuperAdmin, primaryBranchId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -709,3 +794,6 @@ export function Analytics() {
     </Layout>
   );
 }
+
+
+
