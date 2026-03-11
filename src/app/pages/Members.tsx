@@ -217,9 +217,7 @@ export function Members() {
         state: fState,
         maritalStatus: fMaritalStatus,
         memberSince: fYearJoined,
-        branchId: resolvedBranchId,
-        departmentIds: [],
-      } as any, church.id, resolvedBranchId);
+      }, church.id, resolvedBranchId);
 
       const createdId = created?.data?.id || created?.member?.id || created?.id;
       if (createdId) {

@@ -48,6 +48,18 @@ export function Departments() {
   const canEditDepartment = hasPermission(currentAdmin, 'manage-departments', 'edit');
   const canDeleteDepartment = hasPermission(currentAdmin, 'manage-departments', 'delete');
 
+  const visibleDepartments = useMemo(() => {
+    const scopedDepartmentIds = new Set(
+      [currentAdmin?.departmentId, ...(currentAdmin?.departmentIds || [])].filter(Boolean)
+    );
+
+    if (currentAdmin?.level !== 'department' || scopedDepartmentIds.size === 0) {
+      return departments;
+    }
+
+    return departments.filter((department) => scopedDepartmentIds.has(department.id));
+  }, [currentAdmin?.departmentId, currentAdmin?.departmentIds, currentAdmin?.level, departments]);
+
   // Load departments & unit counts from backend
   const loadData = useCallback(async () => {
     if (!defaultBranchId) return;
@@ -202,7 +214,7 @@ export function Departments() {
             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             <span className="ml-3 text-gray-500">Loading departments...</span>
           </div>
-        ) : departments.length === 0 ? (
+        ) : visibleDepartments.length === 0 ? (
           <Card>
             <CardContent className="p-6">
               <EmptyState
@@ -222,7 +234,7 @@ export function Departments() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {departments.map((dept) => {
+            {visibleDepartments.map((dept) => {
               const branch = church.type === 'multi' ? branches.find(b => b.id === dept.branchId) : null;
               const unitsCount = unitCounts[dept.id] || 0;
 
@@ -425,4 +437,5 @@ export function Departments() {
     </Layout>
   );
 }
+
 

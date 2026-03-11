@@ -213,7 +213,6 @@ export function FollowUp() {
         name: `${moveTarget.firstName} ${moveTarget.lastName}`,
         phoneNo: moveTarget.phone || undefined,
         address: moveTarget.address || undefined,
-        branchId: moveTarget.branchId || branches[0]?.id,
       }, church.id, moveTarget.branchId || branches[0]?.id);
       await markNewcomerMovedToMember(moveTarget.id);
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
@@ -305,7 +304,6 @@ export function FollowUp() {
             name: `${nc.firstName} ${nc.lastName}`,
             phoneNo: nc.phone || undefined,
             address: nc.address || undefined,
-            branchId: nc.branchId || branches[0]?.id,
           }, church.id, nc.branchId || branches[0]?.id)
         )
       );
@@ -1167,3 +1165,4 @@ export function FollowUp() {
     </Layout>
   );
 }
+

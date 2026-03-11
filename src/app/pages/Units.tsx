@@ -177,6 +177,13 @@ export function Units() {
 
     setSaving(true);
     try {
+      const dept = departments.find(d => d.id === departmentId);
+      const branchId = dept?.branchId || defaultBranchId;
+      if (!branchId) {
+        showToast('No branch found for this unit. Please refresh and try again.', 'error');
+        return;
+      }
+
       if (editingUnit) {
         await editUnit(editingUnit.id, {
           name: name.trim(),
@@ -184,12 +191,6 @@ export function Units() {
         });
         showToast('Unit updated successfully.');
       } else {
-        const dept = departments.find(d => d.id === departmentId);
-        const branchId = dept?.branchId || defaultBranchId;
-        if (!branchId) {
-          showToast('No branch found for this unit. Please refresh and try again.', 'error');
-          return;
-        }
         await createUnits({
           branchId,
           departmentId,
@@ -225,7 +226,7 @@ export function Units() {
         showToast('No branch found for this unit. Please refresh and try again.', 'error');
         return;
       }
-      await deleteUnit(deleteId, branchId);
+      await deleteUnit(deleteId, branchId, unit?.departmentId);
       setDeleteId(null);
       showToast('Unit deleted successfully.');
       await loadData();
@@ -526,3 +527,4 @@ export function Units() {
     </Layout>
   );
 }
+

@@ -173,6 +173,14 @@ export function Layout({ children }: LayoutProps) {
     // Department level items
     if (admin.level === 'department') {
       items.push({
+        id: 'departments',
+        label: 'Departments',
+        icon: <Layers className="w-5 h-5" />,
+        path: '/departments',
+        permission: 'manage-departments'
+      });
+
+      items.push({
         id: 'units',
         label: 'My Units',
         icon: <Box className="w-5 h-5" />,

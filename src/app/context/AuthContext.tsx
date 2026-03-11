@@ -53,6 +53,13 @@ function mergePermissionState(
   };
 }
 
+function normalizeAdminScopeLevel(rawLevel?: string | null, isSuperAdmin?: boolean): Admin['level'] {
+  if (isSuperAdmin) return 'church';
+  if (rawLevel === 'member' || rawLevel === 'unit') return 'unit';
+  if (rawLevel === 'church' || rawLevel === 'branch' || rawLevel === 'department') return rawLevel;
+  return 'branch';
+}
+
 /** Map API admin response to the internal Admin type */
 function mapApiAdminToAdmin(apiAdmin: any): Admin {
   const branchIds = Array.isArray(apiAdmin.branchIds) && apiAdmin.branchIds.length > 0
@@ -62,15 +69,22 @@ function mapApiAdminToAdmin(apiAdmin: any): Admin {
       : apiAdmin.branchId
         ? [apiAdmin.branchId]
         : [];
-  const validLevels = ['church', 'branch', 'department', 'unit', 'member'];
+  const departmentIds = Array.isArray(apiAdmin.departmentIds) && apiAdmin.departmentIds.length > 0
+    ? apiAdmin.departmentIds.filter(Boolean)
+    : Array.isArray(apiAdmin.departments)
+      ? apiAdmin.departments.map((department: any) => department?.id).filter(Boolean)
+      : apiAdmin.departmentId
+        ? [apiAdmin.departmentId]
+        : [];
+  const unitIds = Array.isArray(apiAdmin.unitIds) && apiAdmin.unitIds.length > 0
+    ? apiAdmin.unitIds.filter(Boolean)
+    : Array.isArray(apiAdmin.units)
+      ? apiAdmin.units.map((unit: any) => unit?.id).filter(Boolean)
+      : apiAdmin.unitId
+        ? [apiAdmin.unitId]
+        : [];
   const rawLevel = apiAdmin.level || apiAdmin.scopeLevel || apiAdmin.roles?.[0]?.scopeLevel || apiAdmin.role?.scopeLevel;
-  const level = apiAdmin.isSuperAdmin
-    ? 'church'
-    : rawLevel === 'member' || rawLevel === 'unit'
-      ? 'unit'
-      : validLevels.includes(rawLevel)
-        ? rawLevel
-        : 'church';
+  const level = normalizeAdminScopeLevel(rawLevel, apiAdmin.isSuperAdmin);
   return {
     id: apiAdmin.id as string,
     churchId: apiAdmin.churchId || '',
@@ -82,13 +96,11 @@ function mapApiAdminToAdmin(apiAdmin: any): Admin {
     level,
     status: apiAdmin.status || (apiAdmin.isActive === false ? 'suspended' : 'active'),
     branchId: apiAdmin.branchId || apiAdmin.branch?.id || branchIds[0] || undefined,
+    departmentId: apiAdmin.departmentId || departmentIds[0] || undefined,
+    unitId: apiAdmin.unitId || unitIds[0] || undefined,
     branchIds,
-    departmentIds: Array.isArray(apiAdmin.departmentIds) && apiAdmin.departmentIds.length > 0
-      ? apiAdmin.departmentIds
-      : (apiAdmin.departments || []).map((d: any) => d.id),
-    unitIds: Array.isArray(apiAdmin.unitIds) && apiAdmin.unitIds.length > 0
-      ? apiAdmin.unitIds
-      : (apiAdmin.units || []).map((u: any) => u.id),
+    departmentIds,
+    unitIds,
     permissions: Array.isArray(apiAdmin.permissions) ? Array.from(new Set(apiAdmin.permissions.filter(Boolean))) : [],
     granularPermissions: normalizeGranularPermissions(apiAdmin.granularPermissions),
     createdAt: apiAdmin.createdAt instanceof Date ? apiAdmin.createdAt : new Date(apiAdmin.createdAt || Date.now()),

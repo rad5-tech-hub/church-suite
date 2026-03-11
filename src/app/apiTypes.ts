@@ -252,6 +252,7 @@ export interface CreateMemberRequest {
   address?: string;
   whatappNo?: string;
   phoneNo?: string;
+  email?: string;
   sex?: string;
   ageFrom?: number;
   ageTo?: number;
@@ -267,6 +268,8 @@ export interface CreateMemberRequest {
   unitIds?: string[];
   comments?: string;
 }
+
+export type CreateNonWorkerMemberRequest = Omit<CreateMemberRequest, 'branchId' | 'departmentIds' | 'unitIds'>;
 
 export interface EditMemberRequest {
   sex?: string;
@@ -539,3 +542,5 @@ export interface ImportResult {
   failed: number;
   errors?: any[];
 }
+
+

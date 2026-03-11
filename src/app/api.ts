@@ -1,7 +1,7 @@
 // All API calls mapped to the real backend at https://testchurch.bookbank.com.ng
 // Maintains backward-compatible exports so existing pages continue to work.
 
-import { apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims, getApiBaseUrl } from './apiClient';
+import { ApiRequestError, apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims, getApiBaseUrl } from './apiClient';
 import { buildRolePermissionPayload, extractUnmappedBackendRolePermissions, mapBackendRolePermissions, normalizePermissionCatalog, type PermissionCatalogGroup } from './utils/rolePermissionMapping';
 import type {
   LoginRequest,
@@ -25,7 +25,7 @@ import type {
   CreateUnitsRequest,
   EditUnitRequest,
   ApiUnit,
-  CreateMemberRequest,
+  CreateNonWorkerMemberRequest,
   EditMemberRequest,
   ApiMember,
   ApiChurch,
@@ -252,6 +252,64 @@ function mapApiMember(m: any): any {
     createdAt: new Date(m.createdAt || Date.now()),
     _raw: m,
   };
+}
+
+function normalizeRelativeApiPath(path?: string | null) {
+  if (!path || typeof path !== 'string') return null;
+  const baseUrl = getApiBaseUrl();
+  return path.startsWith(baseUrl) ? path.slice(baseUrl.length) : path;
+}
+
+function extractChurchMemberResults(response: any) {
+  const results = Array.isArray(response?.data?.results)
+    ? response.data.results
+    : Array.isArray(response?.data?.members)
+      ? response.data.members
+      : Array.isArray(response?.members)
+        ? response.members
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+  const pagination = response?.data?.pagination || response?.pagination;
+  const nextPage = pagination?.hasNextPage ? normalizeRelativeApiPath(pagination?.nextPage) : null;
+
+  return { results, nextPage };
+}
+
+async function fetchChurchMemberPages(branchId?: string) {
+  const resolvedBranchId = resolveFallbackBranchId(branchId);
+  let requestMethod: 'GET' | 'POST' = 'GET';
+  let nextPath: string | null = `/member/all-church-member${buildQuery({ branchId: resolvedBranchId })}`;
+  const visitedPaths = new Set<string>();
+  const collected: any[] = [];
+
+  while (nextPath && !visitedPaths.has(nextPath) && visitedPaths.size < 50) {
+    visitedPaths.add(nextPath);
+
+    let response: any;
+    try {
+      response = await apiFetch<any>(nextPath, requestMethod === 'POST' ? { method: 'POST' } : undefined);
+    } catch (error) {
+      const shouldRetryAsPost =
+        visitedPaths.size === 1 &&
+        requestMethod === 'GET' &&
+        error instanceof ApiRequestError &&
+        (error.status === 404 || error.status === 405);
+
+      if (!shouldRetryAsPost) throw error;
+
+      requestMethod = 'POST';
+      response = await apiFetch<any>(nextPath, { method: requestMethod });
+    }
+
+    const { results, nextPage } = extractChurchMemberResults(response);
+    collected.push(...results);
+    nextPath = nextPage;
+  }
+
+  return { branchId: resolvedBranchId, records: collected };
 }
 
 /** Map a raw API event to the internal Event shape */
@@ -571,6 +629,17 @@ export function resolveFallbackBranchId(branchId?: string) {
   return undefined;
 }
 
+function resolveScopedDepartmentId(departmentId?: string) {
+  if (departmentId) return departmentId;
+  const scope = getCachedAdminScope();
+  const isDepartmentScoped =
+    scope.level === 'department' ||
+    scope.level === 'unit' ||
+    !!scope.departmentId ||
+    !!scope.unitId;
+  return isDepartmentScoped ? scope.departmentId : undefined;
+}
+
 /** GET /church/view-admins */
 export async function fetchAdmins(branchId?: string): Promise<any[]> {
   const resolved = resolveFallbackBranchId(branchId);
@@ -734,9 +803,10 @@ export const saveDepartments = async (_departments: any[]) => {
 // UNITS
 
 /** GET /church/all-units */
-export async function fetchUnits(branchId?: string): Promise<ApiUnit[]> {
-  const resolved = resolveFallbackBranchId(branchId);
-  const q = resolved ? buildQuery({ branchId: resolved }) : '';
+export async function fetchUnits(branchId?: string, departmentId?: string): Promise<ApiUnit[]> {
+  const resolvedBranchId = resolveFallbackBranchId(branchId);
+  const resolvedDepartmentId = resolveScopedDepartmentId(departmentId);
+  const q = buildQuery({ branchId: resolvedBranchId, departmentId: resolvedDepartmentId });
   const res = await apiFetch<any>(`/church/all-units${q}`);
   const units = Array.isArray(res.units) ? res.units : Array.isArray(res) ? res : [];
   return units.filter((unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false);
@@ -770,9 +840,9 @@ export async function softDeleteUnit(unitId: string, branchId: string) {
   });
 }
 
-/** DELETE /church/delete-unit/:unitId/branch/:branchId */
-export async function deleteUnit(unitId: string, branchId: string) {
-  return apiFetch<any>(`/church/delete-unit/${unitId}/branch/${branchId}`, {
+/** DELETE /church/delete-unit/:unitId/branch/:branchId?departmentId=... */
+export async function deleteUnit(unitId: string, branchId: string, departmentId?: string) {
+  return apiFetch<any>(`/church/delete-unit/${unitId}/branch/${branchId}${buildQuery({ departmentId: resolveScopedDepartmentId(departmentId) })}`, {
     method: 'DELETE',
   });
 }
@@ -785,17 +855,37 @@ export const saveUnits = async (_units: any[]) => {
 
 // MEMBERS (Workers)
 
-/** GET /member/all-members */
-export async function fetchMembers(branchId?: string): Promise<any[]> {
-  const resolved = resolveFallbackBranchId(branchId);
-  const q = resolved ? buildQuery({ branchId: resolved }) : '';
-  const res = await apiFetch<any>(`/member/all-members${q}`);
+/** /member/all-church-member?branchId=... */
+export async function fetchMembers(branchId?: string, departmentId?: string): Promise<any[]> {
+  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId);
+  const resolvedDepartmentId = resolveScopedDepartmentId(departmentId);
+  const canFilterByDepartment = records.some((member: any) =>
+    member?.departmentId ||
+    (Array.isArray(member?.departmentIds) && member.departmentIds.length > 0) ||
+    (Array.isArray(member?.departments) && member.departments.length > 0)
+  );
   const hiddenIds = readHiddenIdSet(HIDDEN_MEMBER_IDS_KEY);
   const overrides = readLocalJson<Record<string, any>>(MEMBER_OVERRIDES_KEY, {});
-  const raw = Array.isArray(res.data) ? res.data : Array.isArray(res.members) ? res.members : Array.isArray(res) ? res : [];
-  return raw
+  const seenIds = new Set<string>();
+
+  return records
     .filter((member: any) => member?.isDeleted !== true && member?.isActive !== false && !hiddenIds.has(member.id))
     .map(mapApiMember)
+    .map((member: any) => ({
+      ...member,
+      branchId: member.branchId || resolvedBranchId || '',
+    }))
+    .filter((member: any) =>
+      !resolvedDepartmentId ||
+      !canFilterByDepartment ||
+      member.departmentId === resolvedDepartmentId ||
+      member.departmentIds?.includes(resolvedDepartmentId)
+    )
+    .filter((member: any) => {
+      if (!member?.id || seenIds.has(member.id)) return false;
+      seenIds.add(member.id);
+      return true;
+    })
     .map((member: any) => ({
       ...member,
       ...(overrides[member.id] || {}),
@@ -807,17 +897,17 @@ export async function fetchMember(memberId: string) {
   return apiFetch<any>(`/member/a-member/${memberId}`);
 }
 
-/** POST /member/add-member?churchId=...&branchId=... */
-export async function createMember(data: CreateMemberRequest, churchId?: string, branchId?: string) {
-  return apiFetch<any>(`/member/add-member${buildQuery({ churchId, branchId })}`, {
+/** POST /member/non-worker?churchId=...&branchId=... */
+export async function createMember(data: CreateNonWorkerMemberRequest, churchId?: string, branchId?: string) {
+  return apiFetch<any>(`/member/non-worker${buildQuery({ churchId, branchId })}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-/** PATCH /member/edit-member/:memberId/branch/:branchId */
-export async function editMember(memberId: string, branchId: string, data: EditMemberRequest) {
-  return apiFetch<any>(`/member/edit-member/${memberId}/branch/${branchId}`, {
+/** PATCH /member/edit-member/:memberId/branch/:branchId?departmentId=... */
+export async function editMember(memberId: string, branchId: string, data: EditMemberRequest, departmentId?: string) {
+  return apiFetch<any>(`/member/edit-member/${memberId}/branch/${branchId}${buildQuery({ departmentId: resolveScopedDepartmentId(departmentId) })}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -1749,20 +1839,27 @@ export async function importFollowUp(file: File, branchId?: string) {
 // NON-WORKER MEMBERS
 
 /** POST /member/non-worker?churchId=...&branchId=... */
-export async function createNonWorkerMember(data: any, churchId?: string, branchId?: string) {
-  return apiFetch<any>(`/member/non-worker${buildQuery({ churchId, branchId })}`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function createNonWorkerMember(data: CreateNonWorkerMemberRequest, churchId?: string, branchId?: string) {
+  return createMember(data, churchId, branchId);
 }
 
-/** POST /member/all-church-member?branchId=... */
+/** /member/all-church-member?branchId=... */
 export async function fetchAllChurchMembers(branchId?: string) {
-  const res = await apiFetch<any>(`/member/all-church-member${buildQuery({ branchId })}`, {
-    method: 'POST',
-  });
-  const raw = Array.isArray(res.members) ? res.members : Array.isArray(res) ? res : [];
-  return raw.map(mapApiMember);
+  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId);
+  const seenIds = new Set<string>();
+
+  return records
+    .filter((member: any) => member?.isDeleted !== true && member?.isActive !== false)
+    .map(mapApiMember)
+    .map((member: any) => ({
+      ...member,
+      branchId: member.branchId || resolvedBranchId || '',
+    }))
+    .filter((member: any) => {
+      if (!member?.id || seenIds.has(member.id)) return false;
+      seenIds.add(member.id);
+      return true;
+    });
 }
 
 // GROWTH / ANALYTICS
@@ -1968,4 +2065,5 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
   try { localStorage.setItem(MEMBER_CLASSES_KEY, JSON.stringify(classes)); } catch { /* ignore */ }
   return { success: true };
 };
+
 
