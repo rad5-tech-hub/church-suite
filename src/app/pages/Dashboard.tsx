@@ -20,7 +20,7 @@ import {
 import { Link } from 'react-router';
 import { useChurch } from '../context/ChurchContext';
 import { useAuth } from '../context/AuthContext';
-import { CURRENCIES } from './Finance';
+import { CURRENCIES } from '../constants/currencies';
 import { ProductTour } from '../components/ProductTour';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {

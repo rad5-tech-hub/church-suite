@@ -134,6 +134,9 @@ export interface Member {
   birthdayYear?: number;
   country: string;
   state: string;
+  LGA?: string;
+  activity?: string;
+  comments?: string;
   /** Training class assignment (same model as newcomers) */
   trainingClassId?: string;
   trainingStatus?: NewcomerTrainingStatus;
@@ -339,6 +342,8 @@ export interface LedgerEntry {
   branchId?: string;
   departmentId?: string;
   unitId?: string;
+  scope?: 'church' | 'branch' | 'department' | 'unit';
+  scopeId?: string;
   type: LedgerEntryType;
   amount: number;
   description: string;
@@ -379,15 +384,19 @@ export interface StandaloneCollectionEntry {
 export interface Report {
   id: string;
   churchId: string;
+  branchId?: string;
+  departmentId?: string;
   title: string;
   /** Rich text content (HTML) */
   content: string;
+  responseComments?: string;
   /** Data snippets embedded in the report */
   dataInserts?: ReportDataInsert[];
   /** Admin ID who authored the report */
   authorId: string;
   authorName: string;
   authorLevel: AdminLevel;
+  creatorEmail?: string;
   /** Admin ID the report is sent to */
   recipientId: string;
   recipientName: string;
@@ -403,6 +412,7 @@ export interface Report {
   /** If this report is a reply, the ID of the parent report */
   parentReportId?: string;
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface ReportReply {
@@ -417,7 +427,7 @@ export interface ReportReply {
 
 export interface ReportDataInsert {
   id: string;
-  type: 'members-count' | 'workforce-count' | 'newcomers-count' | 'programs-summary' | 'finance-summary' | 'custom';
+  type: 'members-count' | 'workforce-count' | 'newcomers-count' | 'programs-summary' | 'finance-summary' | 'custom' | 'report-reference';
   label: string;
   value: string;
 }
@@ -429,4 +439,7 @@ export interface ReportAttachment {
   /** base64 data URI for small files, or a description */
   dataUrl?: string;
   size: number;
+  file?: File;
 }
+
+

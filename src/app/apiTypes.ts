@@ -106,6 +106,8 @@ export interface EditAdminRequest {
   branchIds?: string[];
   scopeLevel?: string;
   departmentIds?: string[];
+  unitIds?: string[];
+  isSuperAdmin?: boolean;
 }
 
 export interface ViewAdminsResponse {
@@ -272,6 +274,11 @@ export interface CreateMemberRequest {
 export type CreateNonWorkerMemberRequest = Omit<CreateMemberRequest, 'branchId' | 'departmentIds' | 'unitIds'>;
 
 export interface EditMemberRequest {
+  name?: string;
+  address?: string;
+  phoneNo?: string;
+  whatappNo?: string;
+  email?: string;
   sex?: string;
   ageFrom?: number;
   ageTo?: number;
@@ -284,6 +291,7 @@ export interface EditMemberRequest {
   memberSince?: string;
   activity?: string;
   comments?: string;
+  branchId?: string;
   departmentIds?: string[];
   unitIds?: string[];
 }
@@ -312,9 +320,21 @@ export interface CreateEventRequest {
   date: string;
   endDate?: string;
   recurrenceType: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
+  startTime?: string;
+  endTime?: string;
   byWeekday?: { weekday: number; startTime: string; endTime: string }[];
   branchId?: string;
   departmentIds?: string[];
+}
+
+export interface EditEventOccurrenceRequest {
+  title?: string;
+  description?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  departmentIds?: string[];
+  collectionIds?: string[];
 }
 
 export interface ApiEventOccurrence {
@@ -424,14 +444,15 @@ export interface CreateCollectionRequest {
 
 export interface CreateWalletRequest {
   action: 'create' | 'fund' | 'create_and_fund';
-  walletType: 'personal' | 'branch' | 'department';
+  walletType?: 'personal' | 'branch' | 'department';
   departmentId?: string;
+  walletId?: string;
   amount?: number;
 }
 
 export interface SendSmsRequest {
   message: string;
-  walletId: string;
+  walletId?: string;
   toNumbers: string[];
   channel?: 'generic' | 'whatsapp';
   followUpIds?: string[];
@@ -484,8 +505,10 @@ export interface CreateReportRequest {
   comments: string;
   churchId?: string;
   branchId?: string;
+  departmentId?: string;
   responseComments?: string;
-  file?: File;
+  file?: File | File[];
+  files?: File[];
 }
 
 // ─── Account / Finance ──────────────────────────────────────
@@ -542,5 +565,7 @@ export interface ImportResult {
   failed: number;
   errors?: any[];
 }
+
+
 
 

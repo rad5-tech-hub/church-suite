@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   FileText, Plus, Send, Inbox, SendHorizonal, Download, Printer, Search, X,
-  CheckCircle, Loader2, Paperclip, Image, Users, Briefcase, UserPlus, Calendar,
+  Loader2, Paperclip, Image, Users, Briefcase, UserPlus, Calendar,
   DollarSign, Database, Clock, Star, Reply, Eye, EyeOff, MailPlus, Filter,
 } from 'lucide-react';
 import { useChurch } from '../context/ChurchContext';
@@ -22,31 +22,35 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Report, ReportDataInsert, ReportAttachment, ReportReply, Admin, AdminLevel, Department, Unit } from '../types';
 import {
-  fetchReports, saveReports, fetchAdmins, fetchMembers, fetchWorkforce,
+  createReport, fetchReportById, fetchReports, saveReports, fetchAdmins, fetchMembers, fetchWorkforce,
   fetchNewcomers, fetchPrograms, fetchLedgerEntries, fetchDepartments, fetchUnits,
 } from '../api';
 import { resolvePrimaryBranchId } from '../utils/scope';
 
-const LEVEL_HIERARCHY: AdminLevel[] = ['unit', 'department', 'branch', 'church'];
 const LEVEL_LABELS: Record<AdminLevel, string> = { unit: 'Unit Head', department: 'Dept. Head', branch: 'Branch Head', church: 'Super Admin' };
+const SCOPE_LABELS: Record<'church' | 'branch' | 'department', string> = {
+  church: 'Church',
+  branch: 'Branch',
+  department: 'Department',
+};
 
 export function Reports() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
-  const branchId = resolvePrimaryBranchId(branches, currentAdmin);
-  const departmentId = currentAdmin?.departmentId || currentAdmin?.departmentIds?.[0];
+  const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
 
   const [reports, setReports] = useState<Report[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [viewLoading, setViewLoading] = useState(false);
   const { showToast } = useToast();
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false);
   const [cTitle, setCTitle] = useState('');
   const [cContent, setCContent] = useState('');
-  const [cRecipientId, setCRecipientId] = useState('');
+  const [cResponseComments, setCResponseComments] = useState('');
   const [cDataInserts, setCDataInserts] = useState<ReportDataInsert[]>([]);
   const [cAttachments, setCAttachments] = useState<ReportAttachment[]>([]);
   const [showDataPicker, setShowDataPicker] = useState(false);
@@ -66,7 +70,6 @@ export function Reports() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [searchTerm, setSearchTerm] = useState('');
   const [starFilter, setStarFilter] = useState(false);
-  // Organizational filters (for multi-branch or any structured church)
   const [filterBranchId, setFilterBranchId] = useState('');
   const [filterDeptId, setFilterDeptId] = useState('');
   const [filterUnitId, setFilterUnitId] = useState('');
@@ -74,6 +77,28 @@ export function Reports() {
   const [showOrgFilters, setShowOrgFilters] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+
+  const resolvedDepartmentId = useMemo(() => {
+    if (currentAdmin?.departmentId) return currentAdmin.departmentId;
+    if (currentAdmin?.departmentIds?.[0]) return currentAdmin.departmentIds[0];
+    if (currentAdmin?.unitId) {
+      return units.find((unit) => unit.id === currentAdmin.unitId)?.departmentId || '';
+    }
+    if (currentAdmin?.unitIds?.length) {
+      const unitDepartmentId = units.find((unit) => currentAdmin.unitIds?.includes(unit.id))?.departmentId;
+      return unitDepartmentId || '';
+    }
+    return '';
+  }, [currentAdmin, units]);
+
+  const resolvedBranchId = useMemo(() => {
+    if (currentAdmin?.branchId) return currentAdmin.branchId;
+    if (currentAdmin?.branchIds?.[0]) return currentAdmin.branchIds[0];
+    if (resolvedDepartmentId) {
+      return departments.find((department) => department.id === resolvedDepartmentId)?.branchId || primaryBranchId || '';
+    }
+    return primaryBranchId || '';
+  }, [currentAdmin, departments, resolvedDepartmentId, primaryBranchId]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,95 +119,149 @@ export function Reports() {
       ]);
       const mergedAdmins = Array.from(new Map(adminsData.flat().map((admin: Admin) => [admin.id, admin])).values());
       setReports(rpts as Report[]);
-      setAdmins((mergedAdmins as Admin[]).filter(a => a.status === 'active'));
+      setAdmins((mergedAdmins as Admin[]).filter((admin) => admin.status === 'active'));
       setDepartments(deps as Department[]);
       setUnits(uns as Unit[]);
-    } catch (err) { console.error('Failed to load reports:', err); }
-    finally { setLoading(false); }
-  }, [church.id, branches, currentAdmin]);
+    } catch (err) {
+      console.error('Failed to load reports:', err);
+      showToast('Failed to load reports.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [branches, currentAdmin, showToast]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   // ──────── HIERARCHY ────────
   const isSuperAdmin = currentAdmin?.isSuperAdmin || currentAdmin?.level === 'church';
 
-  const getEligibleRecipients = (): Admin[] => {
-    if (!currentAdmin) return [];
-    // Super admin can send to ANY administrator below them
-    if (isSuperAdmin) {
-      return admins.filter(a => a.id !== currentAdmin.id);
-    }
-    const mode = church.reportingMode || 'hierarchical';
-    const myLevelIdx = LEVEL_HIERARCHY.indexOf(currentAdmin.level);
-    return admins.filter(a => {
-      if (a.id === currentAdmin.id) return false;
-      const theirIdx = LEVEL_HIERARCHY.indexOf(a.level);
-      if (mode === 'hierarchical') return theirIdx === myLevelIdx + 1;
-      else return theirIdx > myLevelIdx;
-    });
+  const getReportScopeLevel = (report: Report): 'church' | 'branch' | 'department' => {
+    if (report.departmentId) return 'department';
+    if (report.branchId) return 'branch';
+    return 'church';
   };
 
-  const eligibleRecipients = getEligibleRecipients();
+  const getReportScopeName = (report: Report) => {
+    if (report.departmentId) {
+      return departments.find((department) => department.id === report.departmentId)?.name || 'Department';
+    }
+    if (report.branchId) {
+      return branches.find((branch) => branch.id === report.branchId)?.name || 'Branch';
+    }
+    return church.name;
+  };
+
+  const getReportScopeSummary = (report: Report) => {
+    const scopeLevel = getReportScopeLevel(report);
+    const scopeLabel = SCOPE_LABELS[scopeLevel];
+    const scopeName = getReportScopeName(report);
+    return scopeName && scopeName !== scopeLabel ? `${scopeLabel}: ${scopeName}` : scopeLabel;
+  };
+
+  const getAuthorLevelLabel = (authorId: string, fallback: AdminLevel) => {
+    const author = admins.find((admin) => admin.id === authorId);
+    return LEVEL_LABELS[author?.level || fallback];
+  };
+
+  const composeScopeChips = useMemo(() => {
+    const chips = [{ label: 'Church', value: church.name }];
+    if (resolvedBranchId) {
+      chips.push({
+        label: 'Branch',
+        value: branches.find((branch) => branch.id === resolvedBranchId)?.name || 'Branch',
+      });
+    }
+    if (resolvedDepartmentId) {
+      chips.push({
+        label: 'Department',
+        value: departments.find((department) => department.id === resolvedDepartmentId)?.name || 'Department',
+      });
+    }
+    return chips;
+  }, [branches, church.name, departments, resolvedBranchId, resolvedDepartmentId]);
 
   const inbox = useMemo(() => {
     if (!currentAdmin) return [];
-    return reports.filter(r => r.recipientId === currentAdmin.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return reports
+      .filter((report) => report.authorId !== currentAdmin.id)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }, [reports, currentAdmin]);
 
   const sent = useMemo(() => {
     if (!currentAdmin) return [];
-    return reports.filter(r => r.authorId === currentAdmin.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return reports
+      .filter((report) => report.authorId === currentAdmin.id)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }, [reports, currentAdmin]);
 
   const starred = useMemo(() => {
     if (!currentAdmin) return [];
-    return reports.filter(r => r.isStarred && (r.recipientId === currentAdmin.id || r.authorId === currentAdmin.id))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return reports
+      .filter((report) => report.isStarred)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }, [reports, currentAdmin]);
 
-  const unreadCount = inbox.filter(r => !r.isRead).length;
+  const unreadCount = inbox.filter((report) => !report.isRead).length;
 
-  // ──────── REPORT REFERENCE (super admin) ───────
   const referenceableReports = useMemo(() => {
     if (!isSuperAdmin) return [];
-    return inbox.filter(r =>
-      !reportRefSearch ||
-      r.title.toLowerCase().includes(reportRefSearch.toLowerCase()) ||
-      r.authorName.toLowerCase().includes(reportRefSearch.toLowerCase())
+    return inbox.filter((report) =>
+      !reportRefSearch
+      || report.title.toLowerCase().includes(reportRefSearch.toLowerCase())
+      || report.authorName.toLowerCase().includes(reportRefSearch.toLowerCase())
     ).slice(0, 10);
   }, [inbox, isSuperAdmin, reportRefSearch]);
 
   const insertReportReference = (report: Report) => {
     const snippet = report.content.slice(0, 200).replace(/\n/g, ' ');
-    const dataStr = report.dataInserts?.map(d => `${d.label}: ${d.value}`).join(', ') || '';
-    const refText = `\n\n📋 Referencing report: "${report.title}" from ${report.authorName} (${LEVEL_LABELS[report.authorLevel]}, ${new Date(report.createdAt).toLocaleDateString()}):\n> "${snippet}${report.content.length > 200 ? '...' : ''}"${dataStr ? `\n> Data: ${dataStr}` : ''}\n`;
-    setCContent(prev => prev + refText);
-    const insert: ReportDataInsert = {
-      id: `di-ref-${Date.now()}`,
-      type: 'report-reference' as any,
-      label: `Ref: ${report.title}`,
-      value: `From ${report.authorName} — "${snippet.slice(0, 80)}..."`,
-    };
-    setCDataInserts(prev => [...prev, insert]);
+    const dataStr = report.dataInserts?.map((dataInsert) => `${dataInsert.label}: ${dataInsert.value}`).join(', ') || '';
+    const refText = `\n\n[Referenced report] "${report.title}" from ${report.authorName} (${getAuthorLevelLabel(report.authorId, report.authorLevel)}, ${new Date(report.createdAt).toLocaleDateString()}):\n> "${snippet}${report.content.length > 200 ? '...' : ''}"${dataStr ? `\n> Data: ${dataStr}` : ''}\n`;
+    setCContent((prev) => prev + refText);
+    setCDataInserts((prev) => ([
+      ...prev,
+      {
+        id: `di-ref-${Date.now()}`,
+        type: 'report-reference',
+        label: `Ref: ${report.title}`,
+        value: `From ${report.authorName} - "${snippet.slice(0, 80)}..."`,
+      },
+    ]));
     setShowReportRefPicker(false);
     setReportRefSearch('');
   };
 
-  // ──────── ORG FILTER HELPERS ────────
-  const matchesOrgFilter = (report: Report, isSentTab?: boolean) => {
-    // Get the relevant admin — for inbox we filter by author, for sent by recipient
-    const relevantAdminId = isSentTab ? report.recipientId : report.authorId;
-    const admin = admins.find(a => a.id === relevantAdminId);
-    if (!admin) return true; // If admin not found, don't filter out
+  const matchesOrgFilter = (report: Report) => {
+    const author = admins.find((admin) => admin.id === report.authorId);
+    const reportScopeLevel = getReportScopeLevel(report);
 
-    if (filterLevel && admin.level !== filterLevel) return false;
-    if (filterBranchId && admin.branchId !== filterBranchId) return false;
-    if (filterDeptId && admin.departmentId !== filterDeptId) return false;
-    if (filterUnitId && admin.unitId !== filterUnitId) return false;
+    if (filterLevel) {
+      const authorLevel = author?.level || reportScopeLevel;
+      if (authorLevel !== filterLevel) return false;
+    }
+
+    if (filterBranchId) {
+      const branchMatches = report.branchId === filterBranchId
+        || author?.branchId === filterBranchId
+        || author?.branchIds?.includes(filterBranchId);
+      if (!branchMatches) return false;
+    }
+
+    if (filterDeptId) {
+      const departmentMatches = report.departmentId === filterDeptId
+        || author?.departmentId === filterDeptId
+        || author?.departmentIds?.includes(filterDeptId);
+      if (!departmentMatches) return false;
+    }
+
+    if (filterUnitId) {
+      const unitMatches = author?.unitId === filterUnitId || author?.unitIds?.includes(filterUnitId);
+      if (!unitMatches) return false;
+    }
+
     return true;
   };
 
-  const hasActiveOrgFilter = filterBranchId || filterDeptId || filterUnitId || filterLevel;
+  const hasActiveOrgFilter = Boolean(filterBranchId || filterDeptId || filterUnitId || filterLevel);
 
   const clearOrgFilters = () => {
     setFilterBranchId('');
@@ -191,47 +270,58 @@ export function Reports() {
     setFilterLevel('');
   };
 
-  const filteredInbox = inbox.filter(r => {
-    if (starFilter && !r.isStarred) return false;
-    if (!matchesOrgFilter(r, false)) return false;
-    return !searchTerm || r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.authorName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-  const filteredSent = sent.filter(r => {
-    if (!matchesOrgFilter(r, true)) return false;
-    return !searchTerm || r.title.toLowerCase().includes(searchTerm.toLowerCase()) || r.recipientName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
-  const filteredStarred = starred.filter(r => {
-    if (!matchesOrgFilter(r)) return false;
-    return !searchTerm || r.title.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredInbox = inbox.filter((report) => {
+    if (starFilter && !report.isStarred) return false;
+    if (!matchesOrgFilter(report)) return false;
+    if (!searchTerm) return true;
+    const loweredSearch = searchTerm.toLowerCase();
+    return report.title.toLowerCase().includes(loweredSearch)
+      || report.authorName.toLowerCase().includes(loweredSearch)
+      || getReportScopeSummary(report).toLowerCase().includes(loweredSearch);
   });
 
-  // ──────── DATA INSERTION ────────
+  const filteredSent = sent.filter((report) => {
+    if (!matchesOrgFilter(report)) return false;
+    if (!searchTerm) return true;
+    const loweredSearch = searchTerm.toLowerCase();
+    return report.title.toLowerCase().includes(loweredSearch)
+      || getReportScopeSummary(report).toLowerCase().includes(loweredSearch);
+  });
+
+  const filteredStarred = starred.filter((report) => {
+    if (!matchesOrgFilter(report)) return false;
+    if (!searchTerm) return true;
+    const loweredSearch = searchTerm.toLowerCase();
+    return report.title.toLowerCase().includes(loweredSearch)
+      || report.authorName.toLowerCase().includes(loweredSearch)
+      || getReportScopeSummary(report).toLowerCase().includes(loweredSearch);
+  });
   const fetchDataSnippet = async (type: string): Promise<ReportDataInsert> => {
     const id = `di-${Date.now()}`;
     try {
       switch (type) {
         case 'members-count': {
-          const m = await fetchMembers();
+          const m = await fetchMembers(resolvedBranchId || undefined);
           const count = (m as any[]).length;
           return { id, type: 'members-count', label: 'Total Members', value: `${count} members` };
         }
         case 'workforce-count': {
-          const w = await fetchWorkforce();
+          const w = await fetchWorkforce(resolvedBranchId || undefined);
           const count = (w as any[]).length;
           return { id, type: 'workforce-count', label: 'Workforce Size', value: `${count} active workers` };
         }
         case 'newcomers-count': {
-          const n = await fetchNewcomers(branchId);
+          const n = await fetchNewcomers(resolvedBranchId || undefined);
           const active = (n as any[]).filter(x => !x.movedToMemberId);
           return { id, type: 'newcomers-count', label: 'Active Newcomers', value: `${active.length} newcomers` };
         }
         case 'programs-summary': {
-          const p = await fetchPrograms(branchId);
+          const p = await fetchPrograms(resolvedBranchId || undefined);
           const count = (p as any[]).length;
           return { id, type: 'programs-summary', label: 'Programs', value: `${count} programs running` };
         }
         case 'finance-summary': {
-          const entries = await fetchLedgerEntries(branchId, currentAdmin?.level === 'department' ? departmentId : undefined);
+          const entries = await fetchLedgerEntries(resolvedBranchId || undefined, currentAdmin?.level === 'department' || currentAdmin?.level === 'unit' ? resolvedDepartmentId || undefined : undefined);
           const ce = entries as any[];
           const income = ce.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
           const expense = ce.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
@@ -247,7 +337,7 @@ export function Reports() {
   const insertData = async (type: string) => {
     const snippet = await fetchDataSnippet(type);
     setCDataInserts(prev => [...prev, snippet]);
-    setCContent(prev => prev + `\n\n📊 ${snippet.label}: ${snippet.value}\n`);
+    setCContent(prev => prev + `\n\n[Data] ${snippet.label}: ${snippet.value}\n`);
     setShowDataPicker(false);
   };
 
@@ -257,78 +347,114 @@ export function Reports() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    Array.from(files).forEach(file => {
-      if (file.size > 5 * 1024 * 1024) { showToast(`${file.name} is too large (max 5MB)`); return; }
+
+    Array.from(files).forEach((file) => {
+      if (file.size > 5 * 1024 * 1024) {
+        showToast(`${file.name} is too large (max 5MB)`);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
-        setCAttachments(prev => [...prev, {
-          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          name: file.name, type: file.type, dataUrl: reader.result as string, size: file.size,
-        }]);
+        setCAttachments((prev) => ([
+          ...prev,
+          {
+            id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            name: file.name,
+            type: file.type,
+            dataUrl: reader.result as string,
+            size: file.size,
+            file,
+          },
+        ]));
       };
       reader.readAsDataURL(file);
     });
+
     e.target.value = '';
   };
 
-  // ──────── SEND REPORT ────────
+  const resetCompose = () => {
+    setCTitle('');
+    setCContent('');
+    setCResponseComments('');
+    setCDataInserts([]);
+    setCAttachments([]);
+    setShowDataPicker(false);
+    setShowReportRefPicker(false);
+    setReportRefSearch('');
+  };
+
   const handleSendReport = async () => {
-    if (!cTitle.trim() || !cContent.trim() || !cRecipientId || !currentAdmin) return;
+    if (!cTitle.trim() || !cContent.trim() || !currentAdmin) return;
+
     setSaving(true);
     try {
-      const recipient = admins.find(a => a.id === cRecipientId);
-      const report: Report = {
-        id: `rpt-${Date.now()}`, churchId: church.id,
-        title: cTitle.trim(), content: cContent.trim(),
-        dataInserts: cDataInserts.length > 0 ? cDataInserts : undefined,
-        authorId: currentAdmin.id, authorName: currentAdmin.name, authorLevel: currentAdmin.level,
-        recipientId: cRecipientId, recipientName: recipient?.name || 'Unknown',
-        isRead: false, isStarred: false, replies: [],
-        attachments: cAttachments.length > 0 ? cAttachments : undefined,
-        createdAt: new Date(),
-      };
-      const all = await fetchReports();
-      const updated = [...(all as Report[]), report];
-      await saveReports(updated);
-      setReports(updated.filter(r => r.churchId === church.id));
+      const response = await createReport({
+        title: cTitle.trim(),
+        comments: cContent.trim(),
+        churchId: church.id,
+        branchId: resolvedBranchId || undefined,
+        departmentId: resolvedDepartmentId || undefined,
+        responseComments: cResponseComments.trim() || undefined,
+        files: cAttachments
+          .map((attachment) => attachment.file)
+          .filter((file): file is File => Boolean(file)),
+      });
+
+      const freshReports = await fetchReports();
+      const createdReportId = response?.report?.id;
+      const nextReports = createdReportId && cDataInserts.length > 0
+        ? freshReports.map((report) => report.id === createdReportId ? { ...report, dataInserts: cDataInserts } : report)
+        : freshReports;
+
+      if (cDataInserts.length > 0) {
+        await saveReports(nextReports);
+      }
+
+      setReports(nextReports);
       setComposeOpen(false);
       resetCompose();
-      showToast(`Report sent to ${recipient?.name}.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const resetCompose = () => {
-    setCTitle(''); setCContent(''); setCRecipientId('');
-    setCDataInserts([]); setCAttachments([]); setShowDataPicker(false);
-    setShowReportRefPicker(false); setReportRefSearch('');
-  };
-
-  // ──────── MARK READ ────────
-  const markAsRead = async (report: Report) => {
-    if (report.isRead) return;
-    const all = await fetchReports();
-    const updated = (all as Report[]).map(r => r.id === report.id ? { ...r, isRead: true, readAt: new Date() } : r);
-    await saveReports(updated);
-    setReports(updated.filter(r => r.churchId === church.id));
-  };
-
-  // ──────── TOGGLE STAR ────────
-  const toggleStar = async (e: React.MouseEvent, reportId: string) => {
-    e.stopPropagation();
-    const all = await fetchReports();
-    const updated = (all as Report[]).map(r => r.id === reportId ? { ...r, isStarred: !r.isStarred } : r);
-    await saveReports(updated);
-    setReports(updated.filter(r => r.churchId === church.id));
-    // Also refresh viewReport if open
-    if (viewReport?.id === reportId) {
-      setViewReport(prev => prev ? { ...prev, isStarred: !prev.isStarred } : null);
+      showToast(response?.message || 'Report created successfully.');
+    } catch (err: any) {
+      console.error('Failed to create report:', err);
+      showToast(`Error: ${err.message || 'Unable to create report.'}`, 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
-  // ──────── REPLY ────────
+  const markAsRead = async (report: Report) => {
+    if (report.isRead) return report;
+
+    const readAt = new Date();
+    const updatedReport = { ...report, isRead: true, readAt };
+    const nextReports = reports.map((currentReport) => (
+      currentReport.id === report.id ? { ...currentReport, isRead: true, readAt } : currentReport
+    ));
+
+    setReports(nextReports);
+    setViewReport((prev) => prev?.id === report.id ? updatedReport : prev);
+    await saveReports(nextReports);
+    return updatedReport;
+  };
+
+  const toggleStar = async (e: React.MouseEvent, reportId: string) => {
+    e.stopPropagation();
+    const nextReports = reports.map((report) => (
+      report.id === reportId ? { ...report, isStarred: !report.isStarred } : report
+    ));
+    const updatedReport = nextReports.find((report) => report.id === reportId) || null;
+
+    setReports(nextReports);
+    if (viewReport?.id === reportId) {
+      setViewReport(updatedReport);
+    }
+    await saveReports(nextReports);
+  };
+
   const handleSendReply = async () => {
     if (!viewReport || !replyContent.trim() || !currentAdmin) return;
+
     setSaving(true);
     try {
       const newReply: ReportReply = {
@@ -339,55 +465,101 @@ export function Reports() {
         content: replyContent.trim(),
         createdAt: new Date(),
       };
-      const all = await fetchReports();
-      const updated = (all as Report[]).map(r =>
-        r.id === viewReport.id
-          ? { ...r, replies: [...(r.replies || []), newReply] }
-          : r
-      );
-      await saveReports(updated);
-      const churchReports = updated.filter(r => r.churchId === church.id);
-      setReports(churchReports);
-      setViewReport(churchReports.find(r => r.id === viewReport.id) || null);
+
+      const nextReports = reports.map((report) => (
+        report.id === viewReport.id
+          ? { ...report, replies: [...(report.replies || []), newReply] }
+          : report
+      ));
+      const updatedViewReport = nextReports.find((report) => report.id === viewReport.id) || null;
+
+      setReports(nextReports);
+      setViewReport(updatedViewReport);
+      await saveReports(nextReports);
       setReplyContent('');
       setReplyOpen(false);
-      showToast('Reply sent.');
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
-    finally { setSaving(false); }
+      showToast('Reply saved locally.');
+    } catch (err: any) {
+      console.error('Failed to save reply:', err);
+      showToast(`Error: ${err.message || 'Unable to save reply.'}`, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // ──────── EXPORT ────────
+  const openReport = async (report: Report, isSent?: boolean) => {
+    setReplyOpen(false);
+    setReplyContent('');
+    setViewReport(report);
+    setViewLoading(true);
+
+    try {
+      const freshReport = await fetchReportById(report.id);
+      setViewReport(freshReport);
+      if (!isSent && !freshReport.isRead) {
+        const readReport = await markAsRead(freshReport);
+        setViewReport(readReport);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch report details:', err);
+      showToast(`Error: ${err.message || 'Unable to refresh this report.'}`, 'error');
+      if (!isSent && !report.isRead) {
+        const readReport = await markAsRead(report);
+        setViewReport(readReport);
+      }
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
   const exportReport = (report: Report, format: 'txt' | 'html' | 'csv') => {
-    let content = ''; let mime = ''; const ext = format;
-    const repliesText = report.replies?.map(r => `\n--- Reply from ${r.authorName} (${new Date(r.createdAt).toLocaleString()}) ---\n${r.content}`).join('\n') || '';
+    let content = '';
+    let mime = '';
+    const ext = format;
+    const repliesText = report.replies?.map((reply) => `\n--- Reply from ${reply.authorName} (${new Date(reply.createdAt).toLocaleString()}) ---\n${reply.content}`).join('\n') || '';
+    const responseCommentsText = report.responseComments ? `\n\nResponse / Remarks\n${report.responseComments}` : '';
+    const scopeSummary = getReportScopeSummary(report);
+    const authorLevelLabel = getAuthorLevelLabel(report.authorId, report.authorLevel);
+
     switch (format) {
       case 'txt':
-        content = `${report.title}\n${'='.repeat(report.title.length)}\nFrom: ${report.authorName} (${LEVEL_LABELS[report.authorLevel]})\nTo: ${report.recipientName}\nDate: ${new Date(report.createdAt).toLocaleString()}\n\n${report.content}\n\n${report.dataInserts?.map(d => `${d.label}: ${d.value}`).join('\n') || ''}${repliesText}`;
-        mime = 'text/plain'; break;
+        content = `${report.title}\n${'='.repeat(report.title.length)}\nFrom: ${report.authorName} (${authorLevelLabel})\nScope: ${scopeSummary}\nDate: ${new Date(report.createdAt).toLocaleString()}\n\n${report.content}${responseCommentsText}\n\n${report.dataInserts?.map((dataInsert) => `${dataInsert.label}: ${dataInsert.value}`).join('\n') || ''}${repliesText}`;
+        mime = 'text/plain';
+        break;
       case 'html':
-        content = `<!DOCTYPE html><html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#333}h1{color:#1e40af}.meta{color:#666;margin-bottom:20px}.data{background:#f0f4ff;padding:12px;border-radius:8px;margin:8px 0}.reply{background:#f9fafb;border-left:3px solid #6366f1;padding:12px;margin:8px 0;border-radius:4px}</style></head><body><h1>${report.title}</h1><div class="meta"><strong>From:</strong> ${report.authorName} (${LEVEL_LABELS[report.authorLevel]})<br/><strong>To:</strong> ${report.recipientName}<br/><strong>Date:</strong> ${new Date(report.createdAt).toLocaleString()}</div><div>${report.content.replace(/\n/g, '<br/>')}</div>${report.dataInserts?.map(d => `<div class="data"><strong>${d.label}:</strong> ${d.value}</div>`).join('') || ''}${report.replies?.map(r => `<div class="reply"><strong>${r.authorName}</strong> <small>(${new Date(r.createdAt).toLocaleString()})</small><p>${r.content.replace(/\n/g, '<br/>')}</p></div>`).join('') || ''}</body></html>`;
-        mime = 'text/html'; break;
+        content = `<!DOCTYPE html><html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#333}h1{color:#1e40af}.meta{color:#666;margin-bottom:20px}.data{background:#f0f4ff;padding:12px;border-radius:8px;margin:8px 0}.reply{background:#f9fafb;border-left:3px solid #6366f1;padding:12px;margin:8px 0;border-radius:4px}.response{background:#fff7ed;border:1px solid #fed7aa;padding:12px;border-radius:8px;margin:12px 0}</style></head><body><h1>${report.title}</h1><div class="meta"><strong>From:</strong> ${report.authorName} (${authorLevelLabel})<br/><strong>Scope:</strong> ${scopeSummary}<br/><strong>Date:</strong> ${new Date(report.createdAt).toLocaleString()}</div><div>${report.content.replace(/\n/g, '<br/>')}</div>${report.responseComments ? `<div class="response"><strong>Response / Remarks:</strong><p>${report.responseComments.replace(/\n/g, '<br/>')}</p></div>` : ''}${report.dataInserts?.map((dataInsert) => `<div class="data"><strong>${dataInsert.label}:</strong> ${dataInsert.value}</div>`).join('') || ''}${report.replies?.map((reply) => `<div class="reply"><strong>${reply.authorName}</strong> <small>(${new Date(reply.createdAt).toLocaleString()})</small><p>${reply.content.replace(/\n/g, '<br/>')}</p></div>`).join('') || ''}</body></html>`;
+        mime = 'text/html';
+        break;
       case 'csv':
-        content = `Title,Author,Recipient,Date,Content\n"${report.title}","${report.authorName}","${report.recipientName}","${new Date(report.createdAt).toLocaleString()}","${report.content.replace(/"/g, '""')}"`;
-        mime = 'text/csv'; break;
+        content = `Title,Author,Scope,Date,Content\n"${report.title}","${report.authorName}","${scopeSummary}","${new Date(report.createdAt).toLocaleString()}","${report.content.replace(/"/g, '""')}"`;
+        mime = 'text/csv';
+        break;
     }
+
     const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`;
-    a.click(); URL.revokeObjectURL(url);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.${ext}`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const printReport = (report: Report) => {
-    const w = window.open('', '_blank'); if (!w) return;
-    w.document.write(`<html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{color:#1e40af}.meta{color:#666;margin-bottom:20px}.data{background:#f0f4ff;padding:12px;border-radius:8px;margin:8px 0}.reply{background:#f9fafb;border-left:3px solid #6366f1;padding:12px;margin:8px 0;border-radius:4px}</style></head><body><h1>${report.title}</h1><div class="meta"><strong>From:</strong> ${report.authorName} (${LEVEL_LABELS[report.authorLevel]})<br/><strong>To:</strong> ${report.recipientName}<br/><strong>Date:</strong> ${new Date(report.createdAt).toLocaleString()}</div><div>${report.content.replace(/\n/g, '<br/>')}</div>${report.dataInserts?.map(d => `<div class="data"><strong>${d.label}:</strong> ${d.value}</div>`).join('') || ''}${report.replies?.map(r => `<div class="reply"><strong>${r.authorName}</strong> <small>(${new Date(r.createdAt).toLocaleString()})</small><p>${r.content.replace(/\n/g, '<br/>')}</p></div>`).join('') || ''}${report.attachments?.map(a => `<p>📎 ${a.name} (${(a.size / 1024).toFixed(1)}KB)</p>`).join('') || ''}</body></html>`);
-    w.document.close(); w.print();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const scopeSummary = getReportScopeSummary(report);
+    const authorLevelLabel = getAuthorLevelLabel(report.authorId, report.authorLevel);
+    printWindow.document.write(`<html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{color:#1e40af}.meta{color:#666;margin-bottom:20px}.data{background:#f0f4ff;padding:12px;border-radius:8px;margin:8px 0}.reply{background:#f9fafb;border-left:3px solid #6366f1;padding:12px;margin:8px 0;border-radius:4px}.response{background:#fff7ed;border:1px solid #fed7aa;padding:12px;border-radius:8px;margin:12px 0}</style></head><body><h1>${report.title}</h1><div class="meta"><strong>From:</strong> ${report.authorName} (${authorLevelLabel})<br/><strong>Scope:</strong> ${scopeSummary}<br/><strong>Date:</strong> ${new Date(report.createdAt).toLocaleString()}</div><div>${report.content.replace(/\n/g, '<br/>')}</div>${report.responseComments ? `<div class="response"><strong>Response / Remarks:</strong><p>${report.responseComments.replace(/\n/g, '<br/>')}</p></div>` : ''}${report.dataInserts?.map((dataInsert) => `<div class="data"><strong>${dataInsert.label}:</strong> ${dataInsert.value}</div>`).join('') || ''}${report.replies?.map((reply) => `<div class="reply"><strong>${reply.authorName}</strong> <small>(${new Date(reply.createdAt).toLocaleString()})</small><p>${reply.content.replace(/\n/g, '<br/>')}</p></div>`).join('') || ''}${report.attachments?.map((attachment) => `<p>Attachment: ${attachment.name} (${(attachment.size / 1024).toFixed(1)}KB)</p>`).join('') || ''}</body></html>`);
+    printWindow.document.close();
+    printWindow.print();
   };
 
-  // ──────── REPORT CARD ────────
   const ReportCard = ({ report, isSent }: { report: Report; isSent?: boolean }) => (
     <div
       className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${!report.isRead && !isSent ? 'bg-blue-50/50' : ''}`}
-      onClick={() => { setViewReport(report); setReplyOpen(false); setReplyContent(''); if (!isSent) markAsRead(report); }}
+      onClick={() => { openReport(report, isSent); }}
     >
       <div className="flex items-start gap-3">
         <button
@@ -403,16 +575,16 @@ export function Reports() {
             <h4 className={`text-sm truncate ${!report.isRead && !isSent ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{report.title}</h4>
             <span className="text-[10px] text-gray-400 flex-shrink-0">{new Date(report.createdAt).toLocaleDateString()}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {isSent ? `To: ${report.recipientName}` : `From: ${report.authorName}`}
-            <Badge variant="outline" className="ml-2 text-[10px]">{LEVEL_LABELS[report.authorLevel]}</Badge>
+          <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-2">
+            <span>{isSent ? 'Created by you' : `From: ${report.authorName}`}</span>
+            <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(report.authorId, report.authorLevel)}</Badge>
+            <Badge variant="secondary" className="text-[10px]">{getReportScopeSummary(report)}</Badge>
           </p>
-          <p className="text-xs text-gray-400 mt-1 line-clamp-1">{report.content.slice(0, 120)}...</p>
+          <p className="text-xs text-gray-400 mt-1 line-clamp-1">{report.content.slice(0, 120)}{report.content.length > 120 ? '...' : ''}</p>
           <div className="flex items-center gap-2 mt-1">
             {report.attachments && report.attachments.length > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Paperclip className="w-3 h-3" />{report.attachments.length}</span>}
             {report.dataInserts && report.dataInserts.length > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Database className="w-3 h-3" />{report.dataInserts.length} data</span>}
             {report.replies && report.replies.length > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Reply className="w-3 h-3" />{report.replies.length}</span>}
-            {/* Read receipt for sent tab */}
             {isSent && report.isRead && (
               <span className="text-[10px] text-green-600 flex items-center gap-0.5">
                 <Eye className="w-3 h-3" />Read {report.readAt ? new Date(report.readAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -426,7 +598,6 @@ export function Reports() {
       </div>
     </div>
   );
-
   return (
     <Layout>
       <PageHeader
@@ -436,7 +607,7 @@ export function Reports() {
           : "Write and send reports to your administrators. Pull in live data from across the platform, attach files, and track what's been read. Star important reports to find them quickly."
         }
         action={{
-          label: isSuperAdmin ? 'New Message' : 'New Report',
+          label: 'New Report',
           onClick: () => { resetCompose(); setComposeOpen(true); },
           icon: isSuperAdmin ? <MailPlus className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />,
         }}
@@ -606,61 +777,49 @@ export function Reports() {
         )}
       </div>
 
-      {/* ═══ COMPOSE DIALOG ═══ */}
-      <Dialog open={composeOpen} onOpenChange={(o) => { if (!o) { setComposeOpen(false); resetCompose(); } }}>
+      {/* COMPOSE DIALOG */}
+      <Dialog open={composeOpen} onOpenChange={(open) => { if (!open) { setComposeOpen(false); resetCompose(); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isSuperAdmin ? 'Compose Message' : 'Compose Report'}</DialogTitle>
+            <DialogTitle>{isSuperAdmin ? 'Create Church Report' : 'Create Report'}</DialogTitle>
             <DialogDescription>
-              {isSuperAdmin
-                ? 'Send a message to any administrator in your church. You can ask for clarification, request updates, or reference reports you\'ve received — all with live data and attachments.'
-                : 'Write your report below. You can pull in live data from the platform (member counts, finance totals, etc.) and attach images or files. The report will be sent to the administrator you select.'}
+              Create a report for your current scope. The backend payload is built from your church, branch, and department access automatically, and attachments are uploaded as form-data.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            {/* Recipient */}
             <div>
-              <Label>Send To <span className="text-red-500">*</span></Label>
-              <p className="text-xs text-gray-500 mb-1">
-                {isSuperAdmin
-                  ? 'As a super admin, you can reach any administrator across all levels — branch heads, department heads, or unit heads.'
-                  : church.reportingMode === 'direct'
-                    ? 'You can send this report to any administrator above your level.'
-                    : 'Reports follow the chain of command — you can only report to the level directly above yours.'}
-              </p>
-              {eligibleRecipients.length === 0 ? (
-                <div className="border border-dashed rounded-lg p-3 text-center"><p className="text-sm text-gray-500">No eligible recipients found. There may be no administrators above your level.</p></div>
-              ) : (
-                <Select value={cRecipientId} onValueChange={setCRecipientId}>
-                  <SelectTrigger><SelectValue placeholder="Choose recipient" /></SelectTrigger>
-                  <SelectContent>
-                    {eligibleRecipients.map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.name} — {LEVEL_LABELS[a.level]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Label>Report Scope</Label>
+              <p className="text-xs text-gray-500 mb-2">These values will be sent as the report visibility fields for this request.</p>
+              <div className="flex flex-wrap gap-2">
+                {composeScopeChips.map((chip) => (
+                  <Badge key={`${chip.label}-${chip.value}`} variant="secondary" className="px-3 py-1 text-xs">
+                    {chip.label}: {chip.value}
+                  </Badge>
+                ))}
+              </div>
             </div>
 
-            {/* Title */}
             <div>
               <Label>Report Title <span className="text-red-500">*</span></Label>
-              <Input value={cTitle} onChange={e => setCTitle(e.target.value)} placeholder="e.g., Weekly Department Update — Feb 28" />
+              <Input value={cTitle} onChange={(e) => setCTitle(e.target.value)} placeholder="e.g., Weekly Department Update - Feb 28" />
             </div>
 
-            {/* Content */}
             <div>
               <Label>Report Content <span className="text-red-500">*</span></Label>
-              <Textarea value={cContent} onChange={e => setCContent(e.target.value)} placeholder="Write your report here. Be detailed — include updates, challenges, prayer points, and recommendations..." rows={10} className="font-mono text-sm" />
+              <Textarea value={cContent} onChange={(e) => setCContent(e.target.value)} placeholder="Write your report here. Include updates, challenges, prayer points, and recommendations..." rows={10} className="font-mono text-sm" />
             </div>
 
-            {/* Data inserts */}
+            <div>
+              <Label>Response / Remarks</Label>
+              <Textarea value={cResponseComments} onChange={(e) => setCResponseComments(e.target.value)} placeholder="Optional response comments or remarks to include with this report..." rows={4} className="text-sm" />
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="flex items-center gap-1"><Database className="w-3.5 h-3.5" />Insert Platform Data</Label>
                 <Button size="sm" variant="outline" onClick={() => setShowDataPicker(!showDataPicker)}><Plus className="w-3.5 h-3.5 mr-1" />Add Data</Button>
               </div>
-              <p className="text-xs text-gray-500 mb-2">Pull in live numbers from the platform to include in your report. These will be embedded as data snapshots.</p>
+              <p className="text-xs text-gray-500 mb-2">Pull in live numbers from the platform to include in your report. These snapshots are also stored locally for this device after the report is created.</p>
               {showDataPicker && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
                   {[
@@ -669,7 +828,7 @@ export function Reports() {
                     { type: 'newcomers-count', label: 'Newcomers Count', icon: <UserPlus className="w-4 h-4" /> },
                     { type: 'programs-summary', label: 'Programs Summary', icon: <Calendar className="w-4 h-4" /> },
                     { type: 'finance-summary', label: 'Finance Summary', icon: <DollarSign className="w-4 h-4" /> },
-                  ].map(item => (
+                  ].map((item) => (
                     <Button key={item.type} variant="outline" size="sm" className="justify-start text-xs" onClick={() => insertData(item.type)}>
                       {item.icon}<span className="ml-1">{item.label}</span>
                     </Button>
@@ -678,22 +837,21 @@ export function Reports() {
               )}
               {cDataInserts.length > 0 && (
                 <div className="space-y-1.5">
-                  {cDataInserts.map(d => (
-                    <div key={d.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-xs">
+                  {cDataInserts.map((dataInsert) => (
+                    <div key={dataInsert.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-xs">
                       <Database className="w-3.5 h-3.5 text-blue-500" />
-                      <span className="font-medium text-blue-800">{d.label}:</span>
-                      <span className="text-blue-600 flex-1">{d.value}</span>
-                      <button onClick={() => removeDataInsert(d.id)}><X className="w-3.5 h-3.5 text-blue-400" /></button>
+                      <span className="font-medium text-blue-800">{dataInsert.label}:</span>
+                      <span className="text-blue-600 flex-1">{dataInsert.value}</span>
+                      <button onClick={() => removeDataInsert(dataInsert.id)}><X className="w-3.5 h-3.5 text-blue-400" /></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Attachments */}
             <div>
               <Label className="flex items-center gap-1"><Paperclip className="w-3.5 h-3.5" />Attachments</Label>
-              <p className="text-xs text-gray-500 mb-2">Upload images, documents, or other files (max 5MB each).</p>
+              <p className="text-xs text-gray-500 mb-2">Upload images, PDFs, or documents. Files are sent to the backend as form-data.</p>
               <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" className="hidden" onChange={handleFileUpload} />
               <div className="flex gap-2 mb-2">
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Image className="w-3.5 h-3.5 mr-1" />Upload Image</Button>
@@ -701,19 +859,18 @@ export function Reports() {
               </div>
               {cAttachments.length > 0 && (
                 <div className="space-y-1.5">
-                  {cAttachments.map(a => (
-                    <div key={a.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-xs">
-                      {a.type.startsWith('image/') ? <Image className="w-3.5 h-3.5 text-green-500" /> : <FileText className="w-3.5 h-3.5 text-gray-500" />}
-                      <span className="flex-1 truncate">{a.name}</span>
-                      <span className="text-gray-400">{(a.size / 1024).toFixed(1)}KB</span>
-                      <button onClick={() => setCAttachments(prev => prev.filter(x => x.id !== a.id))}><X className="w-3.5 h-3.5 text-gray-400" /></button>
+                  {cAttachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                      {attachment.type.startsWith('image/') ? <Image className="w-3.5 h-3.5 text-green-500" /> : <FileText className="w-3.5 h-3.5 text-gray-500" />}
+                      <span className="flex-1 truncate">{attachment.name}</span>
+                      <span className="text-gray-400">{(attachment.size / 1024).toFixed(1)}KB</span>
+                      <button onClick={() => setCAttachments((prev) => prev.filter((item) => item.id !== attachment.id))}><X className="w-3.5 h-3.5 text-gray-400" /></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Report reference picker */}
             {isSuperAdmin && (
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -725,16 +882,16 @@ export function Reports() {
                   <div className="space-y-1.5">
                     <Input
                       value={reportRefSearch}
-                      onChange={e => setReportRefSearch(e.target.value)}
+                      onChange={(e) => setReportRefSearch(e.target.value)}
                       placeholder="Search reports..."
                       className="text-sm"
                     />
                     {referenceableReports.length > 0 ? (
-                      referenceableReports.map(r => (
-                        <div key={r.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-xs cursor-pointer" onClick={() => insertReportReference(r)}>
+                      referenceableReports.map((report) => (
+                        <div key={report.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-xs cursor-pointer" onClick={() => insertReportReference(report)}>
                           <FileText className="w-3.5 h-3.5 text-blue-500" />
-                          <span className="font-medium text-blue-800">{r.title}:</span>
-                          <span className="text-blue-600 flex-1">{r.content.slice(0, 80)}...</span>
+                          <span className="font-medium text-blue-800">{report.title}:</span>
+                          <span className="text-blue-600 flex-1">{report.content.slice(0, 80)}...</span>
                         </div>
                       ))
                     ) : (
@@ -748,16 +905,15 @@ export function Reports() {
             <Separator />
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => { setComposeOpen(false); resetCompose(); }}>Cancel</Button>
-              <Button className="flex-1" disabled={!cTitle.trim() || !cContent.trim() || !cRecipientId || saving} onClick={handleSendReport}>
-                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}<Send className="w-4 h-4 mr-2" />Send Report
+              <Button className="flex-1" disabled={!cTitle.trim() || !cContent.trim() || saving} onClick={handleSendReport}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}<Send className="w-4 h-4 mr-2" />Create Report
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* ═══ VIEW REPORT DIALOG ═══ */}
-      <Dialog open={!!viewReport} onOpenChange={() => { setViewReport(null); setReplyOpen(false); setReplyContent(''); }}>
+      {/* VIEW REPORT DIALOG */}
+      <Dialog open={!!viewReport} onOpenChange={() => { setViewReport(null); setReplyOpen(false); setReplyContent(''); setViewLoading(false); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {viewReport && (
             <>
@@ -771,13 +927,12 @@ export function Reports() {
                 <DialogDescription>
                   <span className="flex flex-wrap items-center gap-2 mt-1">
                     <span>From: <strong>{viewReport.authorName}</strong></span>
-                    <Badge variant="outline" className="text-xs">{LEVEL_LABELS[viewReport.authorLevel]}</Badge>
-                    <span className="text-gray-400">→</span>
-                    <span>To: <strong>{viewReport.recipientName}</strong></span>
-                    <span className="text-gray-400">•</span>
+                    <Badge variant="outline" className="text-xs">{getAuthorLevelLabel(viewReport.authorId, viewReport.authorLevel)}</Badge>
+                    <Badge variant="secondary" className="text-xs">{getReportScopeSummary(viewReport)}</Badge>
+                    <span className="text-gray-400">�</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(viewReport.createdAt).toLocaleString()}</span>
                   </span>
-                  {/* Read receipt */}
+                  {viewReport.creatorEmail && <span className="block mt-1 text-xs text-gray-500">{viewReport.creatorEmail}</span>}
                   <span className="flex items-center gap-1 mt-1">
                     {viewReport.isRead ? (
                       <Badge className="bg-green-100 text-green-700 border-0 text-[10px] font-normal">
@@ -792,57 +947,66 @@ export function Reports() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
-                {/* Content */}
+                {viewLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    <Loader2 className="w-4 h-4 animate-spin" />Refreshing report details...
+                  </div>
+                )}
+
                 <div className="prose prose-sm max-w-none">
-                  {viewReport.content.split('\n').map((line, i) => <p key={i} className="text-sm text-gray-700 mb-1">{line || '\u00A0'}</p>)}
+                  {viewReport.content.split('\n').map((line, index) => <p key={index} className="text-sm text-gray-700 mb-1">{line || '\u00A0'}</p>)}
                 </div>
 
-                {/* Data inserts */}
+                {viewReport.responseComments && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase">Response / Remarks</h4>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 whitespace-pre-wrap">{viewReport.responseComments}</div>
+                  </div>
+                )}
+
                 {viewReport.dataInserts && viewReport.dataInserts.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase">Embedded Data</h4>
-                    {viewReport.dataInserts.map(d => (
-                      <div key={d.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-sm">
+                    {viewReport.dataInserts.map((dataInsert) => (
+                      <div key={dataInsert.id} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 text-sm">
                         <Database className="w-4 h-4 text-blue-500" />
-                        <span className="font-medium text-blue-800">{d.label}:</span>
-                        <span className="text-blue-600">{d.value}</span>
+                        <span className="font-medium text-blue-800">{dataInsert.label}:</span>
+                        <span className="text-blue-600">{dataInsert.value}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Attachments */}
                 {viewReport.attachments && viewReport.attachments.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase">Attachments</h4>
-                    {viewReport.attachments.map(a => (
-                      <div key={a.id} className="border rounded-lg overflow-hidden">
-                        {a.type.startsWith('image/') && a.dataUrl ? (
-                          <img src={a.dataUrl} alt={a.name} className="w-full max-h-64 object-contain bg-gray-50" />
+                    {viewReport.attachments.map((attachment) => (
+                      <div key={attachment.id} className="border rounded-lg overflow-hidden">
+                        {attachment.type.startsWith('image/') && attachment.dataUrl ? (
+                          <img src={attachment.dataUrl} alt={attachment.name} className="w-full max-h-64 object-contain bg-gray-50" />
                         ) : null}
                         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-xs">
                           <FileText className="w-3.5 h-3.5 text-gray-500" />
-                          <span className="flex-1">{a.name}</span>
-                          <span className="text-gray-400">{(a.size / 1024).toFixed(1)}KB</span>
-                          {a.dataUrl && <a href={a.dataUrl} download={a.name} className="text-blue-600 hover:underline flex items-center gap-0.5"><Download className="w-3 h-3" />Download</a>}
+                          <span className="flex-1">{attachment.name}</span>
+                          <span className="text-gray-400">{(attachment.size / 1024).toFixed(1)}KB</span>
+                          {attachment.dataUrl && <a href={attachment.dataUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-0.5"><Download className="w-3 h-3" />Open</a>}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* Replies thread */}
                 {viewReport.replies && viewReport.replies.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1"><Reply className="w-3.5 h-3.5" />Replies ({viewReport.replies.length})</h4>
-                    {viewReport.replies.map(r => (
-                      <div key={r.id} className="border-l-3 border-indigo-300 bg-gray-50 rounded-r-lg p-3 space-y-1" style={{ borderLeftWidth: '3px' }}>
+                    {viewReport.replies.map((reply) => (
+                      <div key={reply.id} className="border-l-3 border-indigo-300 bg-gray-50 rounded-r-lg p-3 space-y-1" style={{ borderLeftWidth: '3px' }}>
                         <div className="flex items-center gap-2 text-xs">
-                          <span className="font-semibold text-gray-800">{r.authorName}</span>
-                          <Badge variant="outline" className="text-[10px]">{LEVEL_LABELS[r.authorLevel]}</Badge>
-                          <span className="text-gray-400">{new Date(r.createdAt).toLocaleString()}</span>
+                          <span className="font-semibold text-gray-800">{reply.authorName}</span>
+                          <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(reply.authorId, reply.authorLevel)}</Badge>
+                          <span className="text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
                         </div>
-                        {r.content.split('\n').map((line, i) => <p key={i} className="text-sm text-gray-700">{line || '\u00A0'}</p>)}
+                        {reply.content.split('\n').map((line, index) => <p key={index} className="text-sm text-gray-700">{line || '\u00A0'}</p>)}
                       </div>
                     ))}
                   </div>
@@ -850,13 +1014,12 @@ export function Reports() {
 
                 <Separator />
 
-                {/* Reply section */}
                 {replyOpen ? (
                   <div className="space-y-3 bg-indigo-50/50 border border-indigo-100 rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-indigo-800 flex items-center gap-1"><Reply className="w-4 h-4" />Write a Reply</h4>
                     <Textarea
                       value={replyContent}
-                      onChange={e => setReplyContent(e.target.value)}
+                      onChange={(e) => setReplyContent(e.target.value)}
                       placeholder="Type your reply here..."
                       rows={4}
                       className="text-sm"
@@ -864,7 +1027,7 @@ export function Reports() {
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => { setReplyOpen(false); setReplyContent(''); }}>Cancel</Button>
                       <Button size="sm" disabled={!replyContent.trim() || saving} onClick={handleSendReply}>
-                        {saving && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}<Send className="w-3.5 h-3.5 mr-1" />Send Reply
+                        {saving && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}<Send className="w-3.5 h-3.5 mr-1" />Save Reply
                       </Button>
                     </div>
                   </div>
@@ -874,7 +1037,6 @@ export function Reports() {
                   </Button>
                 )}
 
-                {/* Actions */}
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" onClick={() => printReport(viewReport)}><Printer className="w-4 h-4 mr-1" />Print</Button>
                   <Button variant="outline" size="sm" onClick={() => exportReport(viewReport, 'txt')}><Download className="w-4 h-4 mr-1" />.txt</Button>
@@ -889,3 +1051,14 @@ export function Reports() {
     </Layout>
   );
 }
+
+
+
+
+
+
+
+
+
+
+

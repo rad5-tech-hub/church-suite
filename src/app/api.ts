@@ -25,11 +25,13 @@ import type {
   CreateUnitsRequest,
   EditUnitRequest,
   ApiUnit,
+  CreateMemberRequest,
   CreateNonWorkerMemberRequest,
   EditMemberRequest,
   ApiMember,
   ApiChurch,
   CreateEventRequest,
+  EditEventOccurrenceRequest,
   EventAttendanceRequest,
   WorkerAttendanceRequest,
   CreateFollowUpRequest,
@@ -49,6 +51,7 @@ import type {
   CreateReportRequest,
   SubscribeRequest,
 } from './apiTypes';
+import type { AdminLevel, Report, ReportAttachment, ReportDataInsert, ReportReply } from './types';
 
 // Re-export the core fetch so existing imports still work
 export { apiFetch } from './apiClient';
@@ -248,6 +251,9 @@ function mapApiMember(m: any): any {
     birthdayDay: parseInt(m.birthDay || '0', 10) || 0,
     country: m.nationality || '',
     state: m.state || '',
+    LGA: m.LGA || '',
+    activity: (m.activity || 'active').toLowerCase(),
+    comments: m.comments || '',
     roadmapMarkers: Array.isArray(m.roadmapMarkers) ? m.roadmapMarkers : [],
     createdAt: new Date(m.createdAt || Date.now()),
     _raw: m,
@@ -278,10 +284,12 @@ function extractChurchMemberResults(response: any) {
   return { results, nextPage };
 }
 
-async function fetchChurchMemberPages(branchId?: string) {
+async function fetchChurchMemberPages(branchId?: string, isWorker?: boolean) {
   const resolvedBranchId = resolveFallbackBranchId(branchId);
   let requestMethod: 'GET' | 'POST' = 'GET';
-  let nextPath: string | null = `/member/all-church-member${buildQuery({ branchId: resolvedBranchId })}`;
+  const queryObj: any = { branchId: resolvedBranchId };
+  if (isWorker !== undefined) queryObj.isWorker = isWorker;
+  let nextPath: string | null = `/member/all-church-member${buildQuery(queryObj)}`;
   const visitedPaths = new Set<string>();
   const collected: any[] = [];
 
@@ -856,8 +864,8 @@ export const saveUnits = async (_units: any[]) => {
 // MEMBERS (Workers)
 
 /** /member/all-church-member?branchId=... */
-export async function fetchMembers(branchId?: string, departmentId?: string): Promise<any[]> {
-  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId);
+export async function fetchMembers(branchId?: string, departmentId?: string, isWorker?: boolean): Promise<any[]> {
+  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId, isWorker);
   const resolvedDepartmentId = resolveScopedDepartmentId(departmentId);
   const canFilterByDepartment = records.some((member: any) =>
     member?.departmentId ||
@@ -894,12 +902,22 @@ export async function fetchMembers(branchId?: string, departmentId?: string): Pr
 
 /** GET /member/a-member/:memberId */
 export async function fetchMember(memberId: string) {
-  return apiFetch<any>(`/member/a-member/${memberId}`);
+  const res = await apiFetch<any>(`/member/a-member/${memberId}`);
+  const raw = res.data?.member || res.data || res.member || res;
+  return mapApiMember(raw);
 }
 
 /** POST /member/non-worker?churchId=...&branchId=... */
 export async function createMember(data: CreateNonWorkerMemberRequest, churchId?: string, branchId?: string) {
   return apiFetch<any>(`/member/non-worker${buildQuery({ churchId, branchId })}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/** POST /member/add-member?churchId=... */
+export async function createWorkforceMember(data: CreateMemberRequest, churchId?: string) {
+  return apiFetch<any>(`/member/add-member${buildQuery({ churchId })}`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -913,11 +931,29 @@ export async function editMember(memberId: string, branchId: string, data: EditM
   });
 }
 
+/** PATCH /member/move-member/:memberId/branch/:branchId */
+export async function moveMember(memberId: string, branchId: string) {
+  return apiFetch<any>(`/member/move-member/${memberId}/branch/${branchId}`, {
+    method: 'PATCH',
+  });
+}
+
 /** PATCH /member/suspend-member/:memberId/branch/:branchId */
 export async function suspendMember(memberId: string, branchId: string) {
   const response = await apiFetch<any>(`/member/suspend-member/${memberId}/branch/${branchId}`, {
     method: 'PATCH',
   });
+  
+  if (response?.message === "Member soft-deleted successfully" || response?.message?.includes("deleted") || response?.success) {
+    addHiddenIds(HIDDEN_MEMBER_IDS_KEY, [memberId]);
+    return response;
+  }
+  
+  // If the API didn't fail but gave us an unexpected message, throw an error
+  if (!response || response.error || response.status === 'error') {
+     throw new Error(response?.message || response?.error || 'Failed to remove member');
+  }
+
   addHiddenIds(HIDDEN_MEMBER_IDS_KEY, [memberId]);
   return response;
 }
@@ -1042,7 +1078,8 @@ export async function fetchPrograms(branchId?: string): Promise<any[]> {
 
 /** GET /church/get-event/:eventOccurrenceId */
 export async function fetchEventOccurrence(occurrenceId: string) {
-  return apiFetch<any>(`/church/get-event/${occurrenceId}`);
+  const response = await apiFetch<any>(`/church/get-event/${occurrenceId}`);
+  return response?.eventOccurrence || response?.data?.eventOccurrence || response;
 }
 
 /** POST /church/create-attendance/:eventOccurrenceId */
@@ -1070,11 +1107,26 @@ export async function addEventCollectionFund(occurrenceId: string, updates: { id
 }
 
 /** PATCH /church/edit-an-event/:eventOccurrenceId/branch/:branchId */
-export async function editEventOccurrence(occurrenceId: string, branchId: string, data: any) {
-  return apiFetch<any>(`/church/edit-an-event/${occurrenceId}/branch/${branchId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
+export async function editEventOccurrence(occurrenceId: string, branchId: string, data: EditEventOccurrenceRequest) {
+  try {
+    return await apiFetch<any>(`/church/edit-an-event/${occurrenceId}/branch/${branchId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    const shouldRetryLegacyPath =
+      error instanceof ApiRequestError &&
+      (error.status === 404 || error.status === 405);
+
+    if (!shouldRetryLegacyPath) {
+      throw error;
+    }
+
+    return apiFetch<any>(`/church/get-event/${occurrenceId}/branch/${branchId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 /** GET /members/members-event/:eventOccurrenceId */
@@ -1716,6 +1768,13 @@ export async function fetchAccountRecords(branchId?: string, departmentId?: stri
 }
 
 // Backward-compat aliases for finance
+function normalizeLedgerScope(scope?: string | null): 'church' | 'branch' | 'department' | 'unit' | undefined {
+  const normalized = String(scope || '').trim().toLowerCase();
+  return normalized === 'church' || normalized === 'branch' || normalized === 'department' || normalized === 'unit'
+    ? normalized
+    : undefined;
+}
+
 function extractAccountRecordRows(response: any): any[] {
   const results = response?.result?.results;
   const data = response?.data;
@@ -1763,18 +1822,34 @@ export const fetchLedgerEntries = async (branchId?: string, departmentId?: strin
     while (nextPath && !seenPaths.has(nextPath)) {
       seenPaths.add(nextPath);
       const response = await apiFetch<any>(nextPath);
-      raw.push(...extractAccountRecordRows(response));
+      const responseScope = normalizeLedgerScope(response?.scope || response?.result?.scope || response?.data?.scope);
+      raw.push(...extractAccountRecordRows(response).map((row: any) => ({ ...row, __responseScope: responseScope })));
       nextPath = getNextAccountRecordsPath(response) || '';
     }
 
     return raw.map((r: any) => {
       const credit = parseFloat(r.credit) || 0;
       const debit = parseFloat(r.debit) || 0;
+      const scope = normalizeLedgerScope(r.__responseScope || r.scope || r.scopeType)
+        || (r.unitId ? 'unit' : (r.departmentId || departmentId) ? 'department' : (r.branchId || branchId) ? 'branch' : 'church');
+      const resolvedBranchId = r.branchId || branchId;
+      const resolvedDepartmentId = r.departmentId || (scope === 'department' || scope === 'unit' ? departmentId : undefined);
+      const resolvedUnitId = r.unitId;
+      const scopeId = r.scopeId || (scope === 'unit'
+        ? resolvedUnitId
+        : scope === 'department'
+          ? resolvedDepartmentId
+          : scope === 'branch'
+            ? resolvedBranchId
+            : undefined);
       return {
         id: r.id || [branchId || 'church', departmentId || 'all', r.createdAt || r.date || '', r.description || '', credit, debit].join(':'),
         churchId: r.churchId || r.tenantId || '',
-        branchId: r.branchId || branchId,
-        departmentId: r.departmentId || departmentId,
+        branchId: resolvedBranchId,
+        departmentId: resolvedDepartmentId,
+        unitId: resolvedUnitId,
+        scope,
+        scopeId,
         type: credit > 0 ? 'income' : 'expense',
         amount: credit > 0 ? credit : debit,
         description: r.description || '',
@@ -1844,8 +1919,8 @@ export async function createNonWorkerMember(data: CreateNonWorkerMemberRequest, 
 }
 
 /** /member/all-church-member?branchId=... */
-export async function fetchAllChurchMembers(branchId?: string) {
-  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId);
+export async function fetchAllChurchMembers(branchId?: string, isWorker?: boolean) {
+  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(branchId, isWorker);
   const seenIds = new Set<string>();
 
   return records
@@ -1871,6 +1946,95 @@ export async function fetchGrowthMetrics(params: GrowthMetricsParams) {
 
 // REPORTS
 
+const REPORT_UI_STATE_KEY = 'churchset-report-ui-state-v1';
+
+type ReportUiState = Record<string, {
+  isRead?: boolean;
+  readAt?: string;
+  isStarred?: boolean;
+  replies?: Array<{
+    id: string;
+    authorId: string;
+    authorName: string;
+    authorLevel: AdminLevel;
+    content: string;
+    attachments?: ReportAttachment[];
+    createdAt: string;
+  }>;
+  dataInserts?: ReportDataInsert[];
+}>;
+
+function inferReportLevel(raw: any): AdminLevel {
+  if (raw?.departmentId) return 'department';
+  if (raw?.branchId) return 'branch';
+  return 'church';
+}
+
+function mapApiReportAttachment(file: any, index: number): ReportAttachment {
+  return {
+    id: file?.url || 'report-file-' + index,
+    name: file?.fileName || 'Attachment ' + (index + 1),
+    type: file?.fileType || 'application/octet-stream',
+    dataUrl: file?.url,
+    size: typeof file?.size === 'number' ? file.size : Number(file?.size) || 0,
+  };
+}
+
+function mapApiReport(raw: any): Report {
+  const authorLevel = inferReportLevel(raw);
+  const recipientId = raw?.departmentId || raw?.branchId || raw?.churchId || '';
+  const recipientName = raw?.departmentId
+    ? 'Department'
+    : raw?.branchId
+      ? 'Branch'
+      : 'Church';
+
+  return {
+    id: raw?.id || '',
+    churchId: raw?.churchId || '',
+    branchId: raw?.branchId || undefined,
+    departmentId: raw?.departmentId || undefined,
+    title: raw?.title || '',
+    content: raw?.comments || '',
+    responseComments: raw?.responseComments || '',
+    authorId: raw?.createdBy || raw?.creator?.id || '',
+    authorName: raw?.creator?.name || 'Unknown',
+    authorLevel,
+    creatorEmail: raw?.creator?.email || undefined,
+    recipientId,
+    recipientName,
+    isRead: false,
+    isStarred: false,
+    attachments: Array.isArray(raw?.file) ? raw.file.map(mapApiReportAttachment) : [],
+    replies: [],
+    createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw?.updatedAt ? new Date(raw.updatedAt) : undefined,
+  };
+}
+
+function mergeReportUiState(report: Report, uiState?: ReportUiState[string]): Report {
+  if (!uiState) return report;
+
+  return {
+    ...report,
+    isRead: uiState.isRead ?? report.isRead,
+    isStarred: uiState.isStarred ?? report.isStarred,
+    readAt: uiState.readAt ? new Date(uiState.readAt) : report.readAt,
+    replies: uiState.replies?.map((reply) => ({
+      ...reply,
+      createdAt: new Date(reply.createdAt),
+    })) || report.replies,
+    dataInserts: uiState.dataInserts || report.dataInserts,
+  };
+}
+
+function serializeReportReplies(replies?: ReportReply[]) {
+  return replies?.map((reply) => ({
+    ...reply,
+    createdAt: reply.createdAt instanceof Date ? reply.createdAt.toISOString() : new Date(reply.createdAt).toISOString(),
+  }));
+}
+
 /** POST /tenants/write-report (multipart) */
 export async function createReport(data: CreateReportRequest) {
   const formData = new FormData();
@@ -1878,8 +2042,14 @@ export async function createReport(data: CreateReportRequest) {
   formData.append('comments', data.comments);
   if (data.churchId) formData.append('churchId', data.churchId);
   if (data.branchId) formData.append('branchId', data.branchId);
+  if (data.departmentId) formData.append('departmentId', data.departmentId);
   if (data.responseComments) formData.append('responseComments', data.responseComments);
-  if (data.file) formData.append('file', data.file);
+  const files = data.files || (Array.isArray(data.file) ? data.file : data.file ? [data.file] : []);
+  files.forEach((file) => {
+    if (file instanceof File) {
+      formData.append('file', file);
+    }
+  });
 
   return apiFetch<any>('/tenants/write-report', {
     method: 'POST',
@@ -1887,12 +2057,43 @@ export async function createReport(data: CreateReportRequest) {
   });
 }
 
-export async function fetchReports(): Promise<any[]> {
-  return [];
+export async function fetchReports(): Promise<Report[]> {
+  const response = await apiFetch<any>('/tenants/get-report');
+  const reports = Array.isArray(response?.reports)
+    ? response.reports
+    : Array.isArray(response)
+      ? response
+      : [];
+  const uiState = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
+
+  return reports
+    .map((report: any) => mergeReportUiState(mapApiReport(report), uiState[report?.id || '']))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export const saveReports = async (_reports: any[]) => {
-  console.warn('saveReports: use createReport instead');
+export async function fetchReportById(reportId: string): Promise<Report> {
+  const response = await apiFetch<any>('/tenants/get-report/' + reportId);
+  const rawReport = response?.report || response;
+  const uiState = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
+  return mergeReportUiState(mapApiReport(rawReport), uiState[rawReport?.id || reportId]);
+}
+
+export const saveReports = async (reports: Report[]) => {
+  const existing = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
+  const next: ReportUiState = { ...existing };
+
+  reports.forEach((report) => {
+    next[report.id] = {
+      ...existing[report.id],
+      isRead: report.isRead,
+      isStarred: report.isStarred,
+      readAt: report.readAt instanceof Date ? report.readAt.toISOString() : report.readAt ? new Date(report.readAt).toISOString() : undefined,
+      replies: serializeReportReplies(report.replies),
+      dataInserts: report.dataInserts,
+    };
+  });
+
+  writeLocalJson(REPORT_UI_STATE_KEY, next);
   return { success: true };
 };
 
@@ -1928,22 +2129,27 @@ export async function fetchPricingConfigs() {
 
 // BACKWARD COMPAT STUBS
 
-export const fetchWorkforce = async () => {
+export const fetchWorkforce = async (branchId?: string) => {
   try {
-    const [members, units] = await Promise.all([fetchMembers(), fetchUnits()]);
+    const [workers, units] = await Promise.all([fetchMembers(branchId, undefined, true), fetchUnits()]);
     const roadmapStore = readLocalJson<Record<string, any[]>>(WORKFORCE_ROADMAPS_KEY, {});
     const unitDeptMap = new Map((units as any[]).map((unit: any) => [unit.id, unit.departmentId]));
     const workforce: any[] = [];
 
-    for (const member of members as any[]) {
-      const departmentIds = uniqueIds(
+    for (const member of workers as any[]) {
+      let departmentIds = uniqueIds(
         Array.isArray(member.departmentIds) && member.departmentIds.length > 0
           ? member.departmentIds
           : member.departmentId
             ? [member.departmentId]
             : []
       );
-      if (departmentIds.length === 0) continue;
+      
+      // Since they are obtained with isWorker=true, they belong in workforce.
+      // If the backend doesn't return nested department ids, assign a fallback array.
+      if (departmentIds.length === 0) {
+        departmentIds = ['unassigned-department'];
+      }
 
       const unitIds = uniqueIds(
         Array.isArray(member.unitIds) && member.unitIds.length > 0
@@ -1975,14 +2181,26 @@ export const fetchWorkforce = async () => {
   }
 };
 
-export const saveWorkforce = async (workforce: any[]) => {
+export const saveWorkforce = async (workforce: any[], options?: { syncAssignments?: boolean; removeEntryIds?: string[] }) => {
   const entries = Array.isArray(workforce) ? workforce : [];
-  const roadmapStore = Object.fromEntries(
-    entries
-      .filter((entry) => entry?.id)
-      .map((entry) => [entry.id, Array.isArray(entry.roadmapMarkers) ? entry.roadmapMarkers : []])
-  );
+  const existingRoadmapStore = readLocalJson<Record<string, any[]>>(WORKFORCE_ROADMAPS_KEY, {});
+  const roadmapStore = { ...existingRoadmapStore };
+
+  for (const entry of entries) {
+    if (!entry?.id) continue;
+    roadmapStore[entry.id] = Array.isArray(entry.roadmapMarkers) ? entry.roadmapMarkers : [];
+  }
+
+  for (const entryId of options?.removeEntryIds || []) {
+    if (!entryId) continue;
+    delete roadmapStore[entryId];
+  }
+
   writeLocalJson(WORKFORCE_ROADMAPS_KEY, roadmapStore);
+
+  if (options?.syncAssignments === false) {
+    return { success: true };
+  }
 
   try {
     const members = await fetchMembers();
@@ -2032,6 +2250,7 @@ export const saveWorkforce = async (workforce: any[]) => {
       if (!branchId) continue;
 
       updates.push(editMember(member.id, branchId, {
+        branchId: branchId,
         departmentIds: nextDepartmentIds,
         unitIds: nextUnitIds,
       }));
@@ -2065,5 +2284,8 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
   try { localStorage.setItem(MEMBER_CLASSES_KEY, JSON.stringify(classes)); } catch { /* ignore */ }
   return { success: true };
 };
+
+
+
 
 

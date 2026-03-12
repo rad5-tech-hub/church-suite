@@ -71,6 +71,7 @@ import {
   ProgramInstance,
 } from '../types';
 import {
+  fetchMember,
   fetchMembers,
   fetchWorkforce,
   saveWorkforce,
@@ -80,6 +81,7 @@ import {
   fetchUnits,
   fetchPrograms,
   fetchProgramInstances,
+  moveMember,
 } from '../api';
 
 type ActiveTab = 'workforce' | 'training';
@@ -286,6 +288,7 @@ export function Workforce() {
   // Data
   const [members, setMembers] = useState<Member[]>([]);
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
+  const [workforceMemberDetails, setWorkforceMemberDetails] = useState<Record<string, Member>>({});
   const [trainingPrograms, setTrainingPrograms] = useState<TrainingProgram[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -318,6 +321,8 @@ export function Workforce() {
 
   // ──────── VIEW / PROGRESS DIALOG ────────
   const [viewTarget, setViewTarget] = useState<WorkforceMember | null>(null);
+  const [viewMemberDetails, setViewMemberDetails] = useState<Member | null>(null);
+  const [viewMemberLoading, setViewMemberLoading] = useState(false);
 
   // ──────── DELETE CONFIRM ────────
   const [deleteTarget, setDeleteTarget] = useState<WorkforceMember | null>(null);
@@ -332,6 +337,10 @@ export function Workforce() {
   // ──────── ASSIGN PROGRAM DIALOG ────────
   const [assignTarget, setAssignTarget] = useState<WorkforceMember | null>(null);
   const [assignProgramId, setAssignProgramId] = useState('');
+
+  const getVisibleWorkforce = useCallback((entries: WorkforceMember[]) => {
+    return entries.filter((entry) => !entry.churchId || entry.churchId === church.id);
+  }, [church.id]);
 
   // Load
   const loadData = useCallback(async () => {
@@ -352,7 +361,19 @@ export function Workforce() {
         memberId: item.memberId || item.id,
         roadmapMarkers: item.roadmapMarkers || [],
       }));
-      setWorkforce(mappedWorkforce as WorkforceMember[]);
+      const visibleWorkforce = getVisibleWorkforce(mappedWorkforce as WorkforceMember[]);
+      setWorkforce(visibleWorkforce);
+
+      const uniqueWorkforceMemberIds = Array.from(new Set(visibleWorkforce.map(item => item.memberId).filter(Boolean)));
+      const memberDetailsResults = await Promise.allSettled(uniqueWorkforceMemberIds.map(memberId => fetchMember(memberId)));
+      const nextWorkforceMemberDetails = uniqueWorkforceMemberIds.reduce((acc, memberId, index) => {
+        const result = memberDetailsResults[index];
+        if (result.status === 'fulfilled' && result.value?.id) {
+          acc[memberId] = result.value as Member;
+        }
+        return acc;
+      }, {} as Record<string, Member>);
+      setWorkforceMemberDetails(nextWorkforceMemberDetails);
       setTrainingPrograms(trainingData as TrainingProgram[]);
       setDepartments(deptsData as Department[]);
       setUnits(unitsData as Unit[]);
@@ -363,23 +384,74 @@ export function Workforce() {
     } finally {
       setLoading(false);
     }
-  }, [church.id, branches]);
+  }, [church.id, branches, getVisibleWorkforce]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!viewTarget?.memberId) {
+      setViewMemberDetails(null);
+      setViewMemberLoading(false);
+      return;
+    }
+
+    setViewMemberLoading(true);
+    fetchMember(viewTarget.memberId)
+      .then((memberData) => {
+        if (!cancelled) {
+          setViewMemberDetails(memberData as Member);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load workforce member details:', err);
+        if (!cancelled) {
+          setViewMemberDetails(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setViewMemberLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewTarget?.memberId]);
 
   const { showToast } = useToast();
 
   // ──────── HELPERS ────────
-  const getMemberName = (memberId: string) =>
-    members.find(m => m.id === memberId)?.fullName || 'Unknown Member';
   const getMember = (memberId: string) =>
-    members.find(m => m.id === memberId);
+    workforceMemberDetails[memberId] || members.find(m => m.id === memberId);
+  const getMemberName = (memberId: string) =>
+    getMember(memberId)?.fullName || 'Unknown Member';
   const getDeptName = (deptId: string) =>
     departments.find(d => d.id === deptId)?.name || '';
   const getUnitName = (unitId?: string) =>
     unitId ? units.find(u => u.id === unitId)?.name || '' : '';
   const getBranchName = (branchId?: string) =>
     branchId ? branches.find(b => b.id === branchId)?.name || '' : '';
+  const getWorkerDepartmentName = (worker: WorkforceMember) => {
+    const departmentName = getDeptName(worker.departmentId);
+    if (departmentName) return departmentName;
+    const rawDepartments = (((workforceMemberDetails[worker.memberId] as any)?._raw?.departments) || []) as any[];
+    return rawDepartments.find(department => department?.id === worker.departmentId)?.name || '';
+  };
+  const getWorkerUnitName = (worker: WorkforceMember) => {
+    if (!worker.unitId) return '';
+    const unitName = getUnitName(worker.unitId);
+    if (unitName) return unitName;
+    const rawUnits = (((workforceMemberDetails[worker.memberId] as any)?._raw?.units) || []) as any[];
+    return rawUnits.find(unit => unit?.id === worker.unitId)?.name || '';
+  };
+  const getWorkerBranchName = (worker: WorkforceMember) => {
+    const branchName = getBranchName(worker.branchId);
+    if (branchName) return branchName;
+    return ((workforceMemberDetails[worker.memberId] as any)?._raw?.branch?.name) || '';
+  };
   const getProgramName = (programId: string) =>
     trainingPrograms.find(p => p.id === programId)?.name || 'Unknown Program';
 
@@ -465,7 +537,7 @@ export function Workforce() {
       };
       const updated = [...(allWf as WorkforceMember[]), newEntry];
       await saveWorkforce(updated);
-      setWorkforce(updated.filter(w => w.churchId === church.id));
+      setWorkforce(getVisibleWorkforce(updated));
       setAddDialogOpen(false);
       resetAddForm();
       showToast(`"${getMemberName(selectedMemberId)}" added to the workforce.`);
@@ -493,7 +565,7 @@ export function Workforce() {
           : w
       );
       await saveWorkforce(updated);
-      setWorkforce(updated.filter(w => w.churchId === church.id));
+      setWorkforce(getVisibleWorkforce(updated));
       setEditDialogOpen(false);
       setEditTarget(null);
       showToast(`Workforce entry updated.`);
@@ -510,13 +582,24 @@ export function Workforce() {
     const name = getMemberName(deleteTarget.memberId);
     try {
       const allWf = [...workforce];
-      const updated = (allWf as WorkforceMember[]).filter(w => w.id !== deleteTarget.id);
-      await saveWorkforce(updated);
-      setWorkforce(updated.filter(w => w.churchId === church.id));
+      const removedEntryIds = (allWf as WorkforceMember[])
+        .filter(w => w.memberId === deleteTarget.memberId)
+        .map(w => w.id);
+      const updated = (allWf as WorkforceMember[]).filter(w => w.memberId !== deleteTarget.memberId);
+
+      const member = getMember(deleteTarget.memberId);
+      const branchId = deleteTarget.branchId || member?.branchId || currentAdmin?.branchId || localBranches[0]?.id || branches[0]?.id || '';
+
+      if (!branchId) throw new Error('Unable to resolve member branch for workforce removal.');
+      await moveMember(deleteTarget.memberId, branchId);
+
+      await saveWorkforce(updated, { syncAssignments: false, removeEntryIds: removedEntryIds });
+      setWorkforce(getVisibleWorkforce(updated));
       setDeleteTarget(null);
       showToast(`"${name}" removed from workforce.`);
     } catch (err: any) {
       console.error('Failed to delete workforce:', err);
+      showToast(err?.message || 'Failed to remove member from workforce.', 'error');
     } finally {
       setSaving(false);
     }
@@ -577,7 +660,7 @@ export function Workforce() {
         roadmapMarkers: w.roadmapMarkers.filter(m => m.programId !== deleteProgram.id),
       }));
       await saveWorkforce(updatedWf);
-      setWorkforce(updatedWf.filter(w => w.churchId === church.id));
+      setWorkforce(getVisibleWorkforce(updatedWf));
 
       const allProgs = [...trainingPrograms];
       const updated = (allProgs as TrainingProgram[]).filter(p => p.id !== deleteProgram.id);
@@ -614,7 +697,7 @@ export function Workforce() {
           : w
       );
       await saveWorkforce(updated);
-      const churchWf = updated.filter(w => w.churchId === church.id);
+      const churchWf = getVisibleWorkforce(updated);
       setWorkforce(churchWf);
       // Refresh viewTarget if open
       if (viewTarget?.id === assignTarget.id) {
@@ -650,7 +733,7 @@ export function Workforce() {
         };
       });
       await saveWorkforce(updated);
-      const churchWf = updated.filter(w => w.churchId === church.id);
+      const churchWf = getVisibleWorkforce(updated);
       setWorkforce(churchWf);
       if (viewTarget?.id === workerId) {
         setViewTarget(churchWf.find(w => w.id === workerId) || null);
@@ -672,7 +755,7 @@ export function Workforce() {
         return { ...w, roadmapMarkers: w.roadmapMarkers.filter(m => m.id !== markerId) };
       });
       await saveWorkforce(updated);
-      const churchWf = updated.filter(w => w.churchId === church.id);
+      const churchWf = getVisibleWorkforce(updated);
       setWorkforce(churchWf);
       if (viewTarget?.id === workerId) {
         setViewTarget(churchWf.find(w => w.id === workerId) || null);
@@ -811,12 +894,12 @@ export function Workforce() {
                             <div className="flex-1">
                               <CardTitle className="text-base">{member?.fullName || 'Unknown'}</CardTitle>
                               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                <Badge variant="outline" className="text-xs">{getDeptName(worker.departmentId)}</Badge>
+                                <Badge variant="outline" className="text-xs">{getWorkerDepartmentName(worker)}</Badge>
                                 {worker.unitId && (
-                                  <Badge variant="secondary" className="text-xs">{getUnitName(worker.unitId)}</Badge>
+                                  <Badge variant="secondary" className="text-xs">{getWorkerUnitName(worker)}</Badge>
                                 )}
                                 {isMultiBranch && worker.branchId && (
-                                  <span className="text-xs text-gray-400">{getBranchName(worker.branchId)}</span>
+                                  <span className="text-xs text-gray-400">{getWorkerBranchName(worker)}</span>
                                 )}
                               </div>
                             </div>
@@ -1169,14 +1252,33 @@ export function Workforce() {
       <Dialog open={!!viewTarget} onOpenChange={(o) => { if (!o) setViewTarget(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{viewTarget ? getMemberName(viewTarget.memberId) : ''}</DialogTitle>
+            <DialogTitle>{viewMemberDetails?.fullName || (viewTarget ? getMemberName(viewTarget.memberId) : '')}</DialogTitle>
             <DialogDescription>Workforce profile and training progress</DialogDescription>
           </DialogHeader>
           {viewTarget && (() => {
-            const member = getMember(viewTarget.memberId);
+            const member = viewMemberDetails || getMember(viewTarget.memberId);
+            const memberRaw = (viewMemberDetails as any)?._raw;
+            const branchName = memberRaw?.branch?.name || (viewTarget.branchId ? getBranchName(viewTarget.branchId) : '');
+            const memberDepartmentNames = Array.isArray(memberRaw?.departments)
+              ? memberRaw.departments.map((department: any) => department?.name).filter(Boolean)
+              : [];
+            const memberUnitNames = Array.isArray(memberRaw?.units)
+              ? memberRaw.units.map((unit: any) => unit?.name).filter(Boolean)
+              : [];
+            const contactBits = [
+              member?.phone,
+              member?.whatsapp ? 'WhatsApp: ' + member.whatsapp : '',
+              member?.email,
+            ].filter(Boolean);
             const progress = getProgressPercentage(viewTarget);
             return (
               <div className="space-y-5 mt-2">
+                {viewMemberLoading && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading member details...
+                  </div>
+                )}
                 {/* Assignment info */}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
                   <div className="flex items-center gap-2">
@@ -1191,15 +1293,27 @@ export function Workforce() {
                       <span>{getUnitName(viewTarget.unitId)}</span>
                     </div>
                   )}
-                  {isMultiBranch && viewTarget.branchId && (
+                  {branchName && (
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-700">Branch:</span>
-                      <span>{getBranchName(viewTarget.branchId)}</span>
+                      <span>{branchName}</span>
                     </div>
                   )}
-                  {member && (
+                  {contactBits.length > 0 && (
                     <div className="flex items-center gap-2 pt-1 border-t border-gray-200 mt-2">
-                      <span className="text-xs text-gray-500">{member.phone} {member.email ? `| ${member.email}` : ''}</span>
+                      <span className="text-xs text-gray-500">{contactBits.join(' | ')}</span>
+                    </div>
+                  )}
+                  {memberDepartmentNames.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-gray-700">Member Departments:</span>
+                      <span>{memberDepartmentNames.join(', ')}</span>
+                    </div>
+                  )}
+                  {memberUnitNames.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium text-gray-700">Member Units:</span>
+                      <span>{memberUnitNames.join(', ')}</span>
                     </div>
                   )}
                 </div>

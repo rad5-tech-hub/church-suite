@@ -228,7 +228,6 @@ export function Admins() {
     .filter((level) => !(church.type === 'single' && level === 'branch'));
   const editableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'edit')
     .filter((level) => !(church.type === 'single' && level === 'branch'));
-  const formAccessLevels = dialogMode === 'edit' ? editableAdminLevels : creatableAdminLevels;
   const defaultCreatableAdminLevel = creatableAdminLevels[0] || 'church';
   const canCreateAnyAdmin = creatableAdminLevels.length > 0;
   const canEditAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'edit') : false;
@@ -236,6 +235,7 @@ export function Admins() {
   const canSuspendAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'suspend') : false;
   const canResetPasswordForAdmin = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'reset-password') : false;
   const canViewPasswordForAdmin = (admin: Admin | null | undefined) => canResetPasswordForAdmin(admin);
+  const formAccessLevels = dialogMode === 'edit' ? getEditFormAccessLevels(selectedAdmin) : creatableAdminLevels;
   const hasAdminRowActions = (admin: Admin) => (
     canEditAdminRecord(admin)
     || canSuspendAdminRecord(admin)
@@ -267,6 +267,28 @@ export function Admins() {
     setShowCustomizePermissions(false);
     setFormProfilePicture(undefined);
   };
+
+  function getEditFormAccessLevels(admin: Admin | null) {
+    if (!admin || !canEditAdminRecord(admin)) {
+      return editableAdminLevels;
+    }
+
+    const levels = ['church', 'branch', 'department', 'unit'] as AdminLevel[];
+    const currentLevelIndex = levels.indexOf(admin.level);
+
+    if (currentLevelIndex === -1) {
+      return editableAdminLevels;
+    }
+
+    const allowedLevels = new Set<AdminLevel>(editableAdminLevels);
+    levels.slice(currentLevelIndex).forEach((level) => {
+      if (!(church.type === 'single' && level === 'branch')) {
+        allowedLevels.add(level);
+      }
+    });
+
+    return levels.filter((level) => allowedLevels.has(level));
+  }
 
   const { showToast } = useToast();
   const showSuccess = showToast;
@@ -471,8 +493,10 @@ export function Admins() {
     setSaving(true);
 
     try {
+      const nextIsSuperAdmin = selectedAdmin.isSuperAdmin && formLevel === 'church';
+      const effectiveScopeLevel = nextIsSuperAdmin ? 'church' : formLevel;
       const effectiveBranchIds =
-        formLevel === 'church'
+        effectiveScopeLevel === 'church'
           ? []
           : formBranchIds.length > 0
             ? formBranchIds
@@ -485,28 +509,31 @@ export function Admins() {
                   : branches[0]?.id
                     ? [branches[0].id]
                     : [];
-      const effectiveDepartmentIds = ['department', 'unit'].includes(formLevel) ? formDepartmentIds : [];
+      const effectiveDepartmentIds = ['department', 'unit'].includes(effectiveScopeLevel) ? formDepartmentIds : [];
+      const effectiveUnitIds = effectiveScopeLevel === 'unit' ? formUnitIds : [];
       const effectiveBranchId = effectiveBranchIds[0];
 
       const hasBaseChanges =
         formName.trim() !== selectedAdmin.name ||
         formEmail.trim() !== selectedAdmin.email ||
         (formPhone.trim() || '') !== (selectedAdmin.phone || '') ||
-        formLevel !== selectedAdmin.level ||
+        effectiveScopeLevel !== selectedAdmin.level ||
+        nextIsSuperAdmin !== selectedAdmin.isSuperAdmin ||
         effectiveBranchIds.join(',') !== (selectedAdmin.branchIds || []).join(',') ||
         effectiveDepartmentIds.join(',') !== (selectedAdmin.departmentIds || []).join(',') ||
-        (formLevel === 'unit' && formUnitIds.join(',') !== (selectedAdmin.unitIds || []).join(','));
+        effectiveUnitIds.join(',') !== (selectedAdmin.unitIds || []).join(',');
 
       if (hasBaseChanges) {
         await editAdmin(selectedAdmin.id, {
           name: formName.trim(),
           email: formEmail.trim(),
           phone: formPhone.trim() || undefined,
-          scopeLevel: formLevel,
+          isSuperAdmin: nextIsSuperAdmin,
+          scopeLevel: effectiveScopeLevel,
           branchIds: effectiveBranchIds.length > 0 ? effectiveBranchIds : undefined,
           departmentIds: effectiveDepartmentIds.length > 0 ? effectiveDepartmentIds : undefined,
-          ...(formLevel === 'unit' && formUnitIds.length > 0 ? { unitIds: formUnitIds } : {}),
-        } as any);
+          unitIds: effectiveUnitIds.length > 0 ? effectiveUnitIds : undefined,
+        });
       }
 
       if (formRoleId && formRoleId !== selectedAdmin.roleId) {
@@ -1039,6 +1066,11 @@ export function Admins() {
                 <Label>Access Level *</Label>
                 <p className="text-xs text-gray-500 mt-1">This determines what parts of the church this administrator can manage</p>
               </div>
+              {dialogMode === 'edit' && selectedAdmin?.isSuperAdmin && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  This administrator is currently a Super Admin. Choose a smaller access level below to remove Super Admin access when you save.
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {formAccessLevels.map((level) => {
                   const info = ACCESS_LEVEL_INFO[level];

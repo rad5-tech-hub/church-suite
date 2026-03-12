@@ -34,7 +34,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Member, WorkforceMember, Department, Unit, MemberTrainingClass, NewcomerTrainingStatus } from '../types';
-import { fetchMembers, createMember, editMember, suspendMember, saveMembers, saveWorkforce, fetchWorkforce, fetchDepartments, fetchUnits, fetchMemberTrainingClasses, saveMemberTrainingClasses, fetchBranches as fetchBranchesApi, createBranch } from '../api';
+import { fetchMembers, fetchMember, createMember, createWorkforceMember, editMember, suspendMember, saveMembers, saveWorkforce, fetchWorkforce, fetchDepartments, fetchUnits, fetchMemberTrainingClasses, saveMemberTrainingClasses, fetchBranches as fetchBranchesApi, createBranch } from '../api';
 import { COUNTRIES, MONTHS, AGE_RANGES } from '../data/countries';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
@@ -57,6 +57,7 @@ export function Members() {
   const [localBranches, setLocalBranches] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -83,6 +84,11 @@ export function Members() {
   const [fBranchId, setFBranchId] = useState('');
   const [fCountry, setFCountry] = useState('');
   const [fState, setFState] = useState('');
+  const [fLGA, setFLGA] = useState('');
+  const [fActivity, setFActivity] = useState('');
+  const [fComments, setFComments] = useState('');
+  const [fDepartmentIds, setFDepartmentIds] = useState<string[]>([]);
+  const [fUnitIds, setFUnitIds] = useState<string[]>([]);
 
   // Move to workforce dialog
   const [moveTargets, setMoveTargets] = useState<Member[]>([]);
@@ -144,6 +150,7 @@ export function Members() {
     setFEmail(''); setFYearJoined(''); setFMaritalStatus(''); setFAddress('');
     setFAgeRange(''); setFBirthdayMonth(''); setFBirthdayDay(''); setFBirthdayYear('');
     setFBranchId(''); setFCountry(''); setFState('');
+    setFLGA(''); setFActivity(''); setFComments(''); setFDepartmentIds([]); setFUnitIds([]);
   };
   const populateForm = (m: Member) => {
     setFFullName(m.fullName); setFGender(m.gender); setFPhone(m.phone);
@@ -153,11 +160,34 @@ export function Members() {
     setFBirthdayMonth(String(m.birthdayMonth)); setFBirthdayDay(String(m.birthdayDay));
     setFBirthdayYear(m.birthdayYear ? String(m.birthdayYear) : '');
     setFBranchId(m.branchId || ''); setFCountry(m.country); setFState(m.state);
+    setFLGA(m.LGA || ''); setFActivity(m.activity || ''); setFComments(m.comments || '');
+    setFDepartmentIds(m.departmentIds || []); setFUnitIds(m.unitIds || []);
+  };
+
+  const handleOpenMemberModal = async (member: Member, mode: DialogMode) => {
+    setSelectedMember(member);
+    populateForm(member);
+    setDialogMode(mode);
+    
+    // Fetch full details in background
+    setLoadingDetails(true);
+    try {
+      const fullMember = await fetchMember(member.id);
+      if (fullMember) {
+        setSelectedMember(fullMember);
+        populateForm(fullMember);
+      }
+    } catch (err) {
+      console.error('Failed to fetch full member details', err);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const selectedCountryStates = COUNTRIES.find(c => c.name === fCountry)?.states || [];
   const isFormValid = fFullName.trim() && fGender && fPhone.trim() && fYearJoined && fMaritalStatus && fAddress.trim() && fBirthdayMonth && fBirthdayDay && fCountry && fState;
   const currentYear = new Date().getFullYear();
+  const isEditMode = dialogMode === 'edit';
 
   const isInWorkforce = (memberId: string) => workforce.some(w => w.memberId === memberId);
   const wfCount = useMemo(() => {
@@ -200,9 +230,8 @@ export function Members() {
       const { ageFrom, ageTo } = parseAgeRange(fAgeRange);
       const normalizedEmail = fEmail.trim() || undefined;
       const normalizedWhatsapp = fWhatsapp.trim() || undefined;
-      const normalizedBirthdayYear = fBirthdayYear ? parseInt(fBirthdayYear, 10) : undefined;
 
-      const created = await createMember({
+      await createMember({
         name: fFullName.trim(),
         address: fAddress.trim(),
         phoneNo: fPhone.trim(),
@@ -215,26 +244,14 @@ export function Members() {
         birthDay: fBirthdayDay ? padTwo(fBirthdayDay) : undefined,
         nationality: fCountry,
         state: fState,
+        LGA: fLGA || undefined,
         maritalStatus: fMaritalStatus,
         memberSince: fYearJoined,
+        activity: fActivity || undefined,
+        comments: fComments || undefined,
+        departmentIds: fDepartmentIds.length > 0 ? fDepartmentIds : undefined,
+        unitIds: fUnitIds.length > 0 ? fUnitIds : undefined,
       }, church.id, resolvedBranchId);
-
-      const createdId = created?.data?.id || created?.member?.id || created?.id;
-      if (createdId) {
-        await saveMembers([
-          {
-            id: createdId,
-            fullName: fFullName.trim(),
-            branchId: resolvedBranchId,
-            phone: fPhone.trim(),
-            whatsapp: normalizedWhatsapp,
-            email: normalizedEmail,
-            address: fAddress.trim(),
-            ageRange: fAgeRange || undefined,
-            birthdayYear: Number.isNaN(normalizedBirthdayYear) ? undefined : normalizedBirthdayYear,
-          },
-        ]);
-      }
 
       await loadData();
       setDialogMode(null);
@@ -252,7 +269,16 @@ export function Members() {
       const nextBranchId = showMultiBranch ? (fBranchId || branchId) : branchId;
       const { ageFrom, ageTo } = parseAgeRange(fAgeRange);
 
+      const normalizedEmail = fEmail.trim() || undefined;
+      const normalizedWhatsapp = fWhatsapp.trim() || undefined;
+
       await editMember(selectedMember.id, branchId, {
+        branchId: nextBranchId,
+        name: fFullName.trim(),
+        address: fAddress.trim(),
+        phoneNo: fPhone.trim(),
+        whatappNo: normalizedWhatsapp,
+        email: normalizedEmail,
         sex: fGender as 'male' | 'female',
         ageFrom,
         ageTo,
@@ -260,38 +286,20 @@ export function Members() {
         birthDay: fBirthdayDay ? padTwo(fBirthdayDay) : undefined,
         nationality: fCountry,
         state: fState,
+        LGA: fLGA || undefined,
         maritalStatus: fMaritalStatus,
         memberSince: fYearJoined,
+        activity: fActivity || undefined,
+        comments: fComments || undefined,
+        departmentIds: fDepartmentIds.length > 0 ? fDepartmentIds : undefined,
+        unitIds: fUnitIds.length > 0 ? fUnitIds : undefined,
       });
 
-      const updatedMembers = members.map((member) =>
-        member.id === selectedMember.id
-          ? {
-              ...member,
-              fullName: fFullName.trim(),
-              gender: fGender as 'male' | 'female',
-              phone: fPhone.trim(),
-              whatsapp: fWhatsapp.trim() || undefined,
-              email: fEmail.trim() || undefined,
-              yearJoined: parseInt(fYearJoined, 10) || member.yearJoined,
-              maritalStatus: fMaritalStatus as Member['maritalStatus'],
-              address: fAddress.trim(),
-              ageRange: fAgeRange || undefined,
-              birthdayMonth: parseInt(fBirthdayMonth, 10) || member.birthdayMonth,
-              birthdayDay: parseInt(fBirthdayDay, 10) || member.birthdayDay,
-              birthdayYear: fBirthdayYear ? parseInt(fBirthdayYear, 10) : undefined,
-              branchId: nextBranchId,
-              country: fCountry,
-              state: fState,
-            }
-          : member
-      );
-      await saveMembers(updatedMembers);
       await loadData();
       setDialogMode(null);
       setSelectedMember(null);
       resetForm();
-      showToast(`"${fFullName.trim()}" updated.`);
+      showToast('Member updated.');
     } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
     finally { setSaving(false); }
   };
@@ -315,23 +323,54 @@ export function Members() {
     setSaving(true);
     try {
       const allWf = await fetchWorkforce();
-      const existingIds = new Set((allWf as WorkforceMember[]).map(w => w.memberId));
-      const newEntries: WorkforceMember[] = moveTargets
-        .filter(m => !existingIds.has(m.id))
-        .map(m => ({
-          id: `wf-${Date.now()}-${m.id}`, churchId: church.id, memberId: m.id,
-          branchId: moveBranchId || m.branchId, departmentId: moveDeptId, unitId: (moveUnitId && moveUnitId !== 'none') ? moveUnitId : undefined,
-          roadmapMarkers: [], createdAt: new Date(),
-        }));
-      if (newEntries.length === 0) {
-        showToast('All selected members are already in the workforce.');
+      const existingAssignments = new Set((allWf as WorkforceMember[]).map(w => `${w.memberId}-${w.departmentId}`));
+      const filteredTargets = moveTargets.filter(m => !existingAssignments.has(`${m.id}-${moveDeptId}`));
+      
+      if (filteredTargets.length === 0) {
+        showToast('All selected members are already in this department of the workforce.');
         setMoveTargets([]); setSaving(false); return;
       }
-      const updated = [...(allWf as WorkforceMember[]), ...newEntries];
-      await saveWorkforce(updated);
-      setWorkforce(updated.filter(w => w.churchId === church.id));
+
+      let createdCount = 0;
+      for (const m of filteredTargets) {
+        const { ageFrom, ageTo } = parseAgeRange(m.ageRange || '');
+        try {
+          // Attempt to create the workforce member
+          await createWorkforceMember({
+            name: m.fullName,
+            address: m.address,
+            whatappNo: m.whatsapp || undefined,
+            phoneNo: m.phone,
+            email: m.email || undefined,
+            sex: m.gender,
+            ageFrom,
+            ageTo,
+            birthMonth: m.birthdayMonth ? String(m.birthdayMonth).padStart(2, '0') : undefined,
+            birthDay: m.birthdayDay ? String(m.birthdayDay).padStart(2, '0') : undefined,
+            state: m.state,
+            LGA: m.LGA,
+            nationality: m.country,
+            maritalStatus: m.maritalStatus,
+            memberSince: String(m.yearJoined),
+            branchId: moveBranchId || m.branchId,
+            departmentIds: [moveDeptId, ...(m.departmentIds || [])],
+            unitIds: [moveUnitId && moveUnitId !== 'none' ? moveUnitId : undefined, ...(m.unitIds || [])].filter(Boolean) as string[],
+            comments: m.comments,
+          }, church.id);
+
+          // We successfully "moved" them by creating a workforce member.
+          // Now suspend the old non-worker duplicate.
+          await suspendMember(m.id, m.branchId || '');
+          createdCount++;
+        } catch (err: any) {
+          console.error(`Failed to move ${m.fullName}:`, err);
+          showToast(`Error moving ${m.fullName}: ${err.message || 'Permission denied'}`, 'error');
+        }
+      }
+      
+      await loadData(); // refresh from backend since IDs changed
       setMoveTargets([]); setMoveDeptId(''); setMoveUnitId(''); setMoveBranchId(''); setSelectedIds([]);
-      showToast(`${newEntries.length} member(s) added to the workforce.`);
+      showToast(`${createdCount} member(s) moved to the workforce.`);
     } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
     finally { setSaving(false); }
   };
@@ -406,7 +445,7 @@ export function Members() {
     return branches.find(b => b.id === id)?.name || localBranches.find(b => b.id === id)?.name || '';
   };
   const getMonthName = (m: number) => MONTHS.find(mo => mo.value === m)?.label || '';
-  const formatBirthday = (m: Member) => `${getMonthName(m.birthdayMonth)} ${m.birthdayDay}${m.birthdayYear ? `, ${m.birthdayYear}` : ''}`;
+  const formatBirthday = (m: Member) => (m.birthdayMonth && m.birthdayDay) ? `${getMonthName(m.birthdayMonth)} ${m.birthdayDay}${m.birthdayYear ? `, ${m.birthdayYear}` : ''}` : '-';
   const formatMemberAddress = (member: Member) => [member.address, member.state, member.country].filter(Boolean).join(', ');
   const daysInMonth = (month: string) => { if (!month) return 31; const m = parseInt(month); if ([4, 6, 9, 11].includes(m)) return 30; if (m === 2) return 29; return 31; };
 
@@ -552,8 +591,8 @@ export function Members() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button variant="ghost" size="sm" title="Move to Workforce" onClick={() => setMoveTargets([member])}><Briefcase className="w-4 h-4 text-blue-500" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); populateForm(member); setDialogMode('view'); }}><Eye className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); populateForm(member); setDialogMode('edit'); }}><Edit className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleOpenMemberModal(member, 'view')}><Eye className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleOpenMemberModal(member, 'edit')}><Edit className="w-4 h-4" /></Button>
                               <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(member)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
                             </div>
                           </TableCell>
@@ -584,8 +623,8 @@ export function Members() {
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="sm" onClick={() => setMoveTargets([member])}><Briefcase className="w-4 h-4 text-blue-500" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); populateForm(member); setDialogMode('view'); }}><Eye className="w-4 h-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => { setSelectedMember(member); populateForm(member); setDialogMode('edit'); }}><Edit className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenMemberModal(member, 'view')}><Eye className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenMemberModal(member, 'edit')}><Edit className="w-4 h-4" /></Button>
                           </div>
                         </div>
                         <div className="space-y-1.5">
@@ -735,7 +774,9 @@ export function Members() {
           <DialogHeader>
             <DialogTitle>{dialogMode === 'create' ? 'Add New Member' : 'Edit Member'}</DialogTitle>
             <DialogDescription>
-              {dialogMode === 'create' ? 'Fill in the details below to add a new church member. Fields marked with * are required.' : "Update this member's information."}
+              {dialogMode === 'create'
+                ? 'Fill in the details below to add a new church member. Fields marked with * are required.'
+                : 'Update this member using the fields the backend currently supports.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 mt-2">
@@ -782,6 +823,41 @@ export function Members() {
                 ) : <Input value={fState} onChange={e => setFState(e.target.value)} placeholder="Enter state" />}
               </div>
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>LGA <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={fLGA} onChange={e => setFLGA(e.target.value)} placeholder="Local Government Area" /></div>
+              <div className="space-y-2"><Label>Activity Status</Label>
+                <Select value={fActivity} onValueChange={setFActivity}><SelectTrigger><SelectValue placeholder="Select activity" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
+              </div>
+            </div>
+            <div className="space-y-2"><Label>Comments <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={fComments} onChange={e => setFComments(e.target.value)} placeholder="Additional notes..." /></div>
+            <div className="space-y-2"><Label>Departments <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3 max-h-32 overflow-y-auto">
+                {departments.map(d => (
+                  <div key={d.id} className="flex items-center space-x-2">
+                    <Checkbox checked={fDepartmentIds.includes(d.id)} onCheckedChange={(c) => {
+                      if (c) setFDepartmentIds([...fDepartmentIds, d.id]);
+                      else setFDepartmentIds(fDepartmentIds.filter(id => id !== d.id));
+                    }} />
+                    <label className="text-sm font-medium leading-none">{d.name}</label>
+                  </div>
+                ))}
+                {departments.length === 0 && <span className="text-sm text-gray-500">No departments</span>}
+              </div>
+            </div>
+            <div className="space-y-2"><Label>Units <span className="text-gray-400 font-normal">(optional)</span></Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3 max-h-32 overflow-y-auto">
+                {units.map(u => (
+                  <div key={u.id} className="flex items-center space-x-2">
+                    <Checkbox checked={fUnitIds.includes(u.id)} onCheckedChange={(c) => {
+                      if (c) setFUnitIds([...fUnitIds, u.id]);
+                      else setFUnitIds(fUnitIds.filter(id => id !== u.id));
+                    }} />
+                    <label className="text-sm font-medium leading-none">{u.name}</label>
+                  </div>
+                ))}
+                {units.length === 0 && <span className="text-sm text-gray-500">No units</span>}
+              </div>
+            </div>
             {showMultiBranch && (
               <div className="space-y-2"><Label>Branch <span className="text-gray-400 font-normal">(optional)</span></Label>
                 <Select value={fBranchId} onValueChange={setFBranchId}><SelectTrigger><SelectValue placeholder="Select branch" /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent></Select>
@@ -805,8 +881,9 @@ export function Members() {
             <div className="max-h-[90vh] overflow-y-auto rounded-[22px] border border-gray-200 bg-white p-5 shadow-[0_28px_70px_rgba(15,23,42,0.18)] sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <DialogHeader className="gap-1 pr-8 text-left">
-                  <DialogTitle className="text-[1.7rem] font-semibold tracking-tight text-gray-900">
+                  <DialogTitle className="flex items-center gap-2 text-[1.7rem] font-semibold tracking-tight text-gray-900">
                     {selectedMember.fullName}
+                    {loadingDetails && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                   </DialogTitle>
                   <DialogDescription className="text-sm text-gray-500">
                     Member details and contact info
@@ -881,30 +958,29 @@ export function Members() {
                 </p>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3">
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  className="flex-1 min-w-fit h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
                   onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }}
-                  disabled={isInWorkforce(selectedMember.id)}
                 >
-                  <Briefcase className="mr-2 h-4 w-4" />
-                  {isInWorkforce(selectedMember.id) ? 'In Workforce' : 'Move to Workforce'}
+                  <Briefcase className="mr-2 h-4 w-4 shrink-0" />
+                  {isInWorkforce(selectedMember.id) ? 'Add Another Dept' : 'Move to Workforce'}
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
+                  className="flex-1 min-w-fit h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
                   onClick={() => setDialogMode('edit')}
                 >
-                  <Edit className="mr-2 h-4 w-4" />
+                  <Edit className="mr-2 h-4 w-4 shrink-0" />
                   Edit
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50 hover:text-red-600"
+                  className="flex-1 min-w-fit h-11 rounded-xl border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50 hover:text-red-600"
                   onClick={() => { setDialogMode(null); setDeleteTarget(selectedMember); }}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="mr-2 h-4 w-4 shrink-0" />
                   Delete
                 </Button>
               </div>

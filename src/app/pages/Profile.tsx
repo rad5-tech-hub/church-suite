@@ -54,7 +54,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme, lightenColor, DEFAULT_PRIMARY, DEFAULT_PRIMARY_LIGHT } from '../context/ThemeContext';
 import { editAdmin, saveChurchConfig, uploadLogoWithProgress } from '../api';
-import { CURRENCIES } from './Finance';
+import { CURRENCIES } from '../constants/currencies';
 
 type ProfileTab = 'personal' | 'church' | 'appearance' | 'help';
 

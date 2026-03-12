@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
 import { BibleLoader } from '../components/BibleLoader';
@@ -55,6 +55,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip } from '
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { resolvePrimaryBranchId } from '../utils/scope';
 import {
   Program,
   ProgramInstance,
@@ -70,6 +71,9 @@ import {
   fetchPrograms,
   savePrograms,
   createEvent,
+  createEventAttendance,
+  editEventOccurrence,
+  fetchEventOccurrence,
   softDeleteEvent,
   fetchProgramInstances,
   saveProgramInstances,
@@ -92,11 +96,26 @@ function RequiredStar() {
   return <span className="text-red-500 ml-0.5">*</span>;
 }
 
+
+function formatApiTime(time: string) {
+  if (!time) return "";
+  return /^\d{2}:\d{2}:\d{2}$/.test(time) ? time : `${time}:00`;
+}
+
+function toTimeInputValue(time?: string) {
+  if (!time) return '';
+  const match = String(time).match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : String(time);
+}
+
 export function Programs() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
   const isMultiBranch = church.type === 'multi' && branches.length > 0;
-  const resolvedBranchId = isMultiBranch ? undefined : branches[0]?.id;
+  const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
+  const resolvedBranchId = isMultiBranch
+    ? (currentAdmin?.level === 'church' ? undefined : primaryBranchId)
+    : primaryBranchId;
 
   // Data
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -150,33 +169,43 @@ export function Programs() {
   const [mChildren, setMChildren] = useState('');
   const [mWorkforceChecked, setMWorkforceChecked] = useState<string[]>([]);
   const [mCollAmounts, setMCollAmounts] = useState<Record<string, string>>({});
+  const [manageLoading, setManageLoading] = useState(false);
+  const manageRequestRef = useRef<string | null>(null);
 
   // Load
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [progs, insts, deps, wf, colls, mems, cts] = await Promise.all([
+      const [progs, insts, deps, wf, colls, mems, cts] = await Promise.allSettled([
         fetchPrograms(resolvedBranchId),
         fetchProgramInstances(),
-        fetchDepartments(),
-        fetchWorkforce(),
-        fetchCollections(),
-        fetchMembers(),
+        fetchDepartments(resolvedBranchId),
+        fetchWorkforce(resolvedBranchId),
+        fetchCollections(resolvedBranchId),
+        fetchMembers(resolvedBranchId),
         fetchCollectionTypes(),
       ]);
-      setPrograms(progs as Program[]);
-      setInstances(insts as ProgramInstance[]);
-      setDepartments(deps as Department[]);
-      setWorkforce(wf as WorkforceMember[]);
-      setCollections(colls as Collection[]);
-      setMembers(mems as Member[]);
-      setFinanceCollectionTypes(cts as CollectionType[]);
+
+      setPrograms(progs.status === 'fulfilled' ? progs.value as Program[] : []);
+      setInstances(insts.status === 'fulfilled' ? insts.value as ProgramInstance[] : []);
+      setDepartments(deps.status === 'fulfilled' ? deps.value as Department[] : []);
+      setWorkforce(wf.status === 'fulfilled' ? wf.value as WorkforceMember[] : []);
+      setCollections(colls.status === 'fulfilled' ? colls.value as Collection[] : []);
+      setMembers(mems.status === 'fulfilled' ? mems.value as Member[] : []);
+      setFinanceCollectionTypes(cts.status === 'fulfilled' ? cts.value as CollectionType[] : []);
+
+      [insts, deps, wf, colls, mems, cts].forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const labels = ['program instances', 'departments', 'workforce', 'collections', 'members', 'collection types'];
+          console.warn(`Programs page: failed to load ${labels[index]}.`, result.reason);
+        }
+      });
     } catch (err) {
       console.error('Failed to load programs data:', err);
     } finally {
       setLoading(false);
     }
-  }, [church.id]);
+  }, [resolvedBranchId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -189,6 +218,51 @@ export function Programs() {
     if (id === 'churchwide') return 'Church-wide';
     return branches.find(b => b.id === id)?.name || '';
   };
+  const getPrimaryOccurrence = (prog: Program) => {
+    const occurrences = ((prog as any).occurrences || (prog as any)._raw?.occurrences) as Array<{ id?: string; date?: string; branchId?: string }> | undefined;
+    return Array.isArray(occurrences) && occurrences.length > 0 ? occurrences[0] : undefined;
+  };
+
+  const getOccurrenceForDate = (prog: Program, date: string) => {
+    const occurrences = ((prog as any).occurrences || (prog as any)._raw?.occurrences) as Array<{ id?: string; date?: string; branchId?: string; hasAttendance?: boolean }> | undefined;
+    if (!Array.isArray(occurrences) || occurrences.length === 0) return undefined;
+    return occurrences.find((occurrence) => (occurrence.date || '').split('T')[0] === date) || occurrences[0];
+  };
+
+  const getProgramBranchSelection = (prog?: Program | null) => {
+    if (!prog) return '';
+
+    const occurrence = getPrimaryOccurrence(prog);
+    const explicitBranchId =
+      prog.branchId ||
+      occurrence?.branchId ||
+      (prog as any)._raw?.branchId ||
+      '';
+
+    if (explicitBranchId) return explicitBranchId;
+    if (!isMultiBranch) return resolvedBranchId || primaryBranchId || branches[0]?.id || '';
+    if (currentAdmin?.level && currentAdmin.level !== 'church') {
+      return resolvedBranchId || primaryBranchId || '';
+    }
+
+    return '';
+  };
+
+  const resolveEventEditRouteBranchId = (prog: Program, selectedBranchId: string) => {
+    const occurrence = getPrimaryOccurrence(prog);
+    const candidateBranchIds = [
+      selectedBranchId && selectedBranchId !== 'churchwide' ? selectedBranchId : '',
+      prog.branchId && prog.branchId !== 'churchwide' ? prog.branchId : '',
+      occurrence?.branchId || '',
+      (prog as any)._raw?.branchId || '',
+      resolvedBranchId || '',
+      primaryBranchId || '',
+      branches[0]?.id || '',
+    ];
+
+    return candidateBranchIds.find(Boolean) || '';
+  };
+
   const getMemberName = (memberId: string) => members.find(m => m.id === memberId)?.fullName || 'Unknown Member';
 
   const deptsForBranch = (branchId: string) => departments.filter(d => d.branchId === branchId);
@@ -201,12 +275,10 @@ export function Programs() {
     return `${hr}:${m.toString().padStart(2, '0')} ${ampm}`;
   };
 
-  /** Get start/end time for a program on a specific date (uses per-date times for custom) */
+  /** Get start/end time for a program on a specific date */
   const getTimesForDate = (prog: Program, date: string): { start: string; end: string } => {
-    if (prog.type === 'custom' && prog.customDateTimes) {
-      const cdt = prog.customDateTimes.find(dt => dt.date === date);
-      if (cdt) return { start: cdt.startTime, end: cdt.endTime };
-    }
+    const occurrenceTime = prog.customDateTimes?.find(dt => dt.date === date);
+    if (occurrenceTime) return { start: occurrenceTime.startTime, end: occurrenceTime.endTime };
     return { start: prog.startTime, end: prog.endTime };
   };
 
@@ -473,18 +545,17 @@ export function Programs() {
     setCWeeklyDays(prog.weeklyDays || []);
     setCMonthlyDate(prog.monthlyDate?.toString() || '');
     setCCustomDates(prog.customDates || []);
-    setCStartTime(prog.startTime);
-    setCEndTime(prog.endTime);
-    setCBranchId(prog.branchId || '');
+    setCStartTime(toTimeInputValue(prog.startTime));
+    setCEndTime(toTimeInputValue(prog.endTime));
+    setCBranchId(getProgramBranchSelection(prog) || 'churchwide');
     setCDeptIds(prog.departmentIds || []);
     setCCollTypes(prog.collectionTypes || []);
     setCOneTimeDate(prog.type === 'one-time' && prog.customDates?.length ? prog.customDates[0] : '');
-    // Populate per-date times
     const dtMap: Record<string, { startTime: string; endTime: string }> = {};
     if (prog.customDateTimes) {
-      prog.customDateTimes.forEach(cdt => { dtMap[cdt.date] = { startTime: cdt.startTime, endTime: cdt.endTime }; });
+      prog.customDateTimes.forEach(cdt => { dtMap[cdt.date] = { startTime: toTimeInputValue(cdt.startTime), endTime: toTimeInputValue(cdt.endTime) }; });
     } else if (prog.type === 'custom' && prog.customDates) {
-      prog.customDates.forEach(d => { dtMap[d] = { startTime: prog.startTime, endTime: prog.endTime }; });
+      prog.customDates.forEach(d => { dtMap[d] = { startTime: toTimeInputValue(prog.startTime), endTime: toTimeInputValue(prog.endTime) }; });
     }
     setCCustomDateTimes(dtMap);
     setFormErrors({});
@@ -495,12 +566,11 @@ export function Programs() {
     if (!validateCreateForm()) return;
     setSaving(true);
     try {
-      // Determine branchId — use selected branch or first branch for single-branch
+      const selectedBranchId = isMultiBranch ? (cBranchId || 'churchwide') : (resolvedBranchId || branches[0]?.id || '');
       const eventBranchId = isMultiBranch
         ? (cBranchId === 'churchwide' ? undefined : cBranchId)
-        : branches[0]?.id;
+        : (resolvedBranchId || branches[0]?.id);
 
-      // Map form recurrence type to API recurrenceType
       const recurrenceMap: Record<string, string> = {
         'one-time': 'none',
         'weekly': 'weekly',
@@ -508,56 +578,79 @@ export function Programs() {
         'custom': 'custom',
       };
 
-      // Determine the event date
       let eventDate = '';
       if (cType === 'one-time') eventDate = cOneTimeDate;
       else if (cType === 'custom' && cCustomDates.length > 0) eventDate = cCustomDates[0];
       else eventDate = new Date().toISOString().split('T')[0];
 
-      // Build byWeekday for weekly programs
+      const baseStartTime = cType === 'custom'
+        ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.startTime || cStartTime) : cStartTime)
+        : cStartTime;
+      const baseEndTime = cType === 'custom'
+        ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.endTime || cEndTime) : cEndTime)
+        : cEndTime;
+
       const byWeekday = cType === 'weekly'
         ? cWeeklyDays.map(day => ({ weekday: day, startTime: cStartTime, endTime: cEndTime }))
         : undefined;
 
       if (editTarget) {
-        // For edit: update local state (no edit-event endpoint used here yet)
-        const allProgs = await fetchPrograms(resolvedBranchId);
-        const progData: Program = {
-          id: editTarget.id,
-          churchId: church.id,
-          branchId: eventBranchId,
-          name: cName.trim(),
-          type: cType as ProgramFrequency,
-          weeklyDays: cType === 'weekly' ? cWeeklyDays : undefined,
-          monthlyDate: cType === 'monthly' ? parseInt(cMonthlyDate) : undefined,
-          customDates: cType === 'custom' ? cCustomDates : cType === 'one-time' ? [cOneTimeDate] : undefined,
-          customDateTimes: cType === 'custom' ? cCustomDates.map(d => ({
-            date: d,
-            startTime: cCustomDateTimes[d]?.startTime || cStartTime,
-            endTime: cCustomDateTimes[d]?.endTime || cEndTime,
-          })) : undefined,
-          startTime: cType === 'custom' ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.startTime || '00:00') : cStartTime) : cStartTime,
-          endTime: cType === 'custom' ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.endTime || '23:59') : cEndTime) : cEndTime,
+        const originalBranchSelection = getProgramBranchSelection(editTarget) || 'churchwide';
+        const nextBranchSelection = isMultiBranch ? selectedBranchId : (eventBranchId || '');
+
+        if (originalBranchSelection !== nextBranchSelection) {
+          throw new Error('Changing the branch is not supported by the current edit API yet.');
+        }
+
+        if (editTarget.type !== cType) {
+          throw new Error('Changing the recurrence pattern is not supported by the current edit API yet.');
+        }
+
+        const occurrence = getPrimaryOccurrence(editTarget);
+        const occurrenceId = occurrence?.id || getOccurrenceForDate(editTarget, eventDate)?.id;
+        if (!occurrenceId) {
+          throw new Error('Unable to determine which event occurrence to edit.');
+        }
+
+        const routeBranchId = resolveEventEditRouteBranchId(editTarget, nextBranchSelection);
+        if (!routeBranchId) {
+          throw new Error('Unable to determine which branch to use for this edit.');
+        }
+
+        const collectionIds = financeCollectionTypes
+          .filter((collectionType) => cCollTypes.includes(collectionType.name))
+          .map((collectionType) => collectionType.id);
+
+        const editDate = cType === 'one-time'
+          ? cOneTimeDate
+          : cType === 'custom'
+            ? cCustomDates[0]
+            : (occurrence?.date || '').split('T')[0] || eventDate;
+
+        await editEventOccurrence(occurrenceId, routeBranchId, {
+          title: cName.trim(),
+          date: editDate,
+          startTime: formatApiTime(baseStartTime),
+          endTime: formatApiTime(baseEndTime),
           departmentIds: cDeptIds,
-          collectionTypes: cCollTypes,
-          createdBy: currentAdmin?.id || '',
-          createdAt: editTarget.createdAt || new Date(),
-        };
-        const updated = (allProgs as Program[]).map(p => p.id === editTarget.id ? progData : p);
-        await savePrograms(updated);
-        setPrograms(updated);
+          collectionIds: collectionIds.length > 0 ? collectionIds : undefined,
+        });
+
+        const freshProgs = await fetchPrograms(routeBranchId || resolvedBranchId);
+        setPrograms(freshProgs as Program[]);
         showToast('Program updated.');
       } else {
-        // Create via real API
         await createEvent({
           title: cName.trim(),
           date: eventDate ? new Date(eventDate + 'T12:00:00').toISOString() : new Date().toISOString(),
           recurrenceType: (recurrenceMap[cType] || 'none') as any,
+          startTime: baseStartTime,
+          endTime: baseEndTime,
           branchId: eventBranchId,
           departmentIds: cDeptIds.length > 0 ? cDeptIds : undefined,
           byWeekday,
         });
-        // Reload from server
+
         const freshProgs = await fetchPrograms(eventBranchId || resolvedBranchId);
         setPrograms(freshProgs as Program[]);
         showToast('Program created successfully.');
@@ -572,7 +665,6 @@ export function Programs() {
       setSaving(false);
     }
   };
-
   // ──────── DELETE ────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -605,22 +697,7 @@ export function Programs() {
   };
 
   // ──────── MANAGE (click on occurrence) ────────
-  const openManage = (prog: Program, date: string) => {
-    const existing = instances.find(i => i.programId === prog.id && i.date === date);
-    const inst: ProgramInstance = existing || {
-      id: `inst-${Date.now()}`,
-      programId: prog.id,
-      churchId: church.id,
-      date,
-      attendance: {},
-      workforceAttendance: [],
-      collections: [],
-      managed: false,
-    };
-
-    setManageInstance({ program: prog, instance: inst });
-
-    // Pre-fill
+  const applyManageForm = (prog: Program, inst: ProgramInstance) => {
     const cats: ('men' | 'women' | 'children')[] = [];
     if (inst.attendance.men !== undefined) cats.push('men');
     if (inst.attendance.women !== undefined) cats.push('women');
@@ -633,12 +710,133 @@ export function Programs() {
 
     const amts: Record<string, string> = {};
     (prog.collectionTypes || []).forEach(ct => {
-      const existing = inst.collections.find(c => c.name === ct);
-      amts[ct] = existing?.amount?.toString() || '';
+      const existingCollection = inst.collections.find(c => c.name === ct);
+      amts[ct] = existingCollection?.amount?.toString() || '';
     });
     setMCollAmounts(amts);
   };
 
+  const closeManageDialog = () => {
+    manageRequestRef.current = null;
+    setManageLoading(false);
+    setManageInstance(null);
+  };
+
+  const openManage = async (prog: Program, date: string) => {
+    manageRequestRef.current = null;
+    setManageLoading(false);
+
+    const occurrence = getOccurrenceForDate(prog, date);
+    const existing = instances.find(i => i.programId === prog.id && i.date === date);
+    const inst: ProgramInstance = existing || {
+      id: occurrence?.id ? `occ-${occurrence.id}` : `inst-${Date.now()}`,
+      programId: prog.id,
+      churchId: church.id,
+      date,
+      attendance: {},
+      workforceAttendance: [],
+      collections: [],
+      managed: false,
+    };
+
+    setManageInstance({ program: prog, instance: inst });
+    applyManageForm(prog, inst);
+
+    if (!occurrence?.id) return;
+
+    const requestKey = `${occurrence.id}:${Date.now()}`;
+    manageRequestRef.current = requestKey;
+    setManageLoading(true);
+
+    try {
+      const response = await fetchEventOccurrence(occurrence.id);
+      if (manageRequestRef.current !== requestKey || !response) return;
+
+      const fetchedDate = (response.date || '').split('T')[0] || date;
+      const fallbackTimes = getTimesForDate(prog, date);
+      const fetchedStartTime = toTimeInputValue(response.startTime) || fallbackTimes.start;
+      const fetchedEndTime = toTimeInputValue(response.endTime) || fallbackTimes.end;
+      const assignedDepartmentIds = Array.isArray(response.assignedDepartments)
+        ? response.assignedDepartments.map((department: any) => department?.id).filter(Boolean)
+        : prog.departmentIds;
+      const attendanceRecord = Array.isArray(response.attendances) && response.attendances.length > 0
+        ? response.attendances[0]
+        : (response.attendance || null);
+      const collectionRows = Array.isArray(response.collection)
+        ? response.collection
+        : Array.isArray(response.collections)
+          ? response.collections
+          : [];
+      const collectionTypes = Array.from(new Set([
+        ...(prog.collectionTypes || []),
+        ...collectionRows
+          .map((collection: any) =>
+            collection?.name ||
+            collection?.collectionType?.name ||
+            collection?.type?.name ||
+            collection?.collectionName ||
+            collection?.title ||
+            ''
+          )
+          .filter(Boolean),
+      ]));
+
+      const hydratedProgram: Program = {
+        ...prog,
+        name: response.event?.title || prog.name,
+        branchId: response.branchId || prog.branchId,
+        startTime: fetchedStartTime || prog.startTime,
+        endTime: fetchedEndTime || prog.endTime,
+        departmentIds: assignedDepartmentIds,
+        collectionTypes,
+        customDateTimes: [
+          ...(prog.customDateTimes || []).filter(dt => dt.date !== fetchedDate),
+          { date: fetchedDate, startTime: fetchedStartTime || prog.startTime, endTime: fetchedEndTime || prog.endTime },
+        ],
+      };
+
+      const hydratedInstance: ProgramInstance = {
+        ...inst,
+        id: `occ-${response.id || occurrence.id}` ,
+        date: fetchedDate,
+        attendance: {
+          men: attendanceRecord?.male ?? attendanceRecord?.men ?? undefined,
+          women: attendanceRecord?.female ?? attendanceRecord?.women ?? undefined,
+          children: attendanceRecord?.children ?? undefined,
+        },
+        collections: collectionRows
+          .map((collection: any) => {
+            const name =
+              collection?.name ||
+              collection?.collectionType?.name ||
+              collection?.type?.name ||
+              collection?.collectionName ||
+              collection?.title;
+            const amount = parseFloat(collection?.amount ?? collection?.total ?? collection?.value ?? '0');
+            return name ? { name, amount: Number.isFinite(amount) ? amount : 0 } : null;
+          })
+          .filter(Boolean) as { name: string; amount: number }[],
+        managed:
+          response.hasAttendance === true ||
+          (Array.isArray(response.attendances) && response.attendances.length > 0) ||
+          collectionRows.some((collection: any) => (parseFloat(collection?.amount ?? collection?.total ?? collection?.value ?? '0') || 0) > 0) ||
+          inst.managed,
+      };
+
+      setManageInstance({ program: hydratedProgram, instance: hydratedInstance });
+      applyManageForm(hydratedProgram, hydratedInstance);
+    } catch (err) {
+      console.error('Failed to fetch event occurrence details:', err);
+      if (manageRequestRef.current === requestKey) {
+        showToast('Unable to refresh this event. Showing the available details instead.', 'error');
+      }
+    } finally {
+      if (manageRequestRef.current === requestKey) {
+        manageRequestRef.current = null;
+        setManageLoading(false);
+      }
+    }
+  };
   const getExpectedWorkforce = (prog: Program): WorkforceMember[] => {
     return workforce.filter(w => prog.departmentIds.includes(w.departmentId));
   };
@@ -648,12 +846,32 @@ export function Programs() {
     setSaving(true);
     try {
       const { program, instance } = manageInstance;
+      const occurrence = getOccurrenceForDate(program, instance.date);
+      const occurrenceId = occurrence?.id || (instance.id.startsWith('occ-') ? instance.id.slice(4) : undefined);
+      const menCount = mAttendCats.includes('men') && mMen ? parseInt(mMen, 10) || 0 : 0;
+      const womenCount = mAttendCats.includes('women') && mWomen ? parseInt(mWomen, 10) || 0 : 0;
+      const childrenCount = mAttendCats.includes('children') && mChildren ? parseInt(mChildren, 10) || 0 : 0;
+      const adultsCount = 0;
+      const totalAttendanceCount = menCount + womenCount + childrenCount + adultsCount;
+
+      if (!occurrenceId) {
+        throw new Error('Unable to determine which event occurrence to record attendance for.');
+      }
+
+      await createEventAttendance(occurrenceId, {
+        total: totalAttendanceCount,
+        male: menCount,
+        female: womenCount,
+        children: childrenCount,
+        adults: adultsCount,
+      });
+
       const updatedInstance: ProgramInstance = {
         ...instance,
         attendance: {
-          men: mAttendCats.includes('men') && mMen ? parseInt(mMen) : undefined,
-          women: mAttendCats.includes('women') && mWomen ? parseInt(mWomen) : undefined,
-          children: mAttendCats.includes('children') && mChildren ? parseInt(mChildren) : undefined,
+          men: mAttendCats.includes('men') ? menCount : undefined,
+          women: mAttendCats.includes('women') ? womenCount : undefined,
+          children: mAttendCats.includes('children') ? childrenCount : undefined,
         },
         workforceAttendance: mWorkforceChecked,
         collections: (program.collectionTypes || []).map(ct => ({
@@ -675,12 +893,11 @@ export function Programs() {
       await saveProgramInstances(updatedAll);
       setInstances(updatedAll.filter(i => i.churchId === church.id));
 
-      // Save to collections section
       const allColls = await fetchCollections();
       const newColls: Collection[] = (program.collectionTypes || [])
         .filter(ct => parseFloat(mCollAmounts[ct] || '0') > 0)
         .map(ct => ({
-          id: `coll-${Date.now()}-${ct.replace(/\s/g, '')}`,
+          id: `coll-${Date.now()}-${ct.replace(/\s/g, '')}` ,
           churchId: church.id,
           branchId: program.branchId,
           programId: program.id,
@@ -692,13 +909,12 @@ export function Programs() {
           createdAt: new Date(),
         }));
 
-      // Remove old collections for this instance, add new ones
       const filteredColls = (allColls as Collection[]).filter(c => c.programInstanceId !== updatedInstance.id);
       const updatedColls = [...filteredColls, ...newColls];
       await saveCollections(updatedColls);
       setCollections(updatedColls as Collection[]);
 
-      setManageInstance(null);
+      closeManageDialog();
       showToast('Program managed successfully.');
     } catch (err: any) {
       console.error('Failed to manage program:', err);
@@ -707,7 +923,6 @@ export function Programs() {
       setSaving(false);
     }
   };
-
   // Custom date picker helpers
   const customPickerDays = useMemo(() => {
     const firstDay = new Date(cCustomPickerYear, cCustomPickerMonth, 1);
@@ -1299,7 +1514,7 @@ export function Programs() {
       </Dialog>
 
       {/* ═══════════════ MANAGE PROGRAM DIALOG ═══════════════ */}
-      <Dialog open={!!manageInstance} onOpenChange={(o) => { if (!o) setManageInstance(null); }}>
+      <Dialog open={!!manageInstance} onOpenChange={(o) => { if (!o) closeManageDialog(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           {manageInstance && (() => {
             const { program, instance } = manageInstance;
@@ -1319,6 +1534,12 @@ export function Programs() {
                     {dateStr} &middot; {formatTime(getTimesForDate(program, instance.date).start)} - {formatTime(getTimesForDate(program, instance.date).end)}
                     {instance.managed && <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 text-[10px]">Managed</Badge>}
                   </DialogDescription>
+                  {manageLoading && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Refreshing latest event details...
+                    </div>
+                  )}
                 </DialogHeader>
 
                 <div className="space-y-6 mt-2">
@@ -1479,9 +1700,9 @@ export function Programs() {
 
                   <Separator />
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1" onClick={() => setManageInstance(null)}>Cancel</Button>
-                    <Button className="flex-1" disabled={saving} onClick={handleSaveManage}>
-                      {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    <Button variant="outline" className="flex-1" onClick={closeManageDialog}>Cancel</Button>
+                    <Button className="flex-1" disabled={saving || manageLoading} onClick={handleSaveManage}>
+                      {(saving || manageLoading) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                       {instance.managed ? 'Update Record' : 'Save & Mark as Managed'}
                     </Button>
                   </div>

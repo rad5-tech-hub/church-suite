@@ -10,12 +10,16 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Wallet as WalletIcon, TrendingUp, TrendingDown, Inbox, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { fetchSMSWallet, createOrFundWallet } from '../api';
 import { SMSWallet } from '../types';
+import { openFlutterwaveCheckout } from '../utils/flutterwave';
+import { buildWalletFundingRequest, extractFlutterwaveFundingResponse, resolveWalletFundingScope } from '../utils/walletFunding';
 
 export function Wallet() {
+  const { currentAdmin } = useAuth();
   const { church, branches } = useChurch();
   const { showToast } = useToast();
   const [wallet, setWallet] = useState<SMSWallet | null>(null);
@@ -23,6 +27,8 @@ export function Wallet() {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
   const [topping, setTopping] = useState(false);
+  const fundingScope = resolveWalletFundingScope(branches, currentAdmin);
+  const fundingCtaLabel = wallet ? 'Add Credits' : 'Create & Fund Wallet';
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -38,57 +44,64 @@ export function Wallet() {
     } finally {
       setLoading(false);
     }
-  }, [church.id]);
+  }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
-  const initWallet = async () => {
-    try {
-      const branchId = branches[0]?.id;
-      if (!branchId) {
-        console.error('No branch available to create wallet');
-        return;
-      }
-      const res = await createOrFundWallet(branchId, {
-        action: 'create',
-        walletType: 'personal',
-      });
-      if (res?.wallet) {
-        setWallet({
-          id: res.wallet.id,
-          churchId: res.wallet.churchId || church.id,
-          balance: parseFloat(res.wallet.balance) || 0,
-          transactions: [],
-        });
-      } else {
-        await loadData();
-      }
-    } catch (err) {
-      console.error('Failed to initialize wallet:', err);
-    }
-  };
+  const openFundingDialog = () => setTopUpOpen(true);
 
   const handleTopUp = async () => {
     const amount = parseFloat(topUpAmount);
-    if (!amount || amount <= 0 || !wallet) return;
-    const branchId = branches[0]?.id;
-    if (!branchId) { showToast('No branch found', 'error'); return; }
+    if (!amount || amount <= 0) return;
+
+    const { branchId } = fundingScope;
+    if (!branchId) {
+      showToast('No branch found', 'error');
+      return;
+    }
+
     setTopping(true);
     try {
-      const res = await createOrFundWallet(branchId, { action: 'fund', walletId: wallet.id, amount } as any);
-      // API may return a payment URL for external payment processing
-      const paymentUrl = res?.authorization_url || res?.data?.authorization_url || res?.paymentUrl || res?.data?.link;
-      if (paymentUrl) {
-        window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-        showToast('Payment page opened. Complete payment to add credits.');
-      } else {
-        showToast(`${amount.toLocaleString()} credits added successfully.`);
+      const response = await createOrFundWallet(branchId, buildWalletFundingRequest(fundingScope, amount, wallet?.id));
+      const fundingResponse = extractFlutterwaveFundingResponse(response);
+      if (!fundingResponse) {
+        throw new Error(response?.message || 'Unable to start wallet funding.');
       }
+
+      const customerEmail = fundingResponse.customer?.email || currentAdmin?.email;
+      const customerName = fundingResponse.customer?.name || currentAdmin?.name || church.name;
+      if (!customerEmail || !customerName) {
+        throw new Error('Customer details were not returned for checkout.');
+      }
+
+      await openFlutterwaveCheckout({
+        publicKey: fundingResponse.publicKey,
+        txRef: fundingResponse.tx_ref,
+        amount: fundingResponse.amount || amount,
+        currency: fundingResponse.currency,
+        customer: {
+          email: customerEmail,
+          name: customerName,
+        },
+        title: church.name || 'Churchset',
+        description: wallet ? 'Wallet funding' : 'Wallet creation and funding',
+        onComplete: () => {
+          showToast('Payment completed. Wallet balance will refresh shortly.');
+          void loadData();
+        },
+        onClose: () => {
+          void loadData();
+        },
+      });
+
       setTopUpOpen(false);
       setTopUpAmount('');
-      await loadData();
-    } catch (err: any) {
-      showToast(`Top-up failed: ${err.message}`, 'error');
+      showToast(response?.message || 'Flutterwave checkout opened.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Wallet funding failed.';
+      showToast('Wallet funding failed: ' + message, 'error');
     } finally {
       setTopping(false);
     }
@@ -99,10 +112,10 @@ export function Wallet() {
       <PageHeader
         title="SMS Wallet"
         description="Manage your SMS credits, view transaction history, and top up your balance for sending messages."
-        action={wallet ? {
-          label: 'Add Credits',
-          onClick: () => setTopUpOpen(true),
-        } : undefined}
+        action={{
+          label: fundingCtaLabel,
+          onClick: openFundingDialog,
+        }}
       />
       <div className="p-4 md:p-6 space-y-6">
         {loading ? (
@@ -117,7 +130,7 @@ export function Wallet() {
               <p className="text-gray-500 max-w-md mx-auto mb-4">
                 Set up your SMS wallet to start sending messages to your members. You'll be able to track credits and transaction history here.
               </p>
-              <Button onClick={initWallet}>Initialize Wallet</Button>
+              <Button onClick={openFundingDialog}>Create &amp; Fund Wallet</Button>
             </CardContent>
           </Card>
         ) : (
@@ -171,7 +184,8 @@ export function Wallet() {
                             </Badge>
                           </TableCell>
                           <TableCell className={`text-right font-semibold ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                            {txn.type === 'credit' ? '+' : '-'}{(txn.amount ?? 0).toLocaleString()}
+                            {txn.type === 'credit' ? '+' : '-'}
+                            {(txn.amount ?? 0).toLocaleString()}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -184,21 +198,24 @@ export function Wallet() {
         )}
       </div>
 
-      {/* Top-Up Dialog */}
       <Dialog open={topUpOpen} onOpenChange={setTopUpOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add SMS Credits</DialogTitle>
-            <DialogDescription>Enter the number of credits you want to add to your wallet.</DialogDescription>
+            <DialogTitle>{wallet ? 'Add SMS Credits' : 'Create & Fund SMS Wallet'}</DialogTitle>
+            <DialogDescription>
+              {wallet
+                ? 'Enter the amount you want to add to this wallet. Flutterwave checkout will open next.'
+                : 'Enter the amount to create this wallet and launch Flutterwave checkout.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label htmlFor="topup-amount">Amount (credits)</Label>
+              <Label htmlFor="topup-amount">Amount</Label>
               <Input
                 id="topup-amount"
                 type="number"
                 min="1"
-                placeholder="e.g. 1000"
+                placeholder="e.g. 5000"
                 value={topUpAmount}
                 onChange={e => setTopUpAmount(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleTopUp()}
@@ -209,7 +226,7 @@ export function Wallet() {
                 Cancel
               </Button>
               <Button onClick={handleTopUp} disabled={!topUpAmount || parseFloat(topUpAmount) <= 0 || topping}>
-                {topping ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing…</> : 'Add Credits'}
+                {topping ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : fundingCtaLabel}
               </Button>
             </div>
           </div>
