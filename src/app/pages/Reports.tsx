@@ -203,6 +203,13 @@ export function Reports() {
 
   const unreadCount = inbox.filter((report) => !report.isRead).length;
 
+  useEffect(() => {
+    if (loading) return;
+    if (activeTab === 'inbox' && inbox.length === 0 && sent.length > 0) {
+      setActiveTab('sent');
+    }
+  }, [activeTab, inbox.length, loading, sent.length]);
+
   const referenceableReports = useMemo(() => {
     if (!isSuperAdmin) return [];
     return inbox.filter((report) =>
@@ -1051,6 +1058,7 @@ export function Reports() {
     </Layout>
   );
 }
+
 
 
 
