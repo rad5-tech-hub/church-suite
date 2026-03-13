@@ -2,8 +2,10 @@ import { createBrowserRouter } from 'react-router';
 import { RootLayout } from './components/RootLayout';
 import { Onboarding } from './pages/Onboarding';
 import { Login } from './pages/Login';
+import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { ResetPassword } from './pages/ResetPassword';
+import { VerifyEmail } from './pages/VerifyEmail';
 import { Branches } from './pages/Branches';
 import { Departments } from './pages/Departments';
 import { Units } from './pages/Units';
@@ -37,6 +39,14 @@ export const router = createBrowserRouter([
       {
         path: '/login',
         Component: Login
+      },
+      {
+        path: '/forgot-password',
+        Component: ForgotPassword
+      },
+      {
+        path: '/verify-email',
+        Component: VerifyEmail
       },
       {
         path: '/reset-password',

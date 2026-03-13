@@ -9,8 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   /** True when the church signed up with the multi-branch option (derived from JWT) */
   isHeadQuarter: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string }>;
-  signOut: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string; needsEmailVerification?: boolean }>;
+  signOut: (options?: { confirmed?: boolean }) => Promise<boolean>;
   /** Called after onboarding to set the current admin without going through login page */
   setCurrentAdmin: (admin: Admin) => void;
   /** Refresh current admin data from the server */
@@ -126,6 +126,11 @@ function findMatchingAdminRecord(admins: any[], cachedAdmin: Admin | null, claim
       (cachedEmail && adminEmail === cachedEmail)
     );
   });
+}
+
+function isEmailVerificationRequiredMessage(message: string) {
+  const normalized = normalizeEmail(message).replace(/\.$/, '');
+  return normalized === 'email verification required' || normalized.includes('verification required');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -249,7 +254,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signIn = async (email: string, password: string): Promise<{ error?: string; warning?: string }> => {
+  const signIn = async (
+    email: string,
+    password: string
+  ): Promise<{ error?: string; warning?: string; needsEmailVerification?: boolean }> => {
     try {
       const response = await loginApi({ email, password });
 
@@ -351,11 +359,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       console.error('Sign in error:', err);
       const message = err?.body?.message || err?.message || 'An unexpected error occurred';
-      return { error: message };
+      return {
+        error: message,
+        needsEmailVerification: isEmailVerificationRequiredMessage(message),
+      };
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (options?: { confirmed?: boolean }) => {
+    const isConfirmed =
+      options?.confirmed === true ||
+      typeof window === 'undefined' ||
+      window.confirm('Are you sure you want to log out of Churchset?');
+
+    if (!isConfirmed) {
+      return false;
+    }
+
     await logoutApi();
     setAccessToken(null);          // clear from sessionStorage + memory
     setAccessTokenState(null);
@@ -366,6 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem(TENANT_META_HQ_KEY);
       sessionStorage.removeItem(CHURCH_DATA_KEY);
     } catch { /* ignore */ }
+    return true;
   };
 
   const setCurrentAdmin = (admin: Admin) => {

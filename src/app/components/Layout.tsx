@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, Navigate } from 'react-router';
 import {
   LayoutDashboard,
@@ -27,6 +27,7 @@ import {
   Tag,
   Target,
   HelpCircle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +56,8 @@ export function Layout({ children }: LayoutProps) {
   const { currentAdmin, accessToken, isLoading, signOut } = useAuth();
   const { brandColors } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
     // Auto-expand menus based on current URL
     const path = window.location.pathname;
@@ -64,6 +67,19 @@ export function Layout({ children }: LayoutProps) {
     if (path === '/sms' || path === '/wallet') expanded.push('communication');
     return expanded;
   });
+
+  useEffect(() => {
+    if (!isLogoutDialogOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isLoggingOut) {
+        setIsLogoutDialogOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isLogoutDialogOpen, isLoggingOut]);
 
   // Fallback admin for display if not authenticated
   const admin = currentAdmin || {
@@ -304,8 +320,15 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
+    setIsLoggingOut(true);
+    try {
+      const didSignOut = await signOut({ confirmed: true });
+      if (!didSignOut) return;
+      setIsLogoutDialogOpen(false);
+      navigate('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const isAllowedMenuItem = (item: MenuItem) => !item.permission || hasPermission(currentAdmin, item.permission);
@@ -337,6 +360,51 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isLogoutDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close logout confirmation"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !isLoggingOut && setIsLogoutDialogOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-xl border bg-white p-6 shadow-2xl">
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Log out of Churchset?</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                You&apos;ll need to sign in again to continue managing{' '}
+                <span className="font-medium text-gray-800">{church.name}</span>.
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsLogoutDialogOpen(false)}
+                disabled={isLoggingOut}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  'Log out'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="px-4 py-4 flex items-center justify-between">
@@ -395,7 +463,12 @@ export function Layout({ children }: LayoutProps) {
               </div>
               <Settings className="w-4 h-4 text-gray-400 hidden sm:block" />
             </button>
-            <Button variant="ghost" size="sm" onClick={handleLogout} title="Log out">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsLogoutDialogOpen(true)}
+              title="Log out"
+            >
               <LogOut className="w-4 h-4" />
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Church, Loader2, Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -10,9 +10,13 @@ import { useChurch } from '../context/ChurchContext';
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { signIn } = useAuth();
   const { loadChurchFromServer } = useChurch();
-  const [email, setEmail] = useState('');
+  const prefilledEmail =
+    ((location.state as { email?: string } | null)?.email || searchParams.get('email') || '').trim().toLowerCase();
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +28,18 @@ export function Login() {
     setError('');
 
     const result = await signIn(email.trim().toLowerCase(), password);
+
+    if (result.needsEmailVerification) {
+      setIsLoading(false);
+      navigate(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}`, {
+        state: {
+          email: email.trim().toLowerCase(),
+          password,
+          autoResend: true,
+        },
+      });
+      return;
+    }
 
     if (result.error) {
       setError(result.error);
@@ -89,7 +105,7 @@ export function Login() {
                   <button
                     type="button"
                     className="text-xs text-blue-600 hover:underline focus:outline-none"
-                    onClick={() => {/* forgot password placeholder */}}
+                    onClick={() => navigate(`/forgot-password?email=${encodeURIComponent(email.trim().toLowerCase())}`)}
                   >
                     Forgot password?
                   </button>
