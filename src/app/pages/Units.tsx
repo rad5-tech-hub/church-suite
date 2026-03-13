@@ -16,8 +16,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useAuth } from '../context/AuthContext';
 import { Unit, Department } from '../types';
 import { useToast } from '../context/ToastContext';
-import { fetchDepartments, fetchUnits, createUnits, editUnit, deleteUnit } from '../api';
-import { hasAnyPermission } from '../utils/adminPermissions';
+import { fetchDepartments, fetchUnits, createUnits, editUnit, deleteUnit, softDeleteUnit } from '../api';
 
 export function Units() {
   const { church, branches } = useChurch();
@@ -47,14 +46,8 @@ export function Units() {
 
   // Role-based access
   const adminLevel = effectiveAdmin.level;
+  const canCreateUnit = adminLevel !== 'unit';
   const isDepartmentAdmin = adminLevel === 'department';
-  const canManageUnitAction = (action: 'create' | 'edit' | 'delete') => hasAnyPermission(effectiveAdmin as any, [
-    { permissionId: 'manage-units', action },
-    { permissionId: 'manage-department-units', action },
-  ]);
-  const canCreateUnit = canManageUnitAction('create');
-  const canEditUnit = canManageUnitAction('edit');
-  const canDeleteUnit = canManageUnitAction('delete');
 
   // Load data from backend
   const loadData = useCallback(async () => {
@@ -129,10 +122,6 @@ export function Units() {
   };
 
   const openCreateDialog = () => {
-    if (!canCreateUnit) {
-      showToast('You do not have permission to create units.', 'error');
-      return;
-    }
     resetForm();
     if (isDepartmentAdmin && adminDepartment) {
       setSelectedDepartment(adminDepartment.id);
@@ -145,10 +134,6 @@ export function Units() {
   };
 
   const openEditDialog = (unit: Unit) => {
-    if (!canEditUnit) {
-      showToast('You do not have permission to edit units.', 'error');
-      return;
-    }
     setEditingUnit(unit);
     setName(unit.name);
     setDescription(unit.description || '');
@@ -166,24 +151,9 @@ export function Units() {
       : selectedDepartment;
 
     if (!name.trim() || !departmentId) return;
-    if (editingUnit && !canEditUnit) {
-      showToast('You do not have permission to edit units.', 'error');
-      return;
-    }
-    if (!editingUnit && !canCreateUnit) {
-      showToast('You do not have permission to create units.', 'error');
-      return;
-    }
 
     setSaving(true);
     try {
-      const dept = departments.find(d => d.id === departmentId);
-      const branchId = dept?.branchId || defaultBranchId;
-      if (!branchId) {
-        showToast('No branch found for this unit. Please refresh and try again.', 'error');
-        return;
-      }
-
       if (editingUnit) {
         await editUnit(editingUnit.id, {
           name: name.trim(),
@@ -191,6 +161,12 @@ export function Units() {
         });
         showToast('Unit updated successfully.');
       } else {
+        const dept = departments.find(d => d.id === departmentId);
+        const branchId = dept?.branchId || defaultBranchId;
+        if (!branchId) {
+          showToast('No branch found for this unit. Please refresh and try again.', 'error');
+          return;
+        }
         await createUnits({
           branchId,
           departmentId,
@@ -213,10 +189,6 @@ export function Units() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    if (!canDeleteUnit) {
-      showToast('You do not have permission to delete units.', 'error');
-      return;
-    }
     setSaving(true);
     try {
       const unit = units.find((item) => item.id === deleteId);
@@ -226,7 +198,7 @@ export function Units() {
         showToast('No branch found for this unit. Please refresh and try again.', 'error');
         return;
       }
-      await deleteUnit(deleteId, branchId, unit?.departmentId);
+      await deleteUnit(deleteId, branchId);
       setDeleteId(null);
       showToast('Unit deleted successfully.');
       await loadData();
@@ -251,7 +223,7 @@ export function Units() {
     <Layout>
       <PageHeader
         title="Units"
-        description="Manage units within your departments and outreaches. Units are smaller groups that handle specific tasks - for example, the Worship Team department might have Singers, Instrumentalists, and Sound units."
+        description="Manage units within your departments and outreaches. Units are smaller groups that handle specific tasks â€” for example, the Worship Team department might have Singers, Instrumentalists, and Sound units."
         action={
           canCreateUnit
             ? {
@@ -267,7 +239,7 @@ export function Units() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            <span className="ml-3 text-gray-500">Loading units...</span>
+            <span className="ml-3 text-gray-500">Loading unitsâ€¦</span>
           </div>
         ) : visibleUnits.length === 0 ? (
           <Card>
@@ -335,30 +307,26 @@ export function Units() {
                       </div>
                     </div>
 
-                    {(canEditUnit || canDeleteUnit) && (
+                    {canCreateUnit && (
                       <div className="flex gap-2 pt-2">
-                        {canEditUnit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1"
-                            onClick={() => openEditDialog(unit)}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Edit
-                          </Button>
-                        )}
-                        {canDeleteUnit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-red-600 hover:text-red-700"
-                            onClick={() => setDeleteId(unit.id)}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => openEditDialog(unit)}
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-red-600 hover:text-red-700"
+                          onClick={() => setDeleteId(unit.id)}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     )}
                   </CardContent>
@@ -527,4 +495,3 @@ export function Units() {
     </Layout>
   );
 }
-
