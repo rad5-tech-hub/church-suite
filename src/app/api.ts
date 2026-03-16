@@ -2,7 +2,7 @@
 // Maintains backward-compatible exports so existing pages continue to work.
 
 import { ApiRequestError, apiFetch, buildQuery, setAccessToken, setTenantId, getTenantId, getAccessToken, decodeJwtClaims, getApiBaseUrl } from './apiClient';
-import { buildRolePermissionPayload, extractUnmappedBackendRolePermissions, mapBackendRolePermissions, normalizePermissionCatalog, type PermissionCatalogGroup } from './utils/rolePermissionMapping';
+import { buildRolePermissionPayload, mapBackendRolePermissions, normalizePermissionCatalog, type PermissionCatalogGroup } from './utils/rolePermissionMapping';
 import type {
   LoginRequest,
   LoginResponse,
@@ -98,6 +98,10 @@ function normalizeGranularPermissions(granularPermissions?: Record<string, strin
   );
 }
 
+function normalizePermissionIds(permissionIds?: string[]) {
+  return Array.from(new Set((permissionIds || []).filter(Boolean)));
+}
+
 function hasResolvedRolePermissions(role: any) {
   return Array.isArray(role?.permissions) || Array.isArray(role?.permissionGroups);
 }
@@ -114,6 +118,37 @@ function extractRolesFromAdminRoleResponse(payload: any) {
 
   const roles = candidates.find((candidate) => Array.isArray(candidate) && candidate.length > 0);
   return Array.isArray(roles) ? roles : [];
+}
+
+function extractDirectAdminPermissionState(
+  payload: any,
+  scopeLevel: string | undefined,
+  catalog: PermissionCatalogGroup[]
+) {
+  const candidates = [
+    payload?.data,
+    payload?.admin,
+    payload?.data?.admin,
+    payload,
+  ];
+
+  for (const candidate of candidates) {
+    const permissions = Array.isArray(candidate?.permissions) ? candidate.permissions : undefined;
+    const permissionGroups = Array.isArray(candidate?.permissionGroups) ? candidate.permissionGroups : undefined;
+
+    if (!permissions && !permissionGroups) {
+      continue;
+    }
+
+    return mapBackendRolePermissions({
+      permissions: permissions || [],
+      permissionGroups: permissionGroups || [],
+      scopeLevel: normalizeScopeLevel(scopeLevel || candidate?.scopeLevel || candidate?.level),
+      catalog,
+    });
+  }
+
+  return null;
 }
 
 function mergeRolePermissionState(
@@ -152,11 +187,12 @@ function mergeRolePermissionState(
 async function enrichAdminWithAccess(admin: any, catalog: PermissionCatalogGroup[]) {
   const existingRoles = Array.isArray(admin?.roles) ? admin.roles : [];
   let roles = existingRoles;
+  let roleRes: any = null;
   const needsRoleLookup = roles.length === 0 || roles.some((role: any) => !hasResolvedRolePermissions(role));
 
   if (needsRoleLookup && admin?.id) {
     try {
-      const roleRes = await fetchAdminRole(admin.id);
+      roleRes = await fetchAdminRole(admin.id);
       const resolvedRoles = extractRolesFromAdminRoleResponse(roleRes);
       if (resolvedRoles.length > 0) {
         roles = resolvedRoles;
@@ -166,14 +202,31 @@ async function enrichAdminWithAccess(admin: any, catalog: PermissionCatalogGroup
     }
   }
 
-  const permissionState = mergeRolePermissionState(roles, admin?.level || admin?.scopeLevel || roles?.[0]?.scopeLevel, catalog);
+  const resolvedScopeLevel = admin?.level || admin?.scopeLevel || roles?.[0]?.scopeLevel;
+  const permissionState = mergeRolePermissionState(roles, resolvedScopeLevel, catalog);
+  const directPermissionState = roleRes
+    ? extractDirectAdminPermissionState(roleRes, resolvedScopeLevel, catalog)
+    : null;
+  const hasExplicitPermissions = Array.isArray(admin?.permissions) || Array.isArray(admin?.customPermissions);
+  const hasExplicitGranularPermissions = Object.prototype.hasOwnProperty.call(admin || {}, 'granularPermissions');
+  const explicitPermissions = Array.isArray(admin?.permissions)
+    ? normalizePermissionIds(admin.permissions)
+    : Array.isArray(admin?.customPermissions)
+      ? normalizePermissionIds(admin.customPermissions)
+      : undefined;
+  const explicitGranularPermissions = normalizeGranularPermissions(admin?.granularPermissions);
+  const hasExplicitPermissionState = hasExplicitPermissions || hasExplicitGranularPermissions;
 
   return {
     ...admin,
     roleId: admin?.roleId || roles?.[0]?.id || '',
     roles,
-    permissions: permissionState.permissions,
-    granularPermissions: permissionState.granularPermissions,
+    permissions: hasExplicitPermissions
+      ? (explicitPermissions || [])
+      : (directPermissionState?.permissions || permissionState.permissions),
+    granularPermissions: hasExplicitPermissionState
+      ? explicitGranularPermissions
+      : (directPermissionState?.granularPermissions || permissionState.granularPermissions),
   };
 }
 // The backend returns different field names / shapes from the
@@ -204,6 +257,12 @@ function mapApiAdmin(a: any): any {
   const unitIds = Array.isArray(a.unitIds) && a.unitIds.length > 0
     ? a.unitIds.filter(Boolean)
     : a.units?.map((u: any) => u.id) || [];
+  const customPermissions = Array.isArray(a.customPermissions)
+    ? normalizePermissionIds(a.customPermissions)
+    : undefined;
+  const permissions = Array.isArray(a.permissions)
+    ? normalizePermissionIds(a.permissions)
+    : customPermissions;
 
   return {
     id: a.id,
@@ -221,8 +280,9 @@ function mapApiAdmin(a: any): any {
     branchIds,
     departmentIds,
     unitIds,
-    permissions: Array.isArray(a.permissions) ? Array.from(new Set(a.permissions.filter(Boolean))) : [],
+    permissions,
     granularPermissions: normalizeGranularPermissions(a.granularPermissions),
+    customPermissions,
     createdAt: new Date(a.createdAt || Date.now()),
     _raw: a,
   };
@@ -1570,23 +1630,34 @@ export async function fetchPermissionGroups(): Promise<PermissionCatalogGroup[]>
 
 /** POST /tenants/create-role */
 export async function createRole(data: CreateRoleRequest & { granularPermissions?: Record<string, string[]> }) {
-  const { granularPermissions, permissions: _permissions, ...rest } = data;
-  const catalog = await getPermissionCatalog();
-  const mapped = buildRolePermissionPayload({
-    permissionIds: _permissions || [],
-    granularPermissions,
-    catalog,
-  });
+  const { granularPermissions, ...rest } = data;
+  const hasResolvedBackendSelections = Array.isArray(rest.permissionGroup);
+  let payload: CreateRoleRequest;
 
-  if ((_permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
-    throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
+  if (hasResolvedBackendSelections) {
+    payload = {
+      ...rest,
+      permissions: normalizePermissionIds(rest.permissions),
+      permissionGroup: normalizePermissionIds(rest.permissionGroup),
+    };
+  } else {
+    const catalog = await getPermissionCatalog();
+    const mapped = buildRolePermissionPayload({
+      permissionIds: rest.permissions || [],
+      granularPermissions,
+      catalog,
+    });
+
+    if ((rest.permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
+      throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
+    }
+
+    payload = {
+      ...rest,
+      permissions: mapped.permissions,
+      permissionGroup: mapped.permissionGroup,
+    };
   }
-
-  const payload: CreateRoleRequest = {
-    ...rest,
-    ...(mapped.permissions.length > 0 ? { permissions: mapped.permissions } : {}),
-    ...(mapped.permissionGroup.length > 0 ? { permissionGroup: mapped.permissionGroup } : {}),
-  };
 
   return apiFetch<any>('/tenants/create-role', {
     method: 'POST',
@@ -1599,38 +1670,36 @@ export async function editRole(
   roleId: string,
   data: EditRoleRequest & {
     granularPermissions?: Record<string, string[]>;
-    currentPermissions?: any[];
-    currentPermissionGroups?: any[];
   },
   branchId?: string
 ) {
-  const {
-    granularPermissions,
-    currentPermissions,
-    currentPermissionGroups,
-    ...rest
-  } = data;
-  const catalog = await getPermissionCatalog();
-  const mapped = buildRolePermissionPayload({
-    permissionIds: rest.permissions || [],
-    granularPermissions,
-    catalog,
-  });
-  if ((rest.permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
-    throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
-  }
-  const preserved = extractUnmappedBackendRolePermissions({
-    permissions: currentPermissions,
-    permissionGroups: currentPermissionGroups,
-    scopeLevel: rest.scopeLevel,
-    catalog,
-  });
+  const { granularPermissions, ...rest } = data;
+  const hasResolvedBackendSelections = Array.isArray(rest.permissionGroup);
+  let payload: EditRoleRequest;
 
-  const payload: EditRoleRequest = {
-    ...rest,
-    ...(rest.permissions ? { permissions: Array.from(new Set([...mapped.permissions, ...preserved.permissions])) } : {}),
-    ...(rest.permissions ? { permissionGroup: Array.from(new Set([...mapped.permissionGroup, ...preserved.permissionGroup])) } : {}),
-  };
+  if (hasResolvedBackendSelections) {
+    payload = {
+      ...rest,
+      permissions: normalizePermissionIds(rest.permissions),
+      permissionGroup: normalizePermissionIds(rest.permissionGroup),
+    };
+  } else {
+    const catalog = await getPermissionCatalog();
+    const mapped = buildRolePermissionPayload({
+      permissionIds: rest.permissions || [],
+      granularPermissions,
+      catalog,
+    });
+    if ((rest.permissions || []).length > 0 && mapped.permissions.length === 0 && mapped.permissionGroup.length === 0) {
+      throw new Error('Unable to resolve live permission groups. Please refresh and try again.');
+    }
+
+    payload = {
+      ...rest,
+      permissions: mapped.permissions,
+      permissionGroup: mapped.permissionGroup,
+    };
+  }
 
   return apiFetch<any>(`/tenants/edit-role/${roleId}${buildQuery({ branchId })}`, {
     method: 'PATCH',
@@ -1662,7 +1731,8 @@ export async function fetchAdminRole(adminId: string) {
 export async function fetchAdminPermissionState(adminId: string, scopeLevel?: string) {
   const [roleRes, catalog] = await Promise.all([fetchAdminRole(adminId), getPermissionCatalog()]);
   const roles = extractRolesFromAdminRoleResponse(roleRes);
-  const permissionState = mergeRolePermissionState(roles, scopeLevel, catalog);
+  const permissionState = extractDirectAdminPermissionState(roleRes, scopeLevel, catalog)
+    || mergeRolePermissionState(roles, scopeLevel, catalog);
 
   return {
     roleId: roles[0]?.id || '',

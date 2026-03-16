@@ -105,7 +105,7 @@ export interface Admin {
   permissions?: string[];
   /** Granular action map resolved from backend role permissions */
   granularPermissions?: Record<string, string[]>;
-  customPermissions?: string[]; // Override role permissions
+  customPermissions?: string[]; // Effective permissions when admin-specific customization overrides the role preset
   lastTempPassword?: string; // Last generated temporary password (for prototype testing)
   createdAt: Date;
 }

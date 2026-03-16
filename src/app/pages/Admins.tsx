@@ -50,7 +50,7 @@ import {
   Camera,
   Upload,
 } from 'lucide-react';
-import { PERMISSIONS, PERMISSION_CATEGORIES } from '../data/permissions';
+import { PERMISSION_CATEGORIES } from '../data/permissions';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -68,10 +68,14 @@ import {
   createAdminUser,
   resetAdminPassword,
   deleteAdminUser,
-  editAdminPermission,
+  editRole,
   getPermissionCatalog,
 } from '../api';
-import { buildRolePermissionPayload } from '../utils/rolePermissionMapping';
+import {
+  buildRolePermissionPayload,
+  deriveAssignablePermissions,
+  type PermissionCatalogGroup,
+} from '../utils/rolePermissionMapping';
 
 type DialogMode = 'create' | 'edit' | null;
 type ActionMode = 'delete' | 'suspend' | 'activate' | 'reset-password' | null;
@@ -99,15 +103,66 @@ const ACCESS_LEVEL_INFO: Record<AdminLevel, { label: string; icon: React.ReactNo
   },
 };
 
+function uniquePermissionIds(permissionIds?: string[]) {
+  return Array.from(new Set((permissionIds || []).filter(Boolean)));
+}
+
+function normalizeGranularPermissions(granularPermissions?: Record<string, string[]>) {
+  return Object.fromEntries(
+    Object.entries(granularPermissions || {})
+      .filter(([, actions]) => Array.isArray(actions) && actions.length > 0)
+      .map(([permissionId, actions]) => [permissionId, Array.from(new Set(actions.filter(Boolean)))])
+  );
+}
+
+function areGranularPermissionsEqual(
+  left?: Record<string, string[]>,
+  right?: Record<string, string[]>
+) {
+  const normalizedLeft = normalizeGranularPermissions(left);
+  const normalizedRight = normalizeGranularPermissions(right);
+  const permissionIds = new Set([...Object.keys(normalizedLeft), ...Object.keys(normalizedRight)]);
+
+  return Array.from(permissionIds).every((permissionId) => {
+    const leftActions = normalizedLeft[permissionId] || [];
+    const rightActions = normalizedRight[permissionId] || [];
+    return leftActions.length === rightActions.length && leftActions.every((actionId) => rightActions.includes(actionId));
+  });
+}
+
+function deriveCustomPermissionsFromPreset(admin: Admin, roleMap: Map<string, Role>) {
+  if (Array.isArray(admin.customPermissions)) {
+    return uniquePermissionIds(admin.customPermissions);
+  }
+
+  const role = roleMap.get(admin.roleId);
+  if (!role) {
+    return admin.customPermissions;
+  }
+
+  const effectivePermissions = uniquePermissionIds(admin.permissions);
+  const presetPermissions = uniquePermissionIds(role.permissions);
+  const matchesPresetPermissions =
+    effectivePermissions.length === presetPermissions.length &&
+    presetPermissions.every((permissionId) => effectivePermissions.includes(permissionId));
+  const matchesPresetGranularPermissions = areGranularPermissionsEqual(
+    admin.granularPermissions,
+    role.granularPermissions
+  );
+
+  return matchesPresetPermissions && matchesPresetGranularPermissions ? undefined : effectivePermissions;
+}
+
 export function Admins() {
   const { church, branches } = useChurch();
-  const { currentAdmin: loggedInAdmin } = useAuth();
+  const { currentAdmin: loggedInAdmin, refreshAdmin } = useAuth();
 
   // Data from backend
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalogGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -141,6 +196,7 @@ export function Admins() {
   const [formUnitIds, setFormUnitIds] = useState<string[]>([]);
   const [formRoleId, setFormRoleId] = useState('');
   const [formCustomPermissions, setFormCustomPermissions] = useState<string[]>([]);
+  const [formCustomGranularPerms, setFormCustomGranularPerms] = useState<Record<string, string[]>>({});
   const [showCustomizePermissions, setShowCustomizePermissions] = useState(false);
   const [formProfilePicture, setFormProfilePicture] = useState<string | undefined>(undefined);
   const adminPicInputRef = useRef<HTMLInputElement>(null);
@@ -154,24 +210,45 @@ export function Admins() {
         ...(loggedInAdmin?.branchIds || []),
         loggedInAdmin?.branchId,
       ].filter(Boolean)));
-      const [adminsData, roleResults, deptsData, unitsData] = await Promise.all([
+      const [adminsData, roleResults, deptsData, unitsData, permissionCatalogData] = await Promise.all([
         roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchAdmins(branchId))) : fetchAdmins(),
         roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchRoles(branchId))) : Promise.resolve([]),
         fetchDepartments(),
         fetchUnits(),
+        getPermissionCatalog(),
       ]);
       const mergedRoles = Array.isArray(roleResults)
         ? Array.from(new Map((roleResults as any[]).flat().map((role: Role) => [role.id, role])).values())
         : [];
+      const roleMap = new Map(mergedRoles.map((role: Role) => [role.id, role]));
       const mergedAdmins = Array.isArray(adminsData)
         ? Array.from(new Map((adminsData as any[]).flat().map((admin: Admin) => [admin.id, admin])).values())
+            .map((admin: Admin) => ({
+              ...admin,
+              customPermissions: deriveCustomPermissionsFromPreset(admin, roleMap),
+            }))
         : [];
       setAdmins(mergedAdmins as Admin[]);
       setRoles(mergedRoles as Role[]);
       setDepartments(deptsData as unknown as Department[]);
       setUnits(unitsData as unknown as Unit[]);
+      setPermissionCatalog(permissionCatalogData);
+      return {
+        admins: mergedAdmins as Admin[],
+        roles: mergedRoles as Role[],
+        departments: deptsData as unknown as Department[],
+        units: unitsData as unknown as Unit[],
+        permissionCatalog: permissionCatalogData,
+      };
     } catch (err) {
       console.error('Failed to load admins data:', err);
+      return {
+        admins: [] as Admin[],
+        roles: [] as Role[],
+        departments: [] as Department[],
+        units: [] as Unit[],
+        permissionCatalog: [] as PermissionCatalogGroup[],
+      };
     } finally {
       setLoading(false);
     }
@@ -190,20 +267,23 @@ export function Admins() {
     }
   }, [openMenuId]);
 
-  // Auto-load role permissions when role changes
   useEffect(() => {
+    if (dialogMode !== 'edit') {
+      return;
+    }
+
     if (formRoleId) {
       const role = roles.find((r) => r.id === formRoleId);
       if (role) {
         setFormCustomPermissions([...role.permissions]);
+        setFormCustomGranularPerms(normalizeGranularPermissions(role.granularPermissions));
       }
     } else {
       setFormCustomPermissions([]);
+      setFormCustomGranularPerms({});
       setShowCustomizePermissions(false);
     }
-  }, [formRoleId, roles]);
-
-
+  }, [dialogMode, formRoleId, roles]);
 
   // --- Derived data ---
   const filteredAdmins = admins.filter(a => {
@@ -220,10 +300,11 @@ export function Admins() {
   const unitsForSelection = formDepartmentIds.length > 0
     ? units.filter((u) => formDepartmentIds.includes(u.departmentId))
     : units;
-
-  const availablePermissionsForLevel = PERMISSIONS.filter((p) => p.level.includes(formLevel));
+  const availablePermissionsForLevel = deriveAssignablePermissions({ catalog: permissionCatalog, scopeLevel: formLevel });
   const selectedRolePreset = roles.find((r) => r.id === formRoleId);
   const presetPermissionIds = selectedRolePreset?.permissions ?? [];
+  const presetGranularPerms = normalizeGranularPermissions(selectedRolePreset?.granularPermissions);
+
   const creatableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'create')
     .filter((level) => !(church.type === 'single' && level === 'branch'));
   const editableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'edit')
@@ -243,13 +324,15 @@ export function Admins() {
     || canResetPasswordForAdmin(admin)
     || canViewPasswordForAdmin(admin)
   );
-
   const isCustomized =
-    formRoleId &&
-    formCustomPermissions.length > 0 &&
-    (formCustomPermissions.length !== presetPermissionIds.length ||
-      !presetPermissionIds.every((id) => formCustomPermissions.includes(id)));
-
+    Boolean(
+      formRoleId &&
+      (
+        formCustomPermissions.length !== presetPermissionIds.length ||
+        !presetPermissionIds.every((id) => formCustomPermissions.includes(id)) ||
+        !areGranularPermissionsEqual(formCustomGranularPerms, presetGranularPerms)
+      )
+    );
   const customAddedCount = formCustomPermissions.filter((id) => !presetPermissionIds.includes(id)).length;
   const customRemovedCount = presetPermissionIds.filter((id) => !formCustomPermissions.includes(id)).length;
 
@@ -264,8 +347,61 @@ export function Admins() {
     setFormUnitIds([]);
     setFormRoleId('');
     setFormCustomPermissions([]);
+    setFormCustomGranularPerms({});
     setShowCustomizePermissions(false);
     setFormProfilePicture(undefined);
+  };
+
+  const toggleCustomAction = (permissionId: string, actionId: string) => {
+    setFormCustomGranularPerms((prev) => {
+      const current = prev[permissionId] || [];
+      const updated = current.includes(actionId)
+        ? current.filter((id) => id !== actionId)
+        : [...current, actionId];
+      const next = { ...prev };
+
+      if (updated.length > 0) {
+        next[permissionId] = updated;
+        setFormCustomPermissions((selected) => selected.includes(permissionId) ? selected : [...selected, permissionId]);
+      } else {
+        delete next[permissionId];
+        setFormCustomPermissions((selected) => selected.filter((id) => id !== permissionId));
+      }
+
+      return next;
+    });
+  };
+
+  const toggleAllCustomActions = (permissionId: string, actionIds: string[]) => {
+    setFormCustomGranularPerms((prev) => {
+      const current = prev[permissionId] || [];
+      const allSelected = actionIds.every((actionId) => current.includes(actionId));
+      const next = { ...prev };
+
+      if (allSelected) {
+        delete next[permissionId];
+        setFormCustomPermissions((selected) => selected.filter((id) => id !== permissionId));
+      } else {
+        next[permissionId] = [...actionIds];
+        setFormCustomPermissions((selected) => selected.includes(permissionId) ? selected : [...selected, permissionId]);
+      }
+
+      return next;
+    });
+  };
+
+  const toggleCustomPermission = (permissionId: string) => {
+    const permission = availablePermissionsForLevel.find((item) => item.id === permissionId);
+    if (permission?.actions && permission.actions.length > 0) {
+      toggleAllCustomActions(permissionId, permission.actions.map((action) => action.id));
+      return;
+    }
+
+    setFormCustomPermissions((prev) => (
+      prev.includes(permissionId)
+        ? prev.filter((id) => id !== permissionId)
+        : [...prev, permissionId]
+    ));
   };
 
   function getEditFormAccessLevels(admin: Admin | null) {
@@ -389,9 +525,10 @@ export function Admins() {
     setFormUnitIds(fullAdmin.unitIds?.length ? [...fullAdmin.unitIds] : fullAdmin.unitId ? [fullAdmin.unitId] : []);
     setFormRoleId(fullAdmin.roleId);
     setFormProfilePicture(fullAdmin.profilePicture);
-    if (fullAdmin.customPermissions && fullAdmin.customPermissions.length > 0) {
+    if (Array.isArray(fullAdmin.customPermissions)) {
       setTimeout(() => {
         setFormCustomPermissions([...fullAdmin.customPermissions!]);
+        setFormCustomGranularPerms(normalizeGranularPermissions(fullAdmin.granularPermissions));
         setShowCustomizePermissions(true);
       }, 0);
     }
@@ -457,19 +594,16 @@ export function Admins() {
         })(),
         departmentIds: ['department', 'unit'].includes(formLevel) && formDepartmentIds.length > 0 ? formDepartmentIds : undefined,
         unitIds: formLevel === 'unit' && formUnitIds.length > 0 ? formUnitIds : undefined,
-        customPermissions: showCustomizePermissions ? formCustomPermissions : undefined,
         createdAt: new Date().toISOString(),
       };
 
       // Create auth user on server (generates temp password)
-      const result = await createAdminUser({
+      await createAdminUser({
         email: formEmail.trim(),
         name: formName.trim(),
         admin: adminRecord,
       });
 
-      // Add to local state
-      // Reload admins and related data
       await loadData();
 
       setDialogMode(null);
@@ -536,7 +670,9 @@ export function Admins() {
         });
       }
 
-      if (formRoleId && formRoleId !== selectedAdmin.roleId) {
+      const roleChanged = Boolean(formRoleId && formRoleId !== selectedAdmin.roleId);
+
+      if (roleChanged) {
         await assignRoleToAdmin({
           adminId: selectedAdmin.id,
           roleIds: [formRoleId],
@@ -544,45 +680,40 @@ export function Admins() {
       }
 
       const originalPresetPermissions = selectedRolePreset?.permissions ?? [];
-      const currentPermissions = showCustomizePermissions ? formCustomPermissions : originalPresetPermissions;
+      const originalPresetGranularPermissions = presetGranularPerms;
+      const shouldUpdateCustomization = showCustomizePermissions && Boolean(selectedRolePreset);
+      const currentPermissions =
+        showCustomizePermissions && isCustomized ? formCustomPermissions : originalPresetPermissions;
+      const currentGranularPermissions =
+        showCustomizePermissions && isCustomized ? formCustomGranularPerms : originalPresetGranularPermissions;
 
-      const wasCustomized = selectedAdmin.customPermissions && selectedAdmin.customPermissions.length > 0;
-      const isNowCustomized = showCustomizePermissions && isCustomized;
-
-      if (isNowCustomized || wasCustomized) {
+      if (shouldUpdateCustomization) {
         const catalog = await getPermissionCatalog();
-        
-        const target = buildRolePermissionPayload({
+        const payload = buildRolePermissionPayload({
           permissionIds: currentPermissions,
-          catalog
+          granularPermissions: currentGranularPermissions,
+          catalog,
         });
 
-        const defaultRole = buildRolePermissionPayload({
-          permissionIds: originalPresetPermissions,
-          catalog
-        });
-
-        const overrides: any[] = [];
-        
-        target.permissions.forEach(id => {
-          if (!defaultRole.permissions.includes(id)) overrides.push({ permissionId: id, isGranted: true });
-        });
-        target.permissionGroup.forEach(id => {
-          if (!defaultRole.permissionGroup.includes(id)) overrides.push({ permissionGroupId: id, isGranted: true });
-        });
-        
-        defaultRole.permissions.forEach(id => {
-          if (!target.permissions.includes(id)) overrides.push({ permissionId: id, isGranted: false });
-        });
-        defaultRole.permissionGroup.forEach(id => {
-          if (!target.permissionGroup.includes(id)) overrides.push({ permissionGroupId: id, isGranted: false });
-        });
-
-        await editAdminPermission(selectedAdmin.id, { overrides });
+        await editRole(selectedRolePreset!.id, {
+          name: selectedRolePreset?.name,
+          description: (selectedRolePreset as any)?.description || undefined,
+          scopeLevel: (selectedRolePreset?.level === 'unit' ? 'department' : selectedRolePreset?.level) as string,
+          permissions: payload.permissions,
+          permissionGroup: payload.permissionGroup,
+        }, (selectedRolePreset as any)?.branchId || effectiveBranchId);
       }
 
+      const refreshedData = await loadData();
+      const refreshedAdmin = refreshedData.admins.find((admin) => admin.id === selectedAdmin.id);
 
-      await loadData();
+      if (refreshedAdmin) {
+        setAdmins((prev) => prev.map((admin) => admin.id === selectedAdmin.id ? refreshedAdmin : admin));
+      }
+
+      if (selectedAdmin.id === loggedInAdmin?.id) {
+        await refreshAdmin();
+      }
       closeDialog();
       showSuccess(`"${formName.trim()}" updated successfully.`);
     } catch (err: any) {
@@ -882,11 +1013,6 @@ export function Admins() {
                         </div>
                         <div className="text-xs text-gray-500">
                           <span className="font-medium">Role:</span> {getRoleName(admin)}
-                          {admin.customPermissions && admin.customPermissions.length > 0 && (
-                            <Badge className="ml-1 bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1.5 py-0">
-                              Customized
-                            </Badge>
-                          )}
                           {' '}&middot;{' '}
                           <span className="font-medium">Scope:</span> {getScopeLabel(admin)}
                         </div>
@@ -928,11 +1054,6 @@ export function Admins() {
                             </TableCell>
                             <TableCell>
                               <span className="text-sm">{getRoleName(admin)}</span>
-                              {admin.customPermissions && admin.customPermissions.length > 0 && (
-                                <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1.5 py-0">
-                                  Customized
-                                </Badge>
-                              )}
                             </TableCell>
                             <TableCell>
                               <Badge className={getLevelBadgeColor(admin.level)}>
@@ -1243,8 +1364,7 @@ export function Admins() {
               )}
             </div>
 
-            {/* Customize Permissions */}
-            {formRoleId && (
+            {dialogMode === 'edit' && formRoleId && (
               <div className="space-y-3">
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -1253,7 +1373,7 @@ export function Admins() {
                       <Settings2 className="w-4 h-4" />
                       Customize Permissions
                     </Label>
-                    <p className="text-xs text-gray-500 mt-1">The selected role acts as a preset. You can fine-tune permissions for this specific administrator.</p>
+                    <p className="text-xs text-gray-500 mt-1">Fine-tune this administrator without changing the base role.</p>
                   </div>
                   <button
                     type="button"
@@ -1280,7 +1400,14 @@ export function Admins() {
                         </span>
                       </div>
                       {isCustomized && (
-                        <button type="button" onClick={() => setFormCustomPermissions([...presetPermissionIds])} className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1 flex-shrink-0 ml-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormCustomPermissions([...presetPermissionIds]);
+                            setFormCustomGranularPerms(normalizeGranularPermissions(presetGranularPerms));
+                          }}
+                          className="text-xs text-amber-700 hover:text-amber-900 flex items-center gap-1 flex-shrink-0 ml-2"
+                        >
                           <RotateCcw className="w-3 h-3" />
                           Reset
                         </button>
@@ -1305,9 +1432,7 @@ export function Admins() {
                                     <Checkbox
                                       id={`perm-${p.id}`}
                                       checked={isChecked}
-                                      onCheckedChange={(checked) =>
-                                        setFormCustomPermissions((prev) => checked ? [...prev, p.id] : prev.filter((id) => id !== p.id))
-                                      }
+                                      onCheckedChange={() => toggleCustomPermission(p.id)}
                                     />
                                     <div className="flex-1">
                                       <Label htmlFor={`perm-${p.id}`} className="cursor-pointer text-sm font-medium text-gray-900 flex items-center gap-2">
@@ -1316,6 +1441,25 @@ export function Admins() {
                                         {wasRemoved && <span className="text-[10px] text-red-700 bg-red-100 px-1.5 py-0.5 rounded">Removed</span>}
                                       </Label>
                                       <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>
+                                      {p.actions && p.actions.length > 0 && (
+                                        <div className="space-y-1 mt-2">
+                                          {p.actions.map((action) => (
+                                            <div key={action.id} className="flex items-start gap-2">
+                                              <Checkbox
+                                                id={`perm-${p.id}-${action.id}`}
+                                                checked={formCustomGranularPerms[p.id]?.includes(action.id) || false}
+                                                onCheckedChange={() => toggleCustomAction(p.id, action.id)}
+                                              />
+                                              <Label
+                                                htmlFor={`perm-${p.id}-${action.id}`}
+                                                className="cursor-pointer text-xs text-gray-700"
+                                              >
+                                                {action.label}
+                                              </Label>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 );

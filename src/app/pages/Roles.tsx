@@ -362,8 +362,6 @@ export function Roles() {
         scopeLevel: (roleLevel === 'unit' ? 'department' : roleLevel) as string,
         permissions: payload.permissions,
         permissionGroup: payload.permissionGroup,
-        currentPermissions: (selectedRole as any).rawPermissions,
-        currentPermissionGroups: (selectedRole as any).rawPermissionGroups,
       }, roleBranchId || (selectedRole as any).branchId || primaryBranchId);
       closeDialog();
       showToast(`"${roleName.trim()}" role updated successfully!`);
@@ -968,7 +966,6 @@ export function Roles() {
     </Layout>
   );
 }
-
 
 
 

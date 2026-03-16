@@ -478,8 +478,6 @@ export interface EditRoleRequest {
   permissions?: string[];
   permissionGroup?: string[];
   granularPermissions?: Record<string, string[]>;
-  currentPermissions?: any[];
-  currentPermissionGroups?: any[];
 }
 
 export interface AssignRoleRequest {

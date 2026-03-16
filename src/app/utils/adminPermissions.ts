@@ -15,12 +15,11 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 function getAdminPermissionIds(admin?: Pick<Admin, 'permissions' | 'customPermissions'> | null) {
-  return new Set(
-    unique([
-      ...(Array.isArray(admin?.permissions) ? admin.permissions : []),
-      ...(Array.isArray(admin?.customPermissions) ? admin.customPermissions : []),
-    ])
-  );
+  if (Array.isArray(admin?.customPermissions)) {
+    return new Set(unique(admin.customPermissions));
+  }
+
+  return new Set(unique(Array.isArray(admin?.permissions) ? admin.permissions : []));
 }
 export function getGrantedActions(admin: Admin | null | undefined, permissionId: string) {
   const definition = PERMISSIONS.find((permission) => permission.id === permissionId);

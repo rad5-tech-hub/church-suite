@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Admin } from '../types';
 import { loginApi, logoutApi, fetchAdmin, fetchAdminPermissionState, refreshAccessToken } from '../api';
-import { getAccessToken, setAccessToken, setTenantId, decodeJwtClaims } from '../apiClient';
+import { AUTH_SESSION_EXPIRED_EVENT, getAccessToken, setAccessToken, setTenantId, decodeJwtClaims } from '../apiClient';
 
 interface AuthContextType {
   currentAdmin: Admin | null;
@@ -33,6 +33,10 @@ function normalizeGranularPermissions(granularPermissions?: Record<string, strin
   );
 }
 
+function normalizePermissionIds(permissionIds?: string[]) {
+  return Array.from(new Set((permissionIds || []).filter(Boolean)));
+}
+
 // Removed hasResolvedPermissionState
 
 function mergePermissionState(
@@ -43,13 +47,26 @@ function mergePermissionState(
     granularPermissions?: Record<string, string[]>;
   } | null
 ): Admin {
+  const hasExplicitPermissions = Array.isArray(admin.customPermissions) || Array.isArray(admin.permissions);
+  const hasExplicitGranularPermissions = admin.granularPermissions !== undefined;
+  const hasExplicitPermissionState = hasExplicitPermissions || hasExplicitGranularPermissions;
+  const explicitPermissions = Array.isArray(admin.customPermissions)
+    ? normalizePermissionIds(admin.customPermissions)
+    : Array.isArray(admin.permissions)
+      ? normalizePermissionIds(admin.permissions)
+      : undefined;
+
   return {
     ...admin,
     roleId: permissionState?.roleId || admin.roleId,
-    permissions: Array.isArray(permissionState?.permissions)
-      ? Array.from(new Set(permissionState.permissions.filter(Boolean)))
-      : (Array.isArray(admin.permissions) ? Array.from(new Set(admin.permissions.filter(Boolean))) : []),
-    granularPermissions: normalizeGranularPermissions(permissionState?.granularPermissions ?? admin.granularPermissions),
+    permissions: hasExplicitPermissions
+      ? explicitPermissions
+      : Array.isArray(permissionState?.permissions)
+        ? normalizePermissionIds(permissionState.permissions)
+        : admin.permissions,
+    granularPermissions: hasExplicitPermissionState
+      ? normalizeGranularPermissions(admin.granularPermissions)
+      : normalizeGranularPermissions(permissionState?.granularPermissions ?? admin.granularPermissions),
   };
 }
 
@@ -85,6 +102,12 @@ function mapApiAdminToAdmin(apiAdmin: any): Admin {
         : [];
   const rawLevel = apiAdmin.level || apiAdmin.scopeLevel || apiAdmin.roles?.[0]?.scopeLevel || apiAdmin.role?.scopeLevel;
   const level = normalizeAdminScopeLevel(rawLevel, apiAdmin.isSuperAdmin);
+  const customPermissions = Array.isArray(apiAdmin.customPermissions)
+    ? normalizePermissionIds(apiAdmin.customPermissions)
+    : undefined;
+  const permissions = Array.isArray(apiAdmin.permissions)
+    ? normalizePermissionIds(apiAdmin.permissions)
+    : customPermissions;
   return {
     id: apiAdmin.id as string,
     churchId: apiAdmin.churchId || '',
@@ -101,8 +124,9 @@ function mapApiAdminToAdmin(apiAdmin: any): Admin {
     branchIds,
     departmentIds,
     unitIds,
-    permissions: Array.isArray(apiAdmin.permissions) ? Array.from(new Set(apiAdmin.permissions.filter(Boolean))) : [],
+    permissions,
     granularPermissions: normalizeGranularPermissions(apiAdmin.granularPermissions),
+    customPermissions,
     createdAt: apiAdmin.createdAt instanceof Date ? apiAdmin.createdAt : new Date(apiAdmin.createdAt || Date.now()),
     profilePicture: apiAdmin.profilePicture,
   };
@@ -167,6 +191,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   };
 
+  const clearSessionState = () => {
+    setAccessToken(null);
+    setTenantId(null);
+    setAccessTokenState(null);
+    setCurrentAdminState(null);
+    persistAdmin(null);
+    try {
+      sessionStorage.removeItem(TENANT_META_NAME_KEY);
+      sessionStorage.removeItem(TENANT_META_HQ_KEY);
+      sessionStorage.removeItem(CHURCH_DATA_KEY);
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleSessionExpired = () => {
+      clearSessionState();
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired as EventListener);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired as EventListener);
+  }, []);
+
   // On mount: access token is not persisted anywhere, so try to silently
   // restore it from the httpOnly refresh-token cookie set by the server.
   useEffect(() => {
@@ -183,11 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch {
             // No valid refresh token - clear stale session and force login
-            setAccessToken(null);
-            setTenantId(null);
-            setAccessTokenState(null);
-            setCurrentAdminState(null);
-            persistAdmin(null);
+            clearSessionState();
           }
         }
         if (token) {
@@ -238,10 +284,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           } catch {
             // Token genuinely unusable - wipe everything
-            setAccessToken(null);
-            setTenantId(null);
-            setAccessTokenState(null);
-            persistAdmin(null);
+            clearSessionState();
           }
         }
       } catch (err) {
@@ -377,15 +420,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await logoutApi();
-    setAccessToken(null);          // clear from sessionStorage + memory
-    setAccessTokenState(null);
-    setCurrentAdminState(null);
-    persistAdmin(null);
-    try {
-      sessionStorage.removeItem(TENANT_META_NAME_KEY);
-      sessionStorage.removeItem(TENANT_META_HQ_KEY);
-      sessionStorage.removeItem(CHURCH_DATA_KEY);
-    } catch { /* ignore */ }
+    clearSessionState();
     return true;
   };
 

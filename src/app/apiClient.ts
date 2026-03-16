@@ -13,6 +13,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://testchurch.bo
 
 const TOKEN_KEY = 'churchset_access_token';
 const TENANT_KEY = 'churchset_tenant_id';
+export const AUTH_SESSION_EXPIRED_EVENT = 'churchset:auth-session-expired';
+let hasBroadcastSessionExpiry = false;
 
 let _accessToken: string | null = (() => {
   try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -24,6 +26,9 @@ export function getAccessToken(): string | null {
 
 export function setAccessToken(token: string | null) {
   _accessToken = token;
+  if (token) {
+    hasBroadcastSessionExpiry = false;
+  }
   try {
     if (token) sessionStorage.setItem(TOKEN_KEY, token);
     else sessionStorage.removeItem(TOKEN_KEY);
@@ -59,6 +64,34 @@ export class ApiRequestError extends Error {
     this.name = 'ApiRequestError';
     this.status = status;
     this.body = body;
+  }
+}
+
+function getApiErrorText(body: any) {
+  return [
+    typeof body?.error === 'string' ? body.error : undefined,
+    body?.error?.message,
+    body?.message,
+    body?.stack,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(' ')
+    .toLowerCase();
+}
+
+function broadcastSessionExpired(reason: string) {
+  if (hasBroadcastSessionExpiry) {
+    return;
+  }
+
+  hasBroadcastSessionExpiry = true;
+  setAccessToken(null);
+  setTenantId(null);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT, {
+      detail: { reason },
+    }));
   }
 }
 
@@ -173,6 +206,16 @@ export async function apiFetch<T = any>(
     console.groupEnd();
   }
 
+  const errorText = getApiErrorText(body);
+  if (errorText.includes('jwt expired') || errorText.includes('tokenexpirederror')) {
+    broadcastSessionExpired('jwt expired');
+    throw new ApiRequestError(401, {
+      message: 'Session expired. Please log in again.',
+      code: 401,
+      details: body,
+    });
+  }
+
   if (!res.ok) {
     // ── Subscription-required handling ──────────────────────────────────────
     if (body?.requiresSubscription === true) {
@@ -194,7 +237,7 @@ export async function apiFetch<T = any>(
     }
     // ── Generic error handling ───────────────────────────────────────────────
     const error: ApiError = {
-      message: body?.error?.message || body?.message || `API error ${res.status}`,
+      message: (typeof body?.error === 'string' ? body.error : body?.error?.message) || body?.message || `API error ${res.status}`,
       errors: body?.errors,
       code: body?.error?.code || res.status,
       details: body?.error?.details,
