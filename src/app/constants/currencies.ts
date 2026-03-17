@@ -1,9 +1,9 @@
 export const CURRENCIES: { code: string; symbol: string; name: string }[] = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: 'EUR', name: 'Euro' },
-  { code: 'GBP', symbol: 'GBP', name: 'British Pound' },
-  { code: 'NGN', symbol: 'NGN', name: 'Nigerian Naira' },
-  { code: 'GHS', symbol: 'GHS', name: 'Ghanaian Cedi' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+  { code: 'GHS', symbol: 'GH₵', name: 'Ghanaian Cedi' },
   { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
   { code: 'ZAR', symbol: 'R', name: 'South African Rand' },
   { code: 'INR', symbol: 'INR', name: 'Indian Rupee' },

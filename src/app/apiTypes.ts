@@ -269,6 +269,7 @@ export interface CreateMemberRequest {
   departmentIds?: string[];
   unitIds?: string[];
   comments?: string;
+  isWorker?: boolean;
 }
 
 export type CreateNonWorkerMemberRequest = Omit<CreateMemberRequest, 'branchId' | 'departmentIds' | 'unitIds'>;
@@ -294,6 +295,7 @@ export interface EditMemberRequest {
   branchId?: string;
   departmentIds?: string[];
   unitIds?: string[];
+  isWorker?: boolean;
 }
 
 // ─── Church ──────────────────────────────────────────────────
@@ -464,7 +466,7 @@ export interface SendSmsRequest {
 export interface CreateRoleRequest {
   name: string;
   description?: string;
-  scopeLevel: 'church' | 'branch' | 'department';
+  scopeLevel: 'church' | 'branch' | 'department' | 'unit';
   branchId?: string;
   permissions?: string[];
   permissionGroup?: string[];

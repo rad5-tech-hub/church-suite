@@ -164,7 +164,7 @@ export function SetupChecklist() {
   return (
     <div className="mx-6 mt-4 mb-2" data-tour="setup-checklist">
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl overflow-hidden">
-        {/* Header â€” always visible */}
+        {/* Header  always visible */}
         <div className="flex items-center justify-between px-4 py-3">
           <div
             role="button"
@@ -196,7 +196,7 @@ export function SetupChecklist() {
               </p>
               <p className="text-xs text-gray-500">
                 {completedCount === 0
-                  ? "Let's set up your church step by step â€” here's what to do first."
+                  ? "Let's set up your church step by step  here's what to do first."
                   : `Nice work! You've completed ${completedCount} of ${totalCount} steps so far.`}
               </p>
             </div>

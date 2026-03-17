@@ -29,7 +29,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Church,
-  GitBranch,
   Layers,
   Box,
   Info,
@@ -58,10 +57,10 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
     description: 'Permissions that apply across the entire church organization.',
   },
   branch: {
-    label: 'Branch Level',
-    icon: <GitBranch className="w-4 h-4" />,
-    color: 'bg-purple-100 text-purple-800 border-purple-200',
-    description: 'Anyone with this role can only perform these actions on the specific branch they are assigned to - not across the entire church.',
+    label: 'Department / Outreach Level',
+    icon: <Layers className="w-4 h-4" />,
+    color: 'bg-green-100 text-green-800 border-green-200',
+    description: 'Legacy branch roles are treated as department/outreach scope in the UI.',
   },
   department: {
     label: 'Department / Outreach Level',
@@ -77,8 +76,11 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
   },
 };
 
+const ROLE_SCOPE_LEVELS: AdminLevel[] = ['church', 'department', 'unit'];
+const normalizeRoleLevel = (level: AdminLevel): AdminLevel => (level === 'branch' ? 'department' : level);
+
 export function Roles() {
-  const { church, branches } = useChurch();
+  const { branches } = useChurch();
   const { currentAdmin } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -145,10 +147,9 @@ export function Roles() {
 
   // --- Derived ---
   const permissionLibrary = useMemo(() => {
-    const levels: AdminLevel[] = ['church', 'branch', 'department', 'unit'];
     return Array.from(
       new Map(
-        levels
+        ROLE_SCOPE_LEVELS
           .flatMap((level) => deriveAssignablePermissions({ catalog: permissionCatalog, scopeLevel: level }))
           .map((permission) => [permission.id, permission])
       ).values()
@@ -169,7 +170,8 @@ export function Roles() {
 
   const filteredRoles = roles.filter(r => {
     if (!searchTerm) return true;
-    return r.name.toLowerCase().includes(searchTerm.toLowerCase()) || LEVEL_META[r.level].label.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedLevel = normalizeRoleLevel(r.level);
+    return r.name.toLowerCase().includes(searchTerm.toLowerCase()) || LEVEL_META[normalizedLevel].label.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const resolvePermissionDefinition = (permissionId: string) => (
@@ -287,12 +289,13 @@ export function Roles() {
     }
     setSelectedRole(role);
     setRoleName(role.name);
-    setRoleLevel(role.level);
+    const normalizedLevel = role.level === 'branch' ? 'department' : role.level;
+    setRoleLevel(normalizedLevel);
     setRoleBranchId((role as any).branchId || primaryBranchId || '');
     const mapped = mapBackendRolePermissions({
       permissions: (role as any).rawPermissions || role.permissions,
       permissionGroups: (role as any).rawPermissionGroups || [],
-      scopeLevel: role.level,
+      scopeLevel: normalizedLevel,
       catalog: permissionCatalog,
     });
     setSelectedPermissions(mapped.permissions);
@@ -326,7 +329,7 @@ export function Roles() {
       });
       await createRole({
         name: roleName.trim(),
-        scopeLevel: (roleLevel === 'unit' ? 'department' : roleLevel) as 'church' | 'branch' | 'department',
+        scopeLevel: roleLevel as 'church' | 'department' | 'unit',
         branchId: roleBranchId || primaryBranchId || undefined,
         permissions: payload.permissions,
         permissionGroup: payload.permissionGroup,
@@ -359,7 +362,7 @@ export function Roles() {
       await editRole(selectedRole.id, {
         name: roleName.trim(),
         description: (selectedRole as any).description || undefined,
-        scopeLevel: (roleLevel === 'unit' ? 'department' : roleLevel) as string,
+        scopeLevel: roleLevel as string,
         permissions: payload.permissions,
         permissionGroup: payload.permissionGroup,
       }, roleBranchId || (selectedRole as any).branchId || primaryBranchId);
@@ -411,7 +414,7 @@ export function Roles() {
       });
       await createRole({
         name: `${role.name} (Copy)`,
-        scopeLevel: (role.level === 'unit' ? 'department' : role.level) as 'church' | 'branch' | 'department',
+        scopeLevel: normalizeRoleLevel(role.level) as 'church' | 'department' | 'unit',
         branchId: (role as any).branchId || primaryBranchId || undefined,
         permissions: dupPayload.permissions,
         permissionGroup: dupPayload.permissionGroup,
@@ -450,10 +453,9 @@ export function Roles() {
         <>
         {/* Summary */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          {(Object.keys(LEVEL_META) as AdminLevel[]).map((level) => {
-            if (level === 'branch' && church.type === 'single') return null;
+          {ROLE_SCOPE_LEVELS.map((level) => {
             const meta = LEVEL_META[level];
-            const count = roles.filter((r) => r.level === level).length;
+            const count = roles.filter((r) => normalizeRoleLevel(r.level) === level).length;
             return (
               <Card key={level}>
                 <CardContent className="p-4 flex items-center gap-3">
@@ -511,7 +513,7 @@ export function Roles() {
           ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredRoles.map((role) => {
-              const meta = LEVEL_META[role.level];
+              const meta = LEVEL_META[normalizeRoleLevel(role.level)];
               const rolePermissions = getRolePermissions(role.permissions);
               const permissionsByCategory = PERMISSION_CATEGORIES.map((category) => ({
                 category,
@@ -663,8 +665,7 @@ export function Roles() {
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(Object.keys(LEVEL_META) as AdminLevel[]).map((level) => {
-                  if (level === 'branch' && church.type === 'single') return null;
+                {ROLE_SCOPE_LEVELS.map((level) => {
                   const meta = LEVEL_META[level];
                   return (
                     <button
@@ -818,7 +819,7 @@ export function Roles() {
           </DialogHeader>
 
           {selectedRole && (() => {
-            const meta = LEVEL_META[selectedRole.level];
+            const meta = LEVEL_META[normalizeRoleLevel(selectedRole.level)];
             const rolePermissions = getRolePermissions(selectedRole.permissions);
             const permsByCategory = PERMISSION_CATEGORIES.map((cat) => ({
               category: cat,

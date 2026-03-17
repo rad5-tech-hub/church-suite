@@ -52,7 +52,7 @@ export function Dashboard() {
   const [unitCount, setUnitCount] = useState(0);
   const [recentCollections, setRecentCollections] = useState<any[]>([]);
 
-  const currSymbol = CURRENCIES.find(c => c.code === church.currency)?.symbol || '$';
+  const currSymbol = CURRENCIES.find(c => c.code === church.currency)?.symbol || '₦';
 
   const loadData = useCallback(async () => {
     setLoading(true);

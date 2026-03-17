@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import {
   Users,
   Plus,
@@ -69,7 +70,7 @@ import {
   resetAdminPassword,
   deleteAdminUser,
   editRole,
-  getPermissionCatalog,
+  fetchPermissionGroups,
 } from '../api';
 import {
   buildRolePermissionPayload,
@@ -180,9 +181,6 @@ export function Admins() {
   const [tempPasswordContext, setTempPasswordContext] = useState<'created' | 'reset' | 'view'>('created');
   const [resetApiMessage, setResetApiMessage] = useState('');
 
-  // Menu open state per admin
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
   // Search
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -215,7 +213,7 @@ export function Admins() {
         roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchRoles(branchId))) : Promise.resolve([]),
         fetchDepartments(),
         fetchUnits(),
-        getPermissionCatalog(),
+        fetchPermissionGroups(),
       ]);
       const mergedRoles = Array.isArray(roleResults)
         ? Array.from(new Map((roleResults as any[]).flat().map((role: Role) => [role.id, role])).values())
@@ -258,15 +256,6 @@ export function Admins() {
     loadData();
   }, [loadData]);
 
-  // Close menu on outside click
-  useEffect(() => {
-    if (openMenuId) {
-      const handler = () => setOpenMenuId(null);
-      document.addEventListener('click', handler);
-      return () => document.removeEventListener('click', handler);
-    }
-  }, [openMenuId]);
-
   useEffect(() => {
     if (dialogMode !== 'edit') {
       return;
@@ -306,9 +295,9 @@ export function Admins() {
   const presetGranularPerms = normalizeGranularPermissions(selectedRolePreset?.granularPermissions);
 
   const creatableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'create')
-    .filter((level) => !(church.type === 'single' && level === 'branch'));
+    .filter((level) => level !== 'branch');
   const editableAdminLevels = getManageableAdminLevels(loggedInAdmin, 'edit')
-    .filter((level) => !(church.type === 'single' && level === 'branch'));
+    .filter((level) => level !== 'branch');
   const defaultCreatableAdminLevel = creatableAdminLevels[0] || 'church';
   const canCreateAnyAdmin = creatableAdminLevels.length > 0;
   const canEditAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'edit') : false;
@@ -409,7 +398,7 @@ export function Admins() {
       return editableAdminLevels;
     }
 
-    const levels = ['church', 'branch', 'department', 'unit'] as AdminLevel[];
+    const levels = ['church', 'department', 'unit'] as AdminLevel[];
     const currentLevelIndex = levels.indexOf(admin.level);
 
     if (currentLevelIndex === -1) {
@@ -418,9 +407,7 @@ export function Admins() {
 
     const allowedLevels = new Set<AdminLevel>(editableAdminLevels);
     levels.slice(currentLevelIndex).forEach((level) => {
-      if (!(church.type === 'single' && level === 'branch')) {
-        allowedLevels.add(level);
-      }
+      allowedLevels.add(level);
     });
 
     return levels.filter((level) => allowedLevels.has(level));
@@ -519,7 +506,8 @@ export function Admins() {
     setFormName(fullAdmin.name);
     setFormEmail(fullAdmin.email);
     setFormPhone(fullAdmin.phone || '');
-    setFormLevel(fullAdmin.level);
+    const normalizedFormLevel: AdminLevel = fullAdmin.level === 'branch' ? 'department' : fullAdmin.level;
+    setFormLevel(normalizedFormLevel);
     setFormBranchIds(fullAdmin.branchIds?.length ? [...fullAdmin.branchIds] : fullAdmin.branchId ? [fullAdmin.branchId] : []);
     setFormDepartmentIds(fullAdmin.departmentIds?.length ? [...fullAdmin.departmentIds] : fullAdmin.departmentId ? [fullAdmin.departmentId] : []);
     setFormUnitIds(fullAdmin.unitIds?.length ? [...fullAdmin.unitIds] : fullAdmin.unitId ? [fullAdmin.unitId] : []);
@@ -533,7 +521,6 @@ export function Admins() {
       }, 0);
     }
     setDialogMode('edit');
-    setOpenMenuId(null);
   };
 
   const openAction = (admin: Admin, mode: ActionMode) => {
@@ -553,7 +540,6 @@ export function Admins() {
 
     setSelectedAdmin(admin);
     setActionMode(mode);
-    setOpenMenuId(null);
   };
 
   const closeDialog = () => {
@@ -582,7 +568,7 @@ export function Admins() {
         level: formLevel,
         isSuperAdmin: false,
         status: 'active',
-        branchId: formLevel === 'branch' ? formBranchIds[0] || undefined : undefined,
+        branchId: formLevel === 'church' ? undefined : formBranchIds[0] || loggedInAdmin?.branchId || branches[0]?.id || undefined,
         departmentId: ['department', 'unit'].includes(formLevel) ? formDepartmentIds[0] || undefined : undefined,
         unitId: formLevel === 'unit' ? formUnitIds[0] || undefined : undefined,
         branchIds: (() => {
@@ -688,7 +674,7 @@ export function Admins() {
         showCustomizePermissions && isCustomized ? formCustomGranularPerms : originalPresetGranularPermissions;
 
       if (shouldUpdateCustomization) {
-        const catalog = await getPermissionCatalog();
+        const catalog = await fetchPermissionGroups();
         const payload = buildRolePermissionPayload({
           permissionIds: currentPermissions,
           granularPermissions: currentGranularPermissions,
@@ -823,7 +809,6 @@ export function Admins() {
       showSuccess('You do not have permission to view this administrator\'s password history.', 'error');
       return;
     }
-    setOpenMenuId(null);
     if (admin.lastTempPassword) {
       setTempPassword(admin.lastTempPassword);
       setTempPasswordEmail(admin.email);
@@ -844,7 +829,7 @@ export function Admins() {
   };
 
   const requiresBranchSelection =
-    church.type === 'multi' && (formLevel === 'branch' || formLevel === 'department' || formLevel === 'unit');
+    church.type === 'multi' && (formLevel === 'department' || formLevel === 'unit');
   const isFormValid =
     formName.trim() &&
     formEmail.trim() &&
@@ -983,26 +968,19 @@ export function Admins() {
                             </div>
                           </div>
                           {hasAdminRowActions(admin) && (
-                            <div className="relative">
-                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                              {openMenuId === admin.id && (
-                                <AdminActionsMenu
-                                  admin={admin}
-                                  canEdit={canEditAdminRecord(admin)}
-                                  canSuspend={canSuspendAdminRecord(admin)}
-                                  canDelete={canDeleteAdminRecord(admin)}
-                                  canResetPassword={canResetPasswordForAdmin(admin)}
-                                  canViewPassword={canViewPasswordForAdmin(admin)}
-                                  onEdit={() => openEdit(admin)}
-                                  onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
-                                  onDelete={() => openAction(admin, 'delete')}
-                                  onResetPassword={() => openAction(admin, 'reset-password')}
-                                  onViewPassword={() => handleViewPassword(admin)}
-                                />
-                              )}
-                            </div>
+                            <AdminActionsMenu
+                              admin={admin}
+                              canEdit={canEditAdminRecord(admin)}
+                              canSuspend={canSuspendAdminRecord(admin)}
+                              canDelete={canDeleteAdminRecord(admin)}
+                              canResetPassword={canResetPasswordForAdmin(admin)}
+                              canViewPassword={canViewPasswordForAdmin(admin)}
+                              onEdit={() => openEdit(admin)}
+                              onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
+                              onDelete={() => openAction(admin, 'delete')}
+                              onResetPassword={() => openAction(admin, 'reset-password')}
+                              onViewPassword={() => handleViewPassword(admin)}
+                            />
                           )}
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -1066,25 +1044,20 @@ export function Admins() {
                             <TableCell>{getStatusBadge(admin)}</TableCell>
                             <TableCell>
                               {hasAdminRowActions(admin) && (
-                                <div className="flex justify-end relative">
-                                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === admin.id ? null : admin.id); }}>
-                                    <MoreHorizontal className="w-4 h-4" />
-                                  </Button>
-                                  {openMenuId === admin.id && (
-                                    <AdminActionsMenu
-                                      admin={admin}
-                                      canEdit={canEditAdminRecord(admin)}
-                                      canSuspend={canSuspendAdminRecord(admin)}
-                                      canDelete={canDeleteAdminRecord(admin)}
-                                      canResetPassword={canResetPasswordForAdmin(admin)}
-                                      canViewPassword={canViewPasswordForAdmin(admin)}
-                                      onEdit={() => openEdit(admin)}
-                                      onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
-                                      onDelete={() => openAction(admin, 'delete')}
-                                      onResetPassword={() => openAction(admin, 'reset-password')}
-                                      onViewPassword={() => handleViewPassword(admin)}
-                                    />
-                                  )}
+                                <div className="flex justify-end">
+                                  <AdminActionsMenu
+                                    admin={admin}
+                                    canEdit={canEditAdminRecord(admin)}
+                                    canSuspend={canSuspendAdminRecord(admin)}
+                                    canDelete={canDeleteAdminRecord(admin)}
+                                    canResetPassword={canResetPasswordForAdmin(admin)}
+                                    canViewPassword={canViewPasswordForAdmin(admin)}
+                                    onEdit={() => openEdit(admin)}
+                                    onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
+                                    onDelete={() => openAction(admin, 'delete')}
+                                    onResetPassword={() => openAction(admin, 'reset-password')}
+                                    onViewPassword={() => handleViewPassword(admin)}
+                                  />
                                 </div>
                               )}
                             </TableCell>
@@ -1214,33 +1187,6 @@ export function Admins() {
                 })}
               </div>
             </div>
-
-            {/* Conditional: Branch Selection (multi) */}
-            {formLevel === 'branch' && church.type === 'multi' && (
-              <div className="space-y-2 bg-purple-50 p-4 rounded-lg border border-purple-100">
-                <Label>Select Branch(es) *</Label>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {branches.map((b) => (
-                    <label key={b.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-purple-100/50 cursor-pointer">
-                      <Checkbox
-                        checked={formBranchIds.includes(b.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) setFormBranchIds(prev => [...prev, b.id]);
-                          else setFormBranchIds(prev => prev.filter(id => id !== b.id));
-                        }}
-                      />
-                      <span className="text-sm text-gray-700">{b.name} {b.isHeadquarters ? '(HQ)' : ''}</span>
-                    </label>
-                  ))}
-                </div>
-                {formBranchIds.length > 1 && (
-                  <p className="text-xs text-purple-700 font-medium">{formBranchIds.length} branches selected - this admin will manage all of them.</p>
-                )}
-                {formBranchIds.length <= 1 && (
-                  <p className="text-xs text-purple-700">Select one or more branches. This administrator will have access to the selected branches and their departments/units.</p>
-                )}
-              </div>
-            )}
 
             {/* Conditional: Branch Selection for Department/Unit admins (multi-church only) */}
             {(formLevel === 'department' || formLevel === 'unit') && church.type === 'multi' && (
@@ -1687,44 +1633,52 @@ function AdminActionsMenu({
   const hasPrimaryActions = canEdit || canViewPassword || canResetPassword || canSuspend;
 
   return (
-    <div
-      className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {canEdit && (
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onEdit}>
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-      )}
-      {canViewPassword && (
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onViewPassword}>
-          <Eye className="w-4 h-4" />
-          View Password
-        </button>
-      )}
-      {canResetPassword && (
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onResetPassword}>
-          <KeyRound className="w-4 h-4" />
-          Reset Password
-        </button>
-      )}
-      {canSuspend && (
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" onClick={onSuspend}>
-          {admin.status === 'active' ? (
-            <><ShieldBan className="w-4 h-4 text-orange-500" /><span className="text-orange-700">Suspend</span></>
-          ) : (
-            <><ShieldCheck className="w-4 h-4 text-green-500" /><span className="text-green-700">Reactivate</span></>
-          )}
-        </button>
-      )}
-      {canDelete && hasPrimaryActions && <div className="border-t border-gray-100 my-1" />}
-      {canDelete && (
-        <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50" onClick={onDelete}>
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label="Open admin actions" onClick={(e) => e.stopPropagation()}>
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        collisionPadding={12}
+        className="z-[9999] w-48"
+      >
+        {canEdit && (
+          <DropdownMenuItem onSelect={onEdit}>
+            <Edit className="w-4 h-4" />
+            Edit
+          </DropdownMenuItem>
+        )}
+        {canViewPassword && (
+          <DropdownMenuItem onSelect={onViewPassword}>
+            <Eye className="w-4 h-4" />
+            View Password
+          </DropdownMenuItem>
+        )}
+        {canResetPassword && (
+          <DropdownMenuItem onSelect={onResetPassword}>
+            <KeyRound className="w-4 h-4" />
+            Reset Password
+          </DropdownMenuItem>
+        )}
+        {canSuspend && (
+          <DropdownMenuItem onSelect={onSuspend}>
+            {admin.status === 'active' ? (
+              <><ShieldBan className="w-4 h-4 text-orange-500" /><span className="text-orange-700">Suspend</span></>
+            ) : (
+              <><ShieldCheck className="w-4 h-4 text-green-500" /><span className="text-green-700">Reactivate</span></>
+            )}
+          </DropdownMenuItem>
+        )}
+        {canDelete && hasPrimaryActions && <DropdownMenuSeparator />}
+        {canDelete && (
+          <DropdownMenuItem onSelect={onDelete} className="text-red-600 focus:text-red-700">
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

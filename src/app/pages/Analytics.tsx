@@ -136,8 +136,8 @@ export function Analytics() {
         fetchUnits(),
       ]);
 
-      const resolvedDepartments = deps as Department[];
-      const resolvedUnits = uns as Unit[];
+      const resolvedDepartments = deps as unknown as Department[];
+      const resolvedUnits = uns as unknown as Unit[];
       const ledgerQueries: Array<{ branchId?: string; departmentId?: string }> = [];
       const seenLedgerQueries = new Set<string>();
       const addLedgerQuery = (branchId?: string, departmentId?: string) => {
@@ -332,7 +332,7 @@ export function Analytics() {
   [filteredFundraisers]);
 
   const currency = church.currency || 'NGN';
-  const currencySymbol = currency === 'NGN' ? '\u20A6' : currency === 'GBP' ? '\u00A3' : currency === 'EUR' ? '\u20AC' : '$';
+  const currencySymbol = currency === 'USD' ? '$' : currency === 'GBP' ? '\u00A3' : currency === 'EUR' ? '\u20AC' : '\u20A6';
 
   // ──────── COPY DATA SNIPPET ────────
   const copyDataForReport = (label: string, value: string) => {

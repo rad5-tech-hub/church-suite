@@ -82,6 +82,8 @@ import {
   fetchPrograms,
   fetchProgramInstances,
   moveMember,
+  createWorkforceMember,
+  editMember,
 } from '../api';
 
 type ActiveTab = 'workforce' | 'training';
@@ -312,6 +314,29 @@ export function Workforce() {
   const [addUnitId, setAddUnitId] = useState('');
   const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
 
+  // New Member Creation inside Add Dialog
+  const [isCreatingNewMember, setIsCreatingNewMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberGender, setNewMemberGender] = useState('male');
+  const [newMemberBranchId, setNewMemberBranchId] = useState('');
+
+  const resetAddForm = () => {
+    setMemberSearch('');
+    setSelectedMemberId('');
+    setAddBranchId('');
+    setAddDeptId('');
+    setAddUnitId('');
+    setIsCreatingNewMember(false);
+    setNewMemberName('');
+    setNewMemberPhone('');
+    setNewMemberEmail('');
+    setNewMemberGender('male');
+    setNewMemberBranchId('');
+    setMemberDropdownOpen(false);
+  };
+
   // ──────── EDIT WORKFORCE DIALOG ────────
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<WorkforceMember | null>(null);
@@ -375,8 +400,8 @@ export function Workforce() {
       }, {} as Record<string, Member>);
       setWorkforceMemberDetails(nextWorkforceMemberDetails);
       setTrainingPrograms(trainingData as TrainingProgram[]);
-      setDepartments(deptsData as Department[]);
-      setUnits(unitsData as Unit[]);
+      setDepartments(deptsData as unknown as Department[]);
+      setUnits(unitsData as unknown as Unit[]);
       setPrograms(progsData as Program[]);
       setProgramInstances(instsData as ProgramInstance[]);
     } catch (err) {
@@ -512,9 +537,34 @@ export function Workforce() {
 
   // ──────── WORKFORCE CRUD ────────
   const handleAddToWorkforce = async () => {
-    if (!selectedMemberId || !addDeptId) return;
+    if ((!isCreatingNewMember && !selectedMemberId) || (isCreatingNewMember && !newMemberName.trim()) || !addDeptId) {
+      showToast('Please fill in all required fields.', 'error');
+      return;
+    }
     setSaving(true);
     try {
+      if (isCreatingNewMember) {
+        // Create new member case
+        const targetBranchId = isMultiBranch ? newMemberBranchId || currentAdmin?.branchId : currentAdmin?.branchId;
+        await createWorkforceMember({
+          name: newMemberName,
+          phoneNo: newMemberPhone,
+          email: newMemberEmail,
+          sex: newMemberGender,
+          branchId: targetBranchId,
+          departmentIds: [addDeptId],
+          unitIds: addUnitId ? [addUnitId] : undefined,
+        }, church.id);
+
+        showToast('Workforce member created successfully!');
+        setAddDialogOpen(false);
+        resetAddForm();
+        setSaving(false);
+        loadData(); // reload workforce
+        return;
+      }
+
+      // Existing member case
       const allWf = [...workforce];
       // Allow multiple departments — only block exact same dept+unit combo
       const duplicate = (allWf as WorkforceMember[]).some(w =>
@@ -525,6 +575,35 @@ export function Workforce() {
         setSaving(false);
         return;
       }
+
+      const existingMember = members.find(m => m.id === selectedMemberId);
+      if (existingMember) {
+        const currentDepartmentIds = Array.isArray(existingMember.departmentIds) ? existingMember.departmentIds : (existingMember.departmentId ? [existingMember.departmentId] : []);
+        const currentUnitIds = Array.isArray(existingMember.unitIds) ? existingMember.unitIds : (existingMember.unitId ? [existingMember.unitId] : []);
+
+        const newDepartmentIds = Array.from(new Set([...currentDepartmentIds, addDeptId]));
+        const newUnitIds = addUnitId ? Array.from(new Set([...currentUnitIds, addUnitId])) : currentUnitIds;
+
+        const targetBranchId = isMultiBranch ? addBranchId || existingMember.branchId || currentAdmin?.branchId : currentAdmin?.branchId || existingMember.branchId;
+
+        if (targetBranchId) {
+          await createWorkforceMember({
+            name: existingMember.fullName,
+            phoneNo: existingMember.phone,
+            email: existingMember.email,
+            sex: existingMember.gender,
+            address: existingMember.address,
+            maritalStatus: existingMember.maritalStatus,
+            nationality: existingMember.country,
+            state: existingMember.state,
+            LGA: existingMember.LGA,
+            branchId: targetBranchId,
+            departmentIds: newDepartmentIds,
+            unitIds: newUnitIds,
+          }, church.id);
+        }
+      }
+
       const newEntry: WorkforceMember = {
         id: `wf-${Date.now()}`,
         churchId: church.id,
@@ -536,11 +615,12 @@ export function Workforce() {
         createdAt: new Date(),
       };
       const updated = [...(allWf as WorkforceMember[]), newEntry];
-      await saveWorkforce(updated);
+      await saveWorkforce(updated, { syncAssignments: false });
       setWorkforce(getVisibleWorkforce(updated));
       setAddDialogOpen(false);
       resetAddForm();
       showToast(`"${getMemberName(selectedMemberId)}" added to the workforce.`);
+      loadData(); // Reload from backend to confirm changes
     } catch (err: any) {
       console.error('Failed to add workforce member:', err);
       showToast(`Error: ${err.message}`, 'error');
@@ -564,11 +644,39 @@ export function Workforce() {
             }
           : w
       );
-      await saveWorkforce(updated);
+
+      const member = members.find(m => m.id === editTarget.memberId);
+      if (member) {
+        const branchId = isMultiBranch ? editBranchId || member.branchId || editTarget.branchId : currentAdmin?.branchId || member.branchId;
+        const currentDepartmentIds = Array.isArray(member.departmentIds) ? member.departmentIds : (member.departmentId ? [member.departmentId] : []);
+        const currentUnitIds = Array.isArray(member.unitIds) ? member.unitIds : (member.unitId ? [member.unitId] : []);
+
+        const newDepartmentIds = currentDepartmentIds.filter(id => id !== editTarget.departmentId);
+        newDepartmentIds.push(editDeptId);
+
+        let newUnitIds = currentUnitIds;
+        if (editTarget.unitId) {
+          newUnitIds = currentUnitIds.filter(id => id !== editTarget.unitId);
+        }
+        if (editUnitId) {
+          newUnitIds.push(editUnitId);
+        }
+
+        if (branchId) {
+          await editMember(member.id, branchId, {
+            departmentIds: Array.from(new Set(newDepartmentIds)),
+            unitIds: Array.from(new Set(newUnitIds)),
+            branchId
+          });
+        }
+      }
+
+      await saveWorkforce(updated, { syncAssignments: false });
       setWorkforce(getVisibleWorkforce(updated));
       setEditDialogOpen(false);
       setEditTarget(null);
       showToast(`Workforce entry updated.`);
+      loadData();
     } catch (err: any) {
       console.error('Failed to update workforce:', err);
     } finally {
@@ -588,30 +696,28 @@ export function Workforce() {
       const updated = (allWf as WorkforceMember[]).filter(w => w.memberId !== deleteTarget.memberId);
 
       const member = getMember(deleteTarget.memberId);
-      const branchId = deleteTarget.branchId || member?.branchId || currentAdmin?.branchId || localBranches[0]?.id || branches[0]?.id || '';
+      const branchId = deleteTarget.branchId || member?.branchId || currentAdmin?.branchId || branches[0]?.id || '';
 
       if (!branchId) throw new Error('Unable to resolve member branch for workforce removal.');
-      await moveMember(deleteTarget.memberId, branchId);
+      
+      // Update by removing workforce departments, or simply sending empty departments
+      await editMember(deleteTarget.memberId, branchId, {
+        departmentIds: [],
+        unitIds: [],
+        branchId
+      });
 
       await saveWorkforce(updated, { syncAssignments: false, removeEntryIds: removedEntryIds });
       setWorkforce(getVisibleWorkforce(updated));
       setDeleteTarget(null);
       showToast(`"${name}" removed from workforce.`);
+      loadData();
     } catch (err: any) {
       console.error('Failed to delete workforce:', err);
       showToast(err?.message || 'Failed to remove member from workforce.', 'error');
     } finally {
       setSaving(false);
     }
-  };
-
-  const resetAddForm = () => {
-    setSelectedMemberId('');
-    setMemberSearch('');
-    setAddBranchId('');
-    setAddDeptId('');
-    setAddUnitId('');
-    setMemberDropdownOpen(false);
   };
 
   // ──────── TRAINING PROGRAM CRUD ────────
@@ -1081,58 +1187,98 @@ export function Workforce() {
           </DialogHeader>
           <div className="space-y-4 mt-2">
             {/* Searchable member picker */}
-            <div className="space-y-2">
-              <Label>Select Member *</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-                <Input
-                  placeholder={selectedMemberId ? getMemberName(selectedMemberId) : 'Type to search members...'}
-                  value={memberSearch}
-                  onChange={(e) => { setMemberSearch(e.target.value); setMemberDropdownOpen(true); if (selectedMemberId) setSelectedMemberId(''); }}
-                  onFocus={() => setMemberDropdownOpen(true)}
-                  className={`pl-10 ${selectedMemberId ? 'border-green-300 bg-green-50' : ''}`}
-                />
-                {selectedMemberId && (
-                  <button
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    onClick={() => { setSelectedMemberId(''); setMemberSearch(''); }}
-                  >
-                    <X className="w-4 h-4 text-gray-400" />
-                  </button>
-                )}
-                {memberDropdownOpen && !selectedMemberId && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                    {filteredAvailable.length === 0 ? (
-                      <div className="p-3 text-sm text-gray-500 text-center">
-                        {members.length === 0
-                          ? 'No members found. Add members first from the Members page.'
-                          : 'No members match your search.'}
-                      </div>
-                    ) : (
-                      filteredAvailable.map(m => (
-                        <button
-                          key={m.id}
-                          className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-3 text-sm border-b border-gray-50 last:border-0"
-                          onClick={() => {
-                            setSelectedMemberId(m.id);
-                            setMemberSearch('');
-                            setMemberDropdownOpen(false);
-                          }}
-                        >
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-700">
-                            {m.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{m.fullName}</p>
-                            <p className="text-xs text-gray-500">{m.phone}</p>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
+            {!isCreatingNewMember ? (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label>Select Member *</Label>
+                  <Button variant="link" size="sm" className="h-6 px-0" onClick={() => setIsCreatingNewMember(true)}>
+                    + New Member
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+                  <Input
+                    placeholder={selectedMemberId ? getMemberName(selectedMemberId) : 'Type to search members...'}
+                    value={memberSearch}
+                    onChange={(e) => { setMemberSearch(e.target.value); setMemberDropdownOpen(true); if (selectedMemberId) setSelectedMemberId(''); }}
+                    onFocus={() => setMemberDropdownOpen(true)}
+                    className={`pl-10 ${selectedMemberId ? 'border-green-300 bg-green-50' : ''}`}
+                  />
+                  {selectedMemberId && (
+                    <button
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      onClick={() => { setSelectedMemberId(''); setMemberSearch(''); }}
+                    >
+                      <X className="w-4 h-4 text-gray-400" />
+                    </button>
+                  )}
+                  {memberDropdownOpen && !selectedMemberId && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {filteredAvailable.length === 0 ? (
+                        <div className="p-3 text-sm text-gray-500 text-center">
+                          {members.length === 0
+                            ? 'No members found. Add members first from the Members page.'
+                            : 'No members match your search.'}
+                        </div>
+                      ) : (
+                        filteredAvailable.map(m => (
+                          <button
+                            key={m.id}
+                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-3 text-sm border-b border-gray-50 last:border-0"
+                            onClick={() => {
+                              setSelectedMemberId(m.id);
+                              setMemberSearch('');
+                              setMemberDropdownOpen(false);
+                            }}
+                          >
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-700">
+                              {m.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{m.fullName}</p>
+                              <p className="text-xs text-gray-500">{m.phone}</p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4 border p-4 rounded-lg bg-gray-50">
+                <div className="flex justify-between items-center bg-gray-100 -mx-4 -mt-4 p-3 rounded-t-lg border-b mb-4">
+                  <h4 className="font-semibold text-sm">Create New Member</h4>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsCreatingNewMember(false)}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Label>Full Name *</Label>
+                  <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="e.g. John Doe" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Phone Number</Label>
+                    <Input value={newMemberPhone} onChange={e => setNewMemberPhone(e.target.value)} placeholder="e.g. +234..." />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Gender</Label>
+                    <Select value={newMemberGender} onValueChange={setNewMemberGender}>
+                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="Optional" />
+                </div>
+              </div>
+            )}
 
             {/* Branch (multi) */}
             {isMultiBranch && (
@@ -1180,7 +1326,7 @@ export function Workforce() {
               <Button variant="outline" className="flex-1" onClick={() => { setAddDialogOpen(false); resetAddForm(); }}>
                 Cancel
               </Button>
-              <Button className="flex-1" disabled={!selectedMemberId || !addDeptId || saving} onClick={handleAddToWorkforce}>
+              <Button className="flex-1" disabled={(!isCreatingNewMember && !selectedMemberId) || (isCreatingNewMember && !newMemberName.trim()) || !addDeptId || saving} onClick={handleAddToWorkforce}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Add to Workforce
               </Button>

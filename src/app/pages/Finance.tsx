@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
@@ -92,7 +92,7 @@ function RequiredStar() {
 }
 
 function getCurrencySymbol(code?: string): string {
-  return CURRENCIES.find(c => c.code === code)?.symbol || '$';
+  return CURRENCIES.find(c => c.code === code)?.symbol || '₦';
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -106,21 +106,21 @@ export function Finance() {
   const isSuperAdmin = currentAdmin?.isSuperAdmin ?? false;
   const adminLevel = currentAdmin?.level || 'church';
   const currSymbol = getCurrencySymbol(church.currency);
-  const accessibleBranchIds = currentAdmin?.branchIds?.length
+  const accessibleBranchIds = useMemo(() => currentAdmin?.branchIds?.length
     ? currentAdmin.branchIds
     : currentAdmin?.branchId
       ? [currentAdmin.branchId]
-      : [];
-  const accessibleDepartmentIds = currentAdmin?.departmentIds?.length
+      : [], [currentAdmin?.branchIds, currentAdmin?.branchId]);
+  const accessibleDepartmentIds = useMemo(() => currentAdmin?.departmentIds?.length
     ? currentAdmin.departmentIds
     : currentAdmin?.departmentId
       ? [currentAdmin.departmentId]
-      : [];
-  const accessibleUnitIds = currentAdmin?.unitIds?.length
+      : [], [currentAdmin?.departmentIds, currentAdmin?.departmentId]);
+  const accessibleUnitIds = useMemo(() => currentAdmin?.unitIds?.length
     ? currentAdmin.unitIds
     : currentAdmin?.unitId
       ? [currentAdmin.unitId]
-      : [];
+      : [], [currentAdmin?.unitIds, currentAdmin?.unitId]);
 
   // Data
   const [collectionTypes, setCollectionTypes] = useState<CollectionType[]>([]);
@@ -134,7 +134,7 @@ export function Finance() {
   const [saving, setSaving] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
-  // Filters â€” sync tab with URL query param so sidebar links work
+  // Filters  sync tab with URL query param so sidebar links work
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as FinanceTab | null;
   const [activeTabState, setActiveTabState] = useState<FinanceTab>(
@@ -376,8 +376,8 @@ export function Finance() {
         fetchPrograms(branches[0]?.id),
       ]);
 
-      const resolvedDepartments = deps as Department[];
-      const resolvedUnits = uns as Unit[];
+      const resolvedDepartments = deps as unknown as Department[];
+      const resolvedUnits = uns as unknown as Unit[];
       const nextLedgerEntries = await loadLedgerEntriesForFilters(resolvedDepartments, resolvedUnits);
 
       setCollectionTypes(cts as CollectionType[]);
@@ -495,12 +495,12 @@ export function Finance() {
   };
 
   // Which scopes can the admin create in?
-  const getCreatableScopes = () => {
-    if (isSuperAdmin) return ['church', 'branch', 'department', 'unit'] as const;
-    if (adminLevel === 'branch') return ['branch', 'department', 'unit'] as const;
-    if (adminLevel === 'department') return ['department', 'unit'] as const;
-    if (adminLevel === 'unit') return ['unit'] as const;
-    return ['church', 'branch', 'department', 'unit'] as const;
+  const getCreatableScopes = (): ('church' | 'branch' | 'department' | 'unit')[] => {
+    if (isSuperAdmin) return ['church', 'branch', 'department', 'unit'];
+    if (adminLevel === 'branch') return ['branch', 'department', 'unit'];
+    if (adminLevel === 'department') return ['department', 'unit'];
+    if (adminLevel === 'unit') return ['unit'];
+    return ['church', 'branch', 'department', 'unit'];
   };
 
   // Auto-set scope ID for non-super-admins
@@ -1069,10 +1069,10 @@ export function Finance() {
                   {scopeFilter === 'all'
                     ? 'Showing all financial records across the entire church. Use the filters above to narrow down by branch, department, or unit.'
                     : scopeFilter === 'branch'
-                    ? 'Filtered by branch â€” you\'re viewing income and expenses for a specific branch location.'
+                    ? 'Filtered by branch  you\'re viewing income and expenses for a specific branch location.'
                     : scopeFilter === 'department'
-                    ? 'Filtered by department â€” you\'re seeing finances tied to a specific department or outreach.'
-                    : 'Filtered by unit â€” you\'re looking at finances for a specific unit within a department.'
+                    ? 'Filtered by department  you\'re seeing finances tied to a specific department or outreach.'
+                    : 'Filtered by unit  you\'re looking at finances for a specific unit within a department.'
                   }
                 </p>
                 {ledgerLoading && (
@@ -1250,7 +1250,7 @@ export function Finance() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-xs text-gray-500">
-                                    {entry.programId ? getProgramName(entry.programId) || 'â€”' : 'â€”'}
+                                    {entry.programId ? getProgramName(entry.programId) || '' : ''}
                                   </TableCell>
                                   <TableCell className="text-right font-semibold text-green-600">
                                     {entry.type === 'income' ? `${currSymbol}${entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}
@@ -1512,7 +1512,7 @@ export function Finance() {
                                 </span>
                               </div>
                               <Progress value={pct} className="h-2.5" />
-                              <p className="text-xs text-gray-500 mt-1">{pct.toFixed(1)}% â€” {fund.entries.length} donation{fund.entries.length !== 1 ? 's' : ''}</p>
+                              <p className="text-xs text-gray-500 mt-1">{pct.toFixed(1)}%  {fund.entries.length} donation{fund.entries.length !== 1 ? 's' : ''}</p>
                             </div>
 
                             <div className="flex gap-2">
