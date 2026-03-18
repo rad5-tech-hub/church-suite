@@ -472,7 +472,7 @@ export function Members() {
         <Tabs defaultValue="members" className="space-y-4">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>
-            {/* <TabsTrigger value="training">Training</TabsTrigger> */}
+            <TabsTrigger value="training">Training</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -707,7 +707,7 @@ export function Members() {
                 })}
               </div>
             )}
-          </TabsContent> */}
+          </TabsContent>
         </Tabs>
         )}
       </div>
@@ -1018,7 +1018,7 @@ export function Members() {
         </DialogContent>
       </Dialog>
 
-      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CONTACT ACTION DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+      {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CONTACT ACTION DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
       <Dialog open={!!contactAction} onOpenChange={() => setContactAction(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Contact {contactAction?.name}</DialogTitle><DialogDescription>{contactAction?.type === 'phone' ? `How would you like to reach ${contactAction?.name}?` : `Send an email to ${contactAction?.name}?`}</DialogDescription></DialogHeader>
