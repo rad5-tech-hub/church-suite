@@ -332,6 +332,8 @@ export interface CollectionType {
   /** 'church' = applies to all branches (super-admin only), 'branch'/'department'/'unit' = scoped */
   scope: 'church' | 'branch' | 'department' | 'unit';
   scopeId?: string; // branchId, departmentId, or unitId depending on scope
+  branchIds?: string[];
+  departmentIds?: string[];
   createdBy: string;
   createdAt: Date;
 }
@@ -367,6 +369,8 @@ export interface StandaloneCollection {
   /** Scope: 'church' = church-wide, otherwise scoped to branch/dept/unit */
   scope: 'church' | 'branch' | 'department' | 'unit';
   scopeId?: string;
+  branchIds?: string[];
+  departmentIds?: string[];
   entries: StandaloneCollectionEntry[];
   createdBy: string;
   createdAt: Date;

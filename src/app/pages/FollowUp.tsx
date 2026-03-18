@@ -20,6 +20,7 @@ import {
   FileText, Copy, Link,
 } from 'lucide-react';
 import { Newcomer, NewcomerForm, Program, Member, NewcomerTrainingClass, NewcomerTrainingStatus, SMSWallet } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -29,6 +30,7 @@ import {
   createCustomForm, createCustomQuestions,
 } from '../api';
 import { BibleLoader } from '../components/BibleLoader';
+import { resolvePrimaryBranchId } from '../utils/scope';
 
 function RequiredStar() { return <span className="text-red-500 ml-0.5">*</span>; }
 
@@ -44,8 +46,10 @@ const getStatusInfo = (s?: NewcomerTrainingStatus) => TRAINING_STATUSES.find(t =
 type ViewMode = 'cards' | 'list';
 
 export function FollowUp() {
+  const { currentAdmin } = useAuth();
   const { church, branches } = useChurch();
   const isMultiBranch = church.type === 'multi' && branches.length > 0;
+  const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
 
   const [newcomers, setNewcomers] = useState<Newcomer[]>([]);
   const [newcomerForms, setNewcomerForms] = useState<NewcomerForm[]>([]);
@@ -122,18 +126,48 @@ export function FollowUp() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const brId = branches[0]?.id;
-      const [nc, nf, progs, mems, tcs] = await Promise.all([
-        fetchNewcomers(brId), fetchNewcomerForms(brId), fetchPrograms(brId), fetchMembers(), fetchNewcomerTrainingClasses(),
+      const [newcomersResult, formsResult, programsResult, membersResult, trainingClassesResult] = await Promise.allSettled([
+        fetchNewcomers(primaryBranchId),
+        fetchNewcomerForms(primaryBranchId),
+        fetchPrograms(primaryBranchId),
+        fetchMembers(primaryBranchId),
+        fetchNewcomerTrainingClasses(),
       ]);
-      setNewcomers(nc as Newcomer[]);
-      setNewcomerForms(nf as NewcomerForm[]);
-      setPrograms(progs as Program[]);
-      setMembers(mems as Member[]);
-      setTrainingClasses(tcs as NewcomerTrainingClass[]);
-    } catch (err) { console.error('Failed to load follow-up data:', err); }
+
+      if (newcomersResult.status === 'fulfilled') {
+        setNewcomers(newcomersResult.value as Newcomer[]);
+      } else {
+        console.error('Failed to load follow-up newcomers:', newcomersResult.reason);
+      }
+
+      if (formsResult.status === 'fulfilled') {
+        setNewcomerForms(formsResult.value as NewcomerForm[]);
+      } else {
+        console.error('Failed to load newcomer forms:', formsResult.reason);
+      }
+
+      if (programsResult.status === 'fulfilled') {
+        setPrograms(programsResult.value as Program[]);
+      } else {
+        console.error('Failed to load follow-up programs:', programsResult.reason);
+      }
+
+      if (membersResult.status === 'fulfilled') {
+        setMembers(membersResult.value as Member[]);
+      } else {
+        console.error('Failed to load follow-up members:', membersResult.reason);
+      }
+
+      if (trainingClassesResult.status === 'fulfilled') {
+        setTrainingClasses(trainingClassesResult.value as NewcomerTrainingClass[]);
+      } else {
+        console.error('Failed to load newcomer training classes:', trainingClassesResult.reason);
+      }
+    } catch (err) {
+      console.error('Failed to load follow-up data:', err);
+    }
     finally { setLoading(false); }
-  }, [church.id, branches]);
+  }, [primaryBranchId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -194,7 +228,7 @@ export function FollowUp() {
           adminComment: nNotes.trim() || undefined,
         },
         church.id,
-        isMultiBranch ? nBranchId : branches[0]?.id
+        isMultiBranch ? nBranchId : primaryBranchId
       );
       await loadData();
       setAddOpen(false);
@@ -213,7 +247,7 @@ export function FollowUp() {
         name: `${moveTarget.firstName} ${moveTarget.lastName}`,
         phoneNo: moveTarget.phone || undefined,
         address: moveTarget.address || undefined,
-      }, church.id, moveTarget.branchId || branches[0]?.id);
+      }, church.id, moveTarget.branchId || primaryBranchId);
       await markNewcomerMovedToMember(moveTarget.id);
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
       setMoveTarget(null);
@@ -226,7 +260,7 @@ export function FollowUp() {
   const handleAddFollowUp = async (type: 'call' | 'sms' | 'email' | 'note') => {
     if (!selectedNewcomer || !followUpComment.trim()) return;
     try {
-      await editFollowUp(selectedNewcomer.id, { adminComment: followUpComment.trim() }, selectedNewcomer.branchId || branches[0]?.id);
+      await editFollowUp(selectedNewcomer.id, { adminComment: followUpComment.trim() }, selectedNewcomer.branchId || primaryBranchId);
       const upd = newcomers.map(n => n.id === selectedNewcomer.id ? { ...n, followUps: [...(n.followUps || []), { id: `fu-${Date.now()}`, newcomerId: selectedNewcomer.id, adminId: 'admin', comment: followUpComment.trim(), type, createdAt: new Date() }] } : n);
       setNewcomers(upd);
       setFollowUpComment('');
@@ -304,7 +338,7 @@ export function FollowUp() {
             name: `${nc.firstName} ${nc.lastName}`,
             phoneNo: nc.phone || undefined,
             address: nc.address || undefined,
-          }, church.id, nc.branchId || branches[0]?.id)
+          }, church.id, nc.branchId || primaryBranchId)
         )
       );
       await Promise.all(targets.map((newcomer) => markNewcomerMovedToMember(newcomer.id)));
@@ -357,11 +391,10 @@ export function FollowUp() {
     if (!formName.trim()) return;
     setSaving(true);
     try {
-      const brId = branches[0]?.id;
       await createCustomForm({
         name: formName.trim(),
         description: formDescription.trim() || undefined,
-      }, brId);
+      }, primaryBranchId);
       await loadData();
       setCreateFormOpen(false);
       setFormName(''); setFormDescription(''); setFormVisitType('first-timer');

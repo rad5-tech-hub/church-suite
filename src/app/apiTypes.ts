@@ -444,6 +444,7 @@ export interface CreateCollectionRequest {
   departmentId?: string;
   branchIds?: string[];
   departmentIds?: string[];
+  memberIds?: string[];
   members?: { memberId: string; departmentId: string }[];
 }
 

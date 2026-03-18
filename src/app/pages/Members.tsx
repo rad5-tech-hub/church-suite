@@ -27,6 +27,10 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from '../components/ui/tabs';
 import {
+  Pagination, PaginationContent, PaginationEllipsis, PaginationItem,
+  PaginationLink, PaginationNext, PaginationPrevious,
+} from '../components/ui/pagination';
+import {
   Users, Plus, Search, Edit, Trash2, Eye, Phone, Mail, MessageCircle, X,
   Loader2, CheckCircle, UserPlus, Filter, ChevronDown, Briefcase, GraduationCap, Clock,
 } from 'lucide-react';
@@ -44,6 +48,24 @@ const MARITAL_OPTIONS = [
   { value: 'widowed', label: 'Widowed' }, { value: 'divorced', label: 'Divorced' },
 ];
 const GENDER_OPTIONS = [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }];
+const MEMBERS_PAGE_SIZE = 10;
+
+function getVisiblePageNumbers(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | 'ellipsis-left' | 'ellipsis-right'> = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) pages.push('ellipsis-left');
+  for (let page = start; page <= end; page += 1) pages.push(page);
+  if (end < totalPages - 1) pages.push('ellipsis-right');
+  pages.push(totalPages);
+
+  return pages;
+}
 
 export function Members() {
   const { church, branches } = useChurch();
@@ -67,6 +89,7 @@ export function Members() {
   const [filterGender, setFilterGender] = useState('all');
   const [filterBranch, setFilterBranch] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Form state
   const [fFullName, setFFullName] = useState('');
@@ -376,12 +399,29 @@ export function Members() {
     finally { setSaving(false); }
   };
 
-  const filtered = members.filter(m => {
+  const filtered = useMemo(() => members.filter(m => {
     const matchSearch = !searchTerm || m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || m.phone.includes(searchTerm) || (m.email && m.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchGender = filterGender === 'all' || m.gender === filterGender;
     const matchBranch = filterBranch === 'all' || m.branchId === filterBranch;
     return matchSearch && matchGender && matchBranch;
-  });
+  }), [members, searchTerm, filterGender, filterBranch]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / MEMBERS_PAGE_SIZE));
+  const pageStartIndex = (currentPage - 1) * MEMBERS_PAGE_SIZE;
+  const paginatedMembers = filtered.slice(pageStartIndex, pageStartIndex + MEMBERS_PAGE_SIZE);
+  const pageStartNumber = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const pageEndNumber = Math.min(pageStartIndex + MEMBERS_PAGE_SIZE, filtered.length);
+  const visibleMemberIds = paginatedMembers.map(member => member.id);
+  const allVisibleSelected = visibleMemberIds.length > 0 && visibleMemberIds.every(id => selectedIds.includes(id));
+  const someVisibleSelected = visibleMemberIds.some(id => selectedIds.includes(id));
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterGender, filterBranch]);
+
+  useEffect(() => {
+    setCurrentPage(prev => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const TRAINING_STATUSES: { value: NewcomerTrainingStatus; label: string; color: string }[] = [
     { value: 'not-enrolled', label: 'Not Enrolled', color: 'bg-gray-100 text-gray-600' },
@@ -451,7 +491,14 @@ export function Members() {
   const daysInMonth = (month: string) => { if (!month) return 31; const m = parseInt(month); if ([4, 6, 9, 11].includes(m)) return 30; if (m === 2) return 29; return 31; };
 
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  const toggleAll = () => { if (selectedIds.length === filtered.length) setSelectedIds([]); else setSelectedIds(filtered.map(m => m.id)); };
+  const toggleAll = () => {
+    if (visibleMemberIds.length === 0) return;
+    setSelectedIds(prev => (
+      allVisibleSelected
+        ? prev.filter(id => !visibleMemberIds.includes(id))
+        : Array.from(new Set([...prev, ...visibleMemberIds]))
+    ));
+  };
 
   const moveDepts = moveBranchId ? departments.filter(d => d.branchId === moveBranchId) : departments;
   const moveUnits_ = moveDeptId ? units.filter(u => u.departmentId === moveDeptId) : [];
@@ -533,7 +580,11 @@ export function Members() {
 
             {/* Bulk actions + count */}
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">{filtered.length} member{filtered.length !== 1 ? 's' : ''} {searchTerm || filterGender !== 'all' || filterBranch !== 'all' ? 'found' : 'total'}</p>
+              <p className="text-sm text-gray-500">
+                {filtered.length === 0
+                  ? '0 members found'
+                  : `Showing ${pageStartNumber}-${pageEndNumber} of ${filtered.length} member${filtered.length !== 1 ? 's' : ''} ${searchTerm || filterGender !== 'all' || filterBranch !== 'all' ? 'found' : 'total'}`}
+              </p>
               {selectedIds.length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">{selectedIds.length} selected</span>
@@ -553,7 +604,7 @@ export function Members() {
                 <Card className="hidden md:block"><CardContent className="p-0">
                   <Table>
                     <TableHeader><TableRow>
-                      <TableHead className="w-10"><Checkbox checked={selectedIds.length === filtered.length && filtered.length > 0} onCheckedChange={toggleAll} /></TableHead>
+                      <TableHead className="w-10"><Checkbox checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} /></TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Gender</TableHead>
                       <TableHead>Phone</TableHead>
@@ -563,7 +614,7 @@ export function Members() {
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
-                      {filtered.map(member => (
+                      {paginatedMembers.map(member => (
                         <TableRow key={member.id}>
                           <TableCell><Checkbox checked={selectedIds.includes(member.id)} onCheckedChange={() => toggleSelect(member.id)} /></TableCell>
                           <TableCell className="font-medium">
@@ -605,7 +656,7 @@ export function Members() {
 
                 {/* Mobile Cards */}
                 <div className="md:hidden space-y-3">
-                  {filtered.map(member => (
+                  {paginatedMembers.map(member => (
                     <Card key={member.id}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -636,6 +687,56 @@ export function Members() {
                     </Card>
                   ))}
                 </div>
+
+                {totalPages > 1 && (
+                  <Card>
+                    <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-gray-500">Page {currentPage} of {totalPages}</p>
+                      <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              href="#"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (currentPage > 1) setCurrentPage(currentPage - 1);
+                              }}
+                              className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                            />
+                          </PaginationItem>
+                          {visiblePageNumbers.map((page) => (
+                            <PaginationItem key={page}>
+                              {typeof page === 'number' ? (
+                                <PaginationLink
+                                  href="#"
+                                  isActive={page === currentPage}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    setCurrentPage(page);
+                                  }}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              ) : (
+                                <PaginationEllipsis />
+                              )}
+                            </PaginationItem>
+                          ))}
+                          <PaginationItem>
+                            <PaginationNext
+                              href="#"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                              }}
+                              className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </>

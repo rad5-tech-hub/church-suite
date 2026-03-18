@@ -368,8 +368,8 @@ function mapApiMember(m: any): any {
     branchId: m.branchId || "",
     departmentId: m.departments?.[0]?.id || m.departments?.[0]?._id,
     unitId: m.units?.[0]?.id || m.units?.[0]?._id,
-    departmentIds: m.departments?.map((d: any) => d.id || d._id) || [],
-    unitIds: m.units?.map((u: any) => u.id || u._id) || [],
+    departmentIds: m.departments?.map((d: any) => d.id) || [],
+    unitIds: m.units?.map((u: any) => u.id) || [],
     fullName: m.name || "",
     gender: (m.sex || "male").toLowerCase(),
     phone: m.phoneNo || "",
@@ -422,41 +422,97 @@ function extractChurchMemberResults(response: any) {
   return { results, nextPage };
 }
 
+function hasCursorPaginationParams(path: string | null) {
+  if (!path) return false;
+
+  try {
+    const parsed = new URL(path, "https://churchset.local");
+    return ["cursor", "lastId", "sortBy", "sortOrder"].some((key) =>
+      parsed.searchParams.has(key),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function buildChurchMemberPagePath(
+  branchId?: string,
+  isWorker?: boolean,
+  nextPagePath?: string | null,
+) {
+  if (!nextPagePath) {
+    const queryObj: Record<string, string | boolean | undefined> = {
+      branchId,
+    };
+    if (isWorker !== undefined) queryObj.isWorker = isWorker;
+    return `/member/all-church-member${buildQuery(queryObj)}`;
+  }
+
+  const normalizedPath = normalizeRelativeApiPath(nextPagePath) || nextPagePath;
+
+  try {
+    const parsed = new URL(normalizedPath, "https://churchset.local");
+    if (branchId && !parsed.searchParams.has("branchId")) {
+      parsed.searchParams.set("branchId", branchId);
+    }
+    if (isWorker !== undefined && !parsed.searchParams.has("isWorker")) {
+      parsed.searchParams.set("isWorker", String(isWorker));
+    }
+
+    const query = parsed.searchParams.toString();
+    return `${parsed.pathname}${query ? `?${query}` : ""}`;
+  } catch {
+    return normalizedPath;
+  }
+}
+
+async function requestChurchMemberPage(
+  path: string,
+  requestMethod: "GET" | "POST",
+) {
+  try {
+    const response = await apiFetch<any>(
+      path,
+      requestMethod === "POST" ? { method: "POST" } : undefined,
+    );
+    return { response, requestMethod };
+  } catch (error) {
+    const shouldRetryAsPost =
+      requestMethod === "GET" &&
+      error instanceof ApiRequestError &&
+      (error.status === 404 ||
+        error.status === 405 ||
+        (error.status === 400 && hasCursorPaginationParams(path)));
+
+    if (!shouldRetryAsPost) throw error;
+
+    const response = await apiFetch<any>(path, { method: "POST" });
+    return { response, requestMethod: "POST" as const };
+  }
+}
+
 async function fetchChurchMemberPages(branchId?: string, isWorker?: boolean) {
   const resolvedBranchId = resolveFallbackBranchId(branchId);
   let requestMethod: "GET" | "POST" = "GET";
-  const queryObj: any = { branchId: resolvedBranchId };
-  if (isWorker !== undefined) queryObj.isWorker = isWorker;
-  let nextPath: string | null =
-    `/member/all-church-member${buildQuery(queryObj)}`;
+  let nextPath: string | null = buildChurchMemberPagePath(
+    resolvedBranchId,
+    isWorker,
+  );
   const visitedPaths = new Set<string>();
   const collected: any[] = [];
 
   while (nextPath && !visitedPaths.has(nextPath) && visitedPaths.size < 50) {
     visitedPaths.add(nextPath);
 
-    let response: any;
-    try {
-      response = await apiFetch<any>(
-        nextPath,
-        requestMethod === "POST" ? { method: "POST" } : undefined,
-      );
-    } catch (error) {
-      const shouldRetryAsPost =
-        visitedPaths.size === 1 &&
-        requestMethod === "GET" &&
-        error instanceof ApiRequestError &&
-        (error.status === 404 || error.status === 405);
-
-      if (!shouldRetryAsPost) throw error;
-
-      requestMethod = "POST";
-      response = await apiFetch<any>(nextPath, { method: requestMethod });
-    }
+    const page = await requestChurchMemberPage(nextPath, requestMethod);
+    const response = page.response;
+    requestMethod = page.requestMethod;
 
     const { results, nextPage } = extractChurchMemberResults(response);
     collected.push(...results);
-    nextPath = nextPage;
+    nextPath = nextPage
+      ? buildChurchMemberPagePath(resolvedBranchId, isWorker, nextPage)
+      : null;
   }
 
   return { branchId: resolvedBranchId, records: collected };
@@ -538,6 +594,13 @@ function mapApiFollowUp(f: any): any {
     adminComment: f.adminComment,
     birthMonth: f.birthMonth,
     birthDay: f.birthDay,
+    called: f.called || false,
+    messaged: f.messaged || false,
+    visited: f.visited || false,
+    timer: f.timer,
+    eventAttended: f.eventAttended,
+    whatsapp: f.whatappNo || "",
+    isActive: f.isActive,
     _raw: f,
   };
 }
@@ -812,8 +875,7 @@ export const signupAdmin = createChurch;
 
 // ADMINS
 
-export function resolveFallbackBranchId(branchId?: string | null) {
-  if (branchId === null) return undefined;
+export function resolveFallbackBranchId(branchId?: string) {
   if (branchId) return branchId;
   const scope = getCachedAdminScope();
   if (scope.branchId) return scope.branchId;
@@ -840,7 +902,7 @@ function resolveScopedDepartmentId(departmentId?: string) {
 }
 
 /** GET /church/view-admins */
-export async function fetchAdmins(branchId?: string | null): Promise<any[]> {
+export async function fetchAdmins(branchId?: string): Promise<any[]> {
   const resolved = resolveFallbackBranchId(branchId);
   const q = resolved ? buildQuery({ branchId: resolved }) : "";
   const res = await apiFetch<ViewAdminsResponse>(`/church/view-admins${q}`);
@@ -940,12 +1002,11 @@ export const deleteAdminUser = async (data: {
 /** GET /church/get-branches */
 export async function fetchBranches(): Promise<ApiBranch[]> {
   const res = await apiFetch<any>("/church/get-branches");
-  const arr = Array.isArray(res.branches)
+  return Array.isArray(res.branches)
     ? res.branches
     : Array.isArray(res)
       ? res
       : [];
-  return arr.map((b: any) => ({ ...b, id: b.id || b._id }));
 }
 
 /** POST /church/create-branch */
@@ -988,12 +1049,11 @@ export async function fetchDepartments(
   const res = await apiFetch<any>(
     `/church/get-departments${buildQuery({ branchId: resolveDepartmentBranchId(branchId) })}`,
   );
-  const arr = Array.isArray(res.departments)
+  return Array.isArray(res.departments)
     ? res.departments
     : Array.isArray(res)
       ? res
       : [];
-  return arr.map((d: any) => ({ ...d, id: d.id || d._id }));
 }
 
 /** POST /church/create-dept */
@@ -1054,11 +1114,9 @@ export async function fetchUnits(
     : Array.isArray(res)
       ? res
       : [];
-  return units
-    .map((u: any) => ({ ...u, id: u.id || u._id }))
-    .filter(
-      (unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false,
-    );
+  return units.filter(
+    (unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false,
+  );
 }
 
 /** GET /church/a-department/:deptId/branch/:branchId (units of a department) */
@@ -1532,8 +1590,9 @@ export async function createFollowUp(
 /** GET /member/get-follow-up?branchId=... */
 export async function fetchNewcomers(branchId?: string): Promise<any[]> {
   try {
+    const resolvedBranchId = resolveFallbackBranchId(branchId);
     const res = await apiFetch<any>(
-      `/member/get-follow-up${buildQuery({ branchId })}`,
+      `/member/get-follow-up${buildQuery({ branchId: resolvedBranchId })}`,
     );
     const hiddenIds = readHiddenIdSet(HIDDEN_NEWCOMER_IDS_KEY);
     const overrides = readLocalJson<Record<string, any>>(
@@ -1550,7 +1609,7 @@ export async function fetchNewcomers(branchId?: string): Promise<any[]> {
             ? res
             : [];
     return raw
-      .filter((item: any) => !hiddenIds.has(item.id))
+      .filter((item: any) => !item.isDeleted && !hiddenIds.has(item.id))
       .map(mapApiFollowUp)
       .map((newcomer: any) => ({
         ...newcomer,
@@ -1770,6 +1829,8 @@ function dedupeCollections(items: any[]): any[] {
         item?.scopeId,
         item?.branchId,
         item?.departmentId,
+        ...(Array.isArray(item?.branchIds) ? item.branchIds : []),
+        ...(Array.isArray(item?.departmentIds) ? item.departmentIds : []),
       ]
         .filter(Boolean)
         .join(":");
@@ -1777,6 +1838,59 @@ function dedupeCollections(items: any[]): any[] {
     seen.add(key);
     return true;
   });
+}
+
+function uniqueCollectionIds(
+  ...groups: Array<Array<string | null | undefined> | undefined>
+) {
+  return Array.from(
+    new Set(
+      groups
+        .flatMap((group) => group || [])
+        .filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0,
+        ),
+    ),
+  );
+}
+
+function normalizeCollectionScope(item: any) {
+  const branchIds = uniqueCollectionIds(
+    Array.isArray(item?.branchIds) ? item.branchIds : [],
+    [item?.branchId, item?.branch?.id],
+  );
+  const departmentIds = uniqueCollectionIds(
+    Array.isArray(item?.departmentIds) ? item.departmentIds : [],
+    [item?.departmentId, item?.department?.id],
+  );
+  const rawScopeType =
+    typeof item?.scopeType === "string" ? item.scopeType.toLowerCase() : "";
+  const scopeType =
+    rawScopeType === "department"
+      ? "department"
+      : rawScopeType === "branch"
+        ? "branch"
+        : rawScopeType === "church"
+          ? "church"
+          : departmentIds.length > 0
+            ? "department"
+            : branchIds.length > 0
+              ? "branch"
+              : "church";
+  const scopeId =
+    scopeType === "department"
+      ? item?.scopeId || departmentIds[0]
+      : scopeType === "branch"
+        ? item?.scopeId || branchIds[0]
+        : undefined;
+
+  return {
+    scopeType,
+    scopeId,
+    branchIds: branchIds.length > 0 ? branchIds : undefined,
+    departmentIds: departmentIds.length > 0 ? departmentIds : undefined,
+  };
 }
 
 async function fetchCollectionsByBranch(
@@ -1891,17 +2005,26 @@ export async function createCollection(
   branchId?: string,
   departmentId?: string,
 ) {
-  const resolvedBranchId = branchId || data.branchId || data.branchIds?.[0];
-  const resolvedDepartmentId =
-    departmentId || data.departmentId || data.departmentIds?.[0];
-  const { branchId: _branchId, departmentId: _departmentId, ...payload } = data;
-  return apiFetch<any>(
-    `/church/create-collection${buildQuery({ branchId: resolvedBranchId, departmentId: resolvedDepartmentId })}`,
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-  );
+  const {
+    branchId: _branchId,
+    departmentId: _departmentId,
+    branchIds: _branchIds,
+    departmentIds: _departmentIds,
+    scopeType,
+    ...payload
+  } = data;
+
+  return apiFetch<any>("/church/create-collection", {
+    method: "POST",
+    body: JSON.stringify(
+      scopeType
+        ? {
+            ...payload,
+            scopeType,
+          }
+        : payload,
+    ),
+  });
 }
 
 /** PATCH /church/edit-collection/:collectionId?departmentId=... */
@@ -1934,16 +2057,20 @@ export async function fetchCollectionTypes(): Promise<any[]> {
     const hiddenIds = readHiddenIdSet(HIDDEN_COLLECTION_TYPE_IDS_KEY);
     const items = await fetchCollectionCatalog();
     return items
-      .map((c: any) => ({
-        id: c.id,
-        churchId: c.churchId || "",
-        name: c.name || "",
-        scope: c.scopeType || "church",
-        scopeId:
-          c.scopeId || c.branchId || c.departmentId || c.unitId || undefined,
-        createdBy: c.createdBy || "",
-        createdAt: new Date(c.createdAt || Date.now()),
-      }))
+      .map((c: any) => {
+        const scope = normalizeCollectionScope(c);
+        return {
+          id: c.id,
+          churchId: c.churchId || "",
+          name: c.name || "",
+          scope: scope.scopeType,
+          scopeId: scope.scopeId,
+          branchIds: scope.branchIds,
+          departmentIds: scope.departmentIds,
+          createdBy: c.createdBy || "",
+          createdAt: new Date(c.createdAt || Date.now()),
+        };
+      })
       .filter((collectionType: any) => !hiddenIds.has(collectionType.id));
   } catch {
     return [];
@@ -1956,19 +2083,24 @@ export async function fetchStandaloneCollections(): Promise<any[]> {
     const items = await fetchCollectionCatalog();
     return items
       .filter((c: any) => c.endTime)
-      .map((c: any) => ({
-        id: c.id,
-        churchId: c.churchId || "",
-        name: c.name || "",
-        description: c.description || "",
-        targetAmount: c.targetAmount || 0,
-        dueDate: new Date(c.endTime),
-        scope: c.scopeType || "church",
-        scopeId: c.scopeId || c.branchId || c.departmentId || undefined,
-        entries: [],
-        createdBy: c.createdBy || "",
-        createdAt: new Date(c.createdAt || Date.now()),
-      }))
+      .map((c: any) => {
+        const scope = normalizeCollectionScope(c);
+        return {
+          id: c.id,
+          churchId: c.churchId || "",
+          name: c.name || "",
+          description: c.description || "",
+          targetAmount: c.targetAmount || 0,
+          dueDate: new Date(c.endTime),
+          scope: scope.scopeType,
+          scopeId: scope.scopeId,
+          branchIds: scope.branchIds,
+          departmentIds: scope.departmentIds,
+          entries: [],
+          createdBy: c.createdBy || "",
+          createdAt: new Date(c.createdAt || Date.now()),
+        };
+      })
       .filter((collection: any) => !hiddenIds.has(collection.id));
   } catch {
     return [];

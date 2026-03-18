@@ -450,16 +450,38 @@ export function Finance() {
   const getLedgerDisplayDescription = (entry: LedgerEntry) => entry.description
     .replace(/\s*\[Collection:\s.+?\]\s*$/i, '')
     .trim();
+  const getAssignedScopeIds = (item: { scope: string; scopeId?: string; branchIds?: string[]; departmentIds?: string[] }) => {
+    if (item.scope === 'branch') {
+      return Array.from(new Set([...(item.branchIds || []), item.scopeId].filter(Boolean))) as string[];
+    }
+    if (item.scope === 'department') {
+      return Array.from(new Set([...(item.departmentIds || []), item.scopeId].filter(Boolean))) as string[];
+    }
+    if (item.scope === 'unit') {
+      return item.scopeId ? [item.scopeId] : [];
+    }
+    return [];
+  };
+  const canAccessCollectionScope = (item: { scope: string; scopeId?: string; branchIds?: string[]; departmentIds?: string[] }) => {
+    if (item.scope === 'church') return true;
+    if (item.scope === 'branch') {
+      const assignedBranchIds = getAssignedScopeIds(item);
+      return isSuperAdmin || adminLevel === 'church' || assignedBranchIds.some((id) => accessibleBranchIds.includes(id));
+    }
+    if (item.scope === 'department') {
+      const assignedDepartmentIds = getAssignedScopeIds(item);
+      return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || assignedDepartmentIds.some((id) => accessibleDepartmentIds.includes(id));
+    }
+    if (item.scope === 'unit') {
+      const assignedUnitIds = getAssignedScopeIds(item);
+      return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || adminLevel === 'department' || assignedUnitIds.some((id) => accessibleUnitIds.includes(id));
+    }
+    return true;
+  };
   const availableLedgerCollectionTypes = useMemo(() => collectionTypes
-    .filter((ct) => {
-      if (ct.scope === 'church') return true;
-      if (ct.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === ct.scopeId;
-      if (ct.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === ct.scopeId;
-      if (ct.scope === 'unit') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || adminLevel === 'department' || currentAdmin?.unitId === ct.scopeId;
-      return true;
-    })
+    .filter((ct) => canAccessCollectionScope(ct))
     .sort((a, b) => a.name.localeCompare(b.name)),
-  [adminLevel, collectionTypes, currentAdmin?.branchId, currentAdmin?.departmentId, currentAdmin?.unitId, isSuperAdmin]);
+  [accessibleBranchIds, accessibleDepartmentIds, accessibleUnitIds, adminLevel, collectionTypes, isSuperAdmin]);
 
   const getScopeName = (scope: string, scopeId?: string) => {
     switch (scope) {
@@ -469,6 +491,16 @@ export function Finance() {
       case 'unit': return getUnitName(scopeId) || 'Unit';
       default: return '';
     }
+  };
+  const getAssignedScopeLabel = (item: { scope: string; scopeId?: string; branchIds?: string[]; departmentIds?: string[] }) => {
+    const assignedIds = getAssignedScopeIds(item);
+    if (assignedIds.length <= 1) {
+      return getScopeName(item.scope, assignedIds[0] || item.scopeId);
+    }
+    if (item.scope === 'branch') return `${assignedIds.length} branches`;
+    if (item.scope === 'department') return `${assignedIds.length} departments`;
+    if (item.scope === 'unit') return `${assignedIds.length} units`;
+    return getScopeName(item.scope, item.scopeId);
   };
 
   const getLedgerScopeType = (entry: LedgerEntry) => entry.scope || (entry.unitId ? 'unit' : entry.departmentId ? 'department' : entry.branchId ? 'branch' : 'church');
@@ -521,6 +553,7 @@ export function Finance() {
     if (adminLevel === 'unit') return ['unit'];
     return ['church', 'branch', 'department', 'unit'];
   };
+  const getDefaultCreatableScope = (): 'church' | 'branch' | 'department' | 'unit' => getCreatableScopes()[0] || 'church';
 
   // Auto-set scope ID for non-super-admins
   const getDefaultScopeId = (scope: string) => {
@@ -564,16 +597,12 @@ export function Finance() {
 
     return {
       scopeType: normalizedScope,
-      branchId: branchId || undefined,
+      branchId: normalizedScope === 'church' ? undefined : branchId || undefined,
       departmentId: departmentId || undefined,
-      branchIds: normalizedScope === 'church'
-        ? (branches.length > 0
-          ? branches.map(b => b.id)
-          : branchId
-            ? [branchId]
-            : undefined)
-        : normalizedScope === 'branch' && branchId
+      branchIds: normalizedScope === 'branch' && branchId
           ? [branchId]
+          : normalizedScope === 'department' && branchId
+            ? [branchId]
           : undefined,
       departmentIds: normalizedScope === 'department' && departmentId ? [departmentId] : undefined,
     };
@@ -626,22 +655,13 @@ export function Finance() {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FILTER COLLECTION TYPES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const filteredCTs = collectionTypes.filter(ct => {
     if (searchTerm && !ct.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    // Role-based: show church-wide to everyone, scoped only to relevant admins
-    if (ct.scope === 'church') return true;
-    if (ct.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === ct.scopeId;
-    if (ct.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === ct.scopeId;
-    if (ct.scope === 'unit') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || adminLevel === 'department' || currentAdmin?.unitId === ct.scopeId;
-    return true;
+    return canAccessCollectionScope(ct);
   });
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FILTER FUNDRAISERS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const filteredFundraisers = standaloneColls.filter(sc => {
     if (searchTerm && !sc.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (sc.scope === 'church') return true;
-    if (sc.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === sc.scopeId;
-    if (sc.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === sc.scopeId;
-    if (sc.scope === 'unit') return true; // show if relevant
-    return true;
+    return canAccessCollectionScope(sc);
   });
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCROLL TO ERROR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -725,9 +745,8 @@ export function Finance() {
   const handleSaveCT = async () => {
     const errors: Record<string, string> = {};
     if (!ctName.trim()) errors.name = 'Enter a name for this collection type (e.g. "Tithe", "Offering").';
-    if (ctScope !== 'church' && !ctScopeId) errors.scopeId = 'Select which area this collection type applies to.';
     // Check duplicate
-    if (ctName.trim() && collectionTypes.some(ct => ct.name.toLowerCase() === ctName.trim().toLowerCase() && ct.scope === ctScope && (ct.scopeId || '') === (ctScopeId || ''))) {
+    if (ctName.trim() && collectionTypes.some(ct => ct.name.toLowerCase() === ctName.trim().toLowerCase())) {
       errors.name = 'A collection type with this name already exists at this scope.';
     }
 
@@ -738,30 +757,11 @@ export function Finance() {
       return;
     }
 
-    const collectionContext = resolveCollectionScopeContext(ctScope, ctScopeId);
-    if (!collectionContext.branchId) {
-      showToast('No branch found. Please create a branch first.', 'error');
-      return;
-    }
-    if (collectionContext.scopeType === 'department' && ctScope !== 'church' && !collectionContext.departmentId) {
-      showToast('The selected scope could not be matched to a department.', 'error');
-      return;
-    }
-
     setSaving(true);
     try {
-      await createCollection(
-        {
-          name: ctName.trim(),
-          scopeType: collectionContext.scopeType,
-          branchId: collectionContext.branchId,
-          departmentId: collectionContext.departmentId,
-          branchIds: collectionContext.branchIds,
-          departmentIds: collectionContext.departmentIds,
-        },
-        collectionContext.branchId,
-        collectionContext.departmentId
-      );
+      await createCollection({
+        name: ctName.trim(),
+      });
       await loadData();
       setCtOpen(false);
       resetCtForm();
@@ -776,9 +776,10 @@ export function Finance() {
   };
 
   const resetCtForm = () => {
+    const defaultScope = getDefaultCreatableScope();
     setCtName('');
-    setCtScope('church');
-    setCtScopeId('');
+    setCtScope(defaultScope);
+    setCtScopeId(getDefaultScopeId(defaultScope));
     setCtErrors({});
   };
 
@@ -798,10 +799,6 @@ export function Finance() {
     }
 
     const collectionContext = resolveCollectionScopeContext(fundScope, fundScopeId);
-    if (!collectionContext.branchId) {
-      showToast('No branch found. Please create a branch first.', 'error');
-      return;
-    }
     if (collectionContext.scopeType === 'department' && fundScope !== 'church' && !collectionContext.departmentId) {
       showToast('The selected scope could not be matched to a department.', 'error');
       return;
@@ -838,12 +835,13 @@ export function Finance() {
   };
 
   const resetFundForm = () => {
+    const defaultScope = getDefaultCreatableScope();
     setFundName('');
     setFundDesc('');
     setFundTarget('');
     setFundDueDate('');
-    setFundScope('church');
-    setFundScopeId('');
+    setFundScope(defaultScope);
+    setFundScopeId(getDefaultScopeId(defaultScope));
     setFundErrors({});
   };
 
@@ -948,7 +946,7 @@ export function Finance() {
             }
           </p>
           <Select value={scope} onValueChange={(v) => { setScope(v as any); setScopeId(getDefaultScopeId(v)); }}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select scope..." /></SelectTrigger>
             <SelectContent>
               {creatableScopes.includes('church') && <SelectItem value="church">Church-wide (all branches)</SelectItem>}
               {creatableScopes.includes('branch') && isMultiBranch && <SelectItem value="branch">Specific Branch</SelectItem>}
@@ -1397,7 +1395,7 @@ export function Finance() {
                                     <TableCell>
                                       <Badge variant="outline" className="capitalize">{ct.scope}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-sm text-gray-600">{getScopeName(ct.scope, ct.scopeId)}</TableCell>
+                                    <TableCell className="text-sm text-gray-600">{getAssignedScopeLabel(ct)}</TableCell>
                                     <TableCell>
                                       <Button
                                         variant="ghost"
@@ -1523,7 +1521,7 @@ export function Finance() {
                             </div>
 
                             <div className="flex items-center gap-2 mb-3">
-                              <Badge variant="outline" className="text-xs capitalize">{getScopeName(fund.scope, fund.scopeId)}</Badge>
+                              <Badge variant="outline" className="text-xs capitalize">{getAssignedScopeLabel(fund)}</Badge>
                               <Badge variant="outline" className={`text-xs ${isOverdue ? 'text-orange-600 border-orange-300' : ''}`}>
                                 <CalendarDays className="w-3 h-3 mr-1" />
                                 Due: {new Date(fund.dueDate).toLocaleDateString()}
@@ -1765,14 +1763,14 @@ export function Finance() {
               {ctErrors.name && <p className="text-xs text-red-500 mt-1">{ctErrors.name}</p>}
             </div>
 
-            <ScopeSelector
+            {/* <ScopeSelector
               scope={ctScope}
               setScope={setCtScope}
               scopeId={ctScopeId}
               setScopeId={setCtScopeId}
               errors={ctErrors}
               fieldPrefix="ct"
-            />
+            /> */}
 
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCtOpen(false)}>Cancel</Button>
@@ -1943,7 +1941,7 @@ export function Finance() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="capitalize">{getScopeName(fund.scope, fund.scopeId)}</Badge>
+                    <Badge variant="outline" className="capitalize">{getAssignedScopeLabel(fund)}</Badge>
                     <Badge variant="outline">
                       <CalendarDays className="w-3 h-3 mr-1" />
                       Due: {new Date(fund.dueDate).toLocaleDateString()}
