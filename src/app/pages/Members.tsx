@@ -369,8 +369,9 @@ export function Members() {
       }
       
       await loadData(); // refresh from backend since IDs changed
-      setMoveTargets([]); setMoveDeptId(''); setMoveUnitId(''); setMoveBranchId(''); setSelectedIds([]);
+      setMoveDeptId(''); setMoveUnitId(''); setMoveBranchId(''); setSelectedIds([]);
       showToast(`${createdCount} member(s) moved to the workforce.`);
+      setMoveTargets([]);
     } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
     finally { setSaving(false); }
   };
@@ -471,7 +472,7 @@ export function Members() {
         <Tabs defaultValue="members" className="space-y-4">
           <TabsList>
             <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="training">Training</TabsTrigger>
+            {/* <TabsTrigger value="training">Training</TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -706,7 +707,7 @@ export function Members() {
                 })}
               </div>
             )}
-          </TabsContent>
+          </TabsContent> */}
         </Tabs>
         )}
       </div>
@@ -814,48 +815,13 @@ export function Members() {
             </div>
             <div className="space-y-2"><Label>Address *</Label><Input value={fAddress} onChange={e => setFAddress(e.target.value)} placeholder="House number, street, area" /></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Country *</Label>
+              <div className="space-y-2"><Label>Nationality *</Label>
                 <Select value={fCountry} onValueChange={(v) => { setFCountry(v); setFState(''); }}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{COUNTRIES.map(c => <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select>
               </div>
               <div className="space-y-2"><Label>State / Region *</Label>
                 {selectedCountryStates.length > 0 ? (
                   <Select value={fState} onValueChange={setFState}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{selectedCountryStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
                 ) : <Input value={fState} onChange={e => setFState(e.target.value)} placeholder="Enter state" />}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>LGA <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={fLGA} onChange={e => setFLGA(e.target.value)} placeholder="Local Government Area" /></div>
-              <div className="space-y-2"><Label>Activity Status</Label>
-                <Select value={fActivity} onValueChange={setFActivity}><SelectTrigger><SelectValue placeholder="Select activity" /></SelectTrigger><SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
-              </div>
-            </div>
-            <div className="space-y-2"><Label>Comments <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={fComments} onChange={e => setFComments(e.target.value)} placeholder="Additional notes..." /></div>
-            <div className="space-y-2"><Label>Departments <span className="text-gray-400 font-normal">(optional)</span></Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3 max-h-32 overflow-y-auto">
-                {departments.map(d => (
-                  <div key={d.id} className="flex items-center space-x-2">
-                    <Checkbox checked={fDepartmentIds.includes(d.id)} onCheckedChange={(c) => {
-                      if (c) setFDepartmentIds([...fDepartmentIds, d.id]);
-                      else setFDepartmentIds(fDepartmentIds.filter(id => id !== d.id));
-                    }} />
-                    <label className="text-sm font-medium leading-none">{d.name}</label>
-                  </div>
-                ))}
-                {departments.length === 0 && <span className="text-sm text-gray-500">No departments</span>}
-              </div>
-            </div>
-            <div className="space-y-2"><Label>Units <span className="text-gray-400 font-normal">(optional)</span></Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3 max-h-32 overflow-y-auto">
-                {units.map(u => (
-                  <div key={u.id} className="flex items-center space-x-2">
-                    <Checkbox checked={fUnitIds.includes(u.id)} onCheckedChange={(c) => {
-                      if (c) setFUnitIds([...fUnitIds, u.id]);
-                      else setFUnitIds(fUnitIds.filter(id => id !== u.id));
-                    }} />
-                    <label className="text-sm font-medium leading-none">{u.name}</label>
-                  </div>
-                ))}
-                {units.length === 0 && <span className="text-sm text-gray-500">No units</span>}
               </div>
             </div>
             {showMultiBranch && (
@@ -905,7 +871,7 @@ export function Members() {
                 <InfoBlock label="Year Joined" value={String(selectedMember.yearJoined)} />
                 <InfoBlock label="Age Range" value={selectedMember.ageRange || '-'} />
                 <InfoBlock label="Birthday" value={formatBirthday(selectedMember)} />
-                <InfoBlock label="Country" value={selectedMember.country || '-'} />
+                <InfoBlock label="Nationality" value={selectedMember.country || '-'} />
                 <InfoBlock label="State" value={selectedMember.state || '-'} />
                 <InfoBlock label="Branch" value={getBranchName(selectedMember.branchId) || '-'} />
               </div>
@@ -962,7 +928,12 @@ export function Members() {
                 <Button
                   variant="outline"
                   className="flex-1 min-w-fit h-11 rounded-xl border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
-                  onClick={() => { setDialogMode(null); setMoveTargets([selectedMember]); }}
+                  onClick={() => {
+                    if (selectedMember) {
+                      setMoveTargets([selectedMember]);
+                      setDialogMode(null);
+                    }
+                  }}
                 >
                   <Briefcase className="mr-2 h-4 w-4 shrink-0" />
                   {isInWorkforce(selectedMember.id) ? 'Add Another Dept' : 'Move to Workforce'}

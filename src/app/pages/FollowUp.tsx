@@ -519,7 +519,7 @@ export function FollowUp() {
         <Tabs defaultValue="newcomers" className="space-y-6">
           <TabsList>
             <TabsTrigger value="newcomers">Newcomers</TabsTrigger>
-            <TabsTrigger value="training">Training</TabsTrigger>
+            {/* <TabsTrigger value="training">Training</TabsTrigger> */}
             <TabsTrigger value="forms">Collection Forms</TabsTrigger>
           </TabsList>
 
@@ -618,7 +618,7 @@ export function FollowUp() {
           </TabsContent>
 
           {/* ═══ TRAINING TAB ═══ */}
-          <TabsContent value="training" className="space-y-6">
+          {/* <TabsContent value="training" className="space-y-6">
             <Card><CardContent className="p-4">
               <p className="text-sm text-gray-600 mb-1">
                 <strong>Training classes</strong> help newcomers progress toward full membership. Create classes like "Baptism Class" or "New Convert Class", assign newcomers, and track their status from enrollment through completion.
@@ -682,7 +682,7 @@ export function FollowUp() {
                 })}
               </div>
             )}
-          </TabsContent>
+          </TabsContent> */}
 
           {/* ═══ FORMS TAB ═══ */}
           <TabsContent value="forms" className="space-y-6">
@@ -883,12 +883,18 @@ export function FollowUp() {
               </div>
             )}
             <Separator />
-            <Textarea placeholder="What did you discuss? Any prayer requests or next steps?" value={followUpComment} onChange={(e) => setFollowUpComment(e.target.value)} rows={3} />
-            <div className="grid grid-cols-2 gap-2">
-              <Button onClick={() => handleAddFollowUp('call')} variant="outline" disabled={!followUpComment.trim()}><Phone className="w-4 h-4 mr-2" />Log Call</Button>
-              <Button onClick={() => handleAddFollowUp('sms')} variant="outline" disabled={!followUpComment.trim()}><MessageSquare className="w-4 h-4 mr-2" />Log SMS</Button>
-              <Button onClick={() => handleAddFollowUp('email')} variant="outline" disabled={!followUpComment.trim()}><Mail className="w-4 h-4 mr-2" />Log Email</Button>
-              <Button onClick={() => handleAddFollowUp('note')} variant="outline" disabled={!followUpComment.trim()}><Plus className="w-4 h-4 mr-2" />Add Note</Button>
+            <div className="space-y-2">
+              <Label>Follow-up Notes</Label>
+              <Textarea placeholder="What did you discuss? Any prayer requests or next steps?" value={followUpComment} onChange={(e) => setFollowUpComment(e.target.value)} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>How did you follow up?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => handleAddFollowUp('call')} variant="outline" disabled={!followUpComment.trim()}><Phone className="w-4 h-4 mr-2" />Log Call</Button>
+                <Button onClick={() => handleAddFollowUp('sms')} variant="outline" disabled={!followUpComment.trim()}><MessageSquare className="w-4 h-4 mr-2" />Log SMS</Button>
+                <Button onClick={() => handleAddFollowUp('email')} variant="outline" disabled={!followUpComment.trim()}><Mail className="w-4 h-4 mr-2" />Log Email</Button>
+                <Button onClick={() => handleAddFollowUp('note')} variant="outline" disabled={!followUpComment.trim()}><Plus className="w-4 h-4 mr-2" />Add Note</Button>
+              </div>
             </div>
             {/* Interaction History */}
             {selectedNewcomer && selectedNewcomer.followUps && selectedNewcomer.followUps.length > 0 && (

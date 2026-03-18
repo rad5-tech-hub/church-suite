@@ -116,11 +116,11 @@ const FAQ_SECTIONS: { title: string; items: FAQItem[] }[] = [
     ],
   },
   {
-    title: 'Administration & Security',
+    title: 'Leadership & Security',
     items: [
       {
         question: 'How do Roles and Permissions work?',
-        answer: 'Roles are like templates that define what an admin can do. Each role has a set of permissions (e.g., "Manage Members", "View Reports", "Manage Collections"). When you create a new administrator, you assign them a role. The system comes with default roles like "Super Admin" and "Branch Pastor", but you can create custom ones from the Roles page. You can even fine-tune permissions per admin -- start with a role preset and then add or remove specific permissions.',
+        answer: 'Roles are like templates that define what an admin can do. Each role has a set of permissions (e.g., "Manage Members", "View Reports", "Manage Collections"). When you create a new leader, you assign them a role. The system comes with default roles like "Super Admin" and "Branch Pastor", but you can create custom ones from the Roles page. You can even fine-tune permissions per admin -- start with a role preset and then add or remove specific permissions.',
         icon: <Shield className="w-4 h-4" />,
       },
       {
@@ -129,8 +129,8 @@ const FAQ_SECTIONS: { title: string; items: FAQItem[] }[] = [
         icon: <Users className="w-4 h-4" />,
       },
       {
-        question: 'How do I add a new administrator?',
-        answer: 'Go to Administration > Administrators and click "Add Administrator". Fill in their name, email, choose their access level and assign a role. When you click Create, the system generates a temporary password. You\'ll see this password in a dialog -- copy it and share it with the new admin. They can use it to log in immediately. You can also view their last generated password or reset it anytime from the admin\'s action menu.',
+        question: 'How do I add a new leader?',
+        answer: 'Go to Leadership > Leaders and click "Add Leader". Fill in their name, email, choose their access level and assign a role. When you click Create, the system generates a temporary password. You\'ll see this password in a dialog -- copy it and share it with the new admin. They can use it to log in immediately. You can also view their last generated password or reset it anytime from the admin\'s action menu.',
         icon: <Users className="w-4 h-4" />,
       },
     ],
@@ -652,7 +652,7 @@ export function Profile() {
                 <div className="space-y-2">
                   <Label>Role</Label>
                   <Input
-                    value={`${currentAdmin?.isSuperAdmin ? 'Super Admin' : 'Administrator'} (${currentAdmin?.level || 'church'} level)`}
+                    value={`${currentAdmin?.isSuperAdmin ? 'Super Admin' : 'Leader'} (${currentAdmin?.level || 'church'} level)`}
                     disabled
                     className="bg-gray-50"
                   />
@@ -817,8 +817,8 @@ export function Profile() {
                     </Select>
                     <p className="text-xs text-gray-400">
                       {churchReportingMode === 'hierarchical'
-                        ? 'Administrators can only send reports to the level directly above them (e.g., Unit Head → Dept. Head → Branch Head → Super Admin).'
-                        : 'Any administrator can send reports to anyone higher in the chain of command (e.g., a Unit Head can report directly to the Super Admin).'}
+                        ? 'Leaders can only send reports to the level directly above them (e.g., Unit Head → Dept. Head → Branch Head → Super Admin).'
+                        : 'Any leader can send reports to anyone higher in the chain of command (e.g., a Unit Head can report directly to the Super Admin).'}
                     </p>
                   </div>
                 </div>

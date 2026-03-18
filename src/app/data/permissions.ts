@@ -64,15 +64,15 @@ export const PERMISSIONS: Permission[] = [
     name: 'Manage Roles',
     description: 'Create and manage roles with custom permissions',
     level: ['church'],
-    category: 'Administration',
+    category: 'Leadership',
     actions: CRUD_ACTIONS,
   },
   {
     id: 'manage-church-admins',
     name: 'Manage Church Admins',
-    description: 'Create and manage church-level administrators',
+    description: 'Create and manage church-level leaders',
     level: ['church'],
-    category: 'Administration',
+    category: 'Leadership',
     actions: [
       { id: 'view', label: 'View' },
       { id: 'create', label: 'Create' },
@@ -85,9 +85,9 @@ export const PERMISSIONS: Permission[] = [
   {
     id: 'manage-branch-admins',
     name: 'Manage Branch Admins',
-    description: 'Create and manage branch-level administrators',
+    description: 'Create and manage branch-level leaders',
     level: ['church', 'branch'],
-    category: 'Administration',
+    category: 'Leadership',
     actions: [
       { id: 'view', label: 'View' },
       { id: 'create', label: 'Create' },
@@ -100,9 +100,9 @@ export const PERMISSIONS: Permission[] = [
   {
     id: 'manage-department-admins',
     name: 'Manage Department/Outreach Admins',
-    description: 'Create and manage department-level and outreach-level administrators',
+    description: 'Create and manage department-level and outreach-level leaders',
     level: ['church', 'branch'],
-    category: 'Administration',
+    category: 'Leadership',
     actions: [
       { id: 'view', label: 'View' },
       { id: 'create', label: 'Create' },
@@ -114,9 +114,9 @@ export const PERMISSIONS: Permission[] = [
   {
     id: 'manage-unit-admins',
     name: 'Manage Unit Admins',
-    description: 'Create and manage unit-level administrators',
+    description: 'Create and manage unit-level leaders',
     level: ['church', 'branch', 'department'],
-    category: 'Administration',
+    category: 'Leadership',
     actions: [
       { id: 'view', label: 'View' },
       { id: 'create', label: 'Create' },
@@ -271,7 +271,7 @@ export const PERMISSIONS: Permission[] = [
 
 export const PERMISSION_CATEGORIES = [
   'Church Management',
-  'Administration',
+  'Leadership',
   'Department Management',
   'Unit Management',
   'Members',

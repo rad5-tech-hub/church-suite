@@ -324,7 +324,8 @@ export interface CreateEventRequest {
   recurrenceType: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
   startTime?: string;
   endTime?: string;
-  byWeekday?: { weekday: number; startTime: string; endTime: string }[];
+  byWeekday?: number[] | { weekday: number; startTime: string; endTime: string }[];
+  nthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[];
   branchId?: string;
   departmentIds?: string[];
 }
@@ -333,8 +334,12 @@ export interface EditEventOccurrenceRequest {
   title?: string;
   description?: string;
   date?: string;
+  endDate?: string;
+  recurrenceType?: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
   startTime?: string;
   endTime?: string;
+  byWeekday?: number[] | { weekday: number; startTime?: string; endTime?: string }[];
+  nthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[];
   departmentIds?: string[];
   collectionIds?: string[];
 }

@@ -63,7 +63,7 @@ export function Layout({ children }: LayoutProps) {
     const path = window.location.pathname;
     const expanded: string[] = [];
     if (path.startsWith('/finance')) expanded.push('finance');
-    if (path === '/roles' || path === '/admins') expanded.push('administration');
+    if (path === '/roles' || path === '/admins') expanded.push('leadership');
     if (path === '/sms' || path === '/wallet') expanded.push('communication');
     return expanded;
   });
@@ -128,10 +128,10 @@ export function Layout({ children }: LayoutProps) {
       });
 
       items.push({
-        id: 'administration',
-        label: 'Administration',
+        id: 'leadership',
+        label: 'Leadership',
         icon: <Shield className="w-5 h-5" />,
-        path: '/administration',
+        path: '/leadership',
         submenu: [
           {
             id: 'roles',
@@ -142,7 +142,7 @@ export function Layout({ children }: LayoutProps) {
           },
           {
             id: 'admins',
-            label: 'Administrators',
+            label: 'Leaders',
             icon: <Users className="w-4 h-4" />,
             path: '/admins',
             permission: 'manage-church-admins'
@@ -170,14 +170,14 @@ export function Layout({ children }: LayoutProps) {
       });
 
       items.push({
-        id: 'administration',
-        label: 'Administration',
+        id: 'leadership',
+        label: 'Leadership',
         icon: <Shield className="w-5 h-5" />,
-        path: '/administration',
+        path: '/leadership',
         submenu: [
           {
             id: 'admins',
-            label: 'Administrators',
+            label: 'Leaders',
             icon: <Users className="w-4 h-4" />,
             path: '/admins',
             permission: 'manage-branch-admins'

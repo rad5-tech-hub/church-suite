@@ -70,10 +70,10 @@ const TOUR_STEPS: TourStep[] = [
     scrollIntoView: true,
   },
   {
-    target: 'nav-administration',
-    title: 'Roles & Administrators',
+    target: 'nav-leadership',
+    title: 'Roles & Leaders',
     description:
-      "Under Administration, you'll find Roles and Administrators. First create roles with specific permissions (like 'Branch Pastor' or 'Finance Secretary'), then assign those roles to administrators. Each admin only sees what their role allows.",
+      "Under Leadership, you'll find Roles and Leaders. First create roles with specific permissions (like 'Branch Pastor' or 'Finance Secretary'), then assign those roles to leaders. Each admin only sees what their role allows.",
     placement: 'right',
     icon: <Shield className="w-5 h-5" />,
     scrollIntoView: true,

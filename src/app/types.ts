@@ -180,6 +180,7 @@ export interface Program {
   type: ProgramFrequency;
   weeklyDays?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
   monthlyDate?: number; // 1-31 (for monthly)
+  monthlyNthWeekdays?: { weekday: number; nth: number }[]; // for monthly rules like "first Friday"
   customDates?: string[]; // ISO date strings (for custom)
   customDateTimes?: { date: string; startTime: string; endTime: string }[]; // per-date times (for custom)
   startTime: string; // HH:mm

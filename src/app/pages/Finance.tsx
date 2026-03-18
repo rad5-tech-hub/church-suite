@@ -83,6 +83,9 @@ import {
   fetchPrograms,
   updateAccount,
   createCollection,
+  hideLedgerEntryLocally,
+  hideCollectionTypeLocally,
+  hideFundraiserLocally,
 } from '../api';
 
 type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
@@ -95,9 +98,7 @@ function getCurrencySymbol(code?: string): string {
   return CURRENCIES.find(c => c.code === code)?.symbol || '₦';
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MAIN COMPONENT
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function Finance() {
   const { church, branches } = useChurch();
   const { currentAdmin } = useAuth();
@@ -167,6 +168,7 @@ export function Finance() {
   const [ledgerBranchId, setLedgerBranchId] = useState('');
   const [ledgerDeptId, setLedgerDeptId] = useState('');
   const [ledgerUnitId, setLedgerUnitId] = useState('');
+  const [ledgerCollectionTypeId, setLedgerCollectionTypeId] = useState('none');
   const [ledgerProgramId, setLedgerProgramId] = useState('');
   const [ledgerErrors, setLedgerErrors] = useState<Record<string, string>>({});
   const ledgerFormRef = useRef<HTMLDivElement>(null);
@@ -441,6 +443,23 @@ export function Finance() {
     return branches.find(b => b.id === id)?.name || (id === church.id ? church.name : id);
   };
   const getProgramName = (id?: string) => programs.find(p => p.id === id)?.name || '';
+  const getLedgerCollectionName = (entry: LedgerEntry) => {
+    const match = entry.description.match(/\s*\[Collection:\s(.+?)\]\s*$/i);
+    return match?.[1]?.trim() || '';
+  };
+  const getLedgerDisplayDescription = (entry: LedgerEntry) => entry.description
+    .replace(/\s*\[Collection:\s.+?\]\s*$/i, '')
+    .trim();
+  const availableLedgerCollectionTypes = useMemo(() => collectionTypes
+    .filter((ct) => {
+      if (ct.scope === 'church') return true;
+      if (ct.scope === 'branch') return isSuperAdmin || adminLevel === 'church' || currentAdmin?.branchId === ct.scopeId;
+      if (ct.scope === 'department') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || currentAdmin?.departmentId === ct.scopeId;
+      if (ct.scope === 'unit') return isSuperAdmin || adminLevel === 'church' || adminLevel === 'branch' || adminLevel === 'department' || currentAdmin?.unitId === ct.scopeId;
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name)),
+  [adminLevel, collectionTypes, currentAdmin?.branchId, currentAdmin?.departmentId, currentAdmin?.unitId, isSuperAdmin]);
 
   const getScopeName = (scope: string, scopeId?: string) => {
     switch (scope) {
@@ -591,7 +610,12 @@ export function Finance() {
       if (programFilter !== 'no-program' && e.programId !== programFilter) return false;
     }
     // Search
-    if (searchTerm && !e.description.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm) {
+      const normalizedSearchTerm = searchTerm.toLowerCase();
+      const matchesDescription = getLedgerDisplayDescription(e).toLowerCase().includes(normalizedSearchTerm);
+      const matchesCollection = getLedgerCollectionName(e).toLowerCase().includes(normalizedSearchTerm);
+      if (!matchesDescription && !matchesCollection) return false;
+    }
     return true;
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -645,6 +669,13 @@ export function Finance() {
 
     setSaving(true);
     try {
+      const selectedCollectionName = ledgerCollectionTypeId && ledgerCollectionTypeId !== 'none'
+        ? availableLedgerCollectionTypes.find((collectionType) => collectionType.id === ledgerCollectionTypeId)?.name || ''
+        : '';
+      const normalizedDescription = ledgerDesc.trim();
+      const descriptionWithCollection = selectedCollectionName
+        ? `${normalizedDescription} [Collection: ${selectedCollectionName}]`
+        : normalizedDescription;
       const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
         ? ledgerBranchId
         : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
@@ -660,7 +691,7 @@ export function Finance() {
       await updateAccount(
         {
           amount: parseFloat(ledgerAmount.replace(/,/g, '')),
-          description: ledgerDesc.trim(),
+          description: descriptionWithCollection,
           type: ledgerType === 'income' ? 'credit' : 'debit',
         },
         cleanBranchId,
@@ -685,6 +716,7 @@ export function Finance() {
     setLedgerBranchId('');
     setLedgerDeptId('');
     setLedgerUnitId('');
+    setLedgerCollectionTypeId('none');
     setLedgerProgramId('');
     setLedgerErrors({});
   };
@@ -869,16 +901,20 @@ export function Finance() {
     setSaving(true);
     try {
       if (deleteTarget.type === 'ledger') {
+        await hideLedgerEntryLocally(deleteTarget.id);
         setLedgerEntries(prev => prev.filter(e => e.id !== deleteTarget.id));
       } else if (deleteTarget.type === 'ct') {
+        await hideCollectionTypeLocally(deleteTarget.id);
         setCollectionTypes(prev => prev.filter(c => c.id !== deleteTarget.id));
       } else if (deleteTarget.type === 'fund') {
+        await hideFundraiserLocally(deleteTarget.id);
         setStandaloneColls(prev => prev.filter(s => s.id !== deleteTarget.id));
       }
       setDeleteTarget(null);
       showToast(`"${deleteTarget.name}" deleted successfully.`);
     } catch (err) {
       console.error('Failed to delete:', err);
+      showToast('Failed to delete. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -1172,19 +1208,13 @@ export function Finance() {
                             <div key={entry.id} className="border rounded-lg p-3 bg-white space-y-2">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm text-gray-900 truncate">{entry.description}</p>
+                                  <p className="font-medium text-sm text-gray-900 truncate">{getLedgerDisplayDescription(entry)}</p>
                                   <p className="text-xs text-gray-400 mt-0.5">{new Date(entry.date).toLocaleDateString()}</p>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                   <span className={`text-sm font-bold ${entry.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                     {entry.type === 'income' ? '+' : '-'}{currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </span>
-                                  {!entry.programId && (
-                                    <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 p-1 h-auto"
-                                      onClick={() => setDeleteTarget({ type: 'ledger', id: entry.id, name: entry.description })}>
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between">
@@ -1192,6 +1222,11 @@ export function Finance() {
                                   <Badge variant={entry.type === 'income' ? 'default' : 'destructive'} className="text-xs">
                                     {entry.type === 'income' ? 'Income' : 'Expense'}
                                   </Badge>
+                                  {getLedgerCollectionName(entry) && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {getLedgerCollectionName(entry)}
+                                    </Badge>
+                                  )}
                                   <Badge variant="outline" className="text-xs">{scopeTypeLabel}</Badge>
                                   {scopeValue && scopeValue !== 'Church-wide' && scopeValue !== scopeTypeLabel && (
                                     <span className="text-xs text-gray-500">{scopeValue}</span>
@@ -1214,12 +1249,12 @@ export function Finance() {
                           <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Description</TableHead>
+                            <TableHead>Collection</TableHead>
                             <TableHead>Scope</TableHead>
                             <TableHead>Program</TableHead>
                             <TableHead className="text-right">Income</TableHead>
                             <TableHead className="text-right">Expense</TableHead>
                             <TableHead className="text-right">Balance</TableHead>
-                            <TableHead className="w-10"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1233,7 +1268,12 @@ export function Finance() {
                                     {new Date(entry.date).toLocaleDateString()}
                                   </TableCell>
                                   <TableCell className="font-medium text-sm max-w-xs truncate">
-                                    {entry.description}
+                                    {getLedgerDisplayDescription(entry)}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-gray-600">
+                                    {getLedgerCollectionName(entry)
+                                      ? <Badge variant="secondary" className="text-xs">{getLedgerCollectionName(entry)}</Badge>
+                                      : ''}
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex flex-col gap-1">
@@ -1260,18 +1300,6 @@ export function Finance() {
                                   </TableCell>
                                   <TableCell className={`text-right font-semibold ${runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                                     {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                  </TableCell>
-                                  <TableCell>
-                                    {!entry.programId && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-red-500 hover:text-red-700 p-1"
-                                        onClick={() => setDeleteTarget({ type: 'ledger', id: entry.id, name: entry.description })}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </Button>
-                                    )}
                                   </TableCell>
                                 </TableRow>
                               );
@@ -1630,6 +1658,20 @@ export function Finance() {
               />
               {ledgerErrors.date && <p className="text-xs text-red-500 mt-1">{ledgerErrors.date}</p>}
             </div>
+
+            {availableLedgerCollectionTypes.length > 0 && (
+              <div>
+                <Label>Link to Collection <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <p className="text-xs text-gray-500 mb-1.5">Tie this ledger record to a collection type for cleaner reporting and easier search.</p>
+                <Select value={ledgerCollectionTypeId} onValueChange={setLedgerCollectionTypeId}>
+                  <SelectTrigger><SelectValue placeholder="No collection" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No collection</SelectItem>
+                    {availableLedgerCollectionTypes.map(ct => <SelectItem key={ct.id} value={ct.id}>{ct.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Optional Scope */}
             <Separator />

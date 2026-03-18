@@ -106,7 +106,7 @@ export const mockRoles: Role[] = [
   {
     id: 'role-1',
     churchId: 'church-1',
-    name: 'Super Administrator',
+    name: 'Super Leader',
     level: 'church',
     permissions: ['manage-branches', 'manage-subscription', 'manage-departments', 'manage-units', 'manage-roles', 'manage-church-admins', 'manage-branch-admins', 'manage-department-admins', 'manage-unit-admins', 'view-all-data', 'manage-workforce', 'manage-members', 'manage-programs', 'manage-collections', 'view-reports', 'follow-up', 'manage-sms', 'manage-wallet', 'manage-attendance', 'customize-newcomer-forms'],
     createdAt: new Date('2022-01-15')

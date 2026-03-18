@@ -260,7 +260,7 @@ export function Onboarding() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">Easy to use</h3>
-                    <p className="text-sm text-gray-600">Designed for church administrators with no technical background</p>
+                    <p className="text-sm text-gray-600">Designed for church leaders with no technical background</p>
                   </div>
                 </div>
                 <div className="flex gap-3">
@@ -509,7 +509,7 @@ export function Onboarding() {
         {step === 'admin-account' && (
           <Card>
             <CardHeader>
-              <CardTitle>Create Your Administrator Account</CardTitle>
+              <CardTitle>Create Your Leader Account</CardTitle>
               <CardDescription>
                 This will be your Super Admin account with full access to all features
               </CardDescription>

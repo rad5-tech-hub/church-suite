@@ -610,8 +610,8 @@ export function Reports() {
       <PageHeader
         title="Reports"
         description={isSuperAdmin
-          ? "Your inbox shows reports from all administrators. Use the Outbox to send messages, ask for clarification, or request updates from any administrator — you can even reference their reports directly."
-          : "Write and send reports to your administrators. Pull in live data from across the platform, attach files, and track what's been read. Star important reports to find them quickly."
+          ? "Your inbox shows reports from all leaders. Use the Outbox to send messages, ask for clarification, or request updates from any leader — you can even reference their reports directly."
+          : "Write and send reports to your leaders. Pull in live data from across the platform, attach files, and track what's been read. Star important reports to find them quickly."
         }
         action={{
           label: 'New Report',
@@ -741,7 +741,7 @@ export function Reports() {
                   <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                   <h3 className="font-semibold text-gray-700 mb-1">No reports in your inbox</h3>
                   <p className="text-sm text-gray-500 max-w-sm mx-auto">
-                    {inbox.length > 0 ? 'No reports match your search.' : 'When administrators below you send reports, they\'ll appear here. You can read, reply, star, export, and print them.'}
+                    {inbox.length > 0 ? 'No reports match your search.' : 'When leaders below you send reports, they\'ll appear here. You can read, reply, star, export, and print them.'}
                   </p>
                 </CardContent></Card>
               ) : (
@@ -936,7 +936,7 @@ export function Reports() {
                     <span>From: <strong>{viewReport.authorName}</strong></span>
                     <Badge variant="outline" className="text-xs">{getAuthorLevelLabel(viewReport.authorId, viewReport.authorLevel)}</Badge>
                     <Badge variant="secondary" className="text-xs">{getReportScopeSummary(viewReport)}</Badge>
-                    <span className="text-gray-400">�</span>
+                    <span className="text-gray-400">�</span>
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(viewReport.createdAt).toLocaleString()}</span>
                   </span>
                   {viewReport.creatorEmail && <span className="block mt-1 text-xs text-gray-500">{viewReport.creatorEmail}</span>}

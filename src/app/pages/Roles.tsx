@@ -433,7 +433,7 @@ export function Roles() {
     <Layout>
       <PageHeader
         title="Roles & Permissions"
-        description="Create custom roles with specific permissions for different levels of church administration. Roles define what actions administrators can perform."
+        description="Create custom roles with specific permissions for different levels of church leadership. Roles define what actions leaders can perform."
         action={
           canCreateRole
             ? {
@@ -481,7 +481,7 @@ export function Roles() {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No roles defined yet</h3>
               <p className="text-gray-500 max-w-md mx-auto mb-6">
-                Roles haven't been set up because none have been created yet. Define your first role to control what your administrators can do and see within the church system.
+                Roles haven't been set up because none have been created yet. Define your first role to control what your leaders can do and see within the church system.
               </p>
               {canCreateRole && (
                 <Button onClick={openCreate}>
@@ -638,7 +638,7 @@ export function Roles() {
             <DialogDescription>
               {dialogMode === 'create'
                 ? 'Define a role with specific permissions. Choose an access level first, then select which actions this role can perform.'
-                : 'Update this role\'s name, access level, or permissions. Changes apply to all administrators assigned to this role.'}
+                : 'Update this role\'s name, access level, or permissions. Changes apply to all leaders assigned to this role.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -652,7 +652,7 @@ export function Roles() {
                 onChange={(e) => setRoleName(e.target.value)}
               />
               <p className="text-xs text-gray-500">
-                Choose a clear, descriptive name so administrators understand this role at a glance
+                Choose a clear, descriptive name so leaders understand this role at a glance
               </p>
             </div>
 
@@ -834,7 +834,7 @@ export function Roles() {
                   <Badge className={meta.color}>{meta.label}</Badge>
                   <span className="text-sm text-gray-500 flex items-center gap-1">
                     <Users className="w-3.5 h-3.5" />
-                    {adminCount} administrator{adminCount !== 1 ? 's' : ''} assigned
+                    {adminCount} leader{adminCount !== 1 ? 's' : ''} assigned
                   </span>
                   <span className="text-sm text-gray-500">
                     Created{' '}
@@ -950,7 +950,7 @@ export function Roles() {
                 <span className="font-semibold text-gray-900">"{deleteTarget?.name}"</span> role?
               </span>
               <span className="block mt-2 text-sm">
-                This action cannot be undone. Make sure no administrators are currently assigned to this
+                This action cannot be undone. Make sure no leaders are currently assigned to this
                 role before deleting.
               </span>
             </AlertDialogDescription>

@@ -90,7 +90,7 @@ const ACCESS_LEVEL_INFO: Record<AdminLevel, { label: string; icon: React.ReactNo
   branch: {
     label: 'Branch',
     icon: <GitBranch className="w-4 h-4" />,
-    description: 'Access limited to a specific branch location. Best for branch pastors and branch administrators.',
+    description: 'Access limited to a specific branch location. Best for branch pastors and branch leaders.',
   },
   department: {
     label: 'Department / Outreach',
@@ -209,7 +209,12 @@ export function Admins() {
         loggedInAdmin?.branchId,
       ].filter(Boolean)));
       const [adminsData, roleResults, deptsData, unitsData, permissionCatalogData] = await Promise.all([
-        roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchAdmins(branchId))) : fetchAdmins(),
+        roleBranchIds.length > 0 
+          ? Promise.all([
+              fetchAdmins(null),
+              ...roleBranchIds.map((branchId) => fetchAdmins(branchId))
+            ]) 
+          : fetchAdmins(null),
         roleBranchIds.length > 0 ? Promise.all(roleBranchIds.map((branchId) => fetchRoles(branchId))) : Promise.resolve([]),
         fetchDepartments(),
         fetchUnits(),
@@ -300,10 +305,26 @@ export function Admins() {
     .filter((level) => level !== 'branch');
   const defaultCreatableAdminLevel = creatableAdminLevels[0] || 'church';
   const canCreateAnyAdmin = creatableAdminLevels.length > 0;
-  const canEditAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'edit') : false;
-  const canDeleteAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'delete') : false;
-  const canSuspendAdminRecord = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'suspend') : false;
-  const canResetPasswordForAdmin = (admin: Admin | null | undefined) => admin ? hasAdminManagementPermission(loggedInAdmin, admin.level, 'reset-password') : false;
+  const canEditAdminRecord = (admin: Admin | null | undefined) => {
+    if (!admin) return false;
+    if (admin.id === loggedInAdmin?.id) return false;
+    return hasAdminManagementPermission(loggedInAdmin, admin.level, 'edit');
+  };
+  const canDeleteAdminRecord = (admin: Admin | null | undefined) => {
+    if (!admin) return false;
+    if (admin.id === loggedInAdmin?.id) return false;
+    return hasAdminManagementPermission(loggedInAdmin, admin.level, 'delete');
+  };
+  const canSuspendAdminRecord = (admin: Admin | null | undefined) => {
+    if (!admin) return false;
+    if (admin.id === loggedInAdmin?.id) return false;
+    return hasAdminManagementPermission(loggedInAdmin, admin.level, 'suspend');
+  };
+  const canResetPasswordForAdmin = (admin: Admin | null | undefined) => {
+    if (!admin) return false;
+    if (admin.id === loggedInAdmin?.id) return false;
+    return hasAdminManagementPermission(loggedInAdmin, admin.level, 'reset-password');
+  };
   const canViewPasswordForAdmin = (admin: Admin | null | undefined) => canResetPasswordForAdmin(admin);
   const formAccessLevels = dialogMode === 'edit' ? getEditFormAccessLevels(selectedAdmin) : creatableAdminLevels;
   const hasAdminRowActions = (admin: Admin) => (
@@ -457,7 +478,7 @@ export function Admins() {
 
   const openCreate = () => {
     if (!canCreateAnyAdmin) {
-      showSuccess('You do not have permission to create administrators.', 'error');
+      showSuccess('You do not have permission to create leaders.', 'error');
       return;
     }
     resetForm();
@@ -466,7 +487,7 @@ export function Admins() {
 
   const openEdit = async (admin: Admin) => {
     if (!canEditAdminRecord(admin)) {
-      showSuccess('You do not have permission to edit this administrator.', 'error');
+      showSuccess('You do not have permission to edit this leader.', 'error');
       return;
     }
     
@@ -534,7 +555,7 @@ export function Admins() {
             : false;
 
     if (!isAllowed) {
-      showSuccess('You do not have permission to manage this administrator.', 'error');
+      showSuccess('You do not have permission to manage this leader.', 'error');
       return;
     }
 
@@ -551,7 +572,7 @@ export function Admins() {
   const handleCreate = async () => {
     if (!formName.trim() || !formEmail.trim()) return;
     if (!canCreateAnyAdmin || !hasAdminManagementPermission(loggedInAdmin, formLevel, 'create')) {
-      showSuccess('You do not have permission to create an administrator at this level.', 'error');
+      showSuccess('You do not have permission to create an leader at this level.', 'error');
       return;
     }
     setSaving(true);
@@ -595,7 +616,7 @@ export function Admins() {
       setDialogMode(null);
       resetForm();
       // API sends a verification email - no temp password returned
-      showSuccess('Administrator created successfully. A verification email has been sent.');
+      showSuccess('Leader created successfully. A verification email has been sent.');
     } catch (err: any) {
       console.error('Failed to create admin:', err);
       showSuccess(`Error: ${err.message}`, 'error');
@@ -607,7 +628,7 @@ export function Admins() {
   const handleUpdate = async () => {
     if (!formName.trim() || !formEmail.trim() || !selectedAdmin) return;
     if (!canEditAdminRecord(selectedAdmin)) {
-      showSuccess('You do not have permission to edit this administrator.', 'error');
+      showSuccess('You do not have permission to edit this leader.', 'error');
       return;
     }
     setSaving(true);
@@ -704,7 +725,7 @@ export function Admins() {
       showSuccess(`"${formName.trim()}" updated successfully.`);
     } catch (err: any) {
       console.error('Failed to update admin:', err);
-      showSuccess(`Error updating administrator: ${err.message}`, 'error');
+      showSuccess(`Error updating leader: ${err.message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -713,7 +734,7 @@ export function Admins() {
   const handleDelete = async () => {
     if (!selectedAdmin) return;
     if (!canDeleteAdminRecord(selectedAdmin)) {
-      showSuccess('You do not have permission to delete this administrator.', 'error');
+      showSuccess('You do not have permission to delete this leader.', 'error');
       return;
     }
     setSaving(true);
@@ -730,7 +751,7 @@ export function Admins() {
       showSuccess(`"${name}" has been removed.`);
     } catch (err: any) {
       console.error('Failed to delete admin:', err);
-      showSuccess(`Error deleting administrator: ${err.message}`, 'error');
+      showSuccess(`Error deleting leader: ${err.message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -739,7 +760,7 @@ export function Admins() {
   const handleToggleSuspend = async () => {
     if (!selectedAdmin) return;
     if (!canSuspendAdminRecord(selectedAdmin)) {
-      showSuccess('You do not have permission to suspend or reactivate this administrator.', 'error');
+      showSuccess('You do not have permission to suspend or reactivate this leader.', 'error');
       return;
     }
     setSaving(true);
@@ -758,7 +779,7 @@ export function Admins() {
       );
     } catch (err: any) {
       console.error('Failed to toggle suspend:', err);
-      showSuccess(`Error updating administrator: ${err.message}`, 'error');
+      showSuccess(`Error updating leader: ${err.message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -767,7 +788,7 @@ export function Admins() {
   const handleResetPassword = async () => {
     if (!selectedAdmin) return;
     if (!canResetPasswordForAdmin(selectedAdmin)) {
-      showSuccess('You do not have permission to reset this administrator\'s password.', 'error');
+      showSuccess('You do not have permission to reset this leader\'s password.', 'error');
       return;
     }
     setSaving(true);
@@ -806,7 +827,7 @@ export function Admins() {
 
   const handleViewPassword = (admin: Admin) => {
     if (!canViewPasswordForAdmin(admin)) {
-      showSuccess('You do not have permission to view this administrator\'s password history.', 'error');
+      showSuccess('You do not have permission to view this leader\'s password history.', 'error');
       return;
     }
     if (admin.lastTempPassword) {
@@ -841,12 +862,12 @@ export function Admins() {
   return (
     <Layout>
       <PageHeader
-        title="Administrators"
-        description="Manage your church administrators, and control what they can access across your entire church from here."
+        title="Leaders"
+        description="Manage your church leaders, and control what they can access across your entire church from here."
         action={
           canCreateAnyAdmin
             ? {
-                label: 'Add Administrator',
+                label: 'Add Leader',
                 onClick: openCreate,
                 icon: <Plus className="w-4 h-4 mr-2" />,
               }
@@ -857,7 +878,7 @@ export function Admins() {
       <div className="p-4 md:p-6">
 
         {loading ? (
-          <BibleLoader message="Loading administrators..." />
+          <BibleLoader message="Loading leaders..." />
         ) : (
           <>
             {/* Summary Stats */}
@@ -921,14 +942,14 @@ export function Admins() {
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
                     <Users className="w-8 h-8 text-blue-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No administrators yet</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No leaders yet</h3>
                   <p className="text-gray-500 max-w-md mx-auto mb-6">
-                    Your administrator list is empty because no one has been added yet. Start by adding your first administrator to control access and manage roles across your church.
+                    Your leader list is empty because no one has been added yet. Start by adding your first leader to control access and manage roles across your church.
                   </p>
                   {canCreateAnyAdmin && (
                     <Button onClick={openCreate}>
                       <Plus className="w-4 h-4 mr-2" />
-                      Add Your First Administrator
+                      Add Your First Leader
                     </Button>
                   )}
                 </CardContent>
@@ -1003,7 +1024,7 @@ export function Admins() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Administrator</TableHead>
+                          <TableHead>Leader</TableHead>
                           <TableHead>Role</TableHead>
                           <TableHead>Access Level</TableHead>
                           <TableHead>Scope</TableHead>
@@ -1079,12 +1100,12 @@ export function Admins() {
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === 'create' ? 'Add New Administrator' : 'Edit Administrator'}
+              {dialogMode === 'create' ? 'Add New Leader' : 'Edit Leader'}
             </DialogTitle>
             <DialogDescription>
               {dialogMode === 'create'
-                ? 'Create a new administrator and assign their access level and role. A temporary password will be generated for them to log in.'
-                : "Update this administrator's details, access level, or role assignment."}
+                ? 'Create a new leader and assign their access level and role. A temporary password will be generated for them to log in.'
+                : "Update this leader's details, access level, or role assignment."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1158,11 +1179,11 @@ export function Admins() {
             <div className="space-y-3">
               <div>
                 <Label>Access Level *</Label>
-                <p className="text-xs text-gray-500 mt-1">This determines what parts of the church this administrator can manage</p>
+                <p className="text-xs text-gray-500 mt-1">This determines what parts of the church this leader can manage</p>
               </div>
               {dialogMode === 'edit' && selectedAdmin?.isSuperAdmin && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  This administrator is currently a Super Admin. Choose a smaller access level below to remove Super Admin access when you save.
+                  This leader is currently a Super Admin. Choose a smaller access level below to remove Super Admin access when you save.
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1214,7 +1235,7 @@ export function Admins() {
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-purple-700">Select the branch this administrator belongs to. Only departments from the selected branch will appear below.</p>
+                <p className="text-xs text-purple-700">Select the branch this leader belongs to. Only departments from the selected branch will appear below.</p>
               </div>
             )}
 
@@ -1250,7 +1271,7 @@ export function Admins() {
                 {formDepartmentIds.length <= 1 && (
                   <p className="text-xs text-green-700">
                     {formLevel === 'department'
-                      ? 'Optional: choose one or more departments/outreaches to narrow this administrator to specific teams within the selected branch.'
+                      ? 'Optional: choose one or more departments/outreaches to narrow this leader to specific teams within the selected branch.'
                       : 'First select the department(s), then choose units below.'}
                   </p>
                 )}
@@ -1279,7 +1300,7 @@ export function Admins() {
                   <p className="text-xs text-orange-700 font-medium">{formUnitIds.length} units selected.</p>
                 )}
                 {formUnitIds.length <= 1 && (
-                  <p className="text-xs text-orange-700">Select one or more units. This administrator will manage members and activities within them.</p>
+                  <p className="text-xs text-orange-700">Select one or more units. This leader will manage members and activities within them.</p>
                 )}
               </div>
             )}
@@ -1305,7 +1326,7 @@ export function Admins() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500">Roles determine what actions this administrator can perform.</p>
+                  <p className="text-xs text-gray-500">Roles determine what actions this leader can perform.</p>
                 </>
               )}
             </div>
@@ -1319,7 +1340,7 @@ export function Admins() {
                       <Settings2 className="w-4 h-4" />
                       Customize Permissions
                     </Label>
-                    <p className="text-xs text-gray-500 mt-1">Fine-tune this administrator without changing the base role.</p>
+                    <p className="text-xs text-gray-500 mt-1">Fine-tune this leader without changing the base role.</p>
                   </div>
                   <button
                     type="button"
@@ -1425,7 +1446,7 @@ export function Admins() {
               <Button variant="outline" className="flex-1" onClick={closeDialog} disabled={saving}>Cancel</Button>
               <Button className="flex-1" disabled={!isFormValid || saving} onClick={dialogMode === 'create' ? handleCreate : handleUpdate}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {dialogMode === 'create' ? 'Create Administrator' : 'Save Changes'}
+                {dialogMode === 'create' ? 'Create Leader' : 'Save Changes'}
               </Button>
             </div>
 
@@ -1434,7 +1455,7 @@ export function Admins() {
               <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
                 <Mail className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-blue-800">
-                  A secure temporary password will be generated when you click "Create Administrator".
+                  A secure temporary password will be generated when you click "Create Leader".
                   You'll be shown the password so you can share it with the new admin. They can use it to log in right away.
                 </p>
               </div>
@@ -1449,7 +1470,7 @@ export function Admins() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {tempPasswordContext === 'created' ? (
-                <><CheckCircle className="w-5 h-5 text-green-600" /> Administrator Created Successfully</>
+                <><CheckCircle className="w-5 h-5 text-green-600" /> Leader Created Successfully</>
               ) : tempPasswordContext === 'reset' ? (
                 <><KeyRound className="w-5 h-5 text-blue-600" /> Password Reset Successful</>
               ) : (
@@ -1458,7 +1479,7 @@ export function Admins() {
             </DialogTitle>
             <DialogDescription>
               {tempPasswordContext === 'created' ? (
-                <>A temporary password has been generated for <strong>{tempPasswordEmail}</strong>. Share this password with the administrator so they can log in.</>
+                <>A temporary password has been generated for <strong>{tempPasswordEmail}</strong>. Share this password with the leader so they can log in.</>
               ) : tempPasswordContext === 'reset' ? (
                 resetApiMessage && !tempPassword
                   ? <>{resetApiMessage}</>
@@ -1491,7 +1512,7 @@ export function Admins() {
                 <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-amber-800">
                   Make sure to copy or write down this password before closing this dialog.
-                  The administrator can change it after logging in.
+                  The leader can change it after logging in.
                 </p>
               </div>
             )}
@@ -1519,12 +1540,12 @@ export function Admins() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-500" />
-              Delete Administrator
+              Delete Leader
             </AlertDialogTitle>
             <AlertDialogDescription>
               <span className="block">
                 Are you sure you want to permanently remove{' '}
-                <span className="font-semibold text-gray-900">"{selectedAdmin?.name}"</span> as an administrator?
+                <span className="font-semibold text-gray-900">"{selectedAdmin?.name}"</span> as an leader?
               </span>
               <span className="block mt-2 text-sm">
                 They will immediately lose all access to the platform. This action cannot be undone.
@@ -1536,7 +1557,7 @@ export function Admins() {
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white" disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               <Trash2 className="w-4 h-4 mr-2" />
-              Delete Administrator
+              Delete Leader
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1548,7 +1569,7 @@ export function Admins() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {actionMode === 'suspend' ? <ShieldBan className="w-5 h-5 text-orange-500" /> : <ShieldCheck className="w-5 h-5 text-green-500" />}
-              {actionMode === 'suspend' ? 'Suspend Administrator' : 'Reactivate Administrator'}
+              {actionMode === 'suspend' ? 'Suspend Leader' : 'Reactivate Leader'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {actionMode === 'suspend' ? (

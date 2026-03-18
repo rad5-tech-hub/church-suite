@@ -91,6 +91,9 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PIE_COLORS = ['#3B82F6', '#EC4899', '#F59E0B'];
+const NTH_LABELS = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+
+type MonthlyRuleMode = 'day-of-month' | 'nth-weekday';
 
 function RequiredStar() {
   return <span className="text-red-500 ml-0.5">*</span>;
@@ -106,6 +109,47 @@ function toTimeInputValue(time?: string) {
   if (!time) return '';
   const match = String(time).match(/^(\d{2}:\d{2})/);
   return match ? match[1] : String(time);
+}
+
+function toApiDateTime(date: string, time = '00:00') {
+  if (!date) return '';
+  const normalizedTime = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : (time || '00:00:00');
+  return `${date}T${normalizedTime}.000Z`;
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getNextMonthlyOccurrenceDate(dayOfMonth: number, fromDate = new Date()) {
+  const anchor = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+
+  for (let monthOffset = 0; monthOffset < 24; monthOffset++) {
+    const monthIndex = anchor.getMonth() + monthOffset;
+    const year = anchor.getFullYear() + Math.floor(monthIndex / 12);
+    const month = monthIndex % 12;
+    const candidate = new Date(year, month, dayOfMonth);
+
+    // Skip overflowed dates (e.g. Feb 31 -> Mar 3).
+    if (candidate.getMonth() !== month) continue;
+    if (candidate >= anchor) return toDateInputValue(candidate);
+  }
+
+  return toDateInputValue(anchor);
+}
+
+function getNthWeekdayOfMonth(year: number, month: number, weekday: number, nth: number) {
+  if (nth < 1 || nth > 5 || weekday < 0 || weekday > 6) return null;
+
+  const firstOfMonth = new Date(year, month, 1);
+  const dayOffset = (weekday - firstOfMonth.getDay() + 7) % 7;
+  const dayOfMonth = 1 + dayOffset + (nth - 1) * 7;
+  const candidate = new Date(year, month, dayOfMonth);
+  if (candidate.getMonth() !== month) return null;
+  return candidate;
 }
 
 export function Programs() {
@@ -140,6 +184,9 @@ export function Programs() {
   const [cType, setCType] = useState<ProgramFrequency | ''>('');
   const [cWeeklyDays, setCWeeklyDays] = useState<number[]>([]);
   const [cMonthlyDate, setCMonthlyDate] = useState('');
+  const [cMonthlyRuleMode, setCMonthlyRuleMode] = useState<MonthlyRuleMode>('day-of-month');
+  const [cMonthlyNth, setCMonthlyNth] = useState('');
+  const [cMonthlyWeekday, setCMonthlyWeekday] = useState('');
   const [cCustomDates, setCCustomDates] = useState<string[]>([]);
   const [cCustomPickerMonth, setCCustomPickerMonth] = useState(new Date().getMonth());
   const [cCustomPickerYear, setCCustomPickerYear] = useState(new Date().getFullYear());
@@ -149,6 +196,8 @@ export function Programs() {
   const [cDeptIds, setCDeptIds] = useState<string[]>([]);
   const [cCollTypes, setCCollTypes] = useState<string[]>([]);
   const [cOneTimeDate, setCOneTimeDate] = useState('');
+  const [cRecurrenceStartDate, setCRecurrenceStartDate] = useState('');
+  const [cRecurrenceEndDate, setCRecurrenceEndDate] = useState('');
   const [cCustomDateTimes, setCCustomDateTimes] = useState<Record<string, { startTime: string; endTime: string }>>({});
 
   // Validation
@@ -299,13 +348,25 @@ export function Programs() {
         }
         cur.setDate(cur.getDate() + 1);
       }
-    } else if (prog.type === 'monthly' && prog.monthlyDate) {
+    } else if (prog.type === 'monthly') {
       const cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+      const monthlyRules = prog.monthlyNthWeekdays || [];
+
       while (cur <= rangeEnd) {
-        const dt = new Date(cur.getFullYear(), cur.getMonth(), prog.monthlyDate);
-        if (dt.getMonth() === cur.getMonth() && dt >= rangeStart && dt <= rangeEnd) {
-          dates.push(dt.toISOString().split('T')[0]);
+        if (monthlyRules.length > 0) {
+          monthlyRules.forEach((rule) => {
+            const dt = getNthWeekdayOfMonth(cur.getFullYear(), cur.getMonth(), rule.weekday, rule.nth);
+            if (dt && dt >= rangeStart && dt <= rangeEnd) {
+              dates.push(dt.toISOString().split('T')[0]);
+            }
+          });
+        } else if (prog.monthlyDate) {
+          const dt = new Date(cur.getFullYear(), cur.getMonth(), prog.monthlyDate);
+          if (dt.getMonth() === cur.getMonth() && dt >= rangeStart && dt <= rangeEnd) {
+            dates.push(dt.toISOString().split('T')[0]);
+          }
         }
+
         cur.setMonth(cur.getMonth() + 1);
       }
     } else if (prog.type === 'custom' && prog.customDates) {
@@ -427,7 +488,18 @@ export function Programs() {
       let freqLabel = '';
       switch (prog.type) {
         case 'weekly': freqLabel = `Weekly — ${(prog.weeklyDays || []).map(d => DAY_NAMES[d]).join(', ')}`; break;
-        case 'monthly': freqLabel = `Monthly — ${prog.monthlyDate}${prog.monthlyDate === 1 ? 'st' : prog.monthlyDate === 2 ? 'nd' : prog.monthlyDate === 3 ? 'rd' : 'th'}`; break;
+        case 'monthly': {
+          const monthlyRule = prog.monthlyNthWeekdays?.[0];
+          if (monthlyRule) {
+            const nthLabel = NTH_LABELS[monthlyRule.nth - 1] || `${monthlyRule.nth}th`;
+            freqLabel = `Monthly — ${nthLabel} ${FULL_DAY_NAMES[monthlyRule.weekday]}`;
+          } else {
+            freqLabel = prog.monthlyDate
+              ? `Monthly — ${prog.monthlyDate}${prog.monthlyDate === 1 ? 'st' : prog.monthlyDate === 2 ? 'nd' : prog.monthlyDate === 3 ? 'rd' : 'th'}`
+              : 'Monthly';
+          }
+          break;
+        }
         case 'one-time': freqLabel = 'One-time event'; break;
         case 'custom': freqLabel = `Custom — ${(prog.customDates || []).length} date${(prog.customDates || []).length !== 1 ? 's' : ''}`; break;
       }
@@ -491,11 +563,43 @@ export function Programs() {
 
   const validateCreateForm = (): boolean => {
     const errors: Record<string, string> = {};
+    const monthlyDay = cMonthlyDate ? Number(cMonthlyDate) : NaN;
+    const monthlyNth = cMonthlyNth ? Number(cMonthlyNth) : NaN;
+    const monthlyWeekday = cMonthlyWeekday ? Number(cMonthlyWeekday) : NaN;
+    const derivedEventDate = cType === 'one-time'
+      ? cOneTimeDate
+      : cType === 'custom' && cCustomDates.length > 0
+        ? cCustomDates[0]
+        : (cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate
+          ? cRecurrenceStartDate
+          : cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && Number.isFinite(monthlyDay)
+            ? getNextMonthlyOccurrenceDate(monthlyDay)
+          : toDateInputValue(new Date());
+
     if (!cName.trim()) errors.cName = 'Program title is required';
     if (!cType) errors.cType = 'Please select a program type';
     if (cType === 'one-time' && !cOneTimeDate) errors.cOneTimeDate = 'Please select a date for this event';
     if (cType === 'weekly' && cWeeklyDays.length === 0) errors.cWeeklyDays = 'Please select at least one day';
-    if (cType === 'monthly' && !cMonthlyDate) errors.cMonthlyDate = 'Please select a day of the month';
+    if (cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && !cMonthlyDate) {
+      errors.cMonthlyDate = 'Please select a day of the month';
+    }
+    if (cType === 'monthly' && cMonthlyRuleMode === 'nth-weekday') {
+      if (!Number.isFinite(monthlyNth) || monthlyNth < 1 || monthlyNth > 5) {
+        errors.cMonthlyNth = 'Please select which week of the month';
+      }
+      if (!Number.isFinite(monthlyWeekday) || monthlyWeekday < 0 || monthlyWeekday > 6) {
+        errors.cMonthlyWeekday = 'Please select a weekday';
+      }
+    }
+    if ((cType === 'weekly' || cType === 'monthly') && !cRecurrenceStartDate) {
+      errors.cRecurrenceStartDate = 'Please select a start date for this recurring program';
+    }
+    if ((cType === 'weekly' || cType === 'monthly') && !cRecurrenceEndDate) {
+      errors.cRecurrenceEndDate = 'Please select an end date for this recurring program';
+    }
+    if ((cType === 'weekly' || cType === 'monthly') && cRecurrenceEndDate && derivedEventDate && cRecurrenceEndDate < derivedEventDate) {
+      errors.cRecurrenceEndDate = 'End date must be the same as or after the start date';
+    }
     if (cType === 'custom' && cCustomDates.length === 0) errors.cCustomDates = 'Please select at least one date';
     if (cType !== 'custom') {
       if (!cStartTime) errors.cStartTime = 'Start time is required';
@@ -526,6 +630,9 @@ export function Programs() {
     setCType('');
     setCWeeklyDays([]);
     setCMonthlyDate('');
+    setCMonthlyRuleMode('day-of-month');
+    setCMonthlyNth('');
+    setCMonthlyWeekday('');
     setCCustomDates([]);
     setCStartTime('');
     setCEndTime('');
@@ -533,17 +640,32 @@ export function Programs() {
     setCDeptIds([]);
     setCCollTypes([]);
     setCOneTimeDate('');
+    setCRecurrenceStartDate('');
+    setCRecurrenceEndDate('');
     setCCustomDateTimes({});
     setFormErrors({});
     setEditTarget(null);
   };
 
   const openEdit = (prog: Program) => {
+    const existingNthWeekdayRules =
+      (prog.monthlyNthWeekdays && prog.monthlyNthWeekdays.length > 0
+        ? prog.monthlyNthWeekdays
+        : ((prog as any)._raw?.nthWeekdays || [])) as Array<{ weekday?: number; nth?: number }>;
+    const firstNthRule = existingNthWeekdayRules[0];
+
     setEditTarget(prog);
     setCName(prog.name);
     setCType(prog.type);
     setCWeeklyDays(prog.weeklyDays || []);
     setCMonthlyDate(prog.monthlyDate?.toString() || '');
+    setCMonthlyRuleMode(firstNthRule ? 'nth-weekday' : 'day-of-month');
+    setCMonthlyNth(firstNthRule?.nth?.toString() || '');
+    setCMonthlyWeekday(
+      Number.isFinite(Number(firstNthRule?.weekday))
+        ? Number(firstNthRule?.weekday).toString()
+        : '',
+    );
     setCCustomDates(prog.customDates || []);
     setCStartTime(toTimeInputValue(prog.startTime));
     setCEndTime(toTimeInputValue(prog.endTime));
@@ -551,6 +673,8 @@ export function Programs() {
     setCDeptIds(prog.departmentIds || []);
     setCCollTypes(prog.collectionTypes || []);
     setCOneTimeDate(prog.type === 'one-time' && prog.customDates?.length ? prog.customDates[0] : '');
+    setCRecurrenceStartDate(((prog as any)._raw?.date || '').split('T')[0] || '');
+    setCRecurrenceEndDate(((prog as any)._raw?.endDate || '').split('T')[0] || '');
     const dtMap: Record<string, { startTime: string; endTime: string }> = {};
     if (prog.customDateTimes) {
       prog.customDateTimes.forEach(cdt => { dtMap[cdt.date] = { startTime: toTimeInputValue(cdt.startTime), endTime: toTimeInputValue(cdt.endTime) }; });
@@ -578,10 +702,15 @@ export function Programs() {
         'custom': 'custom',
       };
 
+      const monthlyDay = cMonthlyDate ? Number(cMonthlyDate) : NaN;
+      const monthlyNth = cMonthlyNth ? Number(cMonthlyNth) : NaN;
+      const monthlyWeekday = cMonthlyWeekday ? Number(cMonthlyWeekday) : NaN;
       let eventDate = '';
       if (cType === 'one-time') eventDate = cOneTimeDate;
       else if (cType === 'custom' && cCustomDates.length > 0) eventDate = cCustomDates[0];
-      else eventDate = new Date().toISOString().split('T')[0];
+      else if ((cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate) eventDate = cRecurrenceStartDate;
+      else if (cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && Number.isFinite(monthlyDay)) eventDate = getNextMonthlyOccurrenceDate(monthlyDay);
+      else eventDate = toDateInputValue(new Date());
 
       const baseStartTime = cType === 'custom'
         ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.startTime || cStartTime) : cStartTime)
@@ -591,7 +720,11 @@ export function Programs() {
         : cEndTime;
 
       const byWeekday = cType === 'weekly'
-        ? cWeeklyDays.map(day => ({ weekday: day, startTime: cStartTime, endTime: cEndTime }))
+        ? Array.from(new Set(cWeeklyDays)).sort((a, b) => a - b)
+        : undefined;
+
+      const nthWeekdays = cType === 'monthly' && cMonthlyRuleMode === 'nth-weekday' && Number.isFinite(monthlyNth) && Number.isFinite(monthlyWeekday)
+        ? [{ weekday: monthlyWeekday, nth: monthlyNth }]
         : undefined;
 
       if (editTarget) {
@@ -621,20 +754,45 @@ export function Programs() {
           .filter((collectionType) => cCollTypes.includes(collectionType.name))
           .map((collectionType) => collectionType.id);
 
-        const editDate = cType === 'one-time'
-          ? cOneTimeDate
-          : cType === 'custom'
-            ? cCustomDates[0]
-            : (occurrence?.date || '').split('T')[0] || eventDate;
+        const editStartTime = formatApiTime(baseStartTime || toTimeInputValue(editTarget.startTime));
+        const editEndTime = formatApiTime(baseEndTime || toTimeInputValue(editTarget.endTime));
 
-        await editEventOccurrence(occurrenceId, routeBranchId, {
+        if (!editStartTime || !editEndTime) {
+          throw new Error('Start and end time are required to update this program.');
+        }
+
+        const recurrenceDate = cRecurrenceStartDate || ((editTarget as any)._raw?.date || '').split('T')[0] || eventDate;
+        const editPayload: any = {
           title: cName.trim(),
-          date: editDate,
-          startTime: formatApiTime(baseStartTime),
-          endTime: formatApiTime(baseEndTime),
+          ...(cType === 'one-time' ? { date: cOneTimeDate } : {}),
+          ...(cType === 'custom' ? { date: cCustomDates[0] } : {}),
+          startTime: editStartTime,
+          endTime: editEndTime,
           departmentIds: cDeptIds,
           collectionIds: collectionIds.length > 0 ? collectionIds : undefined,
-        });
+        };
+
+        if (cType === 'weekly' || cType === 'monthly') {
+          editPayload.date = toApiDateTime(recurrenceDate, editStartTime);
+          editPayload.recurrenceType = recurrenceMap[cType] || cType;
+          if (cRecurrenceEndDate) {
+            editPayload.endDate = toApiDateTime(cRecurrenceEndDate, editStartTime);
+          }
+        }
+
+        if (cType === 'weekly') {
+          editPayload.byWeekday = byWeekday;
+        }
+
+        if (cType === 'monthly' && nthWeekdays && nthWeekdays.length > 0) {
+          editPayload.nthWeekdays = nthWeekdays.map((rule) => ({
+            ...rule,
+            startTime: editStartTime,
+            endTime: editEndTime,
+          }));
+        }
+
+        await editEventOccurrence(occurrenceId, routeBranchId, editPayload);
 
         const freshProgs = await fetchPrograms(routeBranchId || resolvedBranchId);
         setPrograms(freshProgs as Program[]);
@@ -642,13 +800,15 @@ export function Programs() {
       } else {
         await createEvent({
           title: cName.trim(),
-          date: eventDate ? new Date(eventDate + 'T12:00:00').toISOString() : new Date().toISOString(),
+          date: eventDate || toDateInputValue(new Date()),
+          endDate: (cType === 'weekly' || cType === 'monthly') ? (cRecurrenceEndDate || undefined) : undefined,
           recurrenceType: (recurrenceMap[cType] || 'none') as any,
           startTime: baseStartTime,
           endTime: baseEndTime,
           branchId: eventBranchId,
           departmentIds: cDeptIds.length > 0 ? cDeptIds : undefined,
           byWeekday,
+          nthWeekdays,
         });
 
         const freshProgs = await fetchPrograms(eventBranchId || resolvedBranchId);
@@ -1300,19 +1460,80 @@ export function Programs() {
             )}
 
             {cType === 'monthly' && (
-              <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyDate = el; }}>
-                <Label>Day of Month<RequiredStar /></Label>
-                <Select value={cMonthlyDate} onValueChange={(v) => { setCMonthlyDate(v); if (formErrors.cMonthlyDate) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyDate; return n; }); }}>
-                  <SelectTrigger className={formErrors.cMonthlyDate ? 'border-red-400' : ''}>
-                    <SelectValue placeholder="Select day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                      <SelectItem key={d} value={d.toString()}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError field="cMonthlyDate" />
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Monthly Pattern<RequiredStar /></Label>
+                  <Select
+                    value={cMonthlyRuleMode}
+                    onValueChange={(v) => {
+                      setCMonthlyRuleMode(v as MonthlyRuleMode);
+                      setFormErrors(prev => {
+                        const n = { ...prev };
+                        delete n.cMonthlyDate;
+                        delete n.cMonthlyNth;
+                        delete n.cMonthlyWeekday;
+                        return n;
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select monthly pattern" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day-of-month">Specific date each month (e.g. 19th)</SelectItem>
+                      <SelectItem value="nth-weekday">Specific weekday in month (e.g. first Friday)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {cMonthlyRuleMode === 'day-of-month' ? (
+                  <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyDate = el; }}>
+                    <Label>Day of Month<RequiredStar /></Label>
+                    <Select value={cMonthlyDate} onValueChange={(v) => { setCMonthlyDate(v); if (formErrors.cMonthlyDate) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyDate; return n; }); }}>
+                      <SelectTrigger className={formErrors.cMonthlyDate ? 'border-red-400' : ''}>
+                        <SelectValue placeholder="Select day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                          <SelectItem key={d} value={d.toString()}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldError field="cMonthlyDate" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyNth = el; }}>
+                      <Label>Week in Month<RequiredStar /></Label>
+                      <Select value={cMonthlyNth} onValueChange={(v) => { setCMonthlyNth(v); if (formErrors.cMonthlyNth) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyNth; return n; }); }}>
+                        <SelectTrigger className={formErrors.cMonthlyNth ? 'border-red-400' : ''}>
+                          <SelectValue placeholder="Select week" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NTH_LABELS.map((label, index) => (
+                            <SelectItem key={label} value={(index + 1).toString()}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError field="cMonthlyNth" />
+                    </div>
+
+                    <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyWeekday = el; }}>
+                      <Label>Weekday<RequiredStar /></Label>
+                      <Select value={cMonthlyWeekday} onValueChange={(v) => { setCMonthlyWeekday(v); if (formErrors.cMonthlyWeekday) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyWeekday; return n; }); }}>
+                        <SelectTrigger className={formErrors.cMonthlyWeekday ? 'border-red-400' : ''}>
+                          <SelectValue placeholder="Select weekday" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FULL_DAY_NAMES.map((name, idx) => (
+                            <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError field="cMonthlyWeekday" />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1412,6 +1633,51 @@ export function Programs() {
                   />
                   <FieldError field="cEndTime" />
                 </div>
+              </div>
+            )}
+
+            {(cType === 'weekly' || cType === 'monthly') && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2" ref={el => { fieldRefs.current.cRecurrenceStartDate = el; }}>
+                  <Label>Recurrence Start Date<RequiredStar /></Label>
+                  <Input
+                    type="date"
+                    value={cRecurrenceStartDate}
+                    onChange={e => {
+                      setCRecurrenceStartDate(e.target.value);
+                      if (formErrors.cRecurrenceStartDate) {
+                        setFormErrors(prev => {
+                          const n = { ...prev };
+                          delete n.cRecurrenceStartDate;
+                          return n;
+                        });
+                      }
+                    }}
+                    className={formErrors.cRecurrenceStartDate ? 'border-red-400' : ''}
+                  />
+                  <FieldError field="cRecurrenceStartDate" />
+                </div>
+
+                <div className="space-y-2" ref={el => { fieldRefs.current.cRecurrenceEndDate = el; }}>
+                  <Label>Recurrence End Date<RequiredStar /></Label>
+                  <Input
+                    type="date"
+                    value={cRecurrenceEndDate}
+                    onChange={e => {
+                      setCRecurrenceEndDate(e.target.value);
+                      if (formErrors.cRecurrenceEndDate) {
+                        setFormErrors(prev => {
+                          const n = { ...prev };
+                          delete n.cRecurrenceEndDate;
+                          return n;
+                        });
+                      }
+                    }}
+                    className={formErrors.cRecurrenceEndDate ? 'border-red-400' : ''}
+                  />
+                  <FieldError field="cRecurrenceEndDate" />
+                </div>
+                <p className="text-xs text-gray-500 col-span-2">The program will recur between the start and end dates.</p>
               </div>
             )}
 

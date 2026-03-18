@@ -70,6 +70,7 @@ import {
   Program,
   ProgramInstance,
 } from '../types';
+import { COUNTRIES, MONTHS, AGE_RANGES } from '../data/countries';
 import {
   fetchMember,
   fetchMembers,
@@ -84,6 +85,7 @@ import {
   moveMember,
   createWorkforceMember,
   editMember,
+  suspendMember,
 } from '../api';
 
 type ActiveTab = 'workforce' | 'training';
@@ -318,8 +320,19 @@ export function Workforce() {
   const [isCreatingNewMember, setIsCreatingNewMember] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [newMemberWhatsapp, setNewMemberWhatsapp] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberGender, setNewMemberGender] = useState('male');
+  const [newMemberAddress, setNewMemberAddress] = useState('');
+  const [newMemberAgeRange, setNewMemberAgeRange] = useState('');
+  const [newMemberBirthdayMonth, setNewMemberBirthdayMonth] = useState('');
+  const [newMemberBirthdayDay, setNewMemberBirthdayDay] = useState('');
+  const [newMemberState, setNewMemberState] = useState('');
+  const [newMemberLGA, setNewMemberLGA] = useState('');
+  const [newMemberNationality, setNewMemberNationality] = useState('');
+  const [newMemberMaritalStatus, setNewMemberMaritalStatus] = useState('');
+  const [newMemberSince, setNewMemberSince] = useState('');
+  const [newMemberComments, setNewMemberComments] = useState('');
   const [newMemberBranchId, setNewMemberBranchId] = useState('');
 
   const resetAddForm = () => {
@@ -331,8 +344,19 @@ export function Workforce() {
     setIsCreatingNewMember(false);
     setNewMemberName('');
     setNewMemberPhone('');
+    setNewMemberWhatsapp('');
     setNewMemberEmail('');
     setNewMemberGender('male');
+    setNewMemberAddress('');
+    setNewMemberAgeRange('');
+    setNewMemberBirthdayMonth('');
+    setNewMemberBirthdayDay('');
+    setNewMemberState('');
+    setNewMemberLGA('');
+    setNewMemberNationality('');
+    setNewMemberMaritalStatus('');
+    setNewMemberSince('');
+    setNewMemberComments('');
     setNewMemberBranchId('');
     setMemberDropdownOpen(false);
   };
@@ -387,17 +411,26 @@ export function Workforce() {
         roadmapMarkers: item.roadmapMarkers || [],
       }));
       const visibleWorkforce = getVisibleWorkforce(mappedWorkforce as WorkforceMember[]);
-      setWorkforce(visibleWorkforce);
 
       const uniqueWorkforceMemberIds = Array.from(new Set(visibleWorkforce.map(item => item.memberId).filter(Boolean)));
       const memberDetailsResults = await Promise.allSettled(uniqueWorkforceMemberIds.map(memberId => fetchMember(memberId)));
       const nextWorkforceMemberDetails = uniqueWorkforceMemberIds.reduce((acc, memberId, index) => {
         const result = memberDetailsResults[index];
-        if (result.status === 'fulfilled' && result.value?.id) {
+        if (
+          result.status === 'fulfilled' &&
+          result.value?.id &&
+          (result.value as any).isDeleted !== true &&
+          (result.value as any).isActive !== false
+        ) {
           acc[memberId] = result.value as Member;
         }
         return acc;
       }, {} as Record<string, Member>);
+
+      const activeMemberIds = new Set(Object.keys(nextWorkforceMemberDetails));
+      const cleanedWorkforce = visibleWorkforce.filter(entry => activeMemberIds.has(entry.memberId));
+
+      setWorkforce(cleanedWorkforce);
       setWorkforceMemberDetails(nextWorkforceMemberDetails);
       setTrainingPrograms(trainingData as TrainingProgram[]);
       setDepartments(deptsData as unknown as Department[]);
@@ -449,6 +482,33 @@ export function Workforce() {
   const { showToast } = useToast();
 
   // ──────── HELPERS ────────
+  const padTwo = (v: string) => v.padStart(2, '0');
+  const parseAgeRange = (range: string) => {
+    let ageFrom: number | undefined;
+    let ageTo: number | undefined;
+
+    if (/^\d+-\d+$/.test(range)) {
+      const [from, to] = range.split('-').map((value) => parseInt(value, 10));
+      ageFrom = from;
+      ageTo = to;
+    } else if (/^Under \d+$/i.test(range)) {
+      const limit = parseInt(range.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(limit)) ageTo = Math.max(limit - 1, 0);
+    } else if (/^\d+\+$/.test(range)) {
+      const floor = parseInt(range, 10);
+      if (!Number.isNaN(floor)) ageFrom = floor;
+    }
+
+    return { ageFrom, ageTo };
+  };
+  const currentYear = new Date().getFullYear();
+  const selectedCountryStates = COUNTRIES.find(c => c.name === newMemberNationality)?.states || [];
+  const daysInMonth = (month: string) => {
+    const parsedMonth = parseInt(month, 10);
+    if (!month || Number.isNaN(parsedMonth)) return 31;
+    return new Date(currentYear, parsedMonth, 0).getDate();
+  };
+
   const getMember = (memberId: string) =>
     workforceMemberDetails[memberId] || members.find(m => m.id === memberId);
   const getMemberName = (memberId: string) =>
@@ -546,11 +606,25 @@ export function Workforce() {
       if (isCreatingNewMember) {
         // Create new member case
         const targetBranchId = isMultiBranch ? newMemberBranchId || currentAdmin?.branchId : currentAdmin?.branchId;
+        const { ageFrom, ageTo } = parseAgeRange(newMemberAgeRange);
+
         await createWorkforceMember({
           name: newMemberName,
-          phoneNo: newMemberPhone,
-          email: newMemberEmail,
+          address: newMemberAddress.trim() || undefined,
+          phoneNo: newMemberPhone.trim() || undefined,
+          whatappNo: newMemberWhatsapp.trim() || undefined,
+          email: newMemberEmail.trim() || undefined,
           sex: newMemberGender,
+          ageFrom,
+          ageTo,
+          birthMonth: newMemberBirthdayMonth ? padTwo(newMemberBirthdayMonth) : undefined,
+          birthDay: newMemberBirthdayDay ? padTwo(newMemberBirthdayDay) : undefined,
+          state: newMemberState.trim() || undefined,
+          LGA: newMemberLGA.trim() || undefined,
+          nationality: newMemberNationality.trim() || undefined,
+          maritalStatus: newMemberMaritalStatus || undefined,
+          memberSince: newMemberSince || undefined,
+          comments: newMemberComments.trim() || undefined,
           branchId: targetBranchId,
           departmentIds: [addDeptId],
           unitIds: addUnitId ? [addUnitId] : undefined,
@@ -690,20 +764,23 @@ export function Workforce() {
     const name = getMemberName(deleteTarget.memberId);
     try {
       const allWf = [...workforce];
-      const removedEntryIds = (allWf as WorkforceMember[])
-        .filter(w => w.memberId === deleteTarget.memberId)
-        .map(w => w.id);
-      const updated = (allWf as WorkforceMember[]).filter(w => w.memberId !== deleteTarget.memberId);
+      const removedEntryIds = [deleteTarget.id];
+      const updated = (allWf as WorkforceMember[]).filter(w => w.id !== deleteTarget.id);
 
       const member = getMember(deleteTarget.memberId);
       const branchId = deleteTarget.branchId || member?.branchId || currentAdmin?.branchId || branches[0]?.id || '';
 
       if (!branchId) throw new Error('Unable to resolve member branch for workforce removal.');
       
-      // Update by removing workforce departments, or simply sending empty departments
+      const currentDeptIds = Array.isArray(member?.departmentIds) ? member.departmentIds : (member?.departmentId ? [member.departmentId] : []);
+      const currentUnitIds = Array.isArray(member?.unitIds) ? member.unitIds : (member?.unitId ? [member.unitId] : []);
+
+      const nextDeptIds = currentDeptIds.filter(id => id !== deleteTarget.departmentId);
+      const nextUnitIds = currentUnitIds.filter(id => id !== deleteTarget.unitId);
+
       await editMember(deleteTarget.memberId, branchId, {
-        departmentIds: [],
-        unitIds: [],
+        departmentIds: nextDeptIds,
+        unitIds: nextUnitIds,
         branchId
       });
 
@@ -896,19 +973,12 @@ export function Workforce() {
     <Layout>
       <PageHeader
         title="Workforce Management"
-        description="Track church workers, create training programs, and monitor their development progress."
+        description="Track church workers and manage department assignments."
         action={{
-          label: activeTab === 'workforce' ? 'Add to Workforce' : 'Create Training Program',
+          label: 'Add to Workforce',
           onClick: () => {
-            if (activeTab === 'workforce') {
-              resetAddForm();
-              setAddDialogOpen(true);
-            } else {
-              setEditProgram(null);
-              setPName('');
-              setPDesc('');
-              setProgramDialogOpen(true);
-            }
+            resetAddForm();
+            setAddDialogOpen(true);
           },
           icon: <Plus className="w-4 h-4 mr-2" />,
         }}
@@ -930,7 +1000,7 @@ export function Workforce() {
               Workforce ({workforce.length})
             </div>
           </button>
-          <button
+          {/* <button
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'training'
                 ? 'border-blue-600 text-blue-600'
@@ -942,12 +1012,12 @@ export function Workforce() {
               <GraduationCap className="w-4 h-4" />
               Training Programs ({trainingPrograms.length})
             </div>
-          </button>
+          </button> */}
         </div>
 
         {loading ? (
           <BibleLoader message="Loading workforce data..." />
-        ) : activeTab === 'workforce' ? (
+        ) : (
           /* ═══════════════════ WORKFORCE TAB ═══════════════════ */
           workforce.length === 0 ? (
             <Card>
@@ -957,7 +1027,7 @@ export function Workforce() {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No workforce members yet</h3>
                 <p className="text-gray-500 max-w-md mx-auto mb-6">
-                  Your workforce tracker is empty because no members have been added yet. Start by adding church members who are actively serving, then assign training programs to track their growth.
+                  Your workforce tracker is empty because no members have been added yet. Start by adding church members who are actively serving.
                 </p>
                 <Button onClick={() => { resetAddForm(); setAddDialogOpen(true); }}>
                   <UserPlus className="w-4 h-4 mr-2" />
@@ -992,7 +1062,10 @@ export function Workforce() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {filteredWorkforce.map(worker => {
                     const member = getMember(worker.memberId);
-                    const progress = getProgressPercentage(worker);
+                    const rawMemberDepartments = (((workforceMemberDetails[worker.memberId] as any)?._raw?.departments) || [])
+                      .map((department: any) => department?.name)
+                      .filter(Boolean);
+                    const departmentLabel = getWorkerDepartmentName(worker) || rawMemberDepartments.join(', ') || 'No Department';
                     return (
                       <Card key={worker.id} className="hover:shadow-md transition-shadow">
                         <CardHeader className="pb-2">
@@ -1000,7 +1073,7 @@ export function Workforce() {
                             <div className="flex-1">
                               <CardTitle className="text-base">{member?.fullName || 'Unknown'}</CardTitle>
                               <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                <Badge variant="outline" className="text-xs">{getWorkerDepartmentName(worker)}</Badge>
+                                <Badge variant="outline" className="text-xs">{departmentLabel}</Badge>
                                 {worker.unitId && (
                                   <Badge variant="secondary" className="text-xs">{getWorkerUnitName(worker)}</Badge>
                                 )}
@@ -1016,7 +1089,14 @@ export function Workforce() {
                               <Button variant="ghost" size="sm" onClick={() => {
                                 setEditTarget(worker);
                                 setEditBranchId(worker.branchId || '');
-                                setEditDeptId(worker.departmentId);
+
+                                let defaultDeptId = worker.departmentId;
+                                const rawDepts = ((workforceMemberDetails[worker.memberId] as any)?._raw?.departments || []);
+                                if ((!defaultDeptId || defaultDeptId === 'unassigned-department') && rawDepts.length > 0) {
+                                  defaultDeptId = rawDepts[0].id || rawDepts[0]._id;
+                                }
+
+                                setEditDeptId(defaultDeptId);
                                 setEditUnitId(worker.unitId || '');
                                 setEditDialogOpen(true);
                               }}>
@@ -1029,142 +1109,9 @@ export function Workforce() {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          {/* Progress */}
-                          {worker.roadmapMarkers.length > 0 ? (
-                            <>
-                              <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <span className="text-xs font-medium text-gray-600">Training Progress</span>
-                                  <span className="text-xs text-gray-500">{Math.round(progress)}%</span>
-                                </div>
-                                <Progress value={progress} className="h-1.5" />
-                              </div>
-                              <div className="space-y-1.5">
-                                {worker.roadmapMarkers.slice(0, 3).map(marker => {
-                                  const nextStatus = getNextStatus(marker.status);
-                                  return (
-                                    <div key={marker.id} className="flex items-center gap-2">
-                                      {getStatusIcon(marker.status)}
-                                      <span className="text-xs text-gray-700 flex-1 truncate">{getProgramName(marker.programId)}</span>
-                                      {nextStatus ? (
-                                        <button
-                                          className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors ${
-                                            marker.status === 'not-started'
-                                              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                                              : 'bg-green-50 text-green-700 hover:bg-green-100'
-                                          }`}
-                                          onClick={(e) => { e.stopPropagation(); updateMarkerStatus(worker.id, marker.id, nextStatus); }}
-                                          disabled={saving}
-                                        >
-                                          {getNextStatusLabel(marker.status)} &rarr;
-                                        </button>
-                                      ) : (
-                                        <Badge variant="outline" className="text-[10px] bg-green-100 text-green-800">
-                                          Completed
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                                {worker.roadmapMarkers.length > 3 && (
-                                  <p className="text-xs text-gray-400">+{worker.roadmapMarkers.length - 3} more</p>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <p className="text-xs text-gray-400 italic">No training programs assigned yet</p>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs"
-                            onClick={() => { setAssignTarget(worker); setAssignProgramId(''); }}
-                          >
-                            <GraduationCap className="w-3.5 h-3.5 mr-1.5" />
-                            Assign Training Program
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )
-        ) : (
-          /* ═══════════════════ TRAINING TAB ═══════════════════ */
-          trainingPrograms.length === 0 ? (
-            <Card>
-              <CardContent className="py-16 px-4 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-50 mb-4">
-                  <GraduationCap className="w-8 h-8 text-purple-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No training programs yet</h3>
-                <p className="text-gray-500 max-w-md mx-auto mb-6">
-                  Training programs haven't been created yet. Create programs like "School of Ministry", "Leadership Training", or "New Workers Orientation" to track your workforce's development.
-                </p>
-                <Button onClick={() => { setEditProgram(null); setPName(''); setPDesc(''); setProgramDialogOpen(true); }}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Training Program
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Search */}
-              <Card>
-                <CardContent className="p-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="Search training programs..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {filteredPrograms.length === 0 ? (
-                <Card><CardContent className="py-12 text-center">
-                  <p className="text-gray-500">No programs match your search.</p>
-                </CardContent></Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredPrograms.map(program => {
-                    const assignCount = getProgramAssignCount(program.id);
-                    return (
-                      <Card key={program.id} className="hover:shadow-md transition-shadow">
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <BookOpen className="w-5 h-5 text-purple-600" />
-                              <CardTitle className="text-base">{program.name}</CardTitle>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {program.description && (
-                            <p className="text-sm text-gray-500">{program.description}</p>
-                          )}
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <Award className="w-3.5 h-3.5" />
-                            <span>{assignCount} worker{assignCount !== 1 ? 's' : ''} enrolled</span>
-                          </div>
-                          <div className="flex gap-2 pt-2 border-t border-gray-100">
-                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => {
-                              setEditProgram(program);
-                              setPName(program.name);
-                              setPDesc(program.description || '');
-                              setProgramDialogOpen(true);
-                            }}>
-                              <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                            </Button>
-                            <Button variant="outline" size="sm" className="text-xs text-red-600 hover:bg-red-50" onClick={() => setDeleteProgram(program)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
+                          <p className="text-xs text-gray-500">
+                            Department assignment: {departmentLabel}
+                          </p>
                         </CardContent>
                       </Card>
                     );
@@ -1178,7 +1125,7 @@ export function Workforce() {
 
       {/* ═══════════════════ ADD TO WORKFORCE DIALOG ═══════════════════ */}
       <Dialog open={addDialogOpen} onOpenChange={(o) => { if (!o) { setAddDialogOpen(false); resetAddForm(); } }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add to Workforce</DialogTitle>
             <DialogDescription>
@@ -1246,36 +1193,152 @@ export function Workforce() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 border p-4 rounded-lg bg-gray-50">
-                <div className="flex justify-between items-center bg-gray-100 -mx-4 -mt-4 p-3 rounded-t-lg border-b mb-4">
+              <div className="border rounded-lg bg-gray-50 flex flex-col h-auto">
+                <div className="flex justify-between items-center bg-gray-100 px-4 py-3 rounded-t-lg border-b sticky top-0">
                   <h4 className="font-semibold text-sm">Create New Member</h4>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setIsCreatingNewMember(false)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Full Name *</Label>
-                  <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="e.g. John Doe" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+
+                <div className="space-y-4 p-4">
+                  {/* Full Name */}
                   <div className="space-y-2">
-                    <Label>Phone Number</Label>
-                    <Input value={newMemberPhone} onChange={e => setNewMemberPhone(e.target.value)} placeholder="e.g. +234..." />
+                    <Label>Full Name *</Label>
+                    <Input value={newMemberName} onChange={e => setNewMemberName(e.target.value)} placeholder="e.g. John Doe" />
+                  </div>
+
+                  {/* Contact Information - 2 Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Phone Number</Label>
+                      <Input value={newMemberPhone} onChange={e => setNewMemberPhone(e.target.value)} placeholder="e.g. +234..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>WhatsApp</Label>
+                      <Input value={newMemberWhatsapp} onChange={e => setNewMemberWhatsapp(e.target.value)} placeholder="e.g. +234..." />
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="Optional" />
+                  </div>
+
+                  {/* Personal Details - 2 Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Gender</Label>
+                      <Select value={newMemberGender} onValueChange={setNewMemberGender}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Marital Status</Label>
+                      <Select value={newMemberMaritalStatus} onValueChange={setNewMemberMaritalStatus}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Single</SelectItem>
+                          <SelectItem value="married">Married</SelectItem>
+                          <SelectItem value="widowed">Widowed</SelectItem>
+                          <SelectItem value="divorced">Divorced</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Age Range and Birth Details - 3 Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Age Range</Label>
+                      <Select value={newMemberAgeRange} onValueChange={setNewMemberAgeRange}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {AGE_RANGES.map(range => <SelectItem key={range} value={range}>{range}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Birth Month</Label>
+                      <Select value={newMemberBirthdayMonth} onValueChange={(v) => { setNewMemberBirthdayMonth(v); if (newMemberBirthdayDay && parseInt(newMemberBirthdayDay, 10) > daysInMonth(v)) setNewMemberBirthdayDay(''); }}>
+                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                        <SelectContent>
+                          {MONTHS.map(month => <SelectItem key={month.value} value={String(month.value)}>{month.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Birth Day</Label>
+                      <Select value={newMemberBirthdayDay} onValueChange={setNewMemberBirthdayDay}>
+                        <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: daysInMonth(newMemberBirthdayMonth) }, (_, i) => i + 1).map(day => <SelectItem key={day} value={String(day)}>{day}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="space-y-2">
+                    <Label>Address</Label>
+                    <Input value={newMemberAddress} onChange={e => setNewMemberAddress(e.target.value)} placeholder="e.g. 123 Main Street" />
+                  </div>
+
+                  {/* Location Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nationality</Label>
+                      <Select value={newMemberNationality} onValueChange={(value) => { setNewMemberNationality(value); setNewMemberState(''); }}>
+                        <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map(country => (
+                            <SelectItem key={country.code} value={country.name}>{country.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>State / Region</Label>
+                      {selectedCountryStates.length > 0 ? (
+                        <Select value={newMemberState} onValueChange={setNewMemberState}>
+                          <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            {selectedCountryStates.map(state => <SelectItem key={state} value={state}>{state}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={newMemberState} onChange={e => setNewMemberState(e.target.value)} placeholder="Enter state" />
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Gender</Label>
-                    <Select value={newMemberGender} onValueChange={setNewMemberGender}>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>LGA</Label>
+                    <Input value={newMemberLGA} onChange={e => setNewMemberLGA(e.target.value)} placeholder="e.g. Ikeja" />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input type="email" value={newMemberEmail} onChange={e => setNewMemberEmail(e.target.value)} placeholder="Optional" />
+
+                  {/* Organization Details - 2 Columns */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Year Joined</Label>
+                      <Select value={newMemberSince} onValueChange={setNewMemberSince}>
+                        <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 60 }, (_, i) => currentYear - i).map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="space-y-2">
+                    <Label>Comments</Label>
+                    <Input value={newMemberComments} onChange={e => setNewMemberComments(e.target.value)} placeholder="Optional notes about the member" />
+                  </div>
                 </div>
               </div>
             )}
@@ -1399,7 +1462,7 @@ export function Workforce() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{viewMemberDetails?.fullName || (viewTarget ? getMemberName(viewTarget.memberId) : '')}</DialogTitle>
-            <DialogDescription>Workforce profile and training progress</DialogDescription>
+            <DialogDescription>Workforce profile details</DialogDescription>
           </DialogHeader>
           {viewTarget && (() => {
             const member = viewMemberDetails || getMember(viewTarget.memberId);
@@ -1464,123 +1527,7 @@ export function Workforce() {
                   )}
                 </div>
 
-                {/* Progress */}
-                {viewTarget.roadmapMarkers.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-                      <span className="text-sm text-gray-600">{Math.round(progress)}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                )}
-
-                {/* Training roadmap */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700">Training Roadmap</h4>
-                    <Button variant="outline" size="sm" className="text-xs" onClick={() => { setAssignTarget(viewTarget); setAssignProgramId(''); }}>
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Assign Program
-                    </Button>
-                  </div>
-                  {viewTarget.roadmapMarkers.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">No training programs assigned yet. Click "Assign Program" to get started.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {viewTarget.roadmapMarkers.map(marker => {
-                        const nextStatus = getNextStatus(marker.status);
-                        const steps: RoadmapStatus[] = ['not-started', 'in-progress', 'completed'];
-                        const currentStepIndex = steps.indexOf(marker.status);
-                        return (
-                          <div key={marker.id} className="border border-gray-200 rounded-lg p-3 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {getStatusIcon(marker.status)}
-                                <span className="text-sm font-medium text-gray-900">{getProgramName(marker.programId)}</span>
-                              </div>
-                              <button onClick={() => removeMarker(viewTarget.id, marker.id)} className="text-gray-400 hover:text-red-500" title="Remove program">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            {/* Visual 3-step progress indicator */}
-                            <div className="flex items-center gap-1">
-                              {steps.map((step, i) => (
-                                <div key={step} className="flex items-center flex-1">
-                                  <button
-                                    className={`flex items-center justify-center w-7 h-7 rounded-full border-2 transition-colors ${
-                                      i <= currentStepIndex
-                                        ? step === 'completed' || (i < currentStepIndex)
-                                          ? 'bg-green-500 border-green-500 text-white'
-                                          : step === 'in-progress'
-                                            ? 'bg-blue-500 border-blue-500 text-white'
-                                            : 'bg-gray-400 border-gray-400 text-white'
-                                        : 'bg-white border-gray-300 text-gray-400'
-                                    }`}
-                                    onClick={() => updateMarkerStatus(viewTarget.id, marker.id, step)}
-                                    disabled={saving}
-                                    title={`Set to ${getStatusLabel(step)}`}
-                                  >
-                                    {i < currentStepIndex ? (
-                                      <CheckCircle2 className="w-4 h-4" />
-                                    ) : (
-                                      <span className="text-[10px] font-bold">{i + 1}</span>
-                                    )}
-                                  </button>
-                                  {i < steps.length - 1 && (
-                                    <div className={`flex-1 h-0.5 mx-1 ${i < currentStepIndex ? 'bg-green-400' : 'bg-gray-200'}`} />
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex gap-3 text-[10px] text-gray-400">
-                                <span>Not Started</span>
-                                <span>In Progress</span>
-                                <span>Completed</span>
-                              </div>
-                            </div>
-
-                            {/* Quick advance button */}
-                            {nextStatus && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className={`w-full text-xs ${
-                                  marker.status === 'not-started'
-                                    ? 'border-blue-200 text-blue-700 hover:bg-blue-50'
-                                    : 'border-green-200 text-green-700 hover:bg-green-50'
-                                }`}
-                                onClick={() => updateMarkerStatus(viewTarget.id, marker.id, nextStatus)}
-                                disabled={saving}
-                              >
-                                {marker.status === 'not-started' ? (
-                                  <><Clock className="w-3.5 h-3.5 mr-1.5" /> Mark as In Progress</>
-                                ) : (
-                                  <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Mark as Completed</>
-                                )}
-                              </Button>
-                            )}
-
-                            {marker.startDate && (
-                              <p className="text-xs text-gray-400">
-                                Started: {new Date(marker.startDate).toLocaleDateString()}
-                                {marker.completionDate && ` | Completed: ${new Date(marker.completionDate).toLocaleDateString()}`}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* ──────── PROGRAM ATTENDANCE RECORD ──────── */}
-                <AttendanceRecord
-                  worker={viewTarget}
-                  programs={programs}
-                  programInstances={programInstances}
-                />
+                {/* Program sections intentionally hidden. */}
 
                 <div className="flex gap-3 pt-2">
                   <Button variant="outline" className="flex-1" onClick={() => {
@@ -1606,13 +1553,13 @@ export function Workforce() {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════ ASSIGN PROGRAM DIALOG ═══════════════════ */}
-      <Dialog open={!!assignTarget} onOpenChange={(o) => { if (!o) { setAssignTarget(null); setAssignProgramId(''); } }}>
+      {/* ═══════════════════ ASSIGN PROGRAM DIALOG (commented out) ═══════════════════ */}
+      {false && (<Dialog open={!!assignTarget} onOpenChange={(o) => { if (!o) { setAssignTarget(null); setAssignProgramId(''); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Assign Training Program</DialogTitle>
             <DialogDescription>
-              Choose a training program to assign to {assignTarget ? getMemberName(assignTarget.memberId) : ''}.
+              Choose a training program to assign to {assignTarget?.memberId ? getMemberName(assignTarget?.memberId ?? '') : ''}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-2">
@@ -1649,10 +1596,10 @@ export function Workforce() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>)}
 
-      {/* ═══════════════════ TRAINING PROGRAM DIALOG ═══════════════════ */}
-      <Dialog open={programDialogOpen} onOpenChange={(o) => { if (!o) { setProgramDialogOpen(false); setEditProgram(null); } }}>
+      {/* ═══════════════════ PROGRAM DIALOG (commented out) ═══════════════════ */}
+      {false && (<Dialog open={programDialogOpen} onOpenChange={(o) => { if (!o) { setProgramDialogOpen(false); setEditProgram(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editProgram ? 'Edit Training Program' : 'Create Training Program'}</DialogTitle>
@@ -1684,7 +1631,7 @@ export function Workforce() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>)}
 
       {/* ═══════════════════ DELETE WORKFORCE CONFIRM ═══════════════════ */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
@@ -1692,7 +1639,7 @@ export function Workforce() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove from Workforce</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{deleteTarget ? getMemberName(deleteTarget.memberId) : ''}</strong> from the workforce? Their training progress will be lost.
+              Are you sure you want to remove <strong>{deleteTarget ? getMemberName(deleteTarget.memberId) : ''}</strong> from the workforce?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1705,8 +1652,8 @@ export function Workforce() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ═══════════════════ DELETE PROGRAM CONFIRM ═══════════════════ */}
-      <AlertDialog open={!!deleteProgram} onOpenChange={() => setDeleteProgram(null)}>
+      {/* ═══════════════════ DELETE PROGRAM CONFIRM (commented out) ═══════════════════ */}
+      {false && (<AlertDialog open={!!deleteProgram} onOpenChange={() => setDeleteProgram(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Training Program</AlertDialogTitle>
@@ -1722,7 +1669,7 @@ export function Workforce() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog>)}
     </Layout>
   );
 }

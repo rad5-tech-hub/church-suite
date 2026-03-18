@@ -25,13 +25,10 @@ import { ProductTour } from '../components/ProductTour';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   fetchMembers,
-  fetchWorkforce,
-  fetchPrograms,
   fetchNewcomers,
   fetchCollections,
-  fetchDepartments,
-  fetchUnits,
   fetchLedgerEntries,
+  fetchDashboard,
 } from '../api';
 
 export function Dashboard() {
@@ -51,6 +48,7 @@ export function Dashboard() {
   const [deptCount, setDeptCount] = useState(0);
   const [unitCount, setUnitCount] = useState(0);
   const [recentCollections, setRecentCollections] = useState<any[]>([]);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
   const currSymbol = CURRENCIES.find(c => c.code === church.currency)?.symbol || '₦';
 
@@ -58,25 +56,25 @@ export function Dashboard() {
     setLoading(true);
     try {
       const brId = branches[0]?.id;
-      const [mems, wf, progs, newcomers, colls, deps, uns, ledger] = await Promise.all([
+      const [mems, newcomers, colls, ledger, dashboardRes] = await Promise.all([
         fetchMembers(),
-        fetchWorkforce(),
-        fetchPrograms(brId),
         fetchNewcomers(brId),
         fetchCollections(brId),
-        fetchDepartments(),
-        fetchUnits(),
         fetchLedgerEntries(),
+        fetchDashboard({ scope: 'all' }).catch(() => null)
       ]);
 
-      setMemberCount((mems as any[]).length);
-      setWorkforceCount((wf as any[]).length);
-      setProgramCount((progs as any[]).length);
+      const dashboard = dashboardRes?.data || dashboardRes;
+      setDashboardData(dashboard);
+
+      setMemberCount(dashboard?.structure?.totalMembers ?? (mems as any[]).length);
+      setWorkforceCount(dashboard?.structure?.totalWorkers ?? 0);
+      setProgramCount(dashboard?.upcomingPrograms?.length ?? 0);
 
       setAllNewcomers(newcomers as any[]);
 
-      setDeptCount((deps as any[]).length);
-      setUnitCount((uns as any[]).length);
+      setDeptCount(dashboard?.structure?.totalDepartments ?? 0);
+      setUnitCount(dashboard?.structure?.totalUnits ?? 0);
 
       // Show recent ledger entries as "collections summary"
       const churchLedger = (ledger as any[])
@@ -111,6 +109,12 @@ export function Dashboard() {
   };
 
   const newcomerCount = useMemo(() => {
+    if (filterPeriod === 'this-week' && dashboardData?.followUps?.weekly?.thisWeek !== undefined) {
+      return dashboardData.followUps.weekly.thisWeek;
+    } else if (filterPeriod === 'this-month' && dashboardData?.followUps?.monthly?.thisMonth !== undefined) {
+      return dashboardData.followUps.monthly.thisMonth;
+    }
+
     const now = new Date();
     if (filterPeriod === 'this-week') {
       const startOfWeek = new Date(now);
@@ -127,7 +131,7 @@ export function Dashboard() {
     } else {
       return allNewcomers.length;
     }
-  }, [allNewcomers, filterPeriod]);
+  }, [allNewcomers, filterPeriod, dashboardData]);
 
   const stats = [
     {

@@ -363,13 +363,13 @@ function mapApiAdmin(a: any): any {
 /** Map a raw API member to the internal Member shape */
 function mapApiMember(m: any): any {
   return {
-    id: m.id,
+    id: m.id || m._id || m.memberId,
     churchId: m.churchId || "",
     branchId: m.branchId || "",
-    departmentId: m.departments?.[0]?.id,
-    unitId: m.units?.[0]?.id,
-    departmentIds: m.departments?.map((d: any) => d.id) || [],
-    unitIds: m.units?.map((u: any) => u.id) || [],
+    departmentId: m.departments?.[0]?.id || m.departments?.[0]?._id,
+    unitId: m.units?.[0]?.id || m.units?.[0]?._id,
+    departmentIds: m.departments?.map((d: any) => d.id || d._id) || [],
+    unitIds: m.units?.map((u: any) => u.id || u._id) || [],
     fullName: m.name || "",
     gender: (m.sex || "male").toLowerCase(),
     phone: m.phoneNo || "",
@@ -388,6 +388,8 @@ function mapApiMember(m: any): any {
     LGA: m.LGA || "",
     activity: (m.activity || "active").toLowerCase(),
     comments: m.comments || "",
+    isDeleted: m.isDeleted === true,
+    isActive: m.isActive !== false,
     roadmapMarkers: Array.isArray(m.roadmapMarkers) ? m.roadmapMarkers : [],
     createdAt: new Date(m.createdAt || Date.now()),
     _raw: m,
@@ -470,14 +472,34 @@ function mapApiEvent(ev: any): any {
     custom: "custom",
   };
   const firstOcc = ev.occurrences?.[0];
+  const normalizedWeeklyDays = Array.isArray(ev.byWeekday)
+    ? ev.byWeekday
+        .map((item: any) => (typeof item === "number" ? item : Number(item?.weekday)))
+        .filter((day: number) => Number.isFinite(day) && day >= 0 && day <= 6)
+    : [];
   return {
     id: ev.id,
     churchId: firstOcc?.churchId || ev.churchId || ev.tenantId || "",
     branchId: firstOcc?.branchId || ev.branchId || "",
     name: ev.title || "",
     type: recurrenceToType[ev.recurrenceType] || "one-time",
-    weeklyDays: ev.byWeekday?.map((w: any) => w.weekday) || [],
+    weeklyDays: normalizedWeeklyDays,
     monthlyDate: firstOcc ? new Date(firstOcc.date).getDate() : undefined,
+    monthlyNthWeekdays: Array.isArray(ev.nthWeekdays)
+      ? ev.nthWeekdays
+          .map((rule: any) => ({
+            weekday: Number(rule?.weekday),
+            nth: Number(rule?.nth),
+          }))
+          .filter(
+            (rule: { weekday: number; nth: number }) =>
+              Number.isFinite(rule.weekday) &&
+              rule.weekday >= 0 &&
+              rule.weekday <= 6 &&
+              Number.isFinite(rule.nth) &&
+              rule.nth >= 1,
+          )
+      : [],
     startTime: firstOcc?.startTime || "",
     endTime: firstOcc?.endTime || "",
     customDates:
@@ -790,7 +812,8 @@ export const signupAdmin = createChurch;
 
 // ADMINS
 
-export function resolveFallbackBranchId(branchId?: string) {
+export function resolveFallbackBranchId(branchId?: string | null) {
+  if (branchId === null) return undefined;
   if (branchId) return branchId;
   const scope = getCachedAdminScope();
   if (scope.branchId) return scope.branchId;
@@ -817,7 +840,7 @@ function resolveScopedDepartmentId(departmentId?: string) {
 }
 
 /** GET /church/view-admins */
-export async function fetchAdmins(branchId?: string): Promise<any[]> {
+export async function fetchAdmins(branchId?: string | null): Promise<any[]> {
   const resolved = resolveFallbackBranchId(branchId);
   const q = resolved ? buildQuery({ branchId: resolved }) : "";
   const res = await apiFetch<ViewAdminsResponse>(`/church/view-admins${q}`);
@@ -917,11 +940,12 @@ export const deleteAdminUser = async (data: {
 /** GET /church/get-branches */
 export async function fetchBranches(): Promise<ApiBranch[]> {
   const res = await apiFetch<any>("/church/get-branches");
-  return Array.isArray(res.branches)
+  const arr = Array.isArray(res.branches)
     ? res.branches
     : Array.isArray(res)
       ? res
       : [];
+  return arr.map((b: any) => ({ ...b, id: b.id || b._id }));
 }
 
 /** POST /church/create-branch */
@@ -964,11 +988,12 @@ export async function fetchDepartments(
   const res = await apiFetch<any>(
     `/church/get-departments${buildQuery({ branchId: resolveDepartmentBranchId(branchId) })}`,
   );
-  return Array.isArray(res.departments)
+  const arr = Array.isArray(res.departments)
     ? res.departments
     : Array.isArray(res)
       ? res
       : [];
+  return arr.map((d: any) => ({ ...d, id: d.id || d._id }));
 }
 
 /** POST /church/create-dept */
@@ -1029,9 +1054,11 @@ export async function fetchUnits(
     : Array.isArray(res)
       ? res
       : [];
-  return units.filter(
-    (unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false,
-  );
+  return units
+    .map((u: any) => ({ ...u, id: u.id || u._id }))
+    .filter(
+      (unit: ApiUnit) => unit?.isDeleted !== true && unit?.isActive !== false,
+    );
 }
 
 /** GET /church/a-department/:deptId/branch/:branchId (units of a department) */
@@ -1117,7 +1144,8 @@ export async function fetchMembers(
       (member: any) =>
         member?.isDeleted !== true &&
         member?.isActive !== false &&
-        !hiddenIds.has(member.id),
+        !hiddenIds.has(member.id) &&
+        !hiddenIds.has(member._id),
     )
     .map(mapApiMember)
     .map((member: any) => ({
@@ -1139,7 +1167,11 @@ export async function fetchMembers(
     .map((member: any) => ({
       ...member,
       ...(overrides[member.id] || {}),
-    }));
+    }))
+    .filter(
+      (member: any) =>
+        member?.isDeleted !== true && member?.isActive !== false,
+    );
 }
 
 /** GET /member/a-member/:memberId */
@@ -1207,9 +1239,10 @@ export async function suspendMember(memberId: string, branchId: string) {
     },
   );
 
+  const msg = response?.message || response?.data?.message || "";
   if (
-    response?.message === "Member soft-deleted successfully" ||
-    response?.message?.includes("deleted") ||
+    msg === "Member soft-deleted successfully" ||
+    msg.includes("deleted") ||
     response?.success
   ) {
     addHiddenIds(HIDDEN_MEMBER_IDS_KEY, [memberId]);
@@ -1219,7 +1252,7 @@ export async function suspendMember(memberId: string, branchId: string) {
   // If the API didn't fail but gave us an unexpected message, throw an error
   if (!response || response.error || response.status === "error") {
     throw new Error(
-      response?.message || response?.error || "Failed to remove member",
+      msg || response?.error || "Failed to remove member",
     );
   }
 

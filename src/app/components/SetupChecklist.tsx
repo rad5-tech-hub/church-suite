@@ -93,11 +93,11 @@ export function SetupChecklist() {
 
       list.push({
         id: 'admin',
-        label: 'Add your first administrator',
+        label: 'Add your first leader',
         icon: <Users className="w-4 h-4" />,
         done: churchAdmins.length > 0,
         link: '/admins',
-        tutorial: "Go to Administrators and click \"Add Administrator.\" Fill in their name and email, pick their access level (church, branch, department, or unit), then assign them a role. A temporary password will be generated - share it with them so they can log in. You're the super admin, so they'll have whatever permissions their role allows.",
+        tutorial: "Go to Leaders and click \"Add Leader.\" Fill in their name and email, pick their access level (church, branch, department, or unit), then assign them a role. A temporary password will be generated - share it with them so they can log in. You're the super admin, so they'll have whatever permissions their role allows.",
       });
 
       list.push({

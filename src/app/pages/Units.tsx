@@ -223,7 +223,7 @@ export function Units() {
     <Layout>
       <PageHeader
         title="Units"
-        description="Manage units within your departments and outreaches. Units are smaller groups that handle specific tasks â€” for example, the Worship Team department might have Singers, Instrumentalists, and Sound units."
+        description="Manage units within your departments and outreaches. Units are smaller groups that handle specific tasks  for example, the Worship Team department might have Singers, Instrumentalists, and Sound units."
         action={
           canCreateUnit
             ? {
@@ -239,7 +239,7 @@ export function Units() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-            <span className="ml-3 text-gray-500">Loading unitsâ€¦</span>
+            <span className="ml-3 text-gray-500">Loading units</span>
           </div>
         ) : visibleUnits.length === 0 ? (
           <Card>
