@@ -72,6 +72,7 @@ import type {
   ReportAttachment,
   ReportDataInsert,
   ReportReply,
+  ReportRecipientEntry,
 } from "./types";
 
 // Re-export the core fetch so existing imports still work
@@ -520,6 +521,15 @@ async function fetchChurchMemberPages(branchId?: string, isWorker?: boolean) {
 
 /** Map a raw API event to the internal Event shape */
 function mapApiEvent(ev: any): any {
+  const dayNameToIndex: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
   const recurrenceToType: Record<string, string> = {
     none: "one-time",
     weekly: "weekly",
@@ -532,28 +542,35 @@ function mapApiEvent(ev: any): any {
     ? ev.byWeekday
         .map((item: any) => (typeof item === "number" ? item : Number(item?.weekday)))
         .filter((day: number) => Number.isFinite(day) && day >= 0 && day <= 6)
+    : Array.isArray(ev.occurrences)
+      ? ev.occurrences
+          .map((occurrence: any) => dayNameToIndex[String(occurrence?.dayOfWeek || "").toLowerCase()])
+          .filter((day: number) => Number.isFinite(day) && day >= 0 && day <= 6)
     : [];
   return {
     id: ev.id,
     churchId: firstOcc?.churchId || ev.churchId || ev.tenantId || "",
     branchId: firstOcc?.branchId || ev.branchId || "",
     name: ev.title || "",
+    description: ev.description || "",
     type: recurrenceToType[ev.recurrenceType] || "one-time",
-    weeklyDays: normalizedWeeklyDays,
+    weeklyDays: Array.from(new Set(normalizedWeeklyDays)).sort((a, b) => a - b),
     monthlyDate: firstOcc ? new Date(firstOcc.date).getDate() : undefined,
     monthlyNthWeekdays: Array.isArray(ev.nthWeekdays)
       ? ev.nthWeekdays
           .map((rule: any) => ({
             weekday: Number(rule?.weekday),
             nth: Number(rule?.nth),
+            startTime: rule?.startTime || undefined,
+            endTime: rule?.endTime || undefined,
           }))
           .filter(
-            (rule: { weekday: number; nth: number }) =>
+            (rule: { weekday: number; nth: number; startTime?: string; endTime?: string }) =>
               Number.isFinite(rule.weekday) &&
               rule.weekday >= 0 &&
               rule.weekday <= 6 &&
               Number.isFinite(rule.nth) &&
-              rule.nth >= 1,
+              (rule.nth === -1 || rule.nth >= 1),
           )
       : [],
     startTime: firstOcc?.startTime || "",
@@ -571,6 +588,65 @@ function mapApiEvent(ev: any): any {
   };
 }
 
+function extractProgramResults(response: any) {
+  const events = Array.isArray(response?.data?.events)
+    ? response.data.events
+    : Array.isArray(response?.events)
+      ? response.events
+      : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+  const pagination = response?.data?.pagination || response?.pagination;
+  const hasMorePages =
+    pagination?.hasNextPage === true || pagination?.hasMore === true;
+  const nextPage = hasMorePages
+    ? normalizeRelativeApiPath(pagination?.nextPage)
+    : null;
+
+  return { events, nextPage };
+}
+
+type FetchProgramsParams = {
+  branchId?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+function buildProgramsPagePath(
+  params?: FetchProgramsParams,
+  nextPagePath?: string | null,
+) {
+  const branchId = params?.branchId;
+  const startDate = params?.startDate;
+  const endDate = params?.endDate;
+
+  if (!nextPagePath) {
+    return `/church/get-events${buildQuery({ branchId, startDate, endDate })}`;
+  }
+
+  const normalizedPath = normalizeRelativeApiPath(nextPagePath) || nextPagePath;
+
+  try {
+    const parsed = new URL(normalizedPath, "https://churchset.local");
+    if (branchId && !parsed.searchParams.has("branchId")) {
+      parsed.searchParams.set("branchId", branchId);
+    }
+    if (startDate && !parsed.searchParams.has("startDate")) {
+      parsed.searchParams.set("startDate", startDate);
+    }
+    if (endDate && !parsed.searchParams.has("endDate")) {
+      parsed.searchParams.set("endDate", endDate);
+    }
+
+    const query = parsed.searchParams.toString();
+    return `${parsed.pathname}${query ? `?${query}` : ""}`;
+  } catch {
+    return normalizedPath;
+  }
+}
+
 /** Map a raw API follow-up to the internal FollowUp shape */
 function mapApiFollowUp(f: any): any {
   const parts = (f.name || "").trim().split(/\s+/);
@@ -582,7 +658,8 @@ function mapApiFollowUp(f: any): any {
     lastName: parts.slice(1).join(" ") || "",
     phone: f.phoneNo || "",
     address: f.address || "",
-    email: "",
+    email: f.email || "",
+    whatsapp: f.whatappNo || "",
     visitType: f.isVisitor ? "first-timer" : "second-timer",
     visitDate: new Date(f.createdAt),
     followUps: [],
@@ -598,8 +675,15 @@ function mapApiFollowUp(f: any): any {
     messaged: f.messaged || false,
     visited: f.visited || false,
     timer: f.timer,
+    eventOccurrenceId: f.eventOccurrenceId ?? null,
+    formId: f.formId ?? null,
+    answers: Array.isArray(f.answers)
+      ? f.answers.map((answer: any) => ({
+          questionId: answer?.questionId || answer?.question?.id,
+          answer: answer?.answer ?? null,
+        }))
+      : [],
     eventAttended: f.eventAttended,
-    whatsapp: f.whatappNo || "",
     isActive: f.isActive,
     _raw: f,
   };
@@ -675,12 +759,22 @@ function pickMemberLocalOverride(member: any) {
   return {
     fullName: member.fullName,
     branchId: member.branchId,
+    gender: member.gender,
     phone: member.phone,
     whatsapp: member.whatsapp,
     email: member.email,
+    yearJoined: member.yearJoined,
+    maritalStatus: member.maritalStatus,
     address: member.address,
     ageRange: member.ageRange,
+    birthdayMonth: member.birthdayMonth,
+    birthdayDay: member.birthdayDay,
     birthdayYear: member.birthdayYear,
+    country: member.country,
+    state: member.state,
+    LGA: member.LGA,
+    activity: member.activity,
+    comments: member.comments,
     trainingClassId: member.trainingClassId,
     trainingStatus: member.trainingStatus,
   };
@@ -689,9 +783,24 @@ function pickMemberLocalOverride(member: any) {
 function pickNewcomerLocalOverride(newcomer: any) {
   return {
     email: newcomer.email,
+    whatsapp: newcomer.whatsapp,
     visitType: newcomer.visitType,
     visitDate: newcomer.visitDate,
     programId: newcomer.programId,
+    sex: newcomer.sex,
+    maritalStatus: newcomer.maritalStatus,
+    newComersComment: newcomer.newComersComment,
+    adminComment: newcomer.adminComment,
+    birthMonth: newcomer.birthMonth,
+    birthDay: newcomer.birthDay,
+    timer: newcomer.timer,
+    isActive: newcomer.isActive,
+    called: newcomer.called,
+    messaged: newcomer.messaged,
+    visited: newcomer.visited,
+    eventOccurrenceId: newcomer.eventOccurrenceId,
+    formId: newcomer.formId,
+    answers: newcomer.answers,
     trainingClassId: newcomer.trainingClassId,
     trainingStatus: newcomer.trainingStatus,
     movedToMemberId: newcomer.movedToMemberId,
@@ -901,17 +1010,89 @@ function resolveScopedDepartmentId(departmentId?: string) {
   return isDepartmentScoped ? scope.departmentId : undefined;
 }
 
+function getNextAdminsPagePath(response: ViewAdminsResponse): string | null {
+  const nextPage = response?.pagination?.nextPage;
+  if (!response?.pagination?.hasNextPage || typeof nextPage !== "string" || !nextPage) {
+    return null;
+  }
+
+  const apiBaseUrl = getApiBaseUrl();
+  if (nextPage.startsWith(apiBaseUrl)) {
+    return nextPage.slice(apiBaseUrl.length);
+  }
+
+  if (/^https?:\/\//i.test(nextPage)) {
+    try {
+      const parsed = new URL(nextPage);
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return null;
+    }
+  }
+
+  return nextPage.startsWith("/") ? nextPage : `/${nextPage}`;
+}
+
+function buildAdminsPagePath(branchId?: string, nextPagePath?: string | null) {
+  if (!nextPagePath) {
+    return `/church/view-admins${buildQuery({ branchId })}`;
+  }
+
+  const normalizedPath = normalizeRelativeApiPath(nextPagePath) || nextPagePath;
+
+  try {
+    const parsed = new URL(normalizedPath, "https://churchset.local");
+    if (branchId && !parsed.searchParams.has("branchId")) {
+      parsed.searchParams.set("branchId", branchId);
+    }
+
+    const query = parsed.searchParams.toString();
+    return `${parsed.pathname}${query ? `?${query}` : ""}`;
+  } catch {
+    return normalizedPath;
+  }
+}
+
 /** GET /church/view-admins */
 export async function fetchAdmins(branchId?: string): Promise<any[]> {
   const resolved = resolveFallbackBranchId(branchId);
-  const q = resolved ? buildQuery({ branchId: resolved }) : "";
-  const res = await apiFetch<ViewAdminsResponse>(`/church/view-admins${q}`);
-  const raw = res.admins || [];
-  const catalog = raw.length > 0 ? await getPermissionCatalog() : [];
+  const raw: ApiAdmin[] = [];
+  const seenPaths = new Set<string>();
+  let nextPath: string | null = buildAdminsPagePath(resolved);
+
+  while (nextPath && !seenPaths.has(nextPath) && seenPaths.size < 50) {
+    seenPaths.add(nextPath);
+
+    const response = await apiFetch<ViewAdminsResponse>(nextPath);
+    raw.push(...(response.admins || []));
+    nextPath = buildAdminsPagePath(resolved, getNextAdminsPagePath(response));
+  }
+
+  const deduped = Array.from(
+    new Map(raw.map((admin) => [admin.id, admin])).values(),
+  );
+  const catalog = deduped.length > 0 ? await getPermissionCatalog() : [];
   const enriched = await Promise.all(
-    raw.map((admin: any) => enrichAdminWithAccess(admin, catalog)),
+    deduped.map((admin: any) => enrichAdminWithAccess(admin, catalog)),
   );
   return enriched.map(mapApiAdmin);
+}
+
+/** GET /tenants/report-recipients */
+export async function fetchReportRecipients(
+  churchId?: string,
+): Promise<Array<{ id: string; name: string }>> {
+  const response = await apiFetch<any>(
+    `/tenants/report-recipients${buildQuery({ churchId })}`,
+  );
+  const admins = Array.isArray(response?.admins) ? response.admins : [];
+
+  return admins
+    .map((admin: any) => ({
+      id: admin?.id || "",
+      name: admin?.name || "Unknown",
+    }))
+    .filter((admin) => Boolean(admin.id));
 }
 
 /** GET /church/an-admin/:adminId */
@@ -1236,7 +1417,12 @@ export async function fetchMembers(
 export async function fetchMember(memberId: string) {
   const res = await apiFetch<any>(`/member/a-member/${memberId}`);
   const raw = res.data?.member || res.data || res.member || res;
-  return mapApiMember(raw);
+  const mappedMember = mapApiMember(raw);
+  const overrides = readLocalJson<Record<string, any>>(MEMBER_OVERRIDES_KEY, {});
+  return {
+    ...mappedMember,
+    ...(overrides[mappedMember.id || memberId] || {}),
+  };
 }
 
 /** POST /member/non-worker?churchId=...&branchId=... */
@@ -1439,17 +1625,30 @@ export async function createEvent(data: CreateEventRequest) {
   });
 }
 
-/** GET /church/get-events?branchId=... */
-export async function fetchPrograms(branchId?: string): Promise<any[]> {
+/** GET /church/get-events?branchId=...&startDate=...&endDate=... */
+export async function fetchPrograms(params?: string | FetchProgramsParams): Promise<any[]> {
+  const resolvedParams: FetchProgramsParams =
+    typeof params === "string"
+      ? { branchId: resolveFallbackBranchId(params) }
+      : {
+          ...params,
+          branchId: resolveFallbackBranchId(params?.branchId),
+        };
+  const raw: any[] = [];
+  const seenPaths = new Set<string>();
+  let nextPath: string | null = buildProgramsPagePath(resolvedParams);
+
   try {
-    const res = await apiFetch<any>(
-      `/church/get-events${buildQuery({ branchId })}`,
-    );
-    const raw = Array.isArray(res.events)
-      ? res.events
-      : Array.isArray(res)
-        ? res
-        : [];
+    while (nextPath && !seenPaths.has(nextPath) && seenPaths.size < 50) {
+      seenPaths.add(nextPath);
+      const res = await apiFetch<any>(nextPath);
+      const { events, nextPage } = extractProgramResults(res);
+      raw.push(...events);
+      nextPath = nextPage
+        ? buildProgramsPagePath(resolvedParams, nextPage)
+        : null;
+    }
+
     return raw.map(mapApiEvent);
   } catch {
     // API may require branchId; include it when available
@@ -1599,15 +1798,23 @@ export async function fetchNewcomers(branchId?: string): Promise<any[]> {
       NEWCOMER_OVERRIDES_KEY,
       {},
     );
-    const raw = Array.isArray(res.results)
+    const raw = Array.isArray(res?.results)
       ? res.results
-      : Array.isArray(res.followUps)
-        ? res.followUps
-        : Array.isArray(res.followUp)
-          ? res.followUp
-          : Array.isArray(res)
-            ? res
-            : [];
+      : Array.isArray(res?.data?.results)
+        ? res.data.results
+        : Array.isArray(res?.followUps)
+          ? res.followUps
+          : Array.isArray(res?.data?.followUps)
+            ? res.data.followUps
+            : Array.isArray(res?.followUp)
+              ? res.followUp
+              : Array.isArray(res?.data?.followUp)
+                ? res.data.followUp
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : Array.isArray(res)
+                    ? res
+                    : [];
     return raw
       .filter((item: any) => !item.isDeleted && !hiddenIds.has(item.id))
       .map(mapApiFollowUp)
@@ -1855,6 +2062,31 @@ function uniqueCollectionIds(
   );
 }
 
+function extractCollectionAssignmentIds(
+  assignments: any[] | undefined,
+  collectionId: string | undefined,
+  assignmentType: "branch" | "department",
+) {
+  const idKey = assignmentType === "branch" ? "branchId" : "departmentId";
+  const nestedKey = assignmentType === "branch" ? "branch" : "department";
+
+  return uniqueCollectionIds(
+    ...(Array.isArray(assignments) ? assignments : [])
+      .filter((assignment: any) => {
+        const assignmentCollectionId =
+          assignment?.collectionId ||
+          assignment?.collection?.id ||
+          assignment?.collection?.collectionId;
+        return !collectionId || !assignmentCollectionId || assignmentCollectionId === collectionId;
+      })
+      .map((assignment: any) => [
+        assignment?.[idKey],
+        assignment?.[nestedKey]?.id,
+        assignment?.scopeId,
+      ]),
+  );
+}
+
 function normalizeCollectionScope(item: any) {
   const branchIds = uniqueCollectionIds(
     Array.isArray(item?.branchIds) ? item.branchIds : [],
@@ -1900,11 +2132,69 @@ async function fetchCollectionsByBranch(
   const res = await apiFetch<any>(
     `/church/get-all-collections/${branchId}${buildQuery(query || {})}`,
   );
-  return Array.isArray(res.collections)
+  const collections = Array.isArray(res?.collections)
     ? res.collections
     : Array.isArray(res)
       ? res
       : [];
+  const responseScopeType =
+    typeof res?.scopeType === "string" ? res.scopeType.toLowerCase() : undefined;
+  const branchAssignments = Array.isArray(res?.branchAssignments)
+    ? res.branchAssignments
+    : [];
+  const departmentAssignments = Array.isArray(res?.departmentAssignments)
+    ? res.departmentAssignments
+    : [];
+  const requestedBranchScope = query?.branch === true || query?.branch === "true";
+  const requestedDepartmentId =
+    typeof query?.departmentId === "string" ? query.departmentId : undefined;
+
+  return collections.map((collection: any) => {
+    const scopeType =
+      typeof collection?.scopeType === "string"
+        ? collection.scopeType.toLowerCase()
+        : responseScopeType;
+    const inferredBranchIds = uniqueCollectionIds(
+      Array.isArray(collection?.branchIds) ? collection.branchIds : [],
+      [collection?.branchId, collection?.branch?.id],
+      extractCollectionAssignmentIds(branchAssignments, collection?.id, "branch"),
+      scopeType === "branch" && requestedBranchScope ? [branchId] : [],
+    );
+    const inferredDepartmentIds = uniqueCollectionIds(
+      Array.isArray(collection?.departmentIds) ? collection.departmentIds : [],
+      [collection?.departmentId, collection?.department?.id],
+      extractCollectionAssignmentIds(
+        departmentAssignments,
+        collection?.id,
+        "department",
+      ),
+      scopeType === "department" && requestedDepartmentId
+        ? [requestedDepartmentId]
+        : [],
+    );
+    const scopeId =
+      collection?.scopeId ||
+      (scopeType === "department"
+        ? inferredDepartmentIds[0]
+        : scopeType === "branch"
+          ? inferredBranchIds[0]
+          : undefined);
+
+    return {
+      ...collection,
+      scopeType: scopeType || collection?.scopeType,
+      scopeId,
+      branchId: collection?.branchId || collection?.branch?.id || inferredBranchIds[0],
+      departmentId:
+        collection?.departmentId ||
+        collection?.department?.id ||
+        inferredDepartmentIds[0],
+      branchIds: inferredBranchIds.length > 0 ? inferredBranchIds : undefined,
+      departmentIds:
+        inferredDepartmentIds.length > 0 ? inferredDepartmentIds : undefined,
+      __responseScope: responseScopeType,
+    };
+  });
 }
 
 function getCachedCollectionContext() {
@@ -2013,18 +2303,29 @@ export async function createCollection(
     scopeType,
     ...payload
   } = data;
+  const resolvedBranchId = _branchId || branchId;
+  const resolvedDepartmentId = _departmentId || departmentId;
+  const body = {
+    ...payload,
+    ...(scopeType ? { scopeType } : {}),
+    ...(Array.isArray(_branchIds) && _branchIds.length > 0
+      ? { branchIds: _branchIds.filter(Boolean) }
+      : {}),
+    ...(Array.isArray(_departmentIds) && _departmentIds.length > 0
+      ? { departmentIds: _departmentIds.filter(Boolean) }
+      : {}),
+  };
 
-  return apiFetch<any>("/church/create-collection", {
-    method: "POST",
-    body: JSON.stringify(
-      scopeType
-        ? {
-            ...payload,
-            scopeType,
-          }
-        : payload,
-    ),
-  });
+  return apiFetch<any>(
+    `/church/create-collection${buildQuery({
+      branchId: resolvedBranchId,
+      departmentId: resolvedDepartmentId,
+    })}`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 /** PATCH /church/edit-collection/:collectionId?departmentId=... */
@@ -2740,14 +3041,135 @@ function mapApiReportAttachment(file: any, index: number): ReportAttachment {
   };
 }
 
-function mapApiReport(raw: any): Report {
-  const authorLevel = inferReportLevel(raw);
-  const recipientId = raw?.departmentId || raw?.branchId || raw?.churchId || "";
-  const recipientName = raw?.departmentId
+function mapApiReportRecipientEntries(raw: any): ReportRecipientEntry[] {
+  const rawRecipients = Array.isArray(raw?.recipients) ? raw.recipients : [];
+
+  return rawRecipients.map((recipient: any, index: number) => ({
+    id:
+      recipient?.id ||
+      recipient?.recipientId ||
+      "report-recipient-" + (raw?.id || "unknown") + "-" + index,
+    recipientId:
+      recipient?.recipientId || recipient?.recipient?.id || recipient?.id || "",
+    recipientName:
+      recipient?.recipient?.name ||
+      recipient?.name ||
+      recipient?.admin?.name ||
+      recipient?.email ||
+      "",
+    recipientEmail:
+      recipient?.recipient?.email ||
+      recipient?.email ||
+      recipient?.admin?.email ||
+      undefined,
+    isRead: Boolean(recipient?.isRead),
+    readAt: recipient?.readAt ? new Date(recipient.readAt) : undefined,
+  }));
+}
+
+function mapApiReportRecipients(
+  raw: any,
+  recipientEntries: ReportRecipientEntry[],
+) {
+  const rawRecipients = Array.isArray(raw?.recipients)
+    ? raw.recipients
+    : Array.isArray(raw?.recipientIds)
+      ? raw.recipientIds
+      : raw?.recipientId
+        ? [raw.recipientId]
+        : [];
+  const mappedIds = (
+    recipientEntries.length > 0
+      ? recipientEntries.map((recipient) => recipient.recipientId)
+      : rawRecipients.map((recipient: any) =>
+          typeof recipient === "string"
+            ? recipient
+            : recipient?.id || recipient?.recipientId || recipient?.adminId || "",
+        )
+  ).filter(Boolean);
+  const mappedNames = (
+    recipientEntries.length > 0
+      ? recipientEntries.map((recipient) => recipient.recipientName)
+      : rawRecipients.map((recipient: any) =>
+          typeof recipient === "string"
+            ? ""
+            : recipient?.name ||
+              recipient?.recipient?.name ||
+              recipient?.admin?.name ||
+              recipient?.email ||
+              "",
+        )
+  ).filter(Boolean);
+  const fallbackId = raw?.departmentId || raw?.branchId || raw?.churchId || "";
+  const fallbackName = raw?.departmentId
     ? "Department"
     : raw?.branchId
       ? "Branch"
       : "Church";
+
+  return {
+    recipientId: mappedIds[0] || fallbackId,
+    recipientName: mappedNames[0] || fallbackName,
+    recipientIds: mappedIds.length > 0 ? mappedIds : fallbackId ? [fallbackId] : [],
+    recipientNames:
+      mappedNames.length > 0 ? mappedNames : fallbackName ? [fallbackName] : [],
+  };
+}
+
+function mapApiReportReply(raw: any, fallbackLevel: AdminLevel): ReportReply {
+  const attachments = Array.isArray(raw?.files)
+    ? raw.files
+    : Array.isArray(raw?.file)
+      ? raw.file
+      : [];
+
+  return {
+    id: raw?.id || "",
+    authorId: raw?.repliedBy || raw?.replier?.id || "",
+    authorName: raw?.replier?.name || "Unknown",
+    authorLevel: fallbackLevel,
+    content: raw?.replyText || raw?.content || "",
+    attachments: attachments.map(mapApiReportAttachment),
+    createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
+  };
+}
+
+function resolveReportType(
+  rawType: unknown,
+  fallbackType?: ReportFilter,
+): Report["reportType"] | undefined {
+  if (fallbackType === "sent" || fallbackType === "received") {
+    return fallbackType;
+  }
+
+  if (rawType === "sent" || rawType === "received" || rawType === "starred") {
+    return rawType;
+  }
+
+  return undefined;
+}
+
+function mapApiReport(raw: any, fallbackType?: ReportFilter): Report {
+  const authorLevel = inferReportLevel(raw);
+  const recipientEntries = mapApiReportRecipientEntries(raw);
+  const recipients = mapApiReportRecipients(raw, recipientEntries);
+  const attachments = Array.isArray(raw?.files)
+    ? raw.files
+    : Array.isArray(raw?.file)
+      ? raw.file
+      : [];
+  const reportType = resolveReportType(raw?.reportType, fallbackType);
+  const primaryRecipientEntry =
+    reportType === "received"
+      ? recipientEntries[0]
+      : recipientEntries.find((entry) => entry.isRead) || recipientEntries[0];
+  const isRead =
+    typeof raw?.isRead === "boolean"
+      ? raw.isRead
+      : primaryRecipientEntry?.isRead || false;
+  const readAt = raw?.readAt
+    ? new Date(raw.readAt)
+    : primaryRecipientEntry?.readAt;
 
   return {
     id: raw?.id || "",
@@ -2757,18 +3179,21 @@ function mapApiReport(raw: any): Report {
     title: raw?.title || "",
     content: raw?.comments || "",
     responseComments: raw?.responseComments || "",
-    authorId: raw?.createdBy || raw?.creator?.id || "",
-    authorName: raw?.creator?.name || "Unknown",
+    authorId: raw?.senderId || raw?.createdBy || raw?.sender?.id || raw?.creator?.id || "",
+    authorName: raw?.sender?.name || raw?.creator?.name || "Unknown",
     authorLevel,
-    creatorEmail: raw?.creator?.email || undefined,
-    recipientId,
-    recipientName,
-    isRead: false,
-    isStarred: false,
-    attachments: Array.isArray(raw?.file)
-      ? raw.file.map(mapApiReportAttachment)
+    creatorEmail: raw?.sender?.email || raw?.creator?.email || undefined,
+    ...recipients,
+    recipientEntryId: primaryRecipientEntry?.id,
+    recipientEntries,
+    reportType,
+    isRead,
+    readAt,
+    isStarred: Boolean(raw?.isStarred),
+    attachments: attachments.map(mapApiReportAttachment),
+    replies: Array.isArray(raw?.replies)
+      ? raw.replies.map((reply: any) => mapApiReportReply(reply, authorLevel))
       : [],
-    replies: [],
     createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
     updatedAt: raw?.updatedAt ? new Date(raw.updatedAt) : undefined,
   };
@@ -2812,14 +3237,21 @@ export async function createReport(data: CreateReportRequest) {
   if (data.churchId) formData.append("churchId", data.churchId);
   if (data.branchId) formData.append("branchId", data.branchId);
   if (data.departmentId) formData.append("departmentId", data.departmentId);
+  (data.recipients || []).filter(Boolean).forEach((recipientId) => {
+    formData.append("recipients", recipientId);
+  });
   if (data.responseComments)
     formData.append("responseComments", data.responseComments);
   const files =
     data.files ||
     (Array.isArray(data.file) ? data.file : data.file ? [data.file] : []);
+  const fileFieldName =
+    Array.isArray(data.recipients) && data.recipients.length > 0
+      ? "files"
+      : "file";
   files.forEach((file) => {
     if (file instanceof File) {
-      formData.append("file", file);
+      formData.append(fileFieldName, file);
     }
   });
 
@@ -2829,8 +3261,10 @@ export async function createReport(data: CreateReportRequest) {
   });
 }
 
-export async function fetchReports(): Promise<Report[]> {
-  const response = await apiFetch<any>("/tenants/get-report");
+export type ReportFilter = "sent" | "received" | "starred";
+
+export async function fetchReports(filter: ReportFilter): Promise<Report[]> {
+  const response = await apiFetch<any>("/tenants/get-report?filter=" + filter);
   const reports = Array.isArray(response?.reports)
     ? response.reports
     : Array.isArray(response)
@@ -2840,19 +3274,50 @@ export async function fetchReports(): Promise<Report[]> {
 
   return reports
     .map((report: any) =>
-      mergeReportUiState(mapApiReport(report), uiState[report?.id || ""]),
+      mergeReportUiState(mapApiReport(report, filter), uiState[report?.id || ""]),
     )
     .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function fetchReportById(reportId: string): Promise<Report> {
-  const response = await apiFetch<any>("/tenants/get-report/" + reportId);
-  const rawReport = response?.report || response;
-  const uiState = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
-  return mergeReportUiState(
-    mapApiReport(rawReport),
-    uiState[rawReport?.id || reportId],
-  );
+export async function fetchReportById(
+  reportId: string,
+  fallbackType?: Exclude<Report["reportType"], "starred">,
+): Promise<Report> {
+  try {
+    const response = await apiFetch<any>("/tenants/get-report/" + reportId);
+    const rawReport = response?.report || response;
+    const uiState = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
+    return mergeReportUiState(
+      mapApiReport(rawReport, fallbackType),
+      uiState[rawReport?.id || reportId],
+    );
+  } catch (error) {
+    const results = await Promise.allSettled([
+      fetchReports("received"),
+      fetchReports("sent"),
+    ]);
+    const foundReport = results
+      .filter(
+        (
+          result,
+        ): result is PromiseFulfilledResult<Report[]> =>
+          result.status === "fulfilled",
+      )
+      .flatMap((result) => result.value)
+      .find((report) => report.id === reportId);
+
+    if (foundReport) {
+      return foundReport;
+    }
+
+    throw error;
+  }
+}
+
+export async function markReportRead(reportId: string) {
+  return apiFetch<any>("/tenants/mark-report-read/" + reportId, {
+    method: "PATCH",
+  });
 }
 
 export const saveReports = async (reports: Report[]) => {

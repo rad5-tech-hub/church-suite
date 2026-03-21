@@ -177,10 +177,11 @@ export interface Program {
   churchId: string;
   branchId?: string;
   name: string;
+  description?: string;
   type: ProgramFrequency;
   weeklyDays?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
   monthlyDate?: number; // 1-31 (for monthly)
-  monthlyNthWeekdays?: { weekday: number; nth: number }[]; // for monthly rules like "first Friday"
+  monthlyNthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[]; // for monthly rules like "first Friday"
   customDates?: string[]; // ISO date strings (for custom)
   customDateTimes?: { date: string; startTime: string; endTime: string }[]; // per-date times (for custom)
   startTime: string; // HH:mm
@@ -228,6 +229,7 @@ export interface Newcomer {
   lastName: string;
   email?: string;
   phone?: string;
+  whatsapp?: string;
   address?: string;
   visitType: 'first-timer' | 'second-timer';
   visitDate: Date;
@@ -235,6 +237,23 @@ export interface Newcomer {
   programId?: string;
   formResponses?: Record<string, any>;
   followUps: FollowUp[];
+  sex?: string | null;
+  maritalStatus?: string | null;
+  newComersComment?: string | null;
+  adminComment?: string | null;
+  birthMonth?: string | number | null;
+  birthDay?: string | number | null;
+  timer?: string | number | null;
+  isActive?: boolean;
+  called?: boolean;
+  messaged?: boolean;
+  visited?: boolean;
+  eventOccurrenceId?: string | null;
+  formId?: string | null;
+  answers?: Array<{
+    questionId?: string;
+    answer: string | number | boolean | string[] | null;
+  }>;
   /** Training class assignment for newcomer progression */
   trainingClassId?: string;
   trainingStatus?: NewcomerTrainingStatus;
@@ -405,6 +424,11 @@ export interface Report {
   /** Admin ID the report is sent to */
   recipientId: string;
   recipientName: string;
+  recipientIds?: string[];
+  recipientNames?: string[];
+  recipientEntryId?: string;
+  recipientEntries?: ReportRecipientEntry[];
+  reportType?: 'sent' | 'received' | 'starred';
   /** Read status */
   isRead: boolean;
   readAt?: Date;
@@ -418,6 +442,15 @@ export interface Report {
   parentReportId?: string;
   createdAt: Date;
   updatedAt?: Date;
+}
+
+export interface ReportRecipientEntry {
+  id: string;
+  recipientId: string;
+  recipientName: string;
+  recipientEmail?: string;
+  isRead: boolean;
+  readAt?: Date;
 }
 
 export interface ReportReply {

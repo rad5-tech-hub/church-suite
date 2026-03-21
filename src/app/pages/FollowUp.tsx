@@ -44,6 +44,7 @@ const TRAINING_STATUSES: { value: NewcomerTrainingStatus; label: string; color: 
 const getStatusInfo = (s?: NewcomerTrainingStatus) => TRAINING_STATUSES.find(t => t.value === s) || TRAINING_STATUSES[0];
 
 type ViewMode = 'cards' | 'list';
+type FollowUpActionType = 'call' | 'sms' | 'email' | 'note';
 
 export function FollowUp() {
   const { currentAdmin } = useAuth();
@@ -171,6 +172,14 @@ export function FollowUp() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  useEffect(() => {
+    if (!selectedNewcomer) {
+      setFollowUpComment('');
+      return;
+    }
+    setFollowUpComment(selectedNewcomer.adminComment || '');
+  }, [selectedNewcomer]);
+
   const activeNewcomers = newcomers.filter(n => !n.movedToMemberId);
   const filteredNewcomers = activeNewcomers.filter(nc => {
     const s = searchTerm.toLowerCase();
@@ -191,6 +200,109 @@ export function FollowUp() {
 
   const getProgramName = (id?: string) => programs.find(p => p.id === id)?.name || '';
   const getClassName = (id?: string) => trainingClasses.find(c => c.id === id)?.name || '';
+
+  const normalizeFollowUpField = (value?: string | number | null) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    return typeof value === 'number' ? String(value).padStart(2, '0') : value;
+  };
+
+  const splitFollowUpName = (fullName?: string) => {
+    const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+    return {
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' '),
+    };
+  };
+
+  const normalizeFollowUpAnswers = (answers?: Newcomer['answers']) => {
+    if (!Array.isArray(answers) || answers.length === 0) return undefined;
+    return answers
+      .filter(answer => Boolean(answer?.questionId))
+      .map(answer => ({
+        questionId: answer?.questionId as string,
+        answer: answer?.answer ?? null,
+      }));
+  };
+
+  const buildFollowUpEditPayload = (newcomer: Newcomer, type: FollowUpActionType, note: string) => ({
+    name: `${newcomer.firstName} ${newcomer.lastName}`.trim(),
+    email: newcomer.email || undefined,
+    address: newcomer.address || undefined,
+    whatappNo: newcomer.whatsapp || newcomer.phone || undefined,
+    timer: newcomer.timer ?? undefined,
+    isActive: newcomer.isActive ?? true,
+    isVisitor: newcomer.visitType === 'first-timer',
+    phoneNo: newcomer.phone || undefined,
+    sex: newcomer.sex || undefined,
+    birthMonth: normalizeFollowUpField(newcomer.birthMonth),
+    birthDay: normalizeFollowUpField(newcomer.birthDay),
+    maritalStatus: newcomer.maritalStatus || undefined,
+    newComersComment: newcomer.newComersComment || undefined,
+    called: type === 'call' ? true : newcomer.called ?? false,
+    messaged: type === 'sms' || type === 'email' ? true : newcomer.messaged ?? false,
+    visited: newcomer.visited ?? false,
+    eventOccurrenceId: newcomer.eventOccurrenceId || undefined,
+    formId: newcomer.formId || undefined,
+    adminComment: note,
+    answers: normalizeFollowUpAnswers(newcomer.answers),
+  });
+
+  const mergeUpdatedNewcomer = (
+    current: Newcomer,
+    source: any,
+    type: FollowUpActionType,
+    note: string,
+  ): Newcomer => {
+    const payload = source && typeof source === 'object' ? source : {};
+    const fullName = typeof payload.name === 'string' && payload.name.trim()
+      ? payload.name
+      : `${current.firstName} ${current.lastName}`.trim();
+    const { firstName, lastName } = splitFollowUpName(fullName);
+    const followUpEntry = {
+      id: `fu-${Date.now()}`,
+      newcomerId: current.id,
+      adminId: 'admin',
+      comment: note,
+      type,
+      createdAt: new Date(),
+    };
+
+    return {
+      ...current,
+      firstName,
+      lastName,
+      email: payload.email ?? current.email,
+      phone: payload.phoneNo ?? current.phone,
+      whatsapp: payload.whatappNo ?? current.whatsapp,
+      address: payload.address ?? current.address,
+      visitType: typeof payload.isVisitor === 'boolean'
+        ? (payload.isVisitor ? 'first-timer' : 'second-timer')
+        : current.visitType,
+      sex: payload.sex ?? current.sex,
+      maritalStatus: payload.maritalStatus ?? current.maritalStatus,
+      newComersComment: payload.newComersComment ?? current.newComersComment,
+      adminComment: payload.adminComment ?? note,
+      birthMonth: payload.birthMonth ?? current.birthMonth,
+      birthDay: payload.birthDay ?? current.birthDay,
+      timer: payload.timer ?? current.timer,
+      isActive: payload.isActive ?? current.isActive,
+      called: payload.called ?? (type === 'call' ? true : current.called ?? false),
+      messaged: payload.messaged ?? ((type === 'sms' || type === 'email') ? true : current.messaged ?? false),
+      visited: payload.visited ?? current.visited ?? false,
+      eventOccurrenceId: payload.eventOccurrenceId ?? current.eventOccurrenceId ?? null,
+      formId: payload.formId ?? current.formId ?? null,
+      answers: Array.isArray(payload.answers)
+        ? payload.answers.map((answer: any) => ({
+            questionId: answer?.questionId || answer?.question?.id,
+            answer: answer?.answer ?? null,
+          }))
+        : current.answers,
+      followUps: [
+        ...(current.followUps || []),
+        followUpEntry,
+      ],
+    };
+  };
 
   // ──────── VALIDATION ────────
   const scrollToError = (errors: Record<string, string>) => {
@@ -257,17 +369,30 @@ export function FollowUp() {
   };
 
   // ──────── FOLLOW-UP ────────
-  const handleAddFollowUp = async (type: 'call' | 'sms' | 'email' | 'note') => {
+  const handleAddFollowUp = async (type: FollowUpActionType) => {
     if (!selectedNewcomer || !followUpComment.trim()) return;
+    const activeNewcomer = selectedNewcomer;
+    const note = followUpComment.trim();
+    setSaving(true);
     try {
-      await editFollowUp(selectedNewcomer.id, { adminComment: followUpComment.trim() }, selectedNewcomer.branchId || primaryBranchId);
-      const upd = newcomers.map(n => n.id === selectedNewcomer.id ? { ...n, followUps: [...(n.followUps || []), { id: `fu-${Date.now()}`, newcomerId: selectedNewcomer.id, adminId: 'admin', comment: followUpComment.trim(), type, createdAt: new Date() }] } : n);
-      setNewcomers(upd);
+      const response = await editFollowUp(
+        activeNewcomer.id,
+        buildFollowUpEditPayload(activeNewcomer, type, note),
+        activeNewcomer.branchId || primaryBranchId,
+      );
+      const updatedNewcomer = mergeUpdatedNewcomer(activeNewcomer, response?.data ?? response, type, note);
+      setNewcomers(prev => prev.map(n => n.id === activeNewcomer.id ? updatedNewcomer : n));
+      await saveNewcomers([updatedNewcomer]);
       setFollowUpComment('');
       setSelectedNewcomer(null);
       showToast('Follow-up logged.');
     }
-    catch (err) { console.error(err); }
+    catch (err: any) {
+      console.error(err);
+      showToast(`Error: ${err?.message || 'Failed to update follow-up.'}`, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ──────── SMS FOLLOW-UP ────────
@@ -923,10 +1048,10 @@ export function FollowUp() {
             <div className="space-y-2">
               <Label>How did you follow up?</Label>
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => handleAddFollowUp('call')} variant="outline" disabled={!followUpComment.trim()}><Phone className="w-4 h-4 mr-2" />Log Call</Button>
-                <Button onClick={() => handleAddFollowUp('sms')} variant="outline" disabled={!followUpComment.trim()}><MessageSquare className="w-4 h-4 mr-2" />Log SMS</Button>
-                <Button onClick={() => handleAddFollowUp('email')} variant="outline" disabled={!followUpComment.trim()}><Mail className="w-4 h-4 mr-2" />Log Email</Button>
-                <Button onClick={() => handleAddFollowUp('note')} variant="outline" disabled={!followUpComment.trim()}><Plus className="w-4 h-4 mr-2" />Add Note</Button>
+                <Button onClick={() => handleAddFollowUp('call')} variant="outline" disabled={!followUpComment.trim() || saving}><Phone className="w-4 h-4 mr-2" />Log Call</Button>
+                <Button onClick={() => handleAddFollowUp('sms')} variant="outline" disabled={!followUpComment.trim() || saving}><MessageSquare className="w-4 h-4 mr-2" />Log SMS</Button>
+                <Button onClick={() => handleAddFollowUp('email')} variant="outline" disabled={!followUpComment.trim() || saving}><Mail className="w-4 h-4 mr-2" />Log Email</Button>
+                <Button onClick={() => handleAddFollowUp('note')} variant="outline" disabled={!followUpComment.trim() || saving}><Plus className="w-4 h-4 mr-2" />Add Note</Button>
               </div>
             </div>
             {/* Interaction History */}

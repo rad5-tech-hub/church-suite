@@ -197,8 +197,9 @@ export function Members() {
     try {
       const fullMember = await fetchMember(member.id);
       if (fullMember) {
-        setSelectedMember(fullMember);
-        populateForm(fullMember);
+        const mergedMember = mergeMemberDetails(member, fullMember as Member);
+        setSelectedMember(mergedMember);
+        populateForm(mergedMember);
       }
     } catch (err) {
       console.error('Failed to fetch full member details', err);
@@ -237,6 +238,64 @@ export function Members() {
 
     return { ageFrom, ageTo };
   };
+  const hasValue = (value: unknown) => value !== undefined && value !== null && value !== '';
+  const mergeMemberDetails = (current: Member, fetched: Member): Member => {
+    const fetchedRaw = ((fetched as any)?._raw || {}) as Record<string, any>;
+    const hasBirthdayData = hasValue(fetchedRaw.birthMonth) || hasValue(fetchedRaw.birthDay);
+    const hasAgeRangeData = hasValue(fetchedRaw.ageFrom) || hasValue(fetchedRaw.ageTo);
+
+    return {
+      ...current,
+      ...fetched,
+      phone: hasValue(fetchedRaw.phoneNo) ? fetched.phone : current.phone,
+      whatsapp: hasValue(fetchedRaw.whatappNo) ? fetched.whatsapp : current.whatsapp,
+      email: hasValue(fetchedRaw.email) ? fetched.email : current.email,
+      gender: hasValue(fetchedRaw.sex) ? fetched.gender : current.gender,
+      yearJoined: hasValue(fetchedRaw.memberSince) ? fetched.yearJoined : current.yearJoined,
+      maritalStatus: hasValue(fetchedRaw.maritalStatus)
+        ? fetched.maritalStatus
+        : current.maritalStatus,
+      address: hasValue(fetchedRaw.address) ? fetched.address : current.address,
+      ageRange: hasAgeRangeData ? fetched.ageRange : current.ageRange,
+      birthdayMonth:
+        hasBirthdayData && fetched.birthdayMonth
+          ? fetched.birthdayMonth
+          : current.birthdayMonth,
+      birthdayDay:
+        hasBirthdayData && fetched.birthdayDay
+          ? fetched.birthdayDay
+          : current.birthdayDay,
+      birthdayYear: fetched.birthdayYear ?? current.birthdayYear,
+      country: hasValue(fetchedRaw.nationality) ? fetched.country : current.country,
+      state: hasValue(fetchedRaw.state) ? fetched.state : current.state,
+      LGA: hasValue(fetchedRaw.LGA) ? fetched.LGA : current.LGA,
+      activity: hasValue(fetchedRaw.activity) ? fetched.activity : current.activity,
+      comments: hasValue(fetchedRaw.comments) ? fetched.comments : current.comments,
+      branchId: fetched.branchId || current.branchId,
+      departmentId: fetched.departmentId || current.departmentId,
+      unitId: fetched.unitId || current.unitId,
+      departmentIds:
+        Array.isArray(fetched.departmentIds) && fetched.departmentIds.length > 0
+          ? fetched.departmentIds
+          : current.departmentIds,
+      unitIds:
+        Array.isArray(fetched.unitIds) && fetched.unitIds.length > 0
+          ? fetched.unitIds
+          : current.unitIds,
+    };
+  };
+  const getAssignedDepartmentIds = useCallback((member?: Member | null) => {
+    if (!member) return [];
+
+    const departmentIds =
+      Array.isArray(member.departmentIds) && member.departmentIds.length > 0
+        ? member.departmentIds
+        : member.departmentId
+          ? [member.departmentId]
+          : [];
+
+    return Array.from(new Set(departmentIds.filter(Boolean)));
+  }, []);
 
   const handleCreate = async () => {
     if (!isFormValid) return;
@@ -291,9 +350,29 @@ export function Members() {
       const branchId = selectedMember.branchId || currentAdmin?.branchId || localBranches[0]?.id || branches[0]?.id || '';
       const nextBranchId = showMultiBranch ? (fBranchId || branchId) : branchId;
       const { ageFrom, ageTo } = parseAgeRange(fAgeRange);
-
       const normalizedEmail = fEmail.trim() || undefined;
       const normalizedWhatsapp = fWhatsapp.trim() || undefined;
+      const updatedMember: Member = {
+        ...selectedMember,
+        fullName: fFullName.trim(),
+        gender: fGender as 'male' | 'female',
+        phone: fPhone.trim(),
+        whatsapp: normalizedWhatsapp,
+        email: normalizedEmail,
+        yearJoined: parseInt(fYearJoined, 10) || selectedMember.yearJoined,
+        maritalStatus: fMaritalStatus as Member['maritalStatus'],
+        address: fAddress.trim(),
+        ageRange: fAgeRange || undefined,
+        birthdayMonth: parseInt(fBirthdayMonth, 10) || 0,
+        birthdayDay: parseInt(fBirthdayDay, 10) || 0,
+        birthdayYear: fBirthdayYear ? parseInt(fBirthdayYear, 10) : undefined,
+        branchId: nextBranchId,
+        country: fCountry,
+        state: fState,
+        LGA: fLGA || undefined,
+        activity: fActivity || undefined,
+        comments: fComments || undefined,
+      };
 
       await editMember(selectedMember.id, branchId, {
         branchId: nextBranchId,
@@ -317,6 +396,7 @@ export function Members() {
         departmentIds: fDepartmentIds.length > 0 ? fDepartmentIds : undefined,
         unitIds: fUnitIds.length > 0 ? fUnitIds : undefined,
       });
+      await saveMembers([updatedMember]);
 
       await loadData();
       setDialogMode(null);
@@ -345,6 +425,22 @@ export function Members() {
     if (!moveDeptId || moveTargets.length === 0) return;
     setSaving(true);
     try {
+      const blockedTargets = moveTargets.filter((target) => {
+        const sourceMember = members.find((member) => member.id === target.id) || target;
+        return getAssignedDepartmentIds(sourceMember).includes(moveDeptId);
+      });
+
+      if (blockedTargets.length > 0) {
+        showToast(
+          blockedTargets.length === 1
+            ? 'Choose a different department. This member already belongs to that department.'
+            : 'Choose a different department. One or more selected members already belong to it.',
+          'error',
+        );
+        setSaving(false);
+        return;
+      }
+
       const allWf = await fetchWorkforce();
       const existingAssignments = new Set((allWf as WorkforceMember[]).map(w => `${w.memberId}-${w.departmentId}`));
       const filteredTargets = moveTargets.filter(m => !existingAssignments.has(`${m.id}-${moveDeptId}`));
@@ -356,34 +452,62 @@ export function Members() {
 
       let createdCount = 0;
       for (const m of filteredTargets) {
-        const { ageFrom, ageTo } = parseAgeRange(m.ageRange || '');
+        const sourceMember = await fetchMember(m.id).catch(() => m);
+        const mergedSource = mergeMemberDetails(m, sourceMember as Member);
+        const { ageFrom, ageTo } = parseAgeRange(mergedSource.ageRange || '');
+        const nextDepartmentIds = Array.from(
+          new Set([moveDeptId, ...(mergedSource.departmentIds || [])].filter(Boolean)),
+        );
+        const nextUnitIds = Array.from(
+          new Set(
+            [
+              moveUnitId && moveUnitId !== 'none' ? moveUnitId : undefined,
+              ...(mergedSource.unitIds || []),
+            ].filter(Boolean),
+          ),
+        ) as string[];
+
         try {
           // Attempt to create the workforce member
-          await createWorkforceMember({
-            name: m.fullName,
-            address: m.address,
-            whatappNo: m.whatsapp || undefined,
-            phoneNo: m.phone,
-            email: m.email || undefined,
-            sex: m.gender,
+          const createResponse = await createWorkforceMember({
+            name: mergedSource.fullName,
+            address: mergedSource.address,
+            whatappNo: mergedSource.whatsapp || undefined,
+            phoneNo: mergedSource.phone,
+            email: mergedSource.email || undefined,
+            sex: mergedSource.gender,
             ageFrom,
             ageTo,
-            birthMonth: m.birthdayMonth ? String(m.birthdayMonth).padStart(2, '0') : undefined,
-            birthDay: m.birthdayDay ? String(m.birthdayDay).padStart(2, '0') : undefined,
-            state: m.state,
-            LGA: m.LGA,
-            nationality: m.country,
-            maritalStatus: m.maritalStatus,
-            memberSince: String(m.yearJoined),
-            branchId: moveBranchId || m.branchId,
-            departmentIds: [moveDeptId, ...(m.departmentIds || [])],
-            unitIds: [moveUnitId && moveUnitId !== 'none' ? moveUnitId : undefined, ...(m.unitIds || [])].filter(Boolean) as string[],
-            comments: m.comments,
+            birthMonth: mergedSource.birthdayMonth ? String(mergedSource.birthdayMonth).padStart(2, '0') : undefined,
+            birthDay: mergedSource.birthdayDay ? String(mergedSource.birthdayDay).padStart(2, '0') : undefined,
+            state: mergedSource.state,
+            LGA: mergedSource.LGA,
+            nationality: mergedSource.country,
+            maritalStatus: mergedSource.maritalStatus,
+            memberSince: String(mergedSource.yearJoined),
+            branchId: moveBranchId || mergedSource.branchId,
+            departmentIds: nextDepartmentIds,
+            unitIds: nextUnitIds,
+            comments: mergedSource.comments,
           }, church.id);
+
+          const createdMemberId =
+            createResponse?.data?.id ||
+            createResponse?.data?.member?.id ||
+            createResponse?.member?.id ||
+            createResponse?.id;
+
+          if (createdMemberId) {
+            await saveMembers([{
+              ...mergedSource,
+              id: createdMemberId,
+              branchId: moveBranchId || mergedSource.branchId,
+            }]);
+          }
 
           // We successfully "moved" them by creating a workforce member.
           // Now suspend the old non-worker duplicate.
-          await suspendMember(m.id, m.branchId || '');
+          await suspendMember(m.id, mergedSource.branchId || m.branchId || '');
           createdCount++;
         } catch (err: any) {
           console.error(`Failed to move ${m.fullName}:`, err);
@@ -500,8 +624,36 @@ export function Members() {
     ));
   };
 
-  const moveDepts = moveBranchId ? departments.filter(d => d.branchId === moveBranchId) : departments;
+  const moveBlockedDepartmentIds = useMemo(() => {
+    const blockedDepartmentIds = new Set<string>();
+
+    moveTargets.forEach((target) => {
+      const sourceMember = members.find((member) => member.id === target.id) || target;
+      getAssignedDepartmentIds(sourceMember).forEach((departmentId) => {
+        blockedDepartmentIds.add(departmentId);
+      });
+    });
+
+    return blockedDepartmentIds;
+  }, [getAssignedDepartmentIds, members, moveTargets]);
+
+  const moveDepts = useMemo(() => {
+    const branchScopedDepartments = moveBranchId
+      ? departments.filter((department) => department.branchId === moveBranchId)
+      : departments;
+
+    return branchScopedDepartments.filter(
+      (department) => !moveBlockedDepartmentIds.has(department.id),
+    );
+  }, [departments, moveBlockedDepartmentIds, moveBranchId]);
   const moveUnits_ = moveDeptId ? units.filter(u => u.departmentId === moveDeptId) : [];
+
+  useEffect(() => {
+    if (moveDeptId && !moveDepts.some((department) => department.id === moveDeptId)) {
+      setMoveDeptId('');
+      setMoveUnitId('');
+    }
+  }, [moveDeptId, moveDepts]);
 
   return (
     <Layout>
@@ -688,10 +840,13 @@ export function Members() {
                   ))}
                 </div>
 
-                {totalPages > 1 && (
+                {filtered.length > 0 && (
                   <Card>
                     <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-gray-500">Page {currentPage} of {totalPages}</p>
+                      <div className="text-sm text-gray-500">
+                        <p>Showing {pageStartNumber}-{pageEndNumber} of {filtered.length} member{filtered.length !== 1 ? 's' : ''}</p>
+                        <p>Page {currentPage} of {totalPages}</p>
+                      </div>
                       <Pagination className="mx-0 w-auto justify-start sm:justify-end">
                         <PaginationContent>
                           <PaginationItem>
@@ -1090,11 +1245,11 @@ export function Members() {
             )}
             <div>
               <Label>Department / Outreach <span className="text-red-500">*</span></Label>
-              <p className="text-xs text-gray-500 mb-1">Choose where this member will serve.</p>
+              <p className="text-xs text-gray-500 mb-1">Choose where this member will serve. Current member departments are hidden.</p>
               <Select value={moveDeptId} onValueChange={(v) => { setMoveDeptId(v); setMoveUnitId(''); }}>
                 <SelectTrigger><SelectValue placeholder="Select department or outreach" /></SelectTrigger>
                 <SelectContent>
-                  {moveDepts.length === 0 ? <SelectItem value="none" disabled>No departments found Ã¢â‚¬â€ create one first</SelectItem> : moveDepts.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.type})</SelectItem>)}
+                  {moveDepts.length === 0 ? <SelectItem value="none" disabled>No eligible departments available</SelectItem> : moveDepts.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.type})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

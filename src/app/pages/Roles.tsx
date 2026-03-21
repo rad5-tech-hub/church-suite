@@ -37,7 +37,7 @@ import {
   Copy,
   Loader2,
 } from 'lucide-react';
-import { PERMISSIONS, PERMISSION_CATEGORIES } from '../data/permissions';
+import { PERMISSIONS } from '../data/permissions';
 import { AdminLevel, Role, Admin } from '../types';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
@@ -46,15 +46,22 @@ import { fetchRoles, createRole, editRole, deleteRole, fetchAdmins, fetchPermiss
 import { resolvePrimaryBranchId } from '../utils/scope';
 import { deriveAssignablePermissions, buildRolePermissionPayload, mapBackendRolePermissions, type PermissionCatalogGroup } from '../utils/rolePermissionMapping';
 import { hasPermission } from '../utils/adminPermissions';
+import { groupPermissionsForDisplay } from '../utils/permissionCategoryDisplay';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
+type PendingPermissionChange = {
+  permissionIds: string[];
+  granularPermissions: Record<string, string[]>;
+  requiredPermissionId: string;
+  requiredPermissionName: string;
+};
 
 const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; color: string; description: string }> = {
   church: {
     label: 'Church Level',
     icon: <Church className="w-4 h-4" />,
     color: 'bg-blue-100 text-blue-800 border-blue-200',
-    description: 'Permissions that apply across the entire church organization.',
+    description: 'Permissions that apply across the entire church organization. In a single-church setup, this serves as branch-level access.',
   },
   branch: {
     label: 'Department / Outreach Level',
@@ -63,7 +70,7 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
     description: 'Legacy branch roles are treated as department/outreach scope in the UI.',
   },
   department: {
-    label: 'Department / Outreach Level',
+    label: 'Department Level',
     icon: <Layers className="w-4 h-4" />,
     color: 'bg-green-100 text-green-800 border-green-200',
     description: 'Permissions scoped to a specific department or outreach. Departments handle internal operations (e.g., prayer team, sanctuary keepers) while outreaches cover external missions (e.g., prison outreach, community programs). Both function the same way.',
@@ -78,6 +85,69 @@ const LEVEL_META: Record<AdminLevel, { label: string; icon: React.ReactNode; col
 
 const ROLE_SCOPE_LEVELS: AdminLevel[] = ['church', 'department', 'unit'];
 const normalizeRoleLevel = (level: AdminLevel): AdminLevel => (level === 'branch' ? 'department' : level);
+const ADMIN_PERMISSION_IDS = [
+  'manage-church-admins',
+  'manage-branch-admins',
+  'manage-department-admins',
+  'manage-unit-admins',
+];
+
+function uniquePermissionIds(permissionIds: string[]) {
+  return Array.from(new Set(permissionIds.filter(Boolean)));
+}
+
+function normalizeGranularPermissions(granularPermissions: Record<string, string[]>) {
+  return Object.fromEntries(
+    Object.entries(granularPermissions || {})
+      .filter(([, actions]) => Array.isArray(actions) && actions.length > 0)
+      .map(([permissionId, actions]) => [permissionId, Array.from(new Set(actions.filter(Boolean))).sort()])
+  );
+}
+
+function areGranularPermissionsEqual(
+  left: Record<string, string[]>,
+  right: Record<string, string[]>
+) {
+  const normalizedLeft = normalizeGranularPermissions(left);
+  const normalizedRight = normalizeGranularPermissions(right);
+  const permissionIds = new Set([...Object.keys(normalizedLeft), ...Object.keys(normalizedRight)]);
+
+  return Array.from(permissionIds).every((permissionId) => {
+    const leftActions = normalizedLeft[permissionId] || [];
+    const rightActions = normalizedRight[permissionId] || [];
+    return leftActions.length === rightActions.length && leftActions.every((actionId) => rightActions.includes(actionId));
+  });
+}
+
+function sanitizePermissionSelectionForLevel(
+  permissionIds: string[],
+  granularPermissions: Record<string, string[]>,
+  availablePermissions: (typeof PERMISSIONS)[number][]
+) {
+  const availableById = new Map(availablePermissions.map((permission) => [permission.id, permission]));
+  const nextPermissionIds = uniquePermissionIds(permissionIds).filter((permissionId) => availableById.has(permissionId));
+  const nextGranularPerms = normalizeGranularPermissions(granularPermissions);
+
+  Object.keys(nextGranularPerms).forEach((permissionId) => {
+    const permission = availableById.get(permissionId);
+    if (!permission) {
+      delete nextGranularPerms[permissionId];
+      return;
+    }
+
+    const allowedActionIds = new Set((permission.actions || []).map((action) => action.id));
+    nextGranularPerms[permissionId] = (nextGranularPerms[permissionId] || []).filter((actionId) => allowedActionIds.has(actionId));
+
+    if (nextGranularPerms[permissionId].length === 0) {
+      delete nextGranularPerms[permissionId];
+    }
+  });
+
+  return {
+    permissionIds: nextPermissionIds,
+    granularPermissions: nextGranularPerms,
+  };
+}
 
 export function Roles() {
   const { branches } = useChurch();
@@ -100,6 +170,7 @@ export function Roles() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   /** Granular: which sub-actions are selected per permission */
   const [granularPerms, setGranularPerms] = useState<Record<string, string[]>>({});
+  const [pendingPermissionChange, setPendingPermissionChange] = useState<PendingPermissionChange | null>(null);
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionCatalogGroup[]>([]);
 
   const canCreateRole = hasPermission(currentAdmin, 'manage-roles', 'create');
@@ -184,6 +255,99 @@ export function Roles() {
       .filter((permission): permission is (typeof PERMISSIONS)[number] => Boolean(permission))
   );
 
+  const getSelectedActionIds = (
+    permissionId: string,
+    permissionIds: string[],
+    granularPermissions: Record<string, string[]>
+  ) => {
+    if (!permissionIds.includes(permissionId)) {
+      return [] as string[];
+    }
+
+    const explicitActions = granularPermissions[permissionId];
+    if (Array.isArray(explicitActions) && explicitActions.length > 0) {
+      return explicitActions;
+    }
+
+    return resolvePermissionDefinition(permissionId)?.actions?.map((action) => action.id) || [];
+  };
+
+  const getRequiredAdminViewPermission = () => (
+    filteredPermissions.find((permission) => ADMIN_PERMISSION_IDS.includes(permission.id))
+  );
+
+  const hasRequiredAdminViewPermission = (
+    permissionIds: string[],
+    granularPermissions: Record<string, string[]>
+  ) => {
+    const nextPermissionIds = uniquePermissionIds(permissionIds);
+    const nextGranularPerms = normalizeGranularPermissions(granularPermissions);
+    const canViewReports = getSelectedActionIds('view-reports', nextPermissionIds, nextGranularPerms).includes('view');
+    const canCreateReports = getSelectedActionIds('submit-reports', nextPermissionIds, nextGranularPerms).includes('create');
+
+    if (!canViewReports || !canCreateReports) {
+      return true;
+    }
+
+    const adminViewPermission = getRequiredAdminViewPermission();
+    if (!adminViewPermission) {
+      return true;
+    }
+
+    const existingActions = getSelectedActionIds(adminViewPermission.id, nextPermissionIds, nextGranularPerms);
+    return existingActions.includes('view');
+  };
+
+  const withRequiredAdminViewPermission = (
+    permissionIds: string[],
+    granularPermissions: Record<string, string[]>
+  ) => {
+    const nextPermissionIds = uniquePermissionIds(permissionIds);
+    const nextGranularPerms = normalizeGranularPermissions(granularPermissions);
+    const adminViewPermission = getRequiredAdminViewPermission();
+
+    if (!adminViewPermission) {
+      return null;
+    }
+
+    if (!nextPermissionIds.includes(adminViewPermission.id)) {
+      nextPermissionIds.push(adminViewPermission.id);
+    }
+
+    const existingActions = getSelectedActionIds(adminViewPermission.id, nextPermissionIds, nextGranularPerms);
+    nextGranularPerms[adminViewPermission.id] = Array.from(new Set([...existingActions, 'view'])).sort();
+
+    return {
+      permissionIds: uniquePermissionIds(nextPermissionIds),
+      granularPermissions: nextGranularPerms,
+      requiredPermissionId: adminViewPermission.id,
+      requiredPermissionName: adminViewPermission.name,
+    };
+  };
+
+  const applyPermissionSelection = (
+    permissionIds: string[],
+    granularPermissions: Record<string, string[]>,
+    options?: { promptForReportDependency?: boolean }
+  ) => {
+    const nextPermissionIds = uniquePermissionIds(permissionIds);
+    const nextGranularPerms = normalizeGranularPermissions(granularPermissions);
+
+    if (
+      options?.promptForReportDependency !== false &&
+      !hasRequiredAdminViewPermission(nextPermissionIds, nextGranularPerms)
+    ) {
+      const changeWithDependency = withRequiredAdminViewPermission(nextPermissionIds, nextGranularPerms);
+      if (changeWithDependency) {
+        setPendingPermissionChange(changeWithDependency);
+        return;
+      }
+    }
+
+    setSelectedPermissions(nextPermissionIds);
+    setGranularPerms(nextGranularPerms);
+  };
+
   // --- Helpers ---
   const resetForm = () => {
     setRoleName('');
@@ -191,42 +355,56 @@ export function Roles() {
     setRoleBranchId('');
     setSelectedPermissions([]);
     setGranularPerms({});
+    setPendingPermissionChange(null);
   };
 
   /** Toggle a single sub-action for a permission */
   const toggleAction = (permId: string, actionId: string) => {
-    setGranularPerms(prev => {
-      const current = prev[permId] || [];
-      const updated = current.includes(actionId)
-        ? current.filter(a => a !== actionId)
-        : [...current, actionId];
-      const next = { ...prev, [permId]: updated };
-      // Sync selectedPermissions: if any action is checked, include the permission
-      if (updated.length > 0) {
-        setSelectedPermissions(sp => sp.includes(permId) ? sp : [...sp, permId]);
-      } else {
-        setSelectedPermissions(sp => sp.filter(id => id !== permId));
-        delete next[permId];
+    const current = granularPerms[permId] || [];
+    const updated = current.includes(actionId)
+      ? current.filter((id) => id !== actionId)
+      : [...current, actionId];
+    const nextGranularPerms = { ...granularPerms };
+    const nextSelectedPermissions = [...selectedPermissions];
+
+    if (updated.length > 0) {
+      nextGranularPerms[permId] = updated;
+      if (!nextSelectedPermissions.includes(permId)) {
+        nextSelectedPermissions.push(permId);
       }
-      return next;
-    });
+    } else {
+      delete nextGranularPerms[permId];
+      applyPermissionSelection(
+        nextSelectedPermissions.filter((id) => id !== permId),
+        nextGranularPerms,
+        { promptForReportDependency: false }
+      );
+      return;
+    }
+
+    applyPermissionSelection(nextSelectedPermissions, nextGranularPerms);
   };
 
   /** Toggle all sub-actions for a permission */
   const toggleAllActions = (permId: string, actions: string[]) => {
-    setGranularPerms(prev => {
-      const current = prev[permId] || [];
-      const allSelected = actions.every(a => current.includes(a));
-      if (allSelected) {
-        const next = { ...prev };
-        delete next[permId];
-        setSelectedPermissions(sp => sp.filter(id => id !== permId));
-        return next;
-      } else {
-        setSelectedPermissions(sp => sp.includes(permId) ? sp : [...sp, permId]);
-        return { ...prev, [permId]: [...actions] };
-      }
-    });
+    const current = granularPerms[permId] || [];
+    const allSelected = actions.every((actionId) => current.includes(actionId));
+    const nextGranularPerms = { ...granularPerms };
+
+    if (allSelected) {
+      delete nextGranularPerms[permId];
+      applyPermissionSelection(
+        selectedPermissions.filter((id) => id !== permId),
+        nextGranularPerms,
+        { promptForReportDependency: false }
+      );
+      return;
+    }
+
+    applyPermissionSelection(
+      selectedPermissions.includes(permId) ? selectedPermissions : [...selectedPermissions, permId],
+      { ...nextGranularPerms, [permId]: [...actions] }
+    );
   };
 
   const togglePermission = (permissionId: string) => {
@@ -235,8 +413,12 @@ export function Roles() {
       // Toggle all actions
       toggleAllActions(permissionId, perm.actions.map(a => a.id));
     } else {
-      setSelectedPermissions((prev) =>
-        prev.includes(permissionId) ? prev.filter((id) => id !== permissionId) : [...prev, permissionId]
+      applyPermissionSelection(
+        selectedPermissions.includes(permissionId)
+          ? selectedPermissions.filter((id) => id !== permissionId)
+          : [...selectedPermissions, permissionId],
+        granularPerms,
+        { promptForReportDependency: !selectedPermissions.includes(permissionId) }
       );
     }
   };
@@ -245,26 +427,25 @@ export function Roles() {
     const categoryPerms = filteredPermissions.filter((p) => p.category === category);
     const allSelected = categoryPerms.every((p) => selectedPermissions.includes(p.id));
     if (allSelected) {
-      setSelectedPermissions((prev) => prev.filter((id) => !categoryPerms.some((p) => p.id === id)));
-      // Also clear granular
-      setGranularPerms(prev => {
-        const next = { ...prev };
-        categoryPerms.forEach(p => delete next[p.id]);
-        return next;
-      });
+      const nextGranularPerms = { ...granularPerms };
+      categoryPerms.forEach((permission) => delete nextGranularPerms[permission.id]);
+      applyPermissionSelection(
+        selectedPermissions.filter((id) => !categoryPerms.some((permission) => permission.id === id)),
+        nextGranularPerms,
+        { promptForReportDependency: false }
+      );
     } else {
-      const newIds = categoryPerms.map((p) => p.id).filter((id) => !selectedPermissions.includes(id));
-      setSelectedPermissions((prev) => [...prev, ...newIds]);
-      // Select all actions for each
-      setGranularPerms(prev => {
-        const next = { ...prev };
-        categoryPerms.forEach(p => {
-          if (p.actions && p.actions.length > 0) {
-            next[p.id] = p.actions.map(a => a.id);
-          }
-        });
-        return next;
+      const nextSelectedPermissions = uniquePermissionIds([
+        ...selectedPermissions,
+        ...categoryPerms.map((permission) => permission.id),
+      ]);
+      const nextGranularPerms = { ...granularPerms };
+      categoryPerms.forEach((permission) => {
+        if (permission.actions && permission.actions.length > 0) {
+          nextGranularPerms[permission.id] = permission.actions.map((action) => action.id);
+        }
       });
+      applyPermissionSelection(nextSelectedPermissions, nextGranularPerms);
     }
   };
 
@@ -298,8 +479,15 @@ export function Roles() {
       scopeLevel: normalizedLevel,
       catalog: permissionCatalog,
     });
-    setSelectedPermissions(mapped.permissions);
-    setGranularPerms(mapped.granularPermissions);
+    const availablePermissionsForLevel = deriveAssignablePermissions({ catalog: permissionCatalog, scopeLevel: normalizedLevel });
+    const sanitized = sanitizePermissionSelectionForLevel(
+      mapped.permissions,
+      mapped.granularPermissions,
+      availablePermissionsForLevel
+    );
+    setSelectedPermissions(sanitized.permissionIds);
+    setGranularPerms(sanitized.granularPermissions);
+    setPendingPermissionChange(null);
     setDialogMode('edit');
   };
 
@@ -322,6 +510,10 @@ export function Roles() {
     }
     setSaving(true);
     try {
+      if (!hasRequiredAdminViewPermission(selectedPermissions, granularPerms)) {
+        showToast('Select the required admin view permission before granting report access.', 'error');
+        return;
+      }
       const payload = buildRolePermissionPayload({
         permissionIds: selectedPermissions,
         granularPermissions: granularPerms,
@@ -354,6 +546,10 @@ export function Roles() {
     }
     setSaving(true);
     try {
+      if (!hasRequiredAdminViewPermission(selectedPermissions, granularPerms)) {
+        showToast('Select the required admin view permission before granting report access.', 'error');
+        return;
+      }
       const payload = buildRolePermissionPayload({
         permissionIds: selectedPermissions,
         granularPermissions: granularPerms,
@@ -515,10 +711,10 @@ export function Roles() {
             {filteredRoles.map((role) => {
               const meta = LEVEL_META[normalizeRoleLevel(role.level)];
               const rolePermissions = getRolePermissions(role.permissions);
-              const permissionsByCategory = PERMISSION_CATEGORIES.map((category) => ({
-                category,
-                permissions: rolePermissions.filter((p) => p.category === category),
-              })).filter((c) => c.permissions.length > 0);
+              const permissionsByCategory = groupPermissionsForDisplay(
+                rolePermissions,
+                normalizeRoleLevel(role.level)
+              );
               const adminCount = getAdminCountForRole(role.id);
 
               return (
@@ -548,9 +744,9 @@ export function Roles() {
                           Permissions ({role.permissions.length})
                         </p>
                         <div className="space-y-3">
-                          {permissionsByCategory.slice(0, 3).map(({ category, permissions }) => (
-                            <div key={category}>
-                              <p className="text-xs font-medium text-gray-500 mb-1">{category}</p>
+                          {permissionsByCategory.slice(0, 3).map(({ key, label, permissions }) => (
+                            <div key={key}>
+                              <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
                               <div className="space-y-1">
                                 {permissions.slice(0, 2).map((permission) => (
                                   <div key={permission.id} className="flex items-start gap-2 text-sm">
@@ -721,27 +917,30 @@ export function Roles() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {PERMISSION_CATEGORIES.map((category) => {
-                    const categoryPermissions = filteredPermissions.filter((p) => p.category === category);
-                    if (categoryPermissions.length === 0) return null;
-                    const allSelected = categoryPermissions.every((p) =>
+                  {groupPermissionsForDisplay(filteredPermissions, roleLevel).map((categoryGroup) => {
+                    const allSelected = categoryGroup.permissions.every((p) =>
                       selectedPermissions.includes(p.id)
                     );
 
                     return (
-                      <div key={category} className="space-y-3">
+                      <div key={categoryGroup.key} className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-gray-900">{category}</h3>
+                          <div>
+                            <h3 className="font-medium text-gray-900">{categoryGroup.label}</h3>
+                            {categoryGroup.note && (
+                              <p className="text-xs text-gray-500 mt-0.5">{categoryGroup.note}</p>
+                            )}
+                          </div>
                           <button
                             type="button"
                             className="text-xs text-blue-600 hover:text-blue-800"
-                            onClick={() => toggleAllInCategory(category)}
+                            onClick={() => toggleAllInCategory(categoryGroup.key)}
                           >
                             {allSelected ? 'Deselect all' : 'Select all'}
                           </button>
                         </div>
                         <div className="space-y-3 ml-2">
-                          {categoryPermissions.map((permission) => (
+                          {categoryGroup.permissions.map((permission) => (
                             <div key={permission.id} className="flex items-start gap-3">
                               <Checkbox
                                 id={permission.id}
@@ -821,10 +1020,10 @@ export function Roles() {
           {selectedRole && (() => {
             const meta = LEVEL_META[normalizeRoleLevel(selectedRole.level)];
             const rolePermissions = getRolePermissions(selectedRole.permissions);
-            const permsByCategory = PERMISSION_CATEGORIES.map((cat) => ({
-              category: cat,
-              permissions: rolePermissions.filter((p) => p.category === cat),
-            })).filter((c) => c.permissions.length > 0);
+            const permsByCategory = groupPermissionsForDisplay(
+              rolePermissions,
+              normalizeRoleLevel(selectedRole.level)
+            );
             const adminCount = getAdminCountForRole(selectedRole.id);
 
             return (
@@ -861,11 +1060,12 @@ export function Roles() {
                 {/* All Permissions */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium text-gray-700">All Permissions</h4>
-                  {permsByCategory.map(({ category, permissions }) => (
-                    <div key={category}>
+                  {permsByCategory.map(({ key, label, note, permissions }) => (
+                    <div key={key}>
                       <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">
-                        {category}
+                        {label}
                       </p>
+                      {note && <p className="text-xs text-gray-400 mb-2">{note}</p>}
                       <div className="space-y-2">
                         {permissions.map((perm) => (
                           <div
@@ -935,6 +1135,34 @@ export function Roles() {
           })()}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(pendingPermissionChange)}
+        onOpenChange={(open) => !open && setPendingPermissionChange(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Admin View Permission Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              Report access depends on <strong>{pendingPermissionChange?.requiredPermissionName}</strong> with the
+              <strong> View</strong> action. Add it now so this role can use reports correctly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingPermissionChange) return;
+                setSelectedPermissions(pendingPermissionChange.permissionIds);
+                setGranularPerms(pendingPermissionChange.granularPermissions);
+                setPendingPermissionChange(null);
+              }}
+            >
+              Add Required Permission
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ==================== DELETE CONFIRMATION ==================== */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

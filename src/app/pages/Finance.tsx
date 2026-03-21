@@ -559,7 +559,12 @@ export function Finance() {
   const getDefaultScopeId = (scope: string) => {
     if (scope === 'church') return '';
     if (scope === 'branch' && adminLevel === 'branch') return accessibleBranchIds[0] || '';
-    if (scope === 'department' && (adminLevel === 'department' || adminLevel === 'branch')) return accessibleDepartmentIds[0] || '';
+    if (scope === 'department' && (adminLevel === 'department' || adminLevel === 'branch' || adminLevel === 'unit')) {
+      return accessibleDepartmentIds[0]
+        || currentAdmin?.departmentId
+        || units.find((unit) => accessibleUnitIds.includes(unit.id))?.departmentId
+        || '';
+    }
     if (scope === 'unit') return accessibleUnitIds[0] || '';
     return '';
   };
@@ -568,7 +573,16 @@ export function Finance() {
   const getFilteredDepts = (branchId?: string) => {
     let deps = departments;
     if (branchId) deps = deps.filter(d => d.branchId === branchId);
-    if (adminLevel === 'department') deps = deps.filter(d => accessibleDepartmentIds.includes(d.id));
+    if (adminLevel === 'department' || adminLevel === 'unit') {
+      const allowedDepartmentIds = new Set([
+        ...accessibleDepartmentIds,
+        currentAdmin?.departmentId || '',
+        ...units
+          .filter((unit) => accessibleUnitIds.includes(unit.id))
+          .map((unit) => unit.departmentId),
+      ].filter(Boolean));
+      deps = deps.filter(d => allowedDepartmentIds.has(d.id));
+    }
     return deps;
   };
 
@@ -745,10 +759,7 @@ export function Finance() {
   const handleSaveCT = async () => {
     const errors: Record<string, string> = {};
     if (!ctName.trim()) errors.name = 'Enter a name for this collection type (e.g. "Tithe", "Offering").';
-    // Check duplicate
-    if (ctName.trim() && collectionTypes.some(ct => ct.name.toLowerCase() === ctName.trim().toLowerCase())) {
-      errors.name = 'A collection type with this name already exists at this scope.';
-    }
+    if (ctScope !== 'church' && !ctScopeId) errors.scopeId = 'Select which area this collection type applies to.';
 
     if (Object.keys(errors).length) {
       setCtErrors(errors);
@@ -757,11 +768,43 @@ export function Finance() {
       return;
     }
 
+    const collectionContext = resolveCollectionScopeContext(ctScope, ctScopeId);
+    if (collectionContext.scopeType === 'department' && ctScope !== 'church' && !collectionContext.departmentId) {
+      showToast('The selected scope could not be matched to a department.', 'error');
+      return;
+    }
+
+    const normalizedName = ctName.trim().toLowerCase();
+    const duplicateExists = collectionTypes.some((collectionType) => {
+      if (collectionType.name.trim().toLowerCase() !== normalizedName) return false;
+      if (collectionType.scope !== collectionContext.scopeType) return false;
+
+      if (collectionContext.scopeType === 'church') {
+        return true;
+      }
+
+      const assignedScopeIds = getAssignedScopeIds(collectionType);
+      const targetScopeIds = collectionContext.scopeType === 'branch'
+        ? collectionContext.branchIds || []
+        : collectionContext.departmentIds || [];
+
+      return targetScopeIds.some((id) => assignedScopeIds.includes(id));
+    });
+
+    if (duplicateExists) {
+      setCtErrors({ name: 'A collection type with this name already exists at this scope.' });
+      scrollToError(ctFormRef, 'name');
+      return;
+    }
+
     setSaving(true);
     try {
       await createCollection({
         name: ctName.trim(),
-      });
+        scopeType: collectionContext.scopeType,
+        branchId: collectionContext.branchId,
+        departmentId: collectionContext.departmentId,
+      }, collectionContext.branchId, collectionContext.departmentId);
       await loadData();
       setCtOpen(false);
       resetCtForm();
@@ -812,10 +855,9 @@ export function Finance() {
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
           scopeType: collectionContext.scopeType,
+          type: 'donation',
           branchId: collectionContext.branchId,
           departmentId: collectionContext.departmentId,
-          branchIds: collectionContext.branchIds,
-          departmentIds: collectionContext.departmentIds,
           endTime: endTimeIso,
         },
         collectionContext.branchId,
@@ -1763,14 +1805,14 @@ export function Finance() {
               {ctErrors.name && <p className="text-xs text-red-500 mt-1">{ctErrors.name}</p>}
             </div>
 
-            {/* <ScopeSelector
+            <ScopeSelector
               scope={ctScope}
               setScope={setCtScope}
               scopeId={ctScopeId}
               setScopeId={setCtScopeId}
               errors={ctErrors}
               fieldPrefix="ct"
-            /> */}
+            />
 
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCtOpen(false)}>Cancel</Button>

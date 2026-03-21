@@ -23,6 +23,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../components/ui/pagination';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import {
   Users,
@@ -51,7 +60,6 @@ import {
   Camera,
   Upload,
 } from 'lucide-react';
-import { PERMISSION_CATEGORIES } from '../data/permissions';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -77,6 +85,7 @@ import {
   deriveAssignablePermissions,
   type PermissionCatalogGroup,
 } from '../utils/rolePermissionMapping';
+import { groupPermissionsForDisplay } from '../utils/permissionCategoryDisplay';
 
 type DialogMode = 'create' | 'edit' | null;
 type ActionMode = 'delete' | 'suspend' | 'activate' | 'reset-password' | null;
@@ -103,6 +112,25 @@ const ACCESS_LEVEL_INFO: Record<AdminLevel, { label: string; icon: React.ReactNo
     description: 'Access limited to a specific unit within a department. Best for unit leaders and team heads.',
   },
 };
+
+const ADMINS_PAGE_SIZE = 10;
+
+function getVisiblePageNumbers(currentPage: number, totalPages: number) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages: Array<number | 'ellipsis-left' | 'ellipsis-right'> = [1];
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  if (start > 2) pages.push('ellipsis-left');
+  for (let page = start; page <= end; page += 1) pages.push(page);
+  if (end < totalPages - 1) pages.push('ellipsis-right');
+  pages.push(totalPages);
+
+  return pages;
+}
 
 function uniquePermissionIds(permissionIds?: string[]) {
   return Array.from(new Set((permissionIds || []).filter(Boolean)));
@@ -183,6 +211,7 @@ export function Admins() {
 
   // Search
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -285,6 +314,14 @@ export function Admins() {
     const q = searchTerm.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q) || (a.phone && a.phone.includes(q));
   });
+  const totalPages = Math.max(1, Math.ceil(filteredAdmins.length / ADMINS_PAGE_SIZE));
+  const paginatedAdmins = filteredAdmins.slice(
+    (currentPage - 1) * ADMINS_PAGE_SIZE,
+    currentPage * ADMINS_PAGE_SIZE,
+  );
+  const visiblePageNumbers = getVisiblePageNumbers(currentPage, totalPages);
+  const currentPageStart = filteredAdmins.length === 0 ? 0 : ((currentPage - 1) * ADMINS_PAGE_SIZE) + 1;
+  const currentPageEnd = Math.min(currentPage * ADMINS_PAGE_SIZE, filteredAdmins.length);
   const rolesForLevel = roles.filter((r) =>
     r.level === formLevel || (formLevel === 'unit' && r.level === 'department')
   );
@@ -345,6 +382,16 @@ export function Admins() {
     );
   const customAddedCount = formCustomPermissions.filter((id) => !presetPermissionIds.includes(id)).length;
   const customRemovedCount = presetPermissionIds.filter((id) => !formCustomPermissions.includes(id)).length;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // --- Helpers ---
   const resetForm = () => {
@@ -957,7 +1004,7 @@ export function Admins() {
             ) : (
               <>
                 {/* Search bar - only when admins exist */}
-                <div className="mb-4">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="relative max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <Input
@@ -967,105 +1014,45 @@ export function Admins() {
                       className="pl-10"
                     />
                   </div>
+                  <p className="text-sm text-gray-500">
+                    {filteredAdmins.length === 0
+                      ? 'No leaders match your search.'
+                      : `Showing ${currentPageStart}-${currentPageEnd} of ${filteredAdmins.length} leaders`}
+                  </p>
                 </div>
-              <Card>
-                <CardContent className="p-0">
-                  {/* Mobile cards */}
-                  <div className="block md:hidden divide-y divide-gray-100">
-                    {filteredAdmins.map((admin) => (
-                      <div key={admin.id} className="p-4 space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            {admin.profilePicture ? (
-                              <img src={admin.profilePicture} alt={admin.name} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
-                            ) : (
-                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
-                                {admin.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900">{admin.name}</p>
-                              <p className="text-xs text-gray-500">{admin.email}</p>
-                            </div>
-                          </div>
-                          {hasAdminRowActions(admin) && (
-                            <AdminActionsMenu
-                              admin={admin}
-                              canEdit={canEditAdminRecord(admin)}
-                              canSuspend={canSuspendAdminRecord(admin)}
-                              canDelete={canDeleteAdminRecord(admin)}
-                              canResetPassword={canResetPasswordForAdmin(admin)}
-                              canViewPassword={canViewPasswordForAdmin(admin)}
-                              onEdit={() => openEdit(admin)}
-                              onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
-                              onDelete={() => openAction(admin, 'delete')}
-                              onResetPassword={() => openAction(admin, 'reset-password')}
-                              onViewPassword={() => handleViewPassword(admin)}
-                            />
-                          )}
+                <Card>
+                  <CardContent className="p-0">
+                    {filteredAdmins.length === 0 ? (
+                      <div className="px-4 py-16 text-center">
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 mb-4">
+                          <Search className="w-6 h-6 text-gray-400" />
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className={getLevelBadgeColor(admin.level)}>
-                            {ACCESS_LEVEL_INFO[admin.level].label}
-                          </Badge>
-                          {getStatusBadge(admin)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          <span className="font-medium">Role:</span> {getRoleName(admin)}
-                          {' '}&middot;{' '}
-                          <span className="font-medium">Scope:</span> {getScopeLabel(admin)}
-                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No matching leaders</h3>
+                        <p className="text-sm text-gray-500 max-w-md mx-auto">
+                          Try a different name, email address, or phone number to find the leader you&apos;re looking for.
+                        </p>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop table */}
-                  <div className="hidden md:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Leader</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Access Level</TableHead>
-                          <TableHead>Scope</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredAdmins.map((admin) => (
-                          <TableRow key={admin.id} className={admin.status === 'suspended' ? 'opacity-60' : ''}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                {admin.profilePicture ? (
-                                  <img src={admin.profilePicture} alt={admin.name} className="w-9 h-9 rounded-full object-cover border border-gray-200" />
-                                ) : (
-                                  <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-600">
-                                    {admin.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                    ) : (
+                      <>
+                        {/* Mobile cards */}
+                        <div className="block md:hidden divide-y divide-gray-100">
+                          {paginatedAdmins.map((admin) => (
+                            <div key={admin.id} className="p-4 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  {admin.profilePicture ? (
+                                    <img src={admin.profilePicture} alt={admin.name} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+                                  ) : (
+                                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                                      {admin.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-medium text-gray-900">{admin.name}</p>
+                                    <p className="text-xs text-gray-500">{admin.email}</p>
                                   </div>
-                                )}
-                                <div>
-                                  <p className="font-medium text-gray-900">{admin.name}</p>
-                                  <p className="text-xs text-gray-500">{admin.email}</p>
-                                  {admin.phone && <p className="text-xs text-gray-400">{admin.phone}</p>}
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm">{getRoleName(admin)}</span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getLevelBadgeColor(admin.level)}>
-                                {ACCESS_LEVEL_INFO[admin.level].label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm text-gray-600">{getScopeLabel(admin)}</span>
-                            </TableCell>
-                            <TableCell>{getStatusBadge(admin)}</TableCell>
-                            <TableCell>
-                              {hasAdminRowActions(admin) && (
-                                <div className="flex justify-end">
+                                {hasAdminRowActions(admin) && (
                                   <AdminActionsMenu
                                     admin={admin}
                                     canEdit={canEditAdminRecord(admin)}
@@ -1079,16 +1066,148 @@ export function Admins() {
                                     onResetPassword={() => openAction(admin, 'reset-password')}
                                     onViewPassword={() => handleViewPassword(admin)}
                                   />
-                                </div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge className={getLevelBadgeColor(admin.level)}>
+                                  {ACCESS_LEVEL_INFO[admin.level].label}
+                                </Badge>
+                                {getStatusBadge(admin)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                <span className="font-medium">Role:</span> {getRoleName(admin)}
+                                {' '}&middot;{' '}
+                                <span className="font-medium">Scope:</span> {getScopeLabel(admin)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Desktop table */}
+                        <div className="hidden md:block">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Leader</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead>Access Level</TableHead>
+                                <TableHead>Scope</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {paginatedAdmins.map((admin) => (
+                                <TableRow key={admin.id} className={admin.status === 'suspended' ? 'opacity-60' : ''}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-3">
+                                      {admin.profilePicture ? (
+                                        <img src={admin.profilePicture} alt={admin.name} className="w-9 h-9 rounded-full object-cover border border-gray-200" />
+                                      ) : (
+                                        <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium text-blue-600">
+                                          {admin.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                                        </div>
+                                      )}
+                                      <div>
+                                        <p className="font-medium text-gray-900">{admin.name}</p>
+                                        <p className="text-xs text-gray-500">{admin.email}</p>
+                                        {admin.phone && <p className="text-xs text-gray-400">{admin.phone}</p>}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-sm">{getRoleName(admin)}</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge className={getLevelBadgeColor(admin.level)}>
+                                      {ACCESS_LEVEL_INFO[admin.level].label}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-sm text-gray-600">{getScopeLabel(admin)}</span>
+                                  </TableCell>
+                                  <TableCell>{getStatusBadge(admin)}</TableCell>
+                                  <TableCell>
+                                    {hasAdminRowActions(admin) && (
+                                      <div className="flex justify-end">
+                                        <AdminActionsMenu
+                                          admin={admin}
+                                          canEdit={canEditAdminRecord(admin)}
+                                          canSuspend={canSuspendAdminRecord(admin)}
+                                          canDelete={canDeleteAdminRecord(admin)}
+                                          canResetPassword={canResetPasswordForAdmin(admin)}
+                                          canViewPassword={canViewPasswordForAdmin(admin)}
+                                          onEdit={() => openEdit(admin)}
+                                          onSuspend={() => openAction(admin, admin.status === 'active' ? 'suspend' : 'activate')}
+                                          onDelete={() => openAction(admin, 'delete')}
+                                          onResetPassword={() => openAction(admin, 'reset-password')}
+                                          onViewPassword={() => handleViewPassword(admin)}
+                                        />
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {filteredAdmins.length > 0 && (
+                  <Card className="mt-4">
+                    <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm text-gray-500">
+                        <p>Showing {currentPageStart}-{currentPageEnd} of {filteredAdmins.length} leaders</p>
+                        <p>Page {currentPage} of {totalPages}</p>
+                      </div>
+                      <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              href="#"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (currentPage > 1) setCurrentPage(currentPage - 1);
+                              }}
+                              className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                            />
+                          </PaginationItem>
+                          {visiblePageNumbers.map((page) => (
+                            <PaginationItem key={page}>
+                              {typeof page === 'number' ? (
+                                <PaginationLink
+                                  href="#"
+                                  isActive={page === currentPage}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    setCurrentPage(page);
+                                  }}
+                                >
+                                  {page}
+                                </PaginationLink>
+                              ) : (
+                                <PaginationEllipsis />
                               )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
+                            </PaginationItem>
+                          ))}
+                          <PaginationItem>
+                            <PaginationNext
+                              href="#"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                              }}
+                              className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
           </>
@@ -1382,14 +1501,17 @@ export function Admins() {
                     </div>
 
                     <div className="space-y-4">
-                      {PERMISSION_CATEGORIES.map((category) => {
-                        const categoryPerms = availablePermissionsForLevel.filter((p) => p.category === category);
-                        if (categoryPerms.length === 0) return null;
+                      {groupPermissionsForDisplay(availablePermissionsForLevel, formLevel).map((categoryGroup) => {
                         return (
-                          <div key={category} className="space-y-2">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{category}</p>
+                          <div key={categoryGroup.key} className="space-y-2">
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{categoryGroup.label}</p>
+                              {categoryGroup.note && (
+                                <p className="text-xs text-gray-400 mt-1">{categoryGroup.note}</p>
+                              )}
+                            </div>
                             <div className="space-y-2 ml-1">
-                              {categoryPerms.map((p) => {
+                              {categoryGroup.permissions.map((p) => {
                                 const isInPreset = presetPermissionIds.includes(p.id);
                                 const isChecked = formCustomPermissions.includes(p.id);
                                 const wasAdded = isChecked && !isInPreset;

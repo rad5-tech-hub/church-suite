@@ -114,8 +114,8 @@ export interface ViewAdminsResponse {
   message: string;
   pagination?: {
     hasNextPage: boolean;
-    nextCursor: string;
-    nextPage: number | null;
+    nextCursor?: string | null;
+    nextPage?: string | null;
   };
   admins: ApiAdmin[];
 }
@@ -324,10 +324,11 @@ export interface CreateEventRequest {
   recurrenceType: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
   startTime?: string;
   endTime?: string;
-  byWeekday?: number[] | { weekday: number; startTime: string; endTime: string }[];
+  byWeekday?: Array<number | { weekday: number; startTime?: string; endTime?: string }>;
   nthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[];
   branchId?: string;
   departmentIds?: string[];
+  collectionIds?: string[];
 }
 
 export interface EditEventOccurrenceRequest {
@@ -338,7 +339,7 @@ export interface EditEventOccurrenceRequest {
   recurrenceType?: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
   startTime?: string;
   endTime?: string;
-  byWeekday?: number[] | { weekday: number; startTime?: string; endTime?: string }[];
+  byWeekday?: Array<number | { weekday: number; startTime?: string; endTime?: string }>;
   nthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[];
   departmentIds?: string[];
   collectionIds?: string[];
@@ -385,51 +386,83 @@ export interface WorkerAttendanceRequest {
 
 export interface ApiFollowUp {
   id: string;
+  eventOccurrenceId?: string | null;
+  formId?: string | null;
   name: string;
+  email?: string | null;
   address: string;
-  phoneNo: string;
-  sex: string;
-  newComersComment: string;
-  maritalStatus: string;
-  adminComment: string;
-  birthMonth: number;
-  birthDay: number;
-  isVisitor: boolean;
+  whatappNo?: string | null;
+  phoneNo?: string | null;
+  sex?: string | null;
+  newComersComment?: string | null;
+  maritalStatus?: string | null;
+  adminComment?: string | null;
+  birthMonth?: string | number | null;
+  birthDay?: string | number | null;
+  timer?: number | null;
+  isActive?: boolean;
+  isVisitor?: boolean;
+  called?: boolean;
+  messaged?: boolean;
+  visited?: boolean;
+  answers?: Array<{
+    questionId?: string;
+    answer: string | number | boolean | string[] | null;
+  }>;
   branchId: string;
   churchId: string;
   tenantId: string;
+  isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
+export type FollowUpAnswerValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | null;
+
 export interface CreateFollowUpRequest {
   name: string;
+  email?: string;
   address?: string;
+  whatappNo?: string;
   phoneNo?: string;
   sex?: string;
   newComersComment?: string;
   maritalStatus?: string;
   adminComment?: string;
-  birthMonth?: number;
-  birthDay?: number;
+  birthMonth?: string | number;
+  birthDay?: string | number;
   isVisitor?: boolean;
+  eventOccurrenceId?: string;
   formId?: string;
-  answers?: { questionId: string; answer: string }[];
+  answers?: { questionId: string; answer: FollowUpAnswerValue }[];
 }
 
 export interface EditFollowUpRequest {
   name?: string;
+  email?: string;
+  eventOccurrenceId?: string;
   address?: string;
   whatappNo?: string;
-  timer?: string;
+  timer?: string | number;
+  isActive?: boolean;
   isVisitor?: boolean;
+  maritalStatus?: string;
+  newComersComment?: string;
   phoneNo?: string;
   sex?: string;
-  birthMonth?: number;
-  birthDay?: number;
+  birthMonth?: string | number;
+  birthDay?: string | number;
+  called?: boolean;
+  messaged?: boolean;
+  visited?: boolean;
   formId?: string;
   adminComment?: string;
-  answers?: { questionId: string; answer: string }[];
+  answers?: { questionId: string; answer: FollowUpAnswerValue }[];
 }
 
 // ─── Collections ─────────────────────────────────────────────
@@ -512,6 +545,7 @@ export interface CreateReportRequest {
   churchId?: string;
   branchId?: string;
   departmentId?: string;
+  recipients?: string[];
   responseComments?: string;
   file?: File | File[];
   files?: File[];

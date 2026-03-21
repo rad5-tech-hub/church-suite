@@ -10,6 +10,7 @@ import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { Progress } from '../components/ui/progress';
 import { Checkbox } from '../components/ui/checkbox';
+import { Textarea } from '../components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -84,6 +85,7 @@ import {
   fetchMembers,
   fetchCollectionTypes,
 } from '../api';
+import type { EditEventOccurrenceRequest } from '../apiTypes';
 
 type ViewMode = 'calendar' | 'grid';
 
@@ -92,29 +94,63 @@ const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PIE_COLORS = ['#3B82F6', '#EC4899', '#F59E0B'];
 const NTH_LABELS = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+const GRID_PAGE_SIZE = 12;
 
-type MonthlyRuleMode = 'day-of-month' | 'nth-weekday';
+type MonthlyRuleDraft = {
+  id: string;
+  nth: string;
+  weekday: string;
+  startTime: string;
+  endTime: string;
+};
+
+type WeeklyRuleDraft = {
+  id: string;
+  weekday: string;
+  startTime: string;
+  endTime: string;
+};
 
 function RequiredStar() {
   return <span className="text-red-500 ml-0.5">*</span>;
 }
 
+function getNthLabel(nth: number) {
+  if (nth === -1) return 'Last';
+  return NTH_LABELS[nth - 1] || `${nth}th`;
+}
+
+function createMonthlyRuleDraft(overrides: Partial<MonthlyRuleDraft> = {}): MonthlyRuleDraft {
+  return {
+    id: `monthly-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    nth: '',
+    weekday: '',
+    startTime: '',
+    endTime: '',
+    ...overrides,
+  };
+}
+
+function createWeeklyRuleDraft(overrides: Partial<WeeklyRuleDraft> = {}): WeeklyRuleDraft {
+  return {
+    id: `weekly-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    weekday: '',
+    startTime: '',
+    endTime: '',
+    ...overrides,
+  };
+}
 
 function formatApiTime(time: string) {
   if (!time) return "";
-  return /^\d{2}:\d{2}:\d{2}$/.test(time) ? time : `${time}:00`;
+  const match = String(time).match(/^(\d{2}:\d{2})/);
+  return match ? match[1] : String(time);
 }
 
 function toTimeInputValue(time?: string) {
   if (!time) return '';
   const match = String(time).match(/^(\d{2}:\d{2})/);
   return match ? match[1] : String(time);
-}
-
-function toApiDateTime(date: string, time = '00:00') {
-  if (!date) return '';
-  const normalizedTime = /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : (time || '00:00:00');
-  return `${date}T${normalizedTime}.000Z`;
 }
 
 function toDateInputValue(date: Date) {
@@ -124,25 +160,19 @@ function toDateInputValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getNextMonthlyOccurrenceDate(dayOfMonth: number, fromDate = new Date()) {
-  const anchor = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-
-  for (let monthOffset = 0; monthOffset < 24; monthOffset++) {
-    const monthIndex = anchor.getMonth() + monthOffset;
-    const year = anchor.getFullYear() + Math.floor(monthIndex / 12);
-    const month = monthIndex % 12;
-    const candidate = new Date(year, month, dayOfMonth);
-
-    // Skip overflowed dates (e.g. Feb 31 -> Mar 3).
-    if (candidate.getMonth() !== month) continue;
-    if (candidate >= anchor) return toDateInputValue(candidate);
-  }
-
-  return toDateInputValue(anchor);
+function weekdayNameToIndex(dayName?: string) {
+  const normalized = String(dayName || '').toLowerCase();
+  return FULL_DAY_NAMES.findIndex((name) => name.toLowerCase() === normalized);
 }
 
 function getNthWeekdayOfMonth(year: number, month: number, weekday: number, nth: number) {
-  if (nth < 1 || nth > 5 || weekday < 0 || weekday > 6) return null;
+  if ((nth < 1 && nth !== -1) || nth > 5 || weekday < 0 || weekday > 6) return null;
+
+  if (nth === -1) {
+    const lastOfMonth = new Date(year, month + 1, 0);
+    const dayOffset = (lastOfMonth.getDay() - weekday + 7) % 7;
+    return new Date(year, month, lastOfMonth.getDate() - dayOffset);
+  }
 
   const firstOfMonth = new Date(year, month, 1);
   const dayOffset = (weekday - firstOfMonth.getDay() + 7) % 7;
@@ -150,6 +180,34 @@ function getNthWeekdayOfMonth(year: number, month: number, weekday: number, nth:
   const candidate = new Date(year, month, dayOfMonth);
   if (candidate.getMonth() !== month) return null;
   return candidate;
+}
+
+function getNthWeekdayRuleFromDate(date?: string) {
+  if (!date) return null;
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return {
+    weekday: parsed.getDay(),
+    nth: Math.floor((parsed.getDate() - 1) / 7) + 1,
+  };
+}
+
+function doesDateMatchMonthlyRule(
+  date: string,
+  rule: { weekday: number; nth: number },
+) {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const candidate = getNthWeekdayOfMonth(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    rule.weekday,
+    rule.nth,
+  );
+
+  return !!candidate && toDateInputValue(candidate) === date;
 }
 
 export function Programs() {
@@ -175,18 +233,30 @@ export function Programs() {
   // Views
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchTerm, setSearchTerm] = useState('');
+  const [gridPage, setGridPage] = useState(1);
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const visibleRange = useMemo(() => {
+    const monthStart = new Date(calYear, calMonth, 1);
+    const monthEnd = new Date(calYear, calMonth + 1, 0);
+
+    return {
+      startDate: toDateInputValue(monthStart),
+      endDate: toDateInputValue(monthEnd),
+    };
+  }, [calMonth, calYear]);
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [cName, setCName] = useState('');
+  const [cDescription, setCDescription] = useState('');
   const [cType, setCType] = useState<ProgramFrequency | ''>('');
-  const [cWeeklyDays, setCWeeklyDays] = useState<number[]>([]);
-  const [cMonthlyDate, setCMonthlyDate] = useState('');
-  const [cMonthlyRuleMode, setCMonthlyRuleMode] = useState<MonthlyRuleMode>('day-of-month');
-  const [cMonthlyNth, setCMonthlyNth] = useState('');
-  const [cMonthlyWeekday, setCMonthlyWeekday] = useState('');
+  const [cWeeklyRules, setCWeeklyRules] = useState<WeeklyRuleDraft[]>([
+    createWeeklyRuleDraft(),
+  ]);
+  const [cMonthlyRules, setCMonthlyRules] = useState<MonthlyRuleDraft[]>([
+    createMonthlyRuleDraft(),
+  ]);
   const [cCustomDates, setCCustomDates] = useState<string[]>([]);
   const [cCustomPickerMonth, setCCustomPickerMonth] = useState(new Date().getMonth());
   const [cCustomPickerYear, setCCustomPickerYear] = useState(new Date().getFullYear());
@@ -226,7 +296,11 @@ export function Programs() {
     setLoading(true);
     try {
       const [progs, insts, deps, wf, colls, mems, cts] = await Promise.allSettled([
-        fetchPrograms(resolvedBranchId),
+        fetchPrograms({
+          branchId: resolvedBranchId,
+          startDate: visibleRange.startDate,
+          endDate: visibleRange.endDate,
+        }),
         fetchProgramInstances(),
         fetchDepartments(resolvedBranchId),
         fetchWorkforce(resolvedBranchId),
@@ -254,7 +328,7 @@ export function Programs() {
     } finally {
       setLoading(false);
     }
-  }, [resolvedBranchId]);
+  }, [resolvedBranchId, visibleRange.endDate, visibleRange.startDate]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -324,16 +398,61 @@ export function Programs() {
     return `${hr}:${m.toString().padStart(2, '0')} ${ampm}`;
   };
 
+  const getMonthlyRuleForDate = (
+    prog: Program,
+    date: string,
+  ): { weekday: number; nth: number; startTime?: string; endTime?: string } | undefined => {
+    if (prog.type !== 'monthly' || !prog.monthlyNthWeekdays?.length) return undefined;
+    return prog.monthlyNthWeekdays.find((rule) => doesDateMatchMonthlyRule(date, rule));
+  };
+
   /** Get start/end time for a program on a specific date */
   const getTimesForDate = (prog: Program, date: string): { start: string; end: string } => {
+    const occurrence = getOccurrenceForDate(prog, date) as { startTime?: string; endTime?: string } | undefined;
+    if (occurrence?.startTime || occurrence?.endTime) {
+      return {
+        start: occurrence.startTime || prog.startTime,
+        end: occurrence.endTime || prog.endTime,
+      };
+    }
     const occurrenceTime = prog.customDateTimes?.find(dt => dt.date === date);
     if (occurrenceTime) return { start: occurrenceTime.startTime, end: occurrenceTime.endTime };
+    const monthlyRule = getMonthlyRuleForDate(prog, date);
+    if (monthlyRule?.startTime || monthlyRule?.endTime) {
+      return {
+        start: monthlyRule.startTime || prog.startTime,
+        end: monthlyRule.endTime || prog.endTime,
+      };
+    }
     return { start: prog.startTime, end: prog.endTime };
   };
 
   // ──────── PROGRAM STATUS ────────
   const getOccurrenceDates = useCallback((prog: Program, rangeStart: Date, rangeEnd: Date): string[] => {
+    const apiOccurrences = (((prog as any).occurrences || (prog as any)._raw?.occurrences) as Array<{ date?: string }> | undefined)
+      ?.map((occurrence) => (occurrence.date || '').split('T')[0])
+      .filter(Boolean) || [];
+    if (apiOccurrences.length > 0) {
+      return Array.from(new Set(apiOccurrences))
+        .filter((date) => {
+          const dt = new Date(`${date}T00:00:00`);
+          return dt >= rangeStart && dt <= rangeEnd;
+        })
+        .sort((left, right) => left.localeCompare(right));
+    }
+
     const dates: string[] = [];
+    const recurrenceStartValue = ((prog as any)._raw?.date || '').split('T')[0];
+    const recurrenceEndValue = ((prog as any)._raw?.endDate || '').split('T')[0];
+    const effectiveStart = recurrenceStartValue
+      ? new Date(Math.max(rangeStart.getTime(), new Date(`${recurrenceStartValue}T00:00:00`).getTime()))
+      : new Date(rangeStart);
+    const effectiveEnd = recurrenceEndValue
+      ? new Date(Math.min(rangeEnd.getTime(), new Date(`${recurrenceEndValue}T23:59:59`).getTime()))
+      : new Date(rangeEnd);
+
+    if (effectiveStart > effectiveEnd) return dates;
+
     if (prog.type === 'one-time') {
       if (prog.customDates && prog.customDates.length > 0) {
         const d = prog.customDates[0];
@@ -341,29 +460,29 @@ export function Programs() {
         if (dt >= rangeStart && dt <= rangeEnd) dates.push(d);
       }
     } else if (prog.type === 'weekly' && prog.weeklyDays) {
-      const cur = new Date(rangeStart);
-      while (cur <= rangeEnd) {
+      const cur = new Date(effectiveStart);
+      while (cur <= effectiveEnd) {
         if (prog.weeklyDays.includes(cur.getDay())) {
-          dates.push(cur.toISOString().split('T')[0]);
+          dates.push(toDateInputValue(cur));
         }
         cur.setDate(cur.getDate() + 1);
       }
     } else if (prog.type === 'monthly') {
-      const cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+      const cur = new Date(effectiveStart.getFullYear(), effectiveStart.getMonth(), 1);
       const monthlyRules = prog.monthlyNthWeekdays || [];
 
-      while (cur <= rangeEnd) {
+      while (cur <= effectiveEnd) {
         if (monthlyRules.length > 0) {
           monthlyRules.forEach((rule) => {
             const dt = getNthWeekdayOfMonth(cur.getFullYear(), cur.getMonth(), rule.weekday, rule.nth);
-            if (dt && dt >= rangeStart && dt <= rangeEnd) {
-              dates.push(dt.toISOString().split('T')[0]);
+            if (dt && dt >= effectiveStart && dt <= effectiveEnd) {
+              dates.push(toDateInputValue(dt));
             }
           });
         } else if (prog.monthlyDate) {
           const dt = new Date(cur.getFullYear(), cur.getMonth(), prog.monthlyDate);
-          if (dt.getMonth() === cur.getMonth() && dt >= rangeStart && dt <= rangeEnd) {
-            dates.push(dt.toISOString().split('T')[0]);
+          if (dt.getMonth() === cur.getMonth() && dt >= effectiveStart && dt <= effectiveEnd) {
+            dates.push(toDateInputValue(dt));
           }
         }
 
@@ -375,19 +494,15 @@ export function Programs() {
         if (dt >= rangeStart && dt <= rangeEnd) dates.push(d);
       });
     }
-    return dates;
+    return Array.from(new Set(dates)).sort((left, right) => left.localeCompare(right));
   }, []);
 
   const getProgramStatus = useCallback((prog: Program, date: string): ProgramStatus => {
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    // Use per-date times for custom programs
-    let sTime = prog.startTime || '00:00';
-    let eTime = prog.endTime || '23:59';
-    if (prog.type === 'custom' && prog.customDateTimes) {
-      const cdt = prog.customDateTimes.find(dt => dt.date === date);
-      if (cdt) { sTime = cdt.startTime; eTime = cdt.endTime; }
-    }
+    const today = toDateInputValue(now);
+    const times = getTimesForDate(prog, date);
+    const sTime = times.start || '00:00';
+    const eTime = times.end || '23:59';
     const [sh, sm] = sTime.split(':').map(Number);
     const [eh, em] = eTime.split(':').map(Number);
     const start = new Date(date + 'T00:00:00');
@@ -467,7 +582,7 @@ export function Programs() {
 
     return filtered.map(prog => {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = toDateInputValue(now);
       // Find the closest next occurrence (or today's)
       const futureOccs = listOccurrences
         .filter(o => o.program.id === prog.id && o.date >= todayStr)
@@ -489,10 +604,11 @@ export function Programs() {
       switch (prog.type) {
         case 'weekly': freqLabel = `Weekly — ${(prog.weeklyDays || []).map(d => DAY_NAMES[d]).join(', ')}`; break;
         case 'monthly': {
-          const monthlyRule = prog.monthlyNthWeekdays?.[0];
-          if (monthlyRule) {
-            const nthLabel = NTH_LABELS[monthlyRule.nth - 1] || `${monthlyRule.nth}th`;
-            freqLabel = `Monthly — ${nthLabel} ${FULL_DAY_NAMES[monthlyRule.weekday]}`;
+          const monthlyRules = prog.monthlyNthWeekdays || [];
+          if (monthlyRules.length > 0) {
+            freqLabel = `Monthly — ${monthlyRules
+              .map((rule) => `${getNthLabel(rule.nth)} ${FULL_DAY_NAMES[rule.weekday]}`)
+              .join(', ')}`;
           } else {
             freqLabel = prog.monthlyDate
               ? `Monthly — ${prog.monthlyDate}${prog.monthlyDate === 1 ? 'st' : prog.monthlyDate === 2 ? 'nd' : prog.monthlyDate === 3 ? 'rd' : 'th'}`
@@ -508,6 +624,23 @@ export function Programs() {
     });
   }, [programs, listOccurrences, instances, searchTerm]);
 
+  const totalGridPages = Math.max(1, Math.ceil(gridPrograms.length / GRID_PAGE_SIZE));
+
+  useEffect(() => {
+    setGridPage(1);
+  }, [searchTerm, programs.length, viewMode]);
+
+  useEffect(() => {
+    if (gridPage > totalGridPages) {
+      setGridPage(totalGridPages);
+    }
+  }, [gridPage, totalGridPages]);
+
+  const paginatedGridPrograms = useMemo(() => {
+    const start = (gridPage - 1) * GRID_PAGE_SIZE;
+    return gridPrograms.slice(start, start + GRID_PAGE_SIZE);
+  }, [gridPage, gridPrograms]);
+
   // ──────── CALENDAR DATA ────────
   const calendarDays = useMemo(() => {
     const firstDay = new Date(calYear, calMonth, 1);
@@ -518,18 +651,18 @@ export function Programs() {
     // Pad start
     for (let i = startPad - 1; i >= 0; i--) {
       const d = new Date(calYear, calMonth, -i);
-      days.push({ date: d.toISOString().split('T')[0], dayNum: d.getDate(), isCurrentMonth: false });
+      days.push({ date: toDateInputValue(d), dayNum: d.getDate(), isCurrentMonth: false });
     }
     // Current month
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const dt = new Date(calYear, calMonth, d);
-      days.push({ date: dt.toISOString().split('T')[0], dayNum: d, isCurrentMonth: true });
+      days.push({ date: toDateInputValue(dt), dayNum: d, isCurrentMonth: true });
     }
     // Pad end
     const remaining = 42 - days.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(calYear, calMonth + 1, i);
-      days.push({ date: d.toISOString().split('T')[0], dayNum: d.getDate(), isCurrentMonth: false });
+      days.push({ date: toDateInputValue(d), dayNum: d.getDate(), isCurrentMonth: false });
     }
     return days;
   }, [calMonth, calYear]);
@@ -550,7 +683,47 @@ export function Programs() {
     return map;
   }, [programs, calMonth, calYear, getOccurrenceDates, getProgramStatus]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
+
+  const updateMonthlyRule = (
+    ruleId: string,
+    patch: Partial<Omit<MonthlyRuleDraft, 'id'>>,
+  ) => {
+    setCMonthlyRules((prev) =>
+      prev.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)),
+    );
+  };
+
+  const addMonthlyRule = () => {
+    setCMonthlyRules((prev) => [...prev, createMonthlyRuleDraft()]);
+  };
+
+  const removeMonthlyRule = (ruleId: string) => {
+    setCMonthlyRules((prev) => {
+      const next = prev.filter((rule) => rule.id !== ruleId);
+      return next.length > 0 ? next : [createMonthlyRuleDraft()];
+    });
+  };
+
+  const updateWeeklyRule = (
+    ruleId: string,
+    patch: Partial<Omit<WeeklyRuleDraft, 'id'>>,
+  ) => {
+    setCWeeklyRules((prev) =>
+      prev.map((rule) => (rule.id === ruleId ? { ...rule, ...patch } : rule)),
+    );
+  };
+
+  const addWeeklyRule = () => {
+    setCWeeklyRules((prev) => [...prev, createWeeklyRuleDraft()]);
+  };
+
+  const removeWeeklyRule = (ruleId: string) => {
+    setCWeeklyRules((prev) => {
+      const next = prev.filter((rule) => rule.id !== ruleId);
+      return next.length > 0 ? next : [createWeeklyRuleDraft()];
+    });
+  };
 
   // ──────── FORM VALIDATION ────────
   const scrollToError = (errors: Record<string, string>) => {
@@ -563,32 +736,73 @@ export function Programs() {
 
   const validateCreateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    const monthlyDay = cMonthlyDate ? Number(cMonthlyDate) : NaN;
-    const monthlyNth = cMonthlyNth ? Number(cMonthlyNth) : NaN;
-    const monthlyWeekday = cMonthlyWeekday ? Number(cMonthlyWeekday) : NaN;
     const derivedEventDate = cType === 'one-time'
       ? cOneTimeDate
       : cType === 'custom' && cCustomDates.length > 0
         ? cCustomDates[0]
         : (cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate
           ? cRecurrenceStartDate
-          : cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && Number.isFinite(monthlyDay)
-            ? getNextMonthlyOccurrenceDate(monthlyDay)
           : toDateInputValue(new Date());
 
     if (!cName.trim()) errors.cName = 'Program title is required';
     if (!cType) errors.cType = 'Please select a program type';
     if (cType === 'one-time' && !cOneTimeDate) errors.cOneTimeDate = 'Please select a date for this event';
-    if (cType === 'weekly' && cWeeklyDays.length === 0) errors.cWeeklyDays = 'Please select at least one day';
-    if (cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && !cMonthlyDate) {
-      errors.cMonthlyDate = 'Please select a day of the month';
-    }
-    if (cType === 'monthly' && cMonthlyRuleMode === 'nth-weekday') {
-      if (!Number.isFinite(monthlyNth) || monthlyNth < 1 || monthlyNth > 5) {
-        errors.cMonthlyNth = 'Please select which week of the month';
+    if (cType === 'weekly') {
+      if (cWeeklyRules.length === 0) {
+        errors.cWeeklyDays = 'Add at least one weekday rule';
       }
-      if (!Number.isFinite(monthlyWeekday) || monthlyWeekday < 0 || monthlyWeekday > 6) {
-        errors.cMonthlyWeekday = 'Please select a weekday';
+
+      for (let index = 0; index < cWeeklyRules.length; index += 1) {
+        const rule = cWeeklyRules[index];
+        const weekday = Number(rule.weekday);
+        const label = `Rule ${index + 1}`;
+
+        if (!Number.isFinite(weekday) || weekday < 0 || weekday > 6) {
+          errors.cWeeklyDays = `${label}: select a weekday`;
+          break;
+        }
+
+        if ((rule.startTime && !rule.endTime) || (!rule.startTime && rule.endTime)) {
+          errors.cWeeklyDays = `${label}: add both start and end time when overriding the default time`;
+          break;
+        }
+
+        if (rule.startTime && rule.endTime && rule.startTime >= rule.endTime) {
+          errors.cWeeklyDays = `${label}: end time must be after start time`;
+          break;
+        }
+      }
+    }
+    if (cType === 'monthly') {
+      if (cMonthlyRules.length === 0) {
+        errors.cMonthlyRules = 'Add at least one monthly rule';
+      }
+
+      for (let index = 0; index < cMonthlyRules.length; index += 1) {
+        const rule = cMonthlyRules[index];
+        const nth = Number(rule.nth);
+        const weekday = Number(rule.weekday);
+        const label = `Rule ${index + 1}`;
+
+        if (!Number.isFinite(nth) || (nth < 1 && nth !== -1) || nth > 5) {
+          errors.cMonthlyRules = `${label}: select which week of the month`;
+          break;
+        }
+
+        if (!Number.isFinite(weekday) || weekday < 0 || weekday > 6) {
+          errors.cMonthlyRules = `${label}: select a weekday`;
+          break;
+        }
+
+        if ((rule.startTime && !rule.endTime) || (!rule.startTime && rule.endTime)) {
+          errors.cMonthlyRules = `${label}: add both start and end time when overriding the default time`;
+          break;
+        }
+
+        if (rule.startTime && rule.endTime && rule.startTime >= rule.endTime) {
+          errors.cMonthlyRules = `${label}: end time must be after start time`;
+          break;
+        }
       }
     }
     if ((cType === 'weekly' || cType === 'monthly') && !cRecurrenceStartDate) {
@@ -627,12 +841,10 @@ export function Programs() {
   // ──────── CREATE / EDIT ────────
   const resetCreateForm = () => {
     setCName('');
+    setCDescription('');
     setCType('');
-    setCWeeklyDays([]);
-    setCMonthlyDate('');
-    setCMonthlyRuleMode('day-of-month');
-    setCMonthlyNth('');
-    setCMonthlyWeekday('');
+    setCWeeklyRules([createWeeklyRuleDraft()]);
+    setCMonthlyRules([createMonthlyRuleDraft()]);
     setCCustomDates([]);
     setCStartTime('');
     setCEndTime('');
@@ -647,33 +859,116 @@ export function Programs() {
     setEditTarget(null);
   };
 
-  const openEdit = (prog: Program) => {
+  const populateEditForm = (prog: Program, occurrenceResponse?: any) => {
+    const recurrenceType = occurrenceResponse?.event?.recurrenceType || (prog as any)._raw?.recurrenceType;
+    const normalizedType = recurrenceType === 'none'
+      ? 'one-time'
+      : recurrenceType === 'weekly'
+        ? 'weekly'
+        : recurrenceType === 'monthly' || recurrenceType === 'annually'
+          ? 'monthly'
+          : recurrenceType === 'custom'
+            ? 'custom'
+            : prog.type;
     const existingNthWeekdayRules =
       (prog.monthlyNthWeekdays && prog.monthlyNthWeekdays.length > 0
         ? prog.monthlyNthWeekdays
-        : ((prog as any)._raw?.nthWeekdays || [])) as Array<{ weekday?: number; nth?: number }>;
-    const firstNthRule = existingNthWeekdayRules[0];
+        : ((prog as any)._raw?.nthWeekdays || [])) as Array<{ weekday?: number; nth?: number; startTime?: string; endTime?: string }>;
+    const derivedNthRule =
+      existingNthWeekdayRules[0] ||
+      getNthWeekdayRuleFromDate(((prog as any)._raw?.date || '').split('T')[0] || prog.customDates?.[0]);
+    const normalizedMonthlyRules = existingNthWeekdayRules.length > 0
+      ? existingNthWeekdayRules
+      : derivedNthRule
+        ? [derivedNthRule]
+        : [];
+    const rawWeeklyRules = Array.isArray((prog as any)._raw?.byWeekday) ? (prog as any)._raw.byWeekday : [];
+    const normalizedWeeklyRules = rawWeeklyRules
+      .map((rule: any) => {
+        if (typeof rule === 'number') {
+          return {
+            weekday: String(rule),
+            startTime: '',
+            endTime: '',
+          };
+        }
+
+        const weekday = Number(rule?.weekday);
+        if (!Number.isFinite(weekday)) return null;
+        return {
+          weekday: String(weekday),
+          startTime: toTimeInputValue(rule?.startTime),
+          endTime: toTimeInputValue(rule?.endTime),
+        };
+      })
+      .filter(Boolean) as Array<{ weekday: string; startTime: string; endTime: string }>;
+    const occurrenceDate = (occurrenceResponse?.date || '').split('T')[0];
+    const occurrenceWeekday = weekdayNameToIndex(occurrenceResponse?.dayOfWeek);
+    const occurrenceStartTime = toTimeInputValue(occurrenceResponse?.startTime);
+    const occurrenceEndTime = toTimeInputValue(occurrenceResponse?.endTime);
+    const occurrenceDepartments = Array.isArray(occurrenceResponse?.assignedDepartments)
+      ? occurrenceResponse.assignedDepartments.map((department: any) => department?.id).filter(Boolean)
+      : [];
+    const occurrenceCollectionTypes = Array.isArray(occurrenceResponse?.collection)
+      ? occurrenceResponse.collection
+          .map((collection: any) =>
+            collection?.name ||
+            collection?.collectionType?.name ||
+            collection?.type?.name ||
+            collection?.collectionName ||
+            collection?.title ||
+            ''
+          )
+          .filter(Boolean)
+      : [];
 
     setEditTarget(prog);
-    setCName(prog.name);
-    setCType(prog.type);
-    setCWeeklyDays(prog.weeklyDays || []);
-    setCMonthlyDate(prog.monthlyDate?.toString() || '');
-    setCMonthlyRuleMode(firstNthRule ? 'nth-weekday' : 'day-of-month');
-    setCMonthlyNth(firstNthRule?.nth?.toString() || '');
-    setCMonthlyWeekday(
-      Number.isFinite(Number(firstNthRule?.weekday))
-        ? Number(firstNthRule?.weekday).toString()
-        : '',
+    setCName(occurrenceResponse?.event?.title || prog.name);
+    setCDescription(prog.description || (prog as any)._raw?.description || '');
+    setCType(normalizedType);
+    setCWeeklyRules(
+      normalizedType === 'weekly' && occurrenceDate && occurrenceWeekday >= 0
+        ? [createWeeklyRuleDraft({
+            weekday: String(occurrenceWeekday),
+            startTime: occurrenceStartTime,
+            endTime: occurrenceEndTime,
+          })]
+        : normalizedWeeklyRules.length > 0
+          ? normalizedWeeklyRules.map((rule) =>
+              createWeeklyRuleDraft(rule),
+            )
+          : (prog.weeklyDays || []).length > 0
+            ? (prog.weeklyDays || []).map((weekday) =>
+                createWeeklyRuleDraft({
+                  weekday: String(weekday),
+                }),
+              )
+            : [createWeeklyRuleDraft()],
+    );
+    setCMonthlyRules(
+      normalizedMonthlyRules.length > 0
+        ? normalizedMonthlyRules.map((rule) =>
+            createMonthlyRuleDraft({
+              nth: Number.isFinite(Number(rule?.nth)) ? Number(rule.nth).toString() : '',
+              weekday: Number.isFinite(Number(rule?.weekday))
+                ? Number(rule.weekday).toString()
+                : '',
+              startTime: toTimeInputValue(rule?.startTime),
+              endTime: toTimeInputValue(rule?.endTime),
+            }),
+          )
+        : [createMonthlyRuleDraft()],
     );
     setCCustomDates(prog.customDates || []);
-    setCStartTime(toTimeInputValue(prog.startTime));
-    setCEndTime(toTimeInputValue(prog.endTime));
+    setCStartTime(occurrenceStartTime || toTimeInputValue(prog.startTime));
+    setCEndTime(occurrenceEndTime || toTimeInputValue(prog.endTime));
     setCBranchId(getProgramBranchSelection(prog) || 'churchwide');
-    setCDeptIds(prog.departmentIds || []);
-    setCCollTypes(prog.collectionTypes || []);
-    setCOneTimeDate(prog.type === 'one-time' && prog.customDates?.length ? prog.customDates[0] : '');
-    setCRecurrenceStartDate(((prog as any)._raw?.date || '').split('T')[0] || '');
+    setCDeptIds(occurrenceDepartments.length > 0 ? occurrenceDepartments : (prog.departmentIds || []));
+    setCCollTypes(occurrenceCollectionTypes.length > 0 ? occurrenceCollectionTypes : (prog.collectionTypes || []));
+    setCOneTimeDate(normalizedType === 'one-time'
+      ? (occurrenceDate || (prog.customDates?.length ? prog.customDates[0] : ''))
+      : '');
+    setCRecurrenceStartDate(occurrenceDate || ((prog as any)._raw?.date || '').split('T')[0] || '');
     setCRecurrenceEndDate(((prog as any)._raw?.endDate || '').split('T')[0] || '');
     const dtMap: Record<string, { startTime: string; endTime: string }> = {};
     if (prog.customDateTimes) {
@@ -684,6 +979,28 @@ export function Programs() {
     setCCustomDateTimes(dtMap);
     setFormErrors({});
     setCreateOpen(true);
+  };
+
+  const openEdit = async (prog: Program, preferredDate?: string) => {
+    const occurrence = preferredDate
+      ? getOccurrenceForDate(prog, preferredDate)
+      : getPrimaryOccurrence(prog) || getOccurrenceForDate(prog, (prog.customDates || [])[0] || '');
+
+    if (!occurrence?.id) {
+      populateEditForm(prog);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetchEventOccurrence(occurrence.id);
+      populateEditForm(prog, response);
+    } catch (err) {
+      console.warn('Failed to hydrate edit modal from event occurrence.', err);
+      populateEditForm(prog);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveProgram = async () => {
@@ -701,15 +1018,10 @@ export function Programs() {
         'monthly': 'monthly',
         'custom': 'custom',
       };
-
-      const monthlyDay = cMonthlyDate ? Number(cMonthlyDate) : NaN;
-      const monthlyNth = cMonthlyNth ? Number(cMonthlyNth) : NaN;
-      const monthlyWeekday = cMonthlyWeekday ? Number(cMonthlyWeekday) : NaN;
       let eventDate = '';
       if (cType === 'one-time') eventDate = cOneTimeDate;
       else if (cType === 'custom' && cCustomDates.length > 0) eventDate = cCustomDates[0];
       else if ((cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate) eventDate = cRecurrenceStartDate;
-      else if (cType === 'monthly' && cMonthlyRuleMode === 'day-of-month' && Number.isFinite(monthlyDay)) eventDate = getNextMonthlyOccurrenceDate(monthlyDay);
       else eventDate = toDateInputValue(new Date());
 
       const baseStartTime = cType === 'custom'
@@ -720,12 +1032,64 @@ export function Programs() {
         : cEndTime;
 
       const byWeekday = cType === 'weekly'
-        ? Array.from(new Set(cWeeklyDays)).sort((a, b) => a - b)
+        ? cWeeklyRules
+            .map((rule) => {
+              const weekday = Number(rule.weekday);
+              if (!Number.isFinite(weekday)) return null;
+              const startTime = rule.startTime ? formatApiTime(rule.startTime) : undefined;
+              const endTime = rule.endTime ? formatApiTime(rule.endTime) : undefined;
+              if (!startTime && !endTime) {
+                return weekday;
+              }
+              return {
+                weekday,
+                startTime,
+                endTime,
+              };
+            })
+            .filter(Boolean)
+            .sort((left, right) => {
+              const leftWeekday = typeof left === 'number' ? left : left!.weekday;
+              const rightWeekday = typeof right === 'number' ? right : right!.weekday;
+              return Number(leftWeekday) - Number(rightWeekday);
+            }) as Array<number | { weekday: number; startTime?: string; endTime?: string }>
         : undefined;
 
-      const nthWeekdays = cType === 'monthly' && cMonthlyRuleMode === 'nth-weekday' && Number.isFinite(monthlyNth) && Number.isFinite(monthlyWeekday)
-        ? [{ weekday: monthlyWeekday, nth: monthlyNth }]
+      const nthWeekdays = cType === 'monthly'
+        ? cMonthlyRules
+            .map((rule) => {
+              const nth = Number(rule.nth);
+              const weekday = Number(rule.weekday);
+              if (!Number.isFinite(nth) || !Number.isFinite(weekday)) return null;
+              return {
+                weekday,
+                nth,
+                startTime: rule.startTime || undefined,
+                endTime: rule.endTime || undefined,
+              };
+            })
+            .filter(Boolean) as Array<{ weekday: number; nth: number; startTime?: string; endTime?: string }>
         : undefined;
+
+      const formattedNthWeekdays = cType === 'monthly'
+        ? cMonthlyRules
+            .map((rule) => {
+              const nth = Number(rule.nth);
+              const weekday = Number(rule.weekday);
+              if (!Number.isFinite(nth) || !Number.isFinite(weekday)) return null;
+              return {
+                weekday,
+                nth,
+                startTime: rule.startTime ? formatApiTime(rule.startTime) : undefined,
+                endTime: rule.endTime ? formatApiTime(rule.endTime) : undefined,
+              };
+            })
+            .filter(Boolean) as Array<{ weekday: number; nth: number; startTime?: string; endTime?: string }>
+        : undefined;
+
+      const collectionIds = financeCollectionTypes
+        .filter((collectionType) => cCollTypes.includes(collectionType.name))
+        .map((collectionType) => collectionType.id);
 
       if (editTarget) {
         const originalBranchSelection = getProgramBranchSelection(editTarget) || 'churchwide';
@@ -750,10 +1114,6 @@ export function Programs() {
           throw new Error('Unable to determine which branch to use for this edit.');
         }
 
-        const collectionIds = financeCollectionTypes
-          .filter((collectionType) => cCollTypes.includes(collectionType.name))
-          .map((collectionType) => collectionType.id);
-
         const editStartTime = formatApiTime(baseStartTime || toTimeInputValue(editTarget.startTime));
         const editEndTime = formatApiTime(baseEndTime || toTimeInputValue(editTarget.endTime));
 
@@ -761,45 +1121,27 @@ export function Programs() {
           throw new Error('Start and end time are required to update this program.');
         }
 
-        const recurrenceDate = cRecurrenceStartDate || ((editTarget as any)._raw?.date || '').split('T')[0] || eventDate;
-        const editPayload: any = {
+        const editPayload: EditEventOccurrenceRequest = {
           title: cName.trim(),
-          ...(cType === 'one-time' ? { date: cOneTimeDate } : {}),
-          ...(cType === 'custom' ? { date: cCustomDates[0] } : {}),
+          description: cDescription.trim() || undefined,
+          date: eventDate,
           startTime: editStartTime,
           endTime: editEndTime,
-          departmentIds: cDeptIds,
-          collectionIds: collectionIds.length > 0 ? collectionIds : undefined,
         };
-
-        if (cType === 'weekly' || cType === 'monthly') {
-          editPayload.date = toApiDateTime(recurrenceDate, editStartTime);
-          editPayload.recurrenceType = recurrenceMap[cType] || cType;
-          if (cRecurrenceEndDate) {
-            editPayload.endDate = toApiDateTime(cRecurrenceEndDate, editStartTime);
-          }
-        }
-
-        if (cType === 'weekly') {
-          editPayload.byWeekday = byWeekday;
-        }
-
-        if (cType === 'monthly' && nthWeekdays && nthWeekdays.length > 0) {
-          editPayload.nthWeekdays = nthWeekdays.map((rule) => ({
-            ...rule,
-            startTime: editStartTime,
-            endTime: editEndTime,
-          }));
-        }
 
         await editEventOccurrence(occurrenceId, routeBranchId, editPayload);
 
-        const freshProgs = await fetchPrograms(routeBranchId || resolvedBranchId);
+        const freshProgs = await fetchPrograms({
+          branchId: routeBranchId || resolvedBranchId,
+          startDate: visibleRange.startDate,
+          endDate: visibleRange.endDate,
+        });
         setPrograms(freshProgs as Program[]);
         showToast('Program updated.');
       } else {
         await createEvent({
           title: cName.trim(),
+          description: cDescription.trim() || undefined,
           date: eventDate || toDateInputValue(new Date()),
           endDate: (cType === 'weekly' || cType === 'monthly') ? (cRecurrenceEndDate || undefined) : undefined,
           recurrenceType: (recurrenceMap[cType] || 'none') as any,
@@ -807,11 +1149,16 @@ export function Programs() {
           endTime: baseEndTime,
           branchId: eventBranchId,
           departmentIds: cDeptIds.length > 0 ? cDeptIds : undefined,
+          collectionIds: collectionIds.length > 0 ? collectionIds : undefined,
           byWeekday,
           nthWeekdays,
         });
 
-        const freshProgs = await fetchPrograms(eventBranchId || resolvedBranchId);
+        const freshProgs = await fetchPrograms({
+          branchId: eventBranchId || resolvedBranchId,
+          startDate: visibleRange.startDate,
+          endDate: visibleRange.endDate,
+        });
         setPrograms(freshProgs as Program[]);
         showToast('Program created successfully.');
       }
@@ -832,14 +1179,22 @@ export function Programs() {
     try {
       if (deleteTarget.id.startsWith('prog-')) {
         // Locally-created program — just remove from local state
-        const allProgs = await fetchPrograms(resolvedBranchId);
+        const allProgs = await fetchPrograms({
+          branchId: resolvedBranchId,
+          startDate: visibleRange.startDate,
+          endDate: visibleRange.endDate,
+        });
         const updated = (allProgs as Program[]).filter(p => p.id !== deleteTarget.id);
         await savePrograms(updated);
         setPrograms(updated);
       } else {
         // Server-created event — use soft delete API
         await softDeleteEvent(deleteTarget.id);
-        const freshProgs = await fetchPrograms(resolvedBranchId);
+        const freshProgs = await fetchPrograms({
+          branchId: resolvedBranchId,
+          startDate: visibleRange.startDate,
+          endDate: visibleRange.endDate,
+        });
         setPrograms(freshProgs as Program[]);
       }
       // Remove related instances
@@ -1091,16 +1446,16 @@ export function Programs() {
     const days: { date: string; dayNum: number; isCurrentMonth: boolean }[] = [];
     for (let i = startPad - 1; i >= 0; i--) {
       const d = new Date(cCustomPickerYear, cCustomPickerMonth, -i);
-      days.push({ date: d.toISOString().split('T')[0], dayNum: d.getDate(), isCurrentMonth: false });
+      days.push({ date: toDateInputValue(d), dayNum: d.getDate(), isCurrentMonth: false });
     }
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const dt = new Date(cCustomPickerYear, cCustomPickerMonth, d);
-      days.push({ date: dt.toISOString().split('T')[0], dayNum: d, isCurrentMonth: true });
+      days.push({ date: toDateInputValue(dt), dayNum: d, isCurrentMonth: true });
     }
     const remaining = 42 - days.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(cCustomPickerYear, cCustomPickerMonth + 1, i);
-      days.push({ date: d.toISOString().split('T')[0], dayNum: d.getDate(), isCurrentMonth: false });
+      days.push({ date: toDateInputValue(d), dayNum: d.getDate(), isCurrentMonth: false });
     }
     return days;
   }, [cCustomPickerMonth, cCustomPickerYear]);
@@ -1230,94 +1585,126 @@ export function Programs() {
               gridPrograms.length === 0 ? (
                 <Card><CardContent className="py-12 text-center"><p className="text-gray-500">No programs match your search.</p></CardContent></Card>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {gridPrograms.map(({ prog, nextOcc, lastOcc, status, managedCount, totalOccs, freqLabel }) => {
-                    const displayOcc = nextOcc || lastOcc;
-                    const displayDate = displayOcc
-                      ? new Date(displayOcc.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : null;
-                    const displayTimes = displayOcc ? getTimesForDate(prog, displayOcc.date) : null;
-
-                    return (
-                      <Card
-                        key={prog.id}
-                        className="hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
-                        onClick={() => displayOcc && openManage(prog, displayOcc.date)}
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-gray-500">
+                      Showing {Math.min((gridPage - 1) * GRID_PAGE_SIZE + 1, gridPrograms.length)}-
+                      {Math.min(gridPage * GRID_PAGE_SIZE, gridPrograms.length)} of {gridPrograms.length} programs
+                    </p>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGridPage((page) => Math.max(1, page - 1))}
+                        disabled={gridPage === 1}
                       >
-                        {/* Status accent bar */}
-                        <div className={`absolute top-0 left-0 right-0 h-1.5 ${statusColor(status)}`} />
+                        <ChevronLeft className="w-4 h-4 mr-1" />
+                        Previous
+                      </Button>
+                      <span className="text-sm text-gray-500">
+                        Page {gridPage} of {totalGridPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGridPage((page) => Math.min(totalGridPages, page + 1))}
+                        disabled={gridPage === totalGridPages}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
 
-                        <CardContent className="p-4 pt-5">
-                          {/* Header: title + actions */}
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{prog.name}</h4>
-                            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openEdit(prog); }}>
-                                <Edit className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); setDeleteTarget(prog); }}>
-                                <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                              </Button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {paginatedGridPrograms.map(({ prog, nextOcc, lastOcc, status, managedCount, totalOccs, freqLabel }) => {
+                      const displayOcc = nextOcc || lastOcc;
+                      const displayDate = displayOcc
+                        ? new Date(displayOcc.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : null;
+                      const displayTimes = displayOcc ? getTimesForDate(prog, displayOcc.date) : null;
+
+                      return (
+                        <Card
+                          key={prog.id}
+                          className="hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden"
+                          onClick={() => displayOcc && openManage(prog, displayOcc.date)}
+                        >
+                          {/* Status accent bar */}
+                          <div className={`absolute top-0 left-0 right-0 h-1.5 ${statusColor(status)}`} />
+
+                          <CardContent className="p-4 pt-5">
+                            {/* Header: title + actions */}
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">{prog.name}</h4>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); openEdit(prog, displayOcc?.date); }}>
+                                  <Edit className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); setDeleteTarget(prog); }}>
+                                  <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
 
-                          {/* Status badge */}
-                          <Badge variant="outline" className={`text-[10px] mb-3 ${statusBadgeClass(status)}`}>
-                            {statusLabel(status)}
-                          </Badge>
+                            {/* Status badge */}
+                            <Badge variant="outline" className={`text-[10px] mb-3 ${statusBadgeClass(status)}`}>
+                              {statusLabel(status)}
+                            </Badge>
 
-                          {/* Info rows */}
-                          <div className="space-y-2 text-xs text-gray-500">
-                            {/* Frequency */}
-                            <div className="flex items-center gap-1.5">
-                              <CalendarIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                              <span className="truncate">{freqLabel}</span>
-                            </div>
-
-                            {/* Next/last date + time */}
-                            {displayDate && displayTimes && (
+                            {/* Info rows */}
+                            <div className="space-y-2 text-xs text-gray-500">
+                              {/* Frequency */}
                               <div className="flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                                <span className="truncate">
-                                  {nextOcc ? 'Next' : 'Last'}: {displayDate} &middot; {formatTime(displayTimes.start)}
-                                </span>
+                                <CalendarIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <span className="truncate">{freqLabel}</span>
                               </div>
-                            )}
 
-                            {/* Branch */}
-                            {isMultiBranch && prog.branchId && (
-                              <div className="flex items-center gap-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${prog.branchId === 'churchwide' ? 'bg-blue-500' : 'bg-gray-400'}`} />
-                                <span className={`truncate ${prog.branchId === 'churchwide' ? 'text-blue-600 font-medium' : ''}`}>
-                                  {getBranchName(prog.branchId)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                              {/* Next/last date + time */}
+                              {displayDate && displayTimes && (
+                                <div className="flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {nextOcc ? 'Next' : 'Last'}: {displayDate} &middot; {formatTime(displayTimes.start)}
+                                  </span>
+                                </div>
+                              )}
 
-                          {/* Footer: departments + managed count */}
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            {prog.departmentIds.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {prog.departmentIds.slice(0, 2).map(id => (
-                                  <Badge key={id} variant="secondary" className="text-[9px] px-1.5 py-0">{getDeptName(id)}</Badge>
-                                ))}
-                                {prog.departmentIds.length > 2 && (
-                                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{prog.departmentIds.length - 2}</Badge>
-                                )}
-                              </div>
-                            ) : null}
-                            <div className="flex items-center justify-between text-[10px] text-gray-400">
-                              <span>{managedCount}/{totalOccs} managed</span>
-                              {(prog.collectionTypes || []).length > 0 && (
-                                <span className="flex items-center gap-0.5"><DollarSign className="w-3 h-3" />{(prog.collectionTypes || []).length} collections</span>
+                              {/* Branch */}
+                              {isMultiBranch && prog.branchId && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${prog.branchId === 'churchwide' ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                                  <span className={`truncate ${prog.branchId === 'churchwide' ? 'text-blue-600 font-medium' : ''}`}>
+                                    {getBranchName(prog.branchId)}
+                                  </span>
+                                </div>
                               )}
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+
+                            {/* Footer: departments + managed count */}
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              {prog.departmentIds.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {prog.departmentIds.slice(0, 2).map(id => (
+                                    <Badge key={id} variant="secondary" className="text-[9px] px-1.5 py-0">{getDeptName(id)}</Badge>
+                                  ))}
+                                  {prog.departmentIds.length > 2 && (
+                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">+{prog.departmentIds.length - 2}</Badge>
+                                  )}
+                                </div>
+                              ) : null}
+                              <div className="flex items-center justify-between text-[10px] text-gray-400">
+                                <span>{managedCount}/{totalOccs} managed</span>
+                                {(prog.collectionTypes || []).length > 0 && (
+                                  <span className="flex items-center gap-0.5"><DollarSign className="w-3 h-3" />{(prog.collectionTypes || []).length} collections</span>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
               )
             ) : (
@@ -1403,10 +1790,37 @@ export function Programs() {
               <FieldError field="cName" />
             </div>
 
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={cDescription}
+                onChange={e => setCDescription(e.target.value)}
+                placeholder="Add a short summary for this event or recurring program"
+                rows={3}
+              />
+            </div>
+
             {/* Program Type */}
             <div className="space-y-2" ref={el => { fieldRefs.current.cType = el; }}>
               <Label>Program Type<RequiredStar /></Label>
-              <Select value={cType} onValueChange={(v) => { setCType(v as ProgramFrequency); if (formErrors.cType) setFormErrors(prev => { const n = {...prev}; delete n.cType; return n; }); }}>
+              <Select value={cType} onValueChange={(v) => {
+                setCType(v as ProgramFrequency);
+                if (v === 'weekly' && cWeeklyRules.length === 0) {
+                  setCWeeklyRules([createWeeklyRuleDraft()]);
+                }
+                if (v === 'monthly' && cMonthlyRules.length === 0) {
+                  setCMonthlyRules([createMonthlyRuleDraft()]);
+                }
+                if (formErrors.cType || formErrors.cMonthlyRules || formErrors.cWeeklyDays) {
+                  setFormErrors(prev => {
+                    const n = { ...prev };
+                    delete n.cType;
+                    delete n.cMonthlyRules;
+                    delete n.cWeeklyDays;
+                    return n;
+                  });
+                }
+              }}>
                 <SelectTrigger className={formErrors.cType ? 'border-red-400' : ''}>
                   <SelectValue placeholder="Select program type" />
                 </SelectTrigger>
@@ -1435,105 +1849,286 @@ export function Programs() {
             )}
 
             {cType === 'weekly' && (
-              <div className="space-y-2" ref={el => { fieldRefs.current.cWeeklyDays = el; }}>
-                <Label>Select Days<RequiredStar /></Label>
-                <div className="flex flex-wrap gap-2">
-                  {FULL_DAY_NAMES.map((name, idx) => (
-                    <button
-                      key={idx}
-                      className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                        cWeeklyDays.includes(idx)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                      }`}
-                      onClick={() => {
-                        setCWeeklyDays(prev => prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx]);
-                        if (formErrors.cWeeklyDays) setFormErrors(prev => { const n = {...prev}; delete n.cWeeklyDays; return n; });
-                      }}
-                    >
-                      {name.slice(0, 3)}
-                    </button>
+              <div className="space-y-3" ref={el => { fieldRefs.current.cWeeklyDays = el; }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <Label>Weekly Rules<RequiredStar /></Label>
+                    <p className="text-xs text-gray-500">
+                      Add one or more weekday rules. Leave rule times blank to use the default start and end time below, or set times per day to match the API request exactly.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      addWeeklyRule();
+                      if (formErrors.cWeeklyDays) {
+                        setFormErrors(prev => {
+                          const n = { ...prev };
+                          delete n.cWeeklyDays;
+                          return n;
+                        });
+                      }
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Rule
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {cWeeklyRules.map((rule, index) => (
+                    <div key={rule.id} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-600">Rule {index + 1}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-gray-400 hover:text-red-600"
+                          onClick={() => {
+                            removeWeeklyRule(rule.id);
+                            if (formErrors.cWeeklyDays) {
+                              setFormErrors(prev => {
+                                const n = { ...prev };
+                                delete n.cWeeklyDays;
+                                return n;
+                              });
+                            }
+                          }}
+                          disabled={cWeeklyRules.length === 1}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Weekday<RequiredStar /></Label>
+                        <Select
+                          value={rule.weekday}
+                          onValueChange={(v) => {
+                            updateWeeklyRule(rule.id, { weekday: v });
+                            if (formErrors.cWeeklyDays) {
+                              setFormErrors(prev => {
+                                const n = { ...prev };
+                                delete n.cWeeklyDays;
+                                return n;
+                              });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className={formErrors.cWeeklyDays ? 'border-red-400' : ''}>
+                            <SelectValue placeholder="Select weekday" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FULL_DAY_NAMES.map((name, idx) => (
+                              <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Rule Start Time <span className="text-gray-400 font-normal">(optional)</span></Label>
+                          <Input
+                            type="time"
+                            value={rule.startTime}
+                            onChange={(e) => {
+                              updateWeeklyRule(rule.id, { startTime: e.target.value });
+                              if (formErrors.cWeeklyDays) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cWeeklyDays;
+                                  return n;
+                                });
+                              }
+                            }}
+                            className={formErrors.cWeeklyDays ? 'border-red-400' : ''}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Rule End Time <span className="text-gray-400 font-normal">(optional)</span></Label>
+                          <Input
+                            type="time"
+                            value={rule.endTime}
+                            onChange={(e) => {
+                              updateWeeklyRule(rule.id, { endTime: e.target.value });
+                              if (formErrors.cWeeklyDays) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cWeeklyDays;
+                                  return n;
+                                });
+                              }
+                            }}
+                            className={formErrors.cWeeklyDays ? 'border-red-400' : ''}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
+
                 <FieldError field="cWeeklyDays" />
               </div>
             )}
 
             {cType === 'monthly' && (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>Monthly Pattern<RequiredStar /></Label>
-                  <Select
-                    value={cMonthlyRuleMode}
-                    onValueChange={(v) => {
-                      setCMonthlyRuleMode(v as MonthlyRuleMode);
-                      setFormErrors(prev => {
-                        const n = { ...prev };
-                        delete n.cMonthlyDate;
-                        delete n.cMonthlyNth;
-                        delete n.cMonthlyWeekday;
-                        return n;
-                      });
+              <div className="space-y-3" ref={el => { fieldRefs.current.cMonthlyRules = el; }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <Label>Monthly Rules<RequiredStar /></Label>
+                    <p className="text-xs text-gray-500">
+                      Add one or more weekday rules like "Second Monday". Rule-specific times are optional and fall back to the default start and end time below.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      addMonthlyRule();
+                      if (formErrors.cMonthlyRules) {
+                        setFormErrors(prev => {
+                          const n = { ...prev };
+                          delete n.cMonthlyRules;
+                          return n;
+                        });
+                      }
                     }}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select monthly pattern" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day-of-month">Specific date each month (e.g. 19th)</SelectItem>
-                      <SelectItem value="nth-weekday">Specific weekday in month (e.g. first Friday)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Rule
+                  </Button>
                 </div>
 
-                {cMonthlyRuleMode === 'day-of-month' ? (
-                  <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyDate = el; }}>
-                    <Label>Day of Month<RequiredStar /></Label>
-                    <Select value={cMonthlyDate} onValueChange={(v) => { setCMonthlyDate(v); if (formErrors.cMonthlyDate) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyDate; return n; }); }}>
-                      <SelectTrigger className={formErrors.cMonthlyDate ? 'border-red-400' : ''}>
-                        <SelectValue placeholder="Select day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                          <SelectItem key={d} value={d.toString()}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldError field="cMonthlyDate" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyNth = el; }}>
-                      <Label>Week in Month<RequiredStar /></Label>
-                      <Select value={cMonthlyNth} onValueChange={(v) => { setCMonthlyNth(v); if (formErrors.cMonthlyNth) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyNth; return n; }); }}>
-                        <SelectTrigger className={formErrors.cMonthlyNth ? 'border-red-400' : ''}>
-                          <SelectValue placeholder="Select week" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NTH_LABELS.map((label, index) => (
-                            <SelectItem key={label} value={(index + 1).toString()}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FieldError field="cMonthlyNth" />
-                    </div>
+                <div className="space-y-3">
+                  {cMonthlyRules.map((rule, index) => (
+                    <div key={rule.id} className="rounded-lg border border-gray-200 p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-600">Rule {index + 1}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto px-2 py-1 text-gray-400 hover:text-red-600"
+                          onClick={() => {
+                            removeMonthlyRule(rule.id);
+                            if (formErrors.cMonthlyRules) {
+                              setFormErrors(prev => {
+                                const n = { ...prev };
+                                delete n.cMonthlyRules;
+                                return n;
+                              });
+                            }
+                          }}
+                          disabled={cMonthlyRules.length === 1}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
 
-                    <div className="space-y-2" ref={el => { fieldRefs.current.cMonthlyWeekday = el; }}>
-                      <Label>Weekday<RequiredStar /></Label>
-                      <Select value={cMonthlyWeekday} onValueChange={(v) => { setCMonthlyWeekday(v); if (formErrors.cMonthlyWeekday) setFormErrors(prev => { const n = {...prev}; delete n.cMonthlyWeekday; return n; }); }}>
-                        <SelectTrigger className={formErrors.cMonthlyWeekday ? 'border-red-400' : ''}>
-                          <SelectValue placeholder="Select weekday" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {FULL_DAY_NAMES.map((name, idx) => (
-                            <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FieldError field="cMonthlyWeekday" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Week in Month<RequiredStar /></Label>
+                          <Select
+                            value={rule.nth}
+                            onValueChange={(v) => {
+                              updateMonthlyRule(rule.id, { nth: v });
+                              if (formErrors.cMonthlyRules) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cMonthlyRules;
+                                  return n;
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={formErrors.cMonthlyRules ? 'border-red-400' : ''}>
+                              <SelectValue placeholder="Select week" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[1, 2, 3, 4, 5, -1].map((value) => (
+                                <SelectItem key={value} value={value.toString()}>{getNthLabel(value)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Weekday<RequiredStar /></Label>
+                          <Select
+                            value={rule.weekday}
+                            onValueChange={(v) => {
+                              updateMonthlyRule(rule.id, { weekday: v });
+                              if (formErrors.cMonthlyRules) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cMonthlyRules;
+                                  return n;
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={formErrors.cMonthlyRules ? 'border-red-400' : ''}>
+                              <SelectValue placeholder="Select weekday" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FULL_DAY_NAMES.map((name, idx) => (
+                                <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Rule Start Time <span className="text-gray-400 font-normal">(optional)</span></Label>
+                          <Input
+                            type="time"
+                            value={rule.startTime}
+                            onChange={(e) => {
+                              updateMonthlyRule(rule.id, { startTime: e.target.value });
+                              if (formErrors.cMonthlyRules) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cMonthlyRules;
+                                  return n;
+                                });
+                              }
+                            }}
+                            className={formErrors.cMonthlyRules ? 'border-red-400' : ''}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Rule End Time <span className="text-gray-400 font-normal">(optional)</span></Label>
+                          <Input
+                            type="time"
+                            value={rule.endTime}
+                            onChange={(e) => {
+                              updateMonthlyRule(rule.id, { endTime: e.target.value });
+                              if (formErrors.cMonthlyRules) {
+                                setFormErrors(prev => {
+                                  const n = { ...prev };
+                                  delete n.cMonthlyRules;
+                                  return n;
+                                });
+                              }
+                            }}
+                            className={formErrors.cMonthlyRules ? 'border-red-400' : ''}
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-gray-400">
+                        Leave rule times blank to use the default start and end time below.
+                      </p>
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+
+                <FieldError field="cMonthlyRules" />
               </div>
             )}
 

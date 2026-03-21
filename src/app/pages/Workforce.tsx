@@ -540,12 +540,53 @@ export function Workforce() {
   const getProgramName = (programId: string) =>
     trainingPrograms.find(p => p.id === programId)?.name || 'Unknown Program';
 
+  const getAssignedDepartmentIds = useCallback((member?: Member | null) => {
+    if (!member) return [];
+
+    const departmentIds =
+      Array.isArray(member.departmentIds) && member.departmentIds.length > 0
+        ? member.departmentIds
+        : member.departmentId
+          ? [member.departmentId]
+          : [];
+
+    return Array.from(new Set(departmentIds.filter(Boolean)));
+  }, []);
   const unitsForDept = (deptId: string) => units.filter(u => u.departmentId === deptId);
 
   // All members can be added to workforce (a member can serve in multiple departments)
   const filteredAvailable = members.filter(m =>
     !memberSearch || m.fullName.toLowerCase().includes(memberSearch.toLowerCase())
   );
+  const selectedExistingMember = selectedMemberId
+    ? members.find((member) => member.id === selectedMemberId) || null
+    : null;
+  const selectedMemberDepartmentIds = selectedExistingMember
+    ? new Set(getAssignedDepartmentIds(selectedExistingMember))
+    : new Set<string>();
+  const availableAddDepartments = isCreatingNewMember || !selectedExistingMember
+    ? departments
+    : departments.filter((department) => !selectedMemberDepartmentIds.has(department.id));
+
+  useEffect(() => {
+    if (!addDeptId) return;
+
+    const selectableDepartments =
+      isCreatingNewMember || !selectedExistingMember
+        ? departments
+        : availableAddDepartments;
+
+    if (!selectableDepartments.some((department) => department.id === addDeptId)) {
+      setAddDeptId('');
+      setAddUnitId('');
+    }
+  }, [
+    addDeptId,
+    availableAddDepartments,
+    departments,
+    isCreatingNewMember,
+    selectedExistingMember,
+  ]);
 
   const getProgressPercentage = (w: WorkforceMember) => {
     const markers = w.roadmapMarkers ?? [];
@@ -640,6 +681,13 @@ export function Workforce() {
 
       // Existing member case
       const allWf = [...workforce];
+      const selectedExistingMember = members.find(m => m.id === selectedMemberId);
+      if (selectedExistingMember && getAssignedDepartmentIds(selectedExistingMember).includes(addDeptId)) {
+        showToast('Choose a different department. This member already belongs to that department.', 'error');
+        setSaving(false);
+        return;
+      }
+
       // Allow multiple departments — only block exact same dept+unit combo
       const duplicate = (allWf as WorkforceMember[]).some(w =>
         w.memberId === selectedMemberId && w.departmentId === addDeptId && (w.unitId || '') === (addUnitId || '')
@@ -1359,10 +1407,17 @@ export function Workforce() {
             {/* Department */}
             <div className="space-y-2">
               <Label>Department *</Label>
+              {!isCreatingNewMember && selectedMemberId && (
+                <p className="text-xs text-gray-500">Departments already assigned to this member are hidden.</p>
+              )}
               <Select value={addDeptId} onValueChange={(v) => { setAddDeptId(v); setAddUnitId(''); }}>
                 <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                 <SelectContent>
-                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  {availableAddDepartments.length === 0 ? (
+                    <SelectItem value="none" disabled>No eligible departments available</SelectItem>
+                  ) : (
+                    availableAddDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)
+                  )}
                 </SelectContent>
               </Select>
             </div>

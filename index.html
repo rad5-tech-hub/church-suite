@@ -5,6 +5,19 @@
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>Churchset</title>
+      <script>
+  // This kills any active Service Worker and forces a fresh load
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister().then(() => {
+          console.log('Old Service Worker cleared');
+          window.location.reload(); 
+        });
+      }
+    });
+  }
+</script>
     </head>
 
     <body>

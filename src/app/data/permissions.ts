@@ -164,7 +164,7 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-members',
     name: 'Manage Members',
     description: 'Add, edit, and manage church members within your scope',
-    level: ['church', 'branch', 'department', 'unit'],
+    level: ['church', 'branch', 'department'],
     category: 'Members',
     actions: CRUD_ACTIONS,
   },
@@ -180,7 +180,7 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-collections',
     name: 'Manage Collections',
     description: 'Record and track tithes, offerings, and other collections',
-    level: ['church', 'branch', 'department', 'unit'],
+    level: ['church', 'branch', 'department'],
     category: 'Finance',
     actions: [
       { id: 'view', label: 'View' },
@@ -241,7 +241,7 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-wallet',
     name: 'Manage Wallet',
     description: 'View and manage SMS wallet credits',
-    level: ['church', 'branch', 'department', 'unit'],
+    level: ['church', 'branch', 'department'],
     category: 'Finance',
     actions: [
       { id: 'view', label: 'View Balance' },
@@ -252,7 +252,7 @@ export const PERMISSIONS: Permission[] = [
     id: 'manage-attendance',
     name: 'Manage Attendance',
     description: 'Record and track attendance for programs',
-    level: ['church', 'branch', 'department', 'unit'],
+    level: ['church', 'branch', 'department'],
     category: 'Programs',
     actions: [
       { id: 'view', label: 'View Attendance' },
