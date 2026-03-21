@@ -37,6 +37,6 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
-
+dist
 # Vite
 .vite/
