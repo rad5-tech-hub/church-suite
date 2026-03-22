@@ -1,28 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Churchset</title>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Churchset</title>
-      <script>
-  // This kills any active Service Worker and forces a fresh load
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister().then(() => {
-          console.log('Old Service Worker cleared');
-          window.location.reload(); 
-        });
-      }
-    });
-  }
-</script>
-    </head>
+    <script>
+      (async () => {
+        if (!("serviceWorker" in navigator)) return;
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+        // Prevent reload loops
+        if (sessionStorage.getItem("sw-cleanup-done")) return;
+        sessionStorage.setItem("sw-cleanup-done", "true");
+
+        try {
+          // Remove all service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+
+          // Remove all Cache Storage entries
+          if ("caches" in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+          }
+
+          // Hard refresh once after cleanup
+          if (registrations.length > 0) {
+            window.location.replace(window.location.href);
+          }
+        } catch (error) {
+          console.error("Service worker cleanup failed:", error);
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
