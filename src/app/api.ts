@@ -3381,9 +3381,15 @@ export async function markNotificationRead(data: {
 
 // SUBSCRIPTION / PLANS
 
+export interface SubscribePlanRequest {
+  planId: string;
+  billingCycle?: 'monthly' | 'annual';
+  branchCount?: number;
+}
+
 /** POST /plan/subscribe */
-export async function subscribeToPlan(data: SubscribeRequest) {
-  return apiFetch<any>("/plan/subscribe", {
+export async function subscribeToPlan(data: SubscribePlanRequest): Promise<SubscribePlanResponse> {
+  return apiFetch<SubscribePlanResponse>("/plan/subscribe", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -3600,7 +3606,7 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
 };
 
 // ─────────────────────────────────────────────────────
-// PLAN & SUBSCRIPTION
+// PLAN TYPES & FETCH
 // ─────────────────────────────────────────────────────
 
 export interface PlanData {
@@ -3621,12 +3627,6 @@ export async function fetchAllPlans(): Promise<PlanData[]> {
   return Array.isArray(data) ? data : [];
 }
 
-export interface SubscribePlanRequest {
-  planId: string;
-  billingCycle?: 'monthly' | 'annual';
-  branchCount?: number;
-}
-
 export interface SubscribePlanResponse {
   message?: string;
   access?: string;
@@ -3643,11 +3643,4 @@ export interface SubscribePlanResponse {
     };
     publicKey?: string;
   };
-}
-
-export async function subscribeToPlan(body: SubscribePlanRequest): Promise<SubscribePlanResponse> {
-  return apiFetch('/plan/subscribe', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }) as Promise<SubscribePlanResponse>;
 }
