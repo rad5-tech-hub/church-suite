@@ -5,9 +5,8 @@ import { Button } from '../components/ui/button';
 import { fetchAllPlans, subscribeToPlan, PlanData } from '../api';
 import { setAccessToken, setTenantId, decodeJwtClaims } from '../apiClient';
 import { openFlutterwaveCheckout } from '../utils/flutterwave';
+import { extractSubscriptionCheckoutParams } from '../utils/walletFunding';
 import { useChurch } from '../context/ChurchContext';
-
-const FLW_PUBLIC_KEY = import.meta.env.VITE_FLUTTERWAVE_PUBLIC_KEY || '';
 
 function fmt(amount: number | string | null | undefined, symbol = '₦') {
   if (amount == null) return '';
@@ -110,20 +109,17 @@ export function ChoosePlan() {
           return;
         }
 
-        const pUrl = res.paymentUrl;
-        if (!pUrl) throw new Error('No payment details returned. Please try again.');
-
-        const publicKey = pUrl.publicKey || FLW_PUBLIC_KEY;
-        if (!publicKey) throw new Error('Payment gateway not configured. Please contact support.');
+        const checkout = extractSubscriptionCheckoutParams(res);
+        if (!checkout) throw new Error('Payment gateway not configured or no payment details returned. Please contact support.');
 
         await openFlutterwaveCheckout({
-          publicKey,
-          txRef: pUrl.payment.tx_ref,
-          amount: Number(pUrl.payment.amount),
-          currency: pUrl.payment.currency || 'NGN',
+          publicKey: checkout.publicKey,
+          txRef: checkout.tx_ref,
+          amount: checkout.amount,
+          currency: checkout.currency,
           customer: {
-            email: pUrl.customer.email,
-            name: pUrl.customer.name,
+            email: checkout.customer?.email ?? '',
+            name: checkout.customer?.name ?? '',
           },
           title: 'Churchset Subscription',
           description: `${plan.name} — ${state.billingCycle} plan`,

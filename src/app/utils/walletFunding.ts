@@ -54,3 +54,30 @@ export function extractFlutterwaveFundingResponse(payload: any): FlutterwaveFund
     customer: response.customer,
   };
 }
+
+/**
+ * Extracts Flutterwave checkout params from a subscription /plan/subscribe response.
+ * The response shape is:
+ *   { paymentUrl: { payment: { tx_ref, amount, currency }, customer: { email, name }, publicKey? } }
+ * publicKey falls back to the VITE_FLUTTERWAVE_PUBLIC_KEY env variable if not in the response.
+ */
+export function extractSubscriptionCheckoutParams(payload: any): FlutterwaveFundingResponse | null {
+  // Try root-level first (same shape as wallet), then nested paymentUrl
+  const root = payload?.data && typeof payload.data === 'object' ? payload.data : payload;
+  const pUrl = root?.paymentUrl ?? root;
+  const payment = pUrl?.payment ?? pUrl;
+
+  const tx_ref: string = payment?.tx_ref ?? root?.tx_ref ?? '';
+  const amount: number = Number(payment?.amount ?? root?.amount ?? 0);
+  const currency: string = payment?.currency ?? root?.currency ?? 'NGN';
+  const customer = pUrl?.customer ?? root?.customer;
+  const publicKey: string =
+    pUrl?.publicKey ??
+    root?.publicKey ??
+    (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_FLUTTERWAVE_PUBLIC_KEY : '') ??
+    '';
+
+  if (!tx_ref || !publicKey) return null;
+
+  return { tx_ref, amount, currency, publicKey, customer };
+}
