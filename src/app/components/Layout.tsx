@@ -263,7 +263,7 @@ export function Layout({ children }: LayoutProps) {
 
     items.push({
       id: 'follow-up',
-      label: 'Follow-Up',
+      label: 'Newcomers',
       icon: <UserPlus className="w-5 h-5" />,
       path: '/follow-up',
       permission: 'follow-up'

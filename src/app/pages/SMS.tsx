@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
 import { BibleLoader } from '../components/BibleLoader';
@@ -11,11 +12,12 @@ import { Textarea } from '../components/ui/textarea';
 import { Checkbox } from '../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
-import { MessageSquare, Send, Inbox, Search, Users, UserPlus, Briefcase, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { MessageSquare, Send, Inbox, Search, Users, UserPlus, Briefcase, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
-import { fetchSMSWallet, createOrFundWallet, fetchMembers, fetchNewcomers, fetchWorkforce, sendSms } from '../api';
+import { fetchSMSWallet, createOrFundWallet, fetchMembers, fetchNewcomers, fetchWorkforce, sendSms, fetchSmsLogs } from '../api';
 import { SMSWallet, Member, Newcomer, WorkforceMember } from '../types';
 import { openFlutterwaveCheckout } from '../utils/flutterwave';
 import { buildWalletFundingRequest, extractFlutterwaveFundingResponse, resolveWalletFundingScope } from '../utils/walletFunding';
@@ -29,9 +31,23 @@ interface Recipient {
   type: 'member' | 'newcomer' | 'workforce';
 }
 
+interface SmsLogEntry {
+  id: string;
+  comment: string;
+  recipientCount: number;
+  unitsUsed: string;
+  cost: string;
+  createdAt: string;
+  wallet: { id: string; balance: string; unit: string };
+  user: { id: string; name: string; email: string; phone: string };
+  recipientLogs: any[];
+}
+
 export function SMS() {
   const { currentAdmin } = useAuth();
   const { church, branches } = useChurch();
+  const location = useLocation();
+  const prefillApplied = useRef(false);
   const [wallet, setWallet] = useState<SMSWallet | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
@@ -39,14 +55,17 @@ export function SMS() {
   const [members, setMembers] = useState<Member[]>([]);
   const [newcomers, setNewcomers] = useState<Newcomer[]>([]);
   const [workforce, setWorkforce] = useState<WorkforceMember[]>([]);
+  const [smsLogs, setSmsLogs] = useState<SmsLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [activeTab, setActiveTab] = useState<'logs' | 'send'>('logs');
   const [recipientGroup, setRecipientGroup] = useState<RecipientGroup>('');
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [message, setMessage] = useState('');
   const [sendMode, setSendMode] = useState<'now' | 'scheduled'>('now');
   const [scheduleAt, setScheduleAt] = useState('');
+  const [senderName, setSenderName] = useState('');
   const [sending, setSending] = useState(false);
   const { showToast } = useToast();
   const fundingScope = resolveWalletFundingScope(branches, currentAdmin);
@@ -55,17 +74,20 @@ export function SMS() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [w, m, nc, wf] = await Promise.all([
+      const [w, m, nc, wf, logs] = await Promise.all([
         fetchSMSWallet(),
         fetchMembers(),
         fetchNewcomers(branches[0]?.id),
         fetchWorkforce(),
+        fetchSmsLogs(),
       ]);
       if (w) setWallet(w as SMSWallet);
       else setWallet(null);
       setMembers(m as Member[]);
       setNewcomers(nc as Newcomer[]);
       setWorkforce(wf as WorkforceMember[]);
+      setSmsLogs(logs?.smsLogs ?? []);
+      setSenderName(prev => prev || currentAdmin?.name || '');
     } catch (err) {
       console.error('Failed to load SMS data:', err);
     } finally {
@@ -76,6 +98,15 @@ export function SMS() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const newcomerId = (location.state as { newcomerId?: string } | null)?.newcomerId;
+    if (!newcomerId || loading || prefillApplied.current) return;
+    prefillApplied.current = true;
+    setActiveTab('send');
+    setRecipientGroup('newcomers');
+    setSelectedRecipientIds([newcomerId]);
+  }, [loading, location.state]);
 
   const handleTopUp = async () => {
     const amount = parseFloat(topUpAmount);
@@ -216,6 +247,7 @@ export function SMS() {
         channel: 'generic',
         ...(selectedFollowUpIds.length > 0 ? { followUpIds: selectedFollowUpIds } : {}),
         ...(sendMode === 'scheduled' && scheduleAt ? { sendAt: new Date(scheduleAt).toISOString() } : {}),
+        ...(senderName.trim() ? { senderName: senderName.trim() } : {}),
       });
 
       await loadData();
@@ -242,219 +274,353 @@ export function SMS() {
     && isScheduleValid
     && (sendMode === 'scheduled' || (!!wallet && wallet.balance > 0));
 
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+      + ' at '
+      + d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
     <Layout>
       <PageHeader
         title="SMS Communication"
-        description="Send targeted SMS messages to your members, newcomers, or workforce. Select a recipient group, then choose exactly who should receive the message - or select all."
+        description="View your SMS history and send targeted messages to members, newcomers, or workforce."
         action={{
           label: fundingCtaLabel,
           onClick: openFundingDialog,
         }}
       />
-      <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="p-4 md:p-6">
         {loading ? (
-          <div className="lg:col-span-3">
-            <BibleLoader message="Loading SMS..." />
-          </div>
+          <BibleLoader message="Loading SMS..." />
         ) : (
-          <>
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Compose Message</CardTitle>
-                  <p className="text-sm text-gray-500">
-                    Choose a recipient group first, then pick the specific people you'd like to reach. You can select all at once with the toggle or hand-pick individuals.
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>1. Choose Recipient Group</Label>
-                    <Select value={recipientGroup} onValueChange={(value: RecipientGroup) => handleGroupChange(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Who do you want to message?" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all-members">
-                          <span className="flex items-center gap-2">
-                            <Users className="w-4 h-4" />
-                            All Members
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="newcomers">
-                          <span className="flex items-center gap-2">
-                            <UserPlus className="w-4 h-4" />
-                            Newcomers
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="workforce">
-                          <span className="flex items-center gap-2">
-                            <Briefcase className="w-4 h-4" />
-                            Workforce
-                          </span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'logs' | 'send')}>
+            <TabsList className="mb-6">
+              <TabsTrigger value="logs">
+                <MessageSquare className="w-4 h-4 mr-1.5" />
+                SMS Logs
+              </TabsTrigger>
+              <TabsTrigger value="send">
+                <Send className="w-4 h-4 mr-1.5" />
+                Send SMS
+              </TabsTrigger>
+            </TabsList>
 
-                  {recipientGroup && (
-                    <div className="space-y-2">
-                      <Label>2. Select Recipients</Label>
-                      {availableRecipients.length === 0 ? (
-                        <div className="border border-dashed border-gray-200 rounded-lg p-4 text-center">
-                          <p className="text-sm text-gray-500">No recipients found in this group with a phone number.</p>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <Input
-                              placeholder="Search by name or phone..."
-                              value={recipientSearch}
-                              onChange={event => setRecipientSearch(event.target.value)}
-                              className="pl-10"
-                            />
-                          </div>
-                          <div className="border border-gray-200 rounded-lg max-h-52 overflow-y-auto">
-                            <div className="flex items-center gap-3 p-2.5 border-b border-gray-100 bg-gray-50 sticky top-0">
-                              <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
-                              <span className="text-sm font-medium text-gray-700">Select all ({filteredRecipients.length})</span>
-                              {selectedRecipientIds.length > 0 && (
-                                <Badge variant="secondary" className="ml-auto text-xs">
-                                  {selectedRecipientIds.length} selected
-                                </Badge>
-                              )}
-                            </div>
-                            {filteredRecipients.map(recipient => (
-                              <label
-                                key={recipient.id}
-                                className="flex items-center gap-3 p-2.5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
-                              >
-                                <Checkbox
-                                  checked={selectedRecipientIds.includes(recipient.id)}
-                                  onCheckedChange={() => toggleRecipient(recipient.id)}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-900 truncate">{recipient.name}</p>
-                                  <p className="text-xs text-gray-400">{recipient.phone}</p>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        </>
-                      )}
+            {/* SMS Logs Tab */}
+            <TabsContent value="logs">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-4">
+                  {smsLogs.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500 text-sm">No SMS logs yet. Send your first message to see it here.</p>
                     </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>3. Write Your Message</Label>
-                    <Textarea
-                      placeholder="Type your message here... Keep it warm and personal!"
-                      rows={6}
-                      value={message}
-                      onChange={event => setMessage(event.target.value)}
-                    />
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>
-                        {charCount} character{charCount !== 1 ? 's' : ''} ({smsCredits} SMS credit{smsCredits !== 1 ? 's' : ''} per recipient)
-                      </span>
-                      <span>Total: ~{smsCredits * selectedRecipientNumbers.length} credits</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 rounded-lg border border-gray-200 p-4">
-                    <div className="space-y-2">
-                      <Label>4. Delivery</Label>
-                      <Select value={sendMode} onValueChange={(value: 'now' | 'scheduled') => {
-                        setSendMode(value);
-                        if (value === 'now') setScheduleAt('');
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose how to send this SMS" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="now">Send Now</SelectItem>
-                          <SelectItem value="scheduled">Schedule SMS</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {sendMode === 'scheduled' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="sms-send-at">Send At</Label>
-                        <Input
-                          id="sms-send-at"
-                          type="datetime-local"
-                          value={scheduleAt}
-                          onChange={event => setScheduleAt(event.target.value)}
-                        />
-                        <p className="text-xs text-gray-500">Scheduled SMS is converted from your local time to UTC before it is sent to the API.</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    disabled={!canSendSms || sending}
-                    onClick={handleSendSms}
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    {sending
-                      ? (sendMode === 'scheduled' ? 'Scheduling...' : 'Sending...')
-                      : `${sendMode === 'scheduled' ? 'Schedule for' : 'Send to'} ${selectedRecipientNumbers.length} Recipient${selectedRecipientNumbers.length !== 1 ? 's' : ''}`}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Wallet Balance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {wallet ? (
-                    <>
-                      <div className="text-center mb-4">
-                        <p className="text-4xl font-bold text-blue-600">{(wallet.balance ?? 0).toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">SMS Credits</p>
-                      </div>
-                      <Button variant="outline" className="w-full" onClick={openFundingDialog}>
-                        {fundingCtaLabel}
-                      </Button>
-                    </>
                   ) : (
-                    <div className="text-center py-4">
-                      <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500 mb-3">No SMS wallet set up yet.</p>
-                      <Button variant="outline" className="w-full" onClick={openFundingDialog}>
-                        Create &amp; Fund Wallet
-                      </Button>
+                    <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden bg-white">
+                      {smsLogs.map(log => {
+                        const initials = log.user.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+                        const d = new Date(log.createdAt);
+                        const now = new Date();
+                        const isToday = d.toDateString() === now.toDateString();
+                        const timeLabel = isToday
+                          ? d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
+                          : d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
+
+                        return (
+                          <div key={log.id} className="flex items-start gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <span className="text-sm font-medium text-gray-900 truncate">{log.user.name}</span>
+                                <span className="text-xs text-gray-400 shrink-0">{timeLabel}</span>
+                              </div>
+                              <p className="text-sm text-gray-500 truncate">{log.comment}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-gray-400">{log.recipientCount} recipient{log.recipientCount !== 1 ? 's' : ''}</span>
+                                <span className="text-xs text-gray-300">·</span>
+                                <span className="text-xs text-gray-400">{log.unitsUsed} units</span>
+                                <span className="text-xs text-gray-300">·</span>
+                                <span className="text-xs text-gray-400">₦{parseFloat(log.cost).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Quick Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Members with phone</span>
-                    <span className="font-medium">{members.filter(member => member.phone).length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Newcomers with phone</span>
-                    <span className="font-medium">{newcomers.filter(newcomer => newcomer.phone && !newcomer.movedToMemberId).length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Workforce members</span>
-                    <span className="font-medium">{workforce.length}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </>
+                {/* Sidebar: Wallet + Stats */}
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Wallet Balance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {wallet ? (
+                        <>
+                          <div className="text-center mb-4">
+                            <p className="text-4xl font-bold text-blue-600">{(wallet.balance ?? 0).toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">SMS Credits</p>
+                          </div>
+                          <Button variant="outline" className="w-full" onClick={openFundingDialog}>
+                            {fundingCtaLabel}
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 mb-3">No SMS wallet set up yet.</p>
+                          <Button variant="outline" className="w-full" onClick={openFundingDialog}>
+                            Create &amp; Fund Wallet
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Quick Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Total SMS sent</span>
+                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + l.recipientCount, 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Total units used</span>
+                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + parseFloat(l.unitsUsed || '0'), 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Total cost</span>
+                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + parseFloat(l.cost || '0'), 0).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Members with phone</span>
+                        <span className="font-medium">{members.filter(member => member.phone).length}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Send SMS Tab */}
+            <TabsContent value="send">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Compose Message</CardTitle>
+                      <p className="text-sm text-gray-500">
+                        Choose a recipient group first, then pick the specific people you'd like to reach. You can select all at once with the toggle or hand-pick individuals.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>1. Choose Recipient Group</Label>
+                        <Select value={recipientGroup} onValueChange={(value: RecipientGroup) => handleGroupChange(value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Who do you want to message?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all-members">
+                              <span className="flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                All Members
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="newcomers">
+                              <span className="flex items-center gap-2">
+                                <UserPlus className="w-4 h-4" />
+                                Newcomers
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="workforce">
+                              <span className="flex items-center gap-2">
+                                <Briefcase className="w-4 h-4" />
+                                Workforce
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {recipientGroup && (
+                        <div className="space-y-2">
+                          <Label>2. Select Recipients</Label>
+                          {availableRecipients.length === 0 ? (
+                            <div className="border border-dashed border-gray-200 rounded-lg p-4 text-center">
+                              <p className="text-sm text-gray-500">No recipients found in this group with a phone number.</p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Input
+                                  placeholder="Search by name or phone..."
+                                  value={recipientSearch}
+                                  onChange={event => setRecipientSearch(event.target.value)}
+                                  className="pl-10"
+                                />
+                              </div>
+                              <div className="border border-gray-200 rounded-lg max-h-52 overflow-y-auto">
+                                <div className="flex items-center gap-3 p-2.5 border-b border-gray-100 bg-gray-50 sticky top-0">
+                                  <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
+                                  <span className="text-sm font-medium text-gray-700">Select all ({filteredRecipients.length})</span>
+                                  {selectedRecipientIds.length > 0 && (
+                                    <Badge variant="secondary" className="ml-auto text-xs">
+                                      {selectedRecipientIds.length} selected
+                                    </Badge>
+                                  )}
+                                </div>
+                                {filteredRecipients.map(recipient => (
+                                  <label
+                                    key={recipient.id}
+                                    className="flex items-center gap-3 p-2.5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
+                                  >
+                                    <Checkbox
+                                      checked={selectedRecipientIds.includes(recipient.id)}
+                                      onCheckedChange={() => toggleRecipient(recipient.id)}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-gray-900 truncate">{recipient.name}</p>
+                                      <p className="text-xs text-gray-400">{recipient.phone}</p>
+                                    </div>
+                                  </label>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label>3. Write Your Message</Label>
+                        <Textarea
+                          placeholder="Type your message here... Keep it warm and personal!"
+                          rows={6}
+                          value={message}
+                          onChange={event => setMessage(event.target.value)}
+                        />
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>
+                            {charCount} character{charCount !== 1 ? 's' : ''} ({smsCredits} SMS credit{smsCredits !== 1 ? 's' : ''} per recipient)
+                          </span>
+                          <span>Total: ~{smsCredits * selectedRecipientNumbers.length} credits</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="sms-sender-name">4. Sender Name</Label>
+                        <Input
+                          id="sms-sender-name"
+                          placeholder="e.g. Pastor John"
+                          value={senderName}
+                          onChange={e => setSenderName(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-500">Recipients will see this as the sender.</p>
+                      </div>
+
+                      <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+                        <div className="space-y-2">
+                          <Label>5. Delivery</Label>
+                          <Select value={sendMode} onValueChange={(value: 'now' | 'scheduled') => {
+                            setSendMode(value);
+                            if (value === 'now') setScheduleAt('');
+                          }}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose how to send this SMS" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="now">Send Now</SelectItem>
+                              <SelectItem value="scheduled">Schedule SMS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {sendMode === 'scheduled' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="sms-send-at">Send At</Label>
+                            <Input
+                              id="sms-send-at"
+                              type="datetime-local"
+                              value={scheduleAt}
+                              onChange={event => setScheduleAt(event.target.value)}
+                            />
+                            <p className="text-xs text-gray-500">Scheduled SMS is converted from your local time to UTC before it is sent to the API.</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        disabled={!canSendSms || sending}
+                        onClick={handleSendSms}
+                      >
+                        <Send className="w-4 h-4 mr-2" />
+                        {sending
+                          ? (sendMode === 'scheduled' ? 'Scheduling...' : 'Sending...')
+                          : `${sendMode === 'scheduled' ? 'Schedule for' : 'Send to'} ${selectedRecipientNumbers.length} Recipient${selectedRecipientNumbers.length !== 1 ? 's' : ''}`}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Wallet Balance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {wallet ? (
+                        <>
+                          <div className="text-center mb-4">
+                            <p className="text-4xl font-bold text-blue-600">{(wallet.balance ?? 0).toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">SMS Credits</p>
+                          </div>
+                          <Button variant="outline" className="w-full" onClick={openFundingDialog}>
+                            {fundingCtaLabel}
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="text-center py-4">
+                          <Inbox className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500 mb-3">No SMS wallet set up yet.</p>
+                          <Button variant="outline" className="w-full" onClick={openFundingDialog}>
+                            Create &amp; Fund Wallet
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Quick Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Members with phone</span>
+                        <span className="font-medium">{members.filter(member => member.phone).length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Newcomers with phone</span>
+                        <span className="font-medium">{newcomers.filter(newcomer => newcomer.phone && !newcomer.movedToMemberId).length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Workforce members</span>
+                        <span className="font-medium">{workforce.length}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 
@@ -495,4 +661,3 @@ export function SMS() {
     </Layout>
   );
 }
-

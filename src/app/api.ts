@@ -601,9 +601,15 @@ function extractProgramResults(response: any) {
   const pagination = response?.data?.pagination || response?.pagination;
   const hasMorePages =
     pagination?.hasNextPage === true || pagination?.hasMore === true;
-  const nextPage = hasMorePages
-    ? normalizeRelativeApiPath(pagination?.nextPage)
-    : null;
+
+  let nextPage: string | null = null;
+  if (hasMorePages) {
+    if (pagination?.nextPage) {
+      nextPage = normalizeRelativeApiPath(pagination.nextPage);
+    } else if (pagination?.nextCursor) {
+      nextPage = `/church/get-events?cursor=${encodeURIComponent(pagination.nextCursor)}`;
+    }
+  }
 
   return { events, nextPage };
 }
@@ -1042,6 +1048,10 @@ function buildAdminsPagePath(branchId?: string, nextPagePath?: string | null) {
 
   try {
     const parsed = new URL(normalizedPath, "https://churchset.local");
+    parsed.searchParams.delete("cursor");
+    parsed.searchParams.delete("lastId");
+    parsed.searchParams.delete("sortBy");
+    parsed.searchParams.delete("sortOrder");
     if (branchId && !parsed.searchParams.has("branchId")) {
       parsed.searchParams.set("branchId", branchId);
     }
@@ -2452,6 +2462,13 @@ export async function sendSms(data: SendSmsRequest) {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+/** GET /wallet/sms-logs */
+export async function fetchSmsLogs(): Promise<any> {
+  const res = await apiFetch<any>("/wallet/sms-logs");
+  console.log("[fetchSmsLogs] response:", res);
+  return res;
 }
 
 // Backward-compat alias

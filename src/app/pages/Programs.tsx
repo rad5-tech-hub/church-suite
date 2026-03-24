@@ -233,6 +233,7 @@ export function Programs() {
   // Views
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProgramStatus | 'all'>('all');
   const [gridPage, setGridPage] = useState(1);
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -568,16 +569,17 @@ export function Programs() {
   }, [programs, getOccurrenceDates, getProgramStatus]);
 
   const filteredOccurrences = listOccurrences.filter(o => {
-    if (!searchTerm) return true;
-    return o.program.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (searchTerm && !o.program.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+    return true;
   });
 
   // ──────── GRID DATA ────────
   // Group unique programs with their next occurrence and status
   const gridPrograms = useMemo(() => {
     const filtered = programs.filter(p => {
-      if (!searchTerm) return true;
-      return p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      if (searchTerm && !p.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
     });
 
     return filtered.map(prog => {
@@ -621,14 +623,14 @@ export function Programs() {
       }
 
       return { prog, nextOcc, lastOcc, status, managedCount, totalOccs, freqLabel };
-    });
-  }, [programs, listOccurrences, instances, searchTerm]);
+    }).filter(item => statusFilter === 'all' || item.status === statusFilter);
+  }, [programs, listOccurrences, instances, searchTerm, statusFilter]);
 
   const totalGridPages = Math.max(1, Math.ceil(gridPrograms.length / GRID_PAGE_SIZE));
 
   useEffect(() => {
     setGridPage(1);
-  }, [searchTerm, programs.length, viewMode]);
+  }, [searchTerm, statusFilter, programs.length, viewMode]);
 
   useEffect(() => {
     if (gridPage > totalGridPages) {
@@ -736,6 +738,22 @@ export function Programs() {
 
   const validateCreateForm = (): boolean => {
     const errors: Record<string, string> = {};
+
+    if (!cName.trim()) errors.cName = 'Program title is required';
+
+    // Edit mode: only validate the fields that are actually editable
+    if (editTarget) {
+      if (!cStartTime) errors.cStartTime = 'Start time is required';
+      if (!cEndTime) errors.cEndTime = 'End time is required';
+      if (cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
+      setFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        setTimeout(() => scrollToError(errors), 100);
+        return false;
+      }
+      return true;
+    }
+
     const derivedEventDate = cType === 'one-time'
       ? cOneTimeDate
       : cType === 'custom' && cCustomDates.length > 0
@@ -744,7 +762,6 @@ export function Programs() {
           ? cRecurrenceStartDate
           : toDateInputValue(new Date());
 
-    if (!cName.trim()) errors.cName = 'Program title is required';
     if (!cType) errors.cType = 'Please select a program type';
     if (cType === 'one-time' && !cOneTimeDate) errors.cOneTimeDate = 'Please select a date for this event';
     if (cType === 'weekly') {
@@ -815,11 +832,9 @@ export function Programs() {
       errors.cRecurrenceEndDate = 'End date must be the same as or after the start date';
     }
     if (cType === 'custom' && cCustomDates.length === 0) errors.cCustomDates = 'Please select at least one date';
-    if (cType !== 'custom') {
-      if (!cStartTime) errors.cStartTime = 'Start time is required';
-      if (!cEndTime) errors.cEndTime = 'End time is required';
-      if (cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
-    }
+    if (!cStartTime) errors.cStartTime = 'Start time is required';
+    if (!cEndTime) errors.cEndTime = 'End time is required';
+    if (cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
     if (cType === 'custom' && cCustomDates.length > 0) {
       for (const d of cCustomDates) {
         const dt = cCustomDateTimes[d];
@@ -1020,16 +1035,11 @@ export function Programs() {
       };
       let eventDate = '';
       if (cType === 'one-time') eventDate = cOneTimeDate;
-      else if (cType === 'custom' && cCustomDates.length > 0) eventDate = cCustomDates[0];
       else if ((cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate) eventDate = cRecurrenceStartDate;
-      else eventDate = toDateInputValue(new Date());
+      else if (cType !== 'custom') eventDate = toDateInputValue(new Date());
 
-      const baseStartTime = cType === 'custom'
-        ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.startTime || cStartTime) : cStartTime)
-        : cStartTime;
-      const baseEndTime = cType === 'custom'
-        ? (cCustomDates.length > 0 ? (cCustomDateTimes[cCustomDates[0]]?.endTime || cEndTime) : cEndTime)
-        : cEndTime;
+      const baseStartTime = cStartTime;
+      const baseEndTime = cEndTime;
 
       const byWeekday = cType === 'weekly'
         ? cWeeklyRules
@@ -1092,16 +1102,7 @@ export function Programs() {
         .map((collectionType) => collectionType.id);
 
       if (editTarget) {
-        const originalBranchSelection = getProgramBranchSelection(editTarget) || 'churchwide';
-        const nextBranchSelection = isMultiBranch ? selectedBranchId : (eventBranchId || '');
-
-        if (originalBranchSelection !== nextBranchSelection) {
-          throw new Error('Changing the branch is not supported by the current edit API yet.');
-        }
-
-        if (editTarget.type !== cType) {
-          throw new Error('Changing the recurrence pattern is not supported by the current edit API yet.');
-        }
+        const routeBranchSelectionForLookup = isMultiBranch ? selectedBranchId : (eventBranchId || '');
 
         const occurrence = getPrimaryOccurrence(editTarget);
         const occurrenceId = occurrence?.id || getOccurrenceForDate(editTarget, eventDate)?.id;
@@ -1109,7 +1110,7 @@ export function Programs() {
           throw new Error('Unable to determine which event occurrence to edit.');
         }
 
-        const routeBranchId = resolveEventEditRouteBranchId(editTarget, nextBranchSelection);
+        const routeBranchId = resolveEventEditRouteBranchId(editTarget, routeBranchSelectionForLookup);
         if (!routeBranchId) {
           throw new Error('Unable to determine which branch to use for this edit.');
         }
@@ -1142,16 +1143,23 @@ export function Programs() {
         await createEvent({
           title: cName.trim(),
           description: cDescription.trim() || undefined,
-          date: eventDate || toDateInputValue(new Date()),
+          ...(cType !== 'custom' && { date: eventDate || toDateInputValue(new Date()) }),
           endDate: (cType === 'weekly' || cType === 'monthly') ? (cRecurrenceEndDate || undefined) : undefined,
           recurrenceType: (recurrenceMap[cType] || 'none') as any,
-          startTime: baseStartTime,
-          endTime: baseEndTime,
+          startTime: formatApiTime(baseStartTime) || undefined,
+          endTime: formatApiTime(baseEndTime) || undefined,
           branchId: eventBranchId,
           departmentIds: cDeptIds.length > 0 ? cDeptIds : undefined,
           collectionIds: collectionIds.length > 0 ? collectionIds : undefined,
           byWeekday,
           nthWeekdays,
+          ...(cType === 'custom' && {
+            customRecurrenceDates: cCustomDates.sort().map(d => ({
+              date: d,
+              startTime: formatApiTime(cCustomDateTimes[d]?.startTime || baseStartTime) || '',
+              endTime: formatApiTime(cCustomDateTimes[d]?.endTime || baseEndTime) || '',
+            })),
+          }),
         });
 
         const freshProgs = await fetchPrograms({
@@ -1572,12 +1580,28 @@ export function Programs() {
               </div>
             </div>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500" /><span className="text-gray-600">Ongoing</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-yellow-500" /><span className="text-gray-600">Needs Attention</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-gray-400" /><span className="text-gray-600">Past (Managed)</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-purple-500" /><span className="text-gray-600">Upcoming</span></div>
+            {/* Status filter */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {([
+                { value: 'all', label: 'All', dot: 'bg-gray-300' },
+                { value: 'ongoing', label: 'Ongoing', dot: 'bg-green-500' },
+                { value: 'unmanaged', label: 'Needs Attention', dot: 'bg-yellow-500' },
+                { value: 'past', label: 'Past (Managed)', dot: 'bg-gray-400' },
+                { value: 'upcoming', label: 'Upcoming', dot: 'bg-purple-500' },
+              ] as const).map(({ value, label, dot }) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors ${
+                    statusFilter === value
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+                  {label}
+                </button>
+              ))}
             </div>
 
             {viewMode === 'grid' ? (
@@ -1800,8 +1824,22 @@ export function Programs() {
               />
             </div>
 
+            {editTarget && (
+              <div className="space-y-2">
+                <Label>Date<RequiredStar /></Label>
+                <Input
+                  type="date"
+                  value={cType === 'one-time' ? cOneTimeDate : cRecurrenceStartDate}
+                  onChange={e => {
+                    if (cType === 'one-time') setCOneTimeDate(e.target.value);
+                    else setCRecurrenceStartDate(e.target.value);
+                  }}
+                />
+              </div>
+            )}
+
             {/* Program Type */}
-            <div className="space-y-2" ref={el => { fieldRefs.current.cType = el; }}>
+            {!editTarget && <div className="space-y-2" ref={el => { fieldRefs.current.cType = el; }}>
               <Label>Program Type<RequiredStar /></Label>
               <Select value={cType} onValueChange={(v) => {
                 setCType(v as ProgramFrequency);
@@ -1832,10 +1870,10 @@ export function Programs() {
                 </SelectContent>
               </Select>
               <FieldError field="cType" />
-            </div>
+            </div>}
 
             {/* Type-specific fields */}
-            {cType === 'one-time' && (
+            {!editTarget && cType === 'one-time' && (
               <div className="space-y-2" ref={el => { fieldRefs.current.cOneTimeDate = el; }}>
                 <Label>Event Date<RequiredStar /></Label>
                 <Input
@@ -1848,7 +1886,7 @@ export function Programs() {
               </div>
             )}
 
-            {cType === 'weekly' && (
+            {!editTarget && cType === 'weekly' && (
               <div className="space-y-3" ref={el => { fieldRefs.current.cWeeklyDays = el; }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -1974,7 +2012,7 @@ export function Programs() {
               </div>
             )}
 
-            {cType === 'monthly' && (
+            {!editTarget && cType === 'monthly' && (
               <div className="space-y-3" ref={el => { fieldRefs.current.cMonthlyRules = el; }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -2132,7 +2170,7 @@ export function Programs() {
               </div>
             )}
 
-            {cType === 'custom' && (
+            {!editTarget && cType === 'custom' && (
               <div className="space-y-2" ref={el => { fieldRefs.current.cCustomDates = el; }}>
                 <Label>Select Dates<RequiredStar /></Label>
                 <div className="border border-gray-200 rounded-lg p-3">
@@ -2205,8 +2243,12 @@ export function Programs() {
               </div>
             )}
 
-            {/* Time (not shown for custom — custom has per-date times above) */}
-            {cType && cType !== 'custom' && (
+            {/* Time */}
+            {cType && (
+              <>
+                {!editTarget && cType === 'custom' && (
+                  <p className="text-xs text-gray-500 -mb-1">Default event time — each selected date can override these below.</p>
+                )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2" ref={el => { fieldRefs.current.cStartTime = el; }}>
                   <Label>Start Time<RequiredStar /></Label>
@@ -2229,9 +2271,10 @@ export function Programs() {
                   <FieldError field="cEndTime" />
                 </div>
               </div>
+              </>
             )}
 
-            {(cType === 'weekly' || cType === 'monthly') && (
+            {!editTarget && (cType === 'weekly' || cType === 'monthly') && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2" ref={el => { fieldRefs.current.cRecurrenceStartDate = el; }}>
                   <Label>Recurrence Start Date<RequiredStar /></Label>
@@ -2276,8 +2319,8 @@ export function Programs() {
               </div>
             )}
 
-            {/* Branch (multi only) */}
-            {isMultiBranch && (
+            {/* Branch (multi only, create mode) */}
+            {!editTarget && isMultiBranch && (
               <div className="space-y-2" ref={el => { fieldRefs.current.cBranchId = el; }}>
                 <Label>Branch<RequiredStar /></Label>
                 <p className="text-xs text-gray-500">Choose a specific branch, or select "Church-wide" to make this program visible across all branches.</p>
@@ -2294,7 +2337,8 @@ export function Programs() {
               </div>
             )}
 
-            {/* Departments (optional) */}
+            {/* Departments (optional, create mode) */}
+            {!editTarget && (
             <div className="space-y-2" ref={el => { fieldRefs.current.cDeptIds = el; }}>
               <Label>Departments Expected to Attend <span className="text-gray-400 font-normal">(optional)</span></Label>
               <p className="text-xs text-gray-500">Select departments whose workforce members are expected. Leave empty if not applicable.</p>
@@ -2317,9 +2361,10 @@ export function Programs() {
               )}
               <FieldError field="cDeptIds" />
             </div>
+            )}
 
-            {/* Collections (optional) — picks from Finance collection types only */}
-            <div className="space-y-2">
+            {/* Collections (optional, create mode) — picks from Finance collection types only */}
+            {!editTarget && <div className="space-y-2">
               <Label>Collections <span className="text-gray-400 font-normal">(optional)</span></Label>
               <p className="text-xs text-gray-500">
                 Select from the collection types you've created in <strong>Finance &rarr; Collections</strong>. This keeps all your collection tracking consistent and avoids duplicates.
@@ -2360,7 +2405,7 @@ export function Programs() {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
 
             <Separator />
             <div className="flex gap-3">

@@ -1079,9 +1079,9 @@ export function Finance() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Finances</SelectItem>
-                      {canFilterByBranch && <SelectItem value="branch">By Branch</SelectItem>}
+                      {isMultiBranch && canFilterByBranch && <SelectItem value="branch">By Branch</SelectItem>}
                       <SelectItem value="department">By Department</SelectItem>
-                      <SelectItem value="unit">By Unit</SelectItem>
+                      {isMultiBranch && <SelectItem value="unit">By Unit</SelectItem>}
                     </SelectContent>
                   </Select>
 
@@ -1169,9 +1169,9 @@ export function Finance() {
                 <TabsTrigger value="collections" className="gap-2">
                   <Tag className="w-4 h-4" /> Collections
                 </TabsTrigger>
-                <TabsTrigger value="fundraisers" className="gap-2">
+                {/* <TabsTrigger value="fundraisers" className="gap-2">
                   <Target className="w-4 h-4" /> Fundraisers
-                </TabsTrigger>
+                </TabsTrigger> */}
               </TabsList>
 
               {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• LEDGER TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -1513,8 +1513,8 @@ export function Finance() {
                 </div>
               </TabsContent>
 
-              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FUNDRAISERS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-              <TabsContent value="fundraisers" className="space-y-4">
+              {/* ═══════════════ FUNDRAISERS TAB (API NOT READY — commented out) ═══════════════ */}
+              {/* <TabsContent value="fundraisers" className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">Fundraisers</h3>
@@ -1620,7 +1620,7 @@ export function Finance() {
                     })}
                   </div>
                 )}
-              </TabsContent>
+              </TabsContent> */}
             </Tabs>
           </>
         )}
