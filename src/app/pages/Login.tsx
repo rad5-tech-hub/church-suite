@@ -50,8 +50,11 @@ export function Login() {
       } catch (err) {
         console.error('Failed to load church data after login:', err);
       }
-      if (result.warning) setError(result.warning); // shown briefly before navigate
-      navigate('/dashboard');
+      if (result.requiresSubscription) {
+        navigate('/choose-plan');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
