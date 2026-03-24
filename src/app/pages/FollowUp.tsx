@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -51,6 +52,7 @@ export function FollowUp() {
   const { church, branches } = useChurch();
   const isMultiBranch = church.type === 'multi' && branches.length > 0;
   const primaryBranchId = resolvePrimaryBranchId(branches, currentAdmin);
+  const navigate = useNavigate();
 
   const [newcomers, setNewcomers] = useState<Newcomer[]>([]);
   const [newcomerForms, setNewcomerForms] = useState<NewcomerForm[]>([]);
@@ -1024,7 +1026,7 @@ export function FollowUp() {
                   </a>
                 )}
                 {selectedNewcomer.phone && (
-                  <button onClick={() => { const nc = selectedNewcomer; setSelectedNewcomer(null); openSmsFollowUp([nc]); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs hover:bg-green-100 transition-colors cursor-pointer">
+                  <button onClick={() => { setSelectedNewcomer(null); navigate('/sms'); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs hover:bg-green-100 transition-colors cursor-pointer">
                     <Send className="w-3 h-3" />Send SMS
                   </button>
                 )}
