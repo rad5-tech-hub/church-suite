@@ -72,6 +72,7 @@ export function extractSubscriptionCheckoutParams(payload: any): FlutterwaveFund
   const currency: string = payment?.currency ?? root?.currency ?? 'NGN';
   const customer = pUrl?.customer ?? root?.customer;
   const publicKey: string =
+    payment?.publicKey ??
     pUrl?.publicKey ??
     root?.publicKey ??
     (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_FLUTTERWAVE_PUBLIC_KEY : '') ??
