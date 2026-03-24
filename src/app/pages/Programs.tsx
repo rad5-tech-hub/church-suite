@@ -233,6 +233,7 @@ export function Programs() {
   // Views
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProgramStatus | 'all'>('all');
   const [gridPage, setGridPage] = useState(1);
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
@@ -568,16 +569,17 @@ export function Programs() {
   }, [programs, getOccurrenceDates, getProgramStatus]);
 
   const filteredOccurrences = listOccurrences.filter(o => {
-    if (!searchTerm) return true;
-    return o.program.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (searchTerm && !o.program.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+    return true;
   });
 
   // ──────── GRID DATA ────────
   // Group unique programs with their next occurrence and status
   const gridPrograms = useMemo(() => {
     const filtered = programs.filter(p => {
-      if (!searchTerm) return true;
-      return p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      if (searchTerm && !p.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
     });
 
     return filtered.map(prog => {
@@ -621,14 +623,14 @@ export function Programs() {
       }
 
       return { prog, nextOcc, lastOcc, status, managedCount, totalOccs, freqLabel };
-    });
-  }, [programs, listOccurrences, instances, searchTerm]);
+    }).filter(item => statusFilter === 'all' || item.status === statusFilter);
+  }, [programs, listOccurrences, instances, searchTerm, statusFilter]);
 
   const totalGridPages = Math.max(1, Math.ceil(gridPrograms.length / GRID_PAGE_SIZE));
 
   useEffect(() => {
     setGridPage(1);
-  }, [searchTerm, programs.length, viewMode]);
+  }, [searchTerm, statusFilter, programs.length, viewMode]);
 
   useEffect(() => {
     if (gridPage > totalGridPages) {
@@ -1578,12 +1580,28 @@ export function Programs() {
               </div>
             </div>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 text-xs">
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500" /><span className="text-gray-600">Ongoing</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-yellow-500" /><span className="text-gray-600">Needs Attention</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-gray-400" /><span className="text-gray-600">Past (Managed)</span></div>
-              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-purple-500" /><span className="text-gray-600">Upcoming</span></div>
+            {/* Status filter */}
+            <div className="flex flex-wrap gap-2 text-xs">
+              {([
+                { value: 'all', label: 'All', dot: 'bg-gray-300' },
+                { value: 'ongoing', label: 'Ongoing', dot: 'bg-green-500' },
+                { value: 'unmanaged', label: 'Needs Attention', dot: 'bg-yellow-500' },
+                { value: 'past', label: 'Past (Managed)', dot: 'bg-gray-400' },
+                { value: 'upcoming', label: 'Upcoming', dot: 'bg-purple-500' },
+              ] as const).map(({ value, label, dot }) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-colors ${
+                    statusFilter === value
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full ${dot}`} />
+                  {label}
+                </button>
+              ))}
             </div>
 
             {viewMode === 'grid' ? (
