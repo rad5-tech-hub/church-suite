@@ -3400,6 +3400,11 @@ export async function fetchPricingConfigs() {
   return apiFetch<any>("/plan/pricing-configs");
 }
 
+/** GET /plan/my-subscription — returns the church's active subscription details */
+export async function fetchMySubscription(): Promise<any> {
+  return apiFetch<any>('/plan/my-subscription').catch(() => null);
+}
+
 // BACKWARD COMPAT STUBS
 
 export const fetchWorkforce = async (branchId?: string) => {
