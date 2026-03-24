@@ -1079,9 +1079,9 @@ export function Finance() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Finances</SelectItem>
-                      {canFilterByBranch && <SelectItem value="branch">By Branch</SelectItem>}
+                      {isMultiBranch && canFilterByBranch && <SelectItem value="branch">By Branch</SelectItem>}
                       <SelectItem value="department">By Department</SelectItem>
-                      <SelectItem value="unit">By Unit</SelectItem>
+                      {isMultiBranch && <SelectItem value="unit">By Unit</SelectItem>}
                     </SelectContent>
                   </Select>
 
