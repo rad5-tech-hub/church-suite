@@ -736,6 +736,22 @@ export function Programs() {
 
   const validateCreateForm = (): boolean => {
     const errors: Record<string, string> = {};
+
+    if (!cName.trim()) errors.cName = 'Program title is required';
+
+    // Edit mode: only validate the fields that are actually editable
+    if (editTarget) {
+      if (!cStartTime) errors.cStartTime = 'Start time is required';
+      if (!cEndTime) errors.cEndTime = 'End time is required';
+      if (cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
+      setFormErrors(errors);
+      if (Object.keys(errors).length > 0) {
+        setTimeout(() => scrollToError(errors), 100);
+        return false;
+      }
+      return true;
+    }
+
     const derivedEventDate = cType === 'one-time'
       ? cOneTimeDate
       : cType === 'custom' && cCustomDates.length > 0
@@ -744,7 +760,6 @@ export function Programs() {
           ? cRecurrenceStartDate
           : toDateInputValue(new Date());
 
-    if (!cName.trim()) errors.cName = 'Program title is required';
     if (!cType) errors.cType = 'Please select a program type';
     if (cType === 'one-time' && !cOneTimeDate) errors.cOneTimeDate = 'Please select a date for this event';
     if (cType === 'weekly') {
@@ -1085,16 +1100,7 @@ export function Programs() {
         .map((collectionType) => collectionType.id);
 
       if (editTarget) {
-        const originalBranchSelection = getProgramBranchSelection(editTarget) || 'churchwide';
-        const nextBranchSelection = isMultiBranch ? selectedBranchId : (eventBranchId || '');
-
-        if (originalBranchSelection !== nextBranchSelection) {
-          throw new Error('Changing the branch is not supported by the current edit API yet.');
-        }
-
-        if (editTarget.type !== cType) {
-          throw new Error('Changing the recurrence pattern is not supported by the current edit API yet.');
-        }
+        const routeBranchSelectionForLookup = isMultiBranch ? selectedBranchId : (eventBranchId || '');
 
         const occurrence = getPrimaryOccurrence(editTarget);
         const occurrenceId = occurrence?.id || getOccurrenceForDate(editTarget, eventDate)?.id;
@@ -1102,7 +1108,7 @@ export function Programs() {
           throw new Error('Unable to determine which event occurrence to edit.');
         }
 
-        const routeBranchId = resolveEventEditRouteBranchId(editTarget, nextBranchSelection);
+        const routeBranchId = resolveEventEditRouteBranchId(editTarget, routeBranchSelectionForLookup);
         if (!routeBranchId) {
           throw new Error('Unable to determine which branch to use for this edit.');
         }
