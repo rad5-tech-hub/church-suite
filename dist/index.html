@@ -1,16 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Churchset</title>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Churchset</title>
-      <script type="module" crossorigin src="/assets/index-pvay3R6q.js"></script>
-      <link rel="stylesheet" crossorigin href="/assets/index-C-RBvtYR.css">
-    </head>
+    <script>
+      (async () => {
+        if (!("serviceWorker" in navigator)) return;
 
-    <body>
-      <div id="root"></div>
-    </body>
-  </html>
-  
+        // Prevent reload loops
+        if (sessionStorage.getItem("sw-cleanup-done")) return;
+        sessionStorage.setItem("sw-cleanup-done", "true");
+
+        try {
+          // Remove all service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+
+          // Remove all Cache Storage entries
+          if ("caches" in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+          }
+
+          // Hard refresh once after cleanup
+          if (registrations.length > 0) {
+            window.location.replace(window.location.href);
+          }
+        } catch (error) {
+          console.error("Service worker cleanup failed:", error);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-EQXzXtn4.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-4IIhRuD6.css">
+  </head>
+
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

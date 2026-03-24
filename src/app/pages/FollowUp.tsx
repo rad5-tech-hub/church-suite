@@ -1026,7 +1026,7 @@ export function FollowUp() {
                   </a>
                 )}
                 {selectedNewcomer.phone && (
-                  <button onClick={() => { setSelectedNewcomer(null); navigate('/sms'); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs hover:bg-green-100 transition-colors cursor-pointer">
+                  <button onClick={() => { const nc = selectedNewcomer; setSelectedNewcomer(null); navigate('/sms', { state: { newcomerId: nc.id } }); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs hover:bg-green-100 transition-colors cursor-pointer">
                     <Send className="w-3 h-3" />Send SMS
                   </button>
                 )}
