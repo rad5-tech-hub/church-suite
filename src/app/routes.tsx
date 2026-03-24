@@ -23,6 +23,7 @@ import { Profile } from './pages/Profile';
 import { NotFound } from './pages/NotFound';
 import { Finance } from './pages/Finance';
 import { Analytics } from './pages/Analytics';
+import { ChoosePlan } from './pages/ChoosePlan';
 
 export const router = createBrowserRouter([
   {
@@ -115,6 +116,10 @@ export const router = createBrowserRouter([
       {
         path: '/subscription',
         Component: Subscription
+      },
+      {
+        path: '/choose-plan',
+        Component: ChoosePlan
       },
       {
         path: '/profile',

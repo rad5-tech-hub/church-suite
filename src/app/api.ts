@@ -3598,3 +3598,56 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
   }
   return { success: true };
 };
+
+// ─────────────────────────────────────────────────────
+// PLAN & SUBSCRIPTION
+// ─────────────────────────────────────────────────────
+
+export interface PlanData {
+  id: string;
+  name: string;
+  description: string;
+  isTrial: boolean;
+  trialDurationDays: number;
+  pricingConfig: {
+    id: string;
+    basePlanPrice: string;
+  };
+}
+
+export async function fetchAllPlans(): Promise<PlanData[]> {
+  const res = await apiFetch('/plan/all-plans', { method: 'GET', skipAuth: true });
+  const data = (res as any)?.data ?? res;
+  return Array.isArray(data) ? data : [];
+}
+
+export interface SubscribePlanRequest {
+  planId: string;
+  billingCycle?: 'monthly' | 'annual';
+  branchCount?: number;
+}
+
+export interface SubscribePlanResponse {
+  message?: string;
+  access?: string;
+  accessToken?: string;
+  paymentUrl?: {
+    payment: { tx_ref: string; amount: number | string; currency: string };
+    customer: { email: string; name: string };
+    meta?: Record<string, any>;
+    pricingBreakdown?: {
+      monthlyPrice: number | string | null;
+      annualPrice: number | string | null;
+      discountApplied: number;
+      totalPayable: number | string;
+    };
+    publicKey?: string;
+  };
+}
+
+export async function subscribeToPlan(body: SubscribePlanRequest): Promise<SubscribePlanResponse> {
+  return apiFetch('/plan/subscribe', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }) as Promise<SubscribePlanResponse>;
+}

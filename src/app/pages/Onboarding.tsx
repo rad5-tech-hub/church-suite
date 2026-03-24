@@ -200,7 +200,7 @@ export function Onboarding() {
     localStorage.removeItem('churchset_first_dashboard');
     localStorage.removeItem('churchset_tour_completed');
     localStorage.removeItem('churchset_tour_later');
-    navigate('/dashboard');
+    navigate('/choose-plan');
   };
 
   return (
