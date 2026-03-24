@@ -121,6 +121,7 @@ export function Reports() {
   const [showDataPicker, setShowDataPicker] = useState(false);
 
   const [viewReport, setViewReport] = useState<Report | null>(null);
+  const [previewContent, setPreviewContent] = useState<{ title: string; content: string; format: 'txt' | 'html' | 'csv' } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [listFilter, setListFilter] = useState<ReportListFilter>('inbox');
@@ -692,6 +693,29 @@ export function Reports() {
     anchor.download = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.${extension}`;
     anchor.click();
     URL.revokeObjectURL(url);
+  };
+
+  const previewReportContent = (report: Report, format: 'txt' | 'html' | 'csv') => {
+    const repliesText = report.replies?.map((reply) => (
+      `\n--- Reply from ${reply.authorName} (${new Date(reply.createdAt).toLocaleString()}) ---\n${reply.content}`
+    )).join('\n') || '';
+    const responseCommentsText = report.responseComments ? `\n\nResponse / Remarks\n${report.responseComments}` : '';
+    const scopeSummary = getReportScopeSummary(report);
+    const authorLevelLabel = getAuthorLevelLabel(report.authorId, report.authorLevel);
+    const recipientSummary = getRecipientListText(report);
+    let content = '';
+    switch (format) {
+      case 'txt':
+        content = `${report.title}\n${'='.repeat(report.title.length)}\nFrom: ${report.authorName} (${authorLevelLabel})\nScope: ${scopeSummary}\nRecipients: ${recipientSummary}\nDate: ${new Date(report.createdAt).toLocaleString()}\n\n${report.content}${responseCommentsText}\n\n${report.dataInserts?.map((d) => `${d.label}: ${d.value}`).join('\n') || ''}${repliesText}`;
+        break;
+      case 'html':
+        content = `<!DOCTYPE html><html><head><title>${report.title}</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#333}h1{color:#1e40af}.meta{color:#666;margin-bottom:20px}.data{background:#f0f4ff;padding:12px;border-radius:8px;margin:8px 0}.reply{background:#f9fafb;border-left:3px solid #6366f1;padding:12px;margin:8px 0;border-radius:4px}.response{background:#fff7ed;border:1px solid #fed7aa;padding:12px;border-radius:8px;margin:12px 0}</style></head><body><h1>${report.title}</h1><div class="meta"><strong>From:</strong> ${report.authorName} (${authorLevelLabel})<br/><strong>Scope:</strong> ${scopeSummary}<br/><strong>Recipients:</strong> ${recipientSummary}<br/><strong>Date:</strong> ${new Date(report.createdAt).toLocaleString()}</div><div>${report.content.replace(/\n/g, '<br/>')}</div>${report.responseComments ? `<div class="response"><strong>Response / Remarks:</strong><p>${report.responseComments.replace(/\n/g, '<br/>')}</p></div>` : ''}${report.dataInserts?.map((d) => `<div class="data"><strong>${d.label}:</strong> ${d.value}</div>`).join('') || ''}${report.replies?.map((reply) => `<div class="reply"><strong>${reply.authorName}</strong> <small>(${new Date(reply.createdAt).toLocaleString()})</small><p>${reply.content.replace(/\n/g, '<br/>')}</p></div>`).join('') || ''}</body></html>`;
+        break;
+      case 'csv':
+        content = `Title,Author,Scope,Recipients,Date,Content\n"${report.title}","${report.authorName}","${scopeSummary}","${recipientSummary}","${new Date(report.createdAt).toLocaleString()}","${report.content.replace(/"/g, '""')}"`;
+        break;
+    }
+    setPreviewContent({ title: report.title, content, format });
   };
 
   const printReport = (report: Report) => {
@@ -1353,13 +1377,25 @@ export function Reports() {
                     <Printer className="w-4 h-4 mr-1" />
                     Print
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => previewReportContent(viewReport, 'txt')}>
+                    <Eye className="w-4 h-4 mr-1" />
+                    .txt
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => exportReport(viewReport, 'txt')}>
                     <Download className="w-4 h-4 mr-1" />
                     .txt
                   </Button>
+                  <Button variant="outline" size="sm" onClick={() => previewReportContent(viewReport, 'html')}>
+                    <Eye className="w-4 h-4 mr-1" />
+                    .html
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => exportReport(viewReport, 'html')}>
                     <Download className="w-4 h-4 mr-1" />
                     .html
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => previewReportContent(viewReport, 'csv')}>
+                    <Eye className="w-4 h-4 mr-1" />
+                    .csv
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => exportReport(viewReport, 'csv')}>
                     <Download className="w-4 h-4 mr-1" />
@@ -1369,6 +1405,39 @@ export function Reports() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* In-app file preview dialog */}
+      <Dialog open={!!previewContent} onOpenChange={(o) => { if (!o) setPreviewContent(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold truncate">{previewContent?.title} <span className="text-gray-400 font-normal">.{previewContent?.format}</span></DialogTitle>
+            <DialogDescription>File preview</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto mt-2">
+            {previewContent?.format === 'html' ? (
+              <iframe
+                srcDoc={previewContent.content}
+                title="Report HTML preview"
+                className="w-full h-[60vh] border rounded-lg bg-white"
+                sandbox="allow-same-origin"
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap text-xs font-mono bg-gray-50 border rounded-lg p-4 leading-relaxed overflow-auto max-h-[60vh]">
+                {previewContent?.content}
+              </pre>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setPreviewContent(null)}>Close</Button>
+            {previewContent && viewReport && (
+              <Button size="sm" onClick={() => exportReport(viewReport, previewContent.format)}>
+                <Download className="w-4 h-4 mr-1" />
+                Download
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>

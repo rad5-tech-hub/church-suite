@@ -319,13 +319,14 @@ export interface ApiChurch {
 export interface CreateEventRequest {
   title: string;
   description?: string;
-  date: string;
+  date?: string;
   endDate?: string;
   recurrenceType: 'none' | 'weekly' | 'monthly' | 'annually' | 'custom';
   startTime?: string;
   endTime?: string;
   byWeekday?: Array<number | { weekday: number; startTime?: string; endTime?: string }>;
   nthWeekdays?: { weekday: number; nth: number; startTime?: string; endTime?: string }[];
+  customRecurrenceDates?: { date: string; startTime: string; endTime: string }[];
   branchId?: string;
   departmentIds?: string[];
   collectionIds?: string[];
@@ -498,6 +499,7 @@ export interface SendSmsRequest {
   channel?: 'generic' | 'whatsapp';
   followUpIds?: string[];
   sendAt?: string;
+  senderName?: string;
 }
 
 // ─── Roles & Permissions ────────────────────────────────────
