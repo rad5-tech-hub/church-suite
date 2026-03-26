@@ -3081,6 +3081,10 @@ function mapApiReportRecipientEntries(raw: any): ReportRecipientEntry[] {
       undefined,
     isRead: Boolean(recipient?.isRead),
     readAt: recipient?.readAt ? new Date(recipient.readAt) : undefined,
+    isForwarded: Boolean(recipient?.isForwarded),
+    forwardedBy: recipient?.forwardedBy || recipient?.forwarder?.id || undefined,
+    forwardedAt: recipient?.forwardedAt ? new Date(recipient.forwardedAt) : undefined,
+    forwarderName: recipient?.forwarder?.name || undefined,
   }));
 }
 
@@ -3211,6 +3215,9 @@ function mapApiReport(raw: any, fallbackType?: ReportFilter): Report {
     replies: Array.isArray(raw?.replies)
       ? raw.replies.map((reply: any) => mapApiReportReply(reply, authorLevel))
       : [],
+    referenceId: raw?.referenceId || undefined,
+    referenceTitle: raw?.reference?.title || undefined,
+    isForwarded: Boolean(raw?.referenceId),
     createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
     updatedAt: raw?.updatedAt ? new Date(raw.updatedAt) : undefined,
   };

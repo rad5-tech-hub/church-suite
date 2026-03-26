@@ -801,9 +801,16 @@ export function Reports() {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h4 className={`truncate text-sm ${!report.isRead && !isCreatedByCurrentUser ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
-                  {report.title}
-                </h4>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {report.isForwarded && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 flex-shrink-0">
+                      <Forward className="w-2.5 h-2.5" /> Fwd
+                    </span>
+                  )}
+                  <h4 className={`truncate text-sm ${!report.isRead && !isCreatedByCurrentUser ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                    {report.title}
+                  </h4>
+                </div>
                 <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                   <span>{isCreatedByCurrentUser ? 'Created by you' : `From: ${report.authorName}`}</span>
                   <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(report.authorId, report.authorLevel)}</Badge>
@@ -1352,6 +1359,14 @@ export function Reports() {
                   </div>
                 )}
 
+                {/* Forwarded-from banner */}
+                {viewReport.isForwarded && viewReport.referenceTitle && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                    <Forward className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Forwarded from: <strong>{viewReport.referenceTitle}</strong></span>
+                  </div>
+                )}
+
                 <div className="prose prose-sm max-w-none">
                   {viewReport.content.split('\n').map((line, index) => (
                     <p key={index} className="mb-1 text-sm text-gray-700">{line || '\u00A0'}</p>
@@ -1401,6 +1416,39 @@ export function Reports() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Recipient delivery status */}
+                {viewReport.recipientEntries && viewReport.recipientEntries.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" /> Recipients ({viewReport.recipientEntries.length})
+                    </h4>
+                    <div className="space-y-1">
+                      {viewReport.recipientEntries.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-1.5">
+                          <span className="font-medium text-gray-700">{entry.recipientName}</span>
+                          <div className="flex items-center gap-2">
+                            {entry.isForwarded && (
+                              <span className="flex items-center gap-0.5 text-blue-600">
+                                <Forward className="w-3 h-3" />
+                                {entry.forwarderName ? `Fwd by ${entry.forwarderName}` : 'Forwarded'}
+                              </span>
+                            )}
+                            {entry.isRead ? (
+                              <span className="flex items-center gap-0.5 text-green-600">
+                                <Eye className="w-3 h-3" /> Read
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-gray-400">
+                                <EyeOff className="w-3 h-3" /> Unread
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

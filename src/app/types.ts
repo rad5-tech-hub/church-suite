@@ -440,6 +440,12 @@ export interface Report {
   replies?: ReportReply[];
   /** If this report is a reply, the ID of the parent report */
   parentReportId?: string;
+  /** For forwarded reports — the original report's ID */
+  referenceId?: string;
+  /** For forwarded reports — the original report's title */
+  referenceTitle?: string;
+  /** True when this report was forwarded from another */
+  isForwarded?: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -451,6 +457,10 @@ export interface ReportRecipientEntry {
   recipientEmail?: string;
   isRead: boolean;
   readAt?: Date;
+  isForwarded?: boolean;
+  forwardedBy?: string;
+  forwardedAt?: Date;
+  forwarderName?: string;
 }
 
 export interface ReportReply {
