@@ -35,7 +35,9 @@ import {
   EyeOff,
   UserCircle2,
   Reply,
+  Forward,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
@@ -47,6 +49,7 @@ import {
   fetchReports,
   markReportRead,
   replyToReport,
+  forwardReport,
   saveReports,
   fetchReportRecipients,
   fetchMembers,
@@ -124,6 +127,10 @@ export function Reports() {
   const [viewReport, setViewReport] = useState<Report | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [forwardRecipientIds, setForwardRecipientIds] = useState<string[]>([]);
+  const [forwardMessage, setForwardMessage] = useState('');
+  const [forwardLoading, setForwardLoading] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ title: string; content: string; format: 'txt' | 'html' | 'csv' } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -636,6 +643,25 @@ export function Reports() {
       setReplyLoading(false);
     }
   };
+
+  const handleSendForward = async () => {
+    if (!viewReport || forwardRecipientIds.length === 0) return;
+    setForwardLoading(true);
+    try {
+      await forwardReport(viewReport.id, forwardRecipientIds, forwardMessage);
+      setForwardOpen(false);
+      setForwardRecipientIds([]);
+      setForwardMessage('');
+      showToast('Report forwarded successfully.');
+    } catch (err: any) {
+      showToast(err?.body?.message || err?.message || 'Failed to forward report.', 'error');
+    } finally {
+      setForwardLoading(false);
+    }
+  };
+
+  const toggleForwardRecipient = (id: string) =>
+    setForwardRecipientIds(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
 
   const openReport = async (report: Report) => {
     setViewReport(report);
@@ -1267,6 +1293,9 @@ export function Reports() {
         setViewReport(null);
         setViewLoading(false);
         setReplyText('');
+        setForwardOpen(false);
+        setForwardRecipientIds([]);
+        setForwardMessage('');
       }}
       >
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden p-0">
@@ -1427,9 +1456,75 @@ export function Reports() {
                 </div>
               </div>
 
+              {/* Forward panel */}
+              {forwardOpen && (
+                <div className="border-t border-blue-100 bg-blue-50 px-6 py-3 space-y-3 flex-shrink-0">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-blue-600">
+                    <Forward className="w-3.5 h-3.5" /> Forward Report
+                  </h4>
+
+                  {/* Recipient checkboxes */}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Select recipients <span className="text-red-500">*</span></p>
+                    <div className="max-h-36 overflow-y-auto space-y-1 rounded-lg border border-gray-200 bg-white p-2">
+                      {eligibleRecipients.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-2">No recipients available</p>
+                      ) : eligibleRecipients.map(r => (
+                        <label key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600"
+                            checked={forwardRecipientIds.includes(r.id)}
+                            onChange={() => toggleForwardRecipient(r.id)}
+                          />
+                          <span className="text-sm text-gray-700 flex items-center gap-1">
+                            {r.name}
+                            {forwardRecipientIds.includes(r.id) && <Check className="w-3 h-3 text-blue-500" />}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {forwardRecipientIds.length > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">{forwardRecipientIds.length} recipient{forwardRecipientIds.length > 1 ? 's' : ''} selected</p>
+                    )}
+                  </div>
+
+                  {/* Optional message */}
+                  <Textarea
+                    value={forwardMessage}
+                    onChange={e => setForwardMessage(e.target.value)}
+                    placeholder="Add a message (optional)..."
+                    rows={2}
+                    className="bg-white text-sm resize-none"
+                    disabled={forwardLoading}
+                  />
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setForwardOpen(false); setForwardRecipientIds([]); setForwardMessage(''); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={forwardRecipientIds.length === 0 || forwardLoading}
+                      onClick={handleSendForward}
+                    >
+                      {forwardLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Forwarding...</>
+                        : <><Forward className="w-3.5 h-3.5" /> Forward</>
+                      }
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <Separator />
 
               <div className="flex flex-wrap gap-2 px-6 py-3 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setForwardOpen(v => !v)}>
+                    <Forward className="w-4 h-4 mr-1" />
+                    Forward
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => printReport(viewReport)}>
                     <Printer className="w-4 h-4 mr-1" />
                     Print

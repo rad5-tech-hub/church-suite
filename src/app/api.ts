@@ -3344,6 +3344,13 @@ export async function replyToReport(reportId: string, replyText: string) {
   });
 }
 
+export async function forwardReport(reportId: string, recipients: string[], message?: string) {
+  return apiFetch<any>("/tenants/forward-report/" + reportId, {
+    method: "POST",
+    body: JSON.stringify({ recipients, ...(message?.trim() ? { message: message.trim() } : {}) }),
+  });
+}
+
 export const saveReports = async (reports: Report[]) => {
   const existing = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
   const next: ReportUiState = { ...existing };
