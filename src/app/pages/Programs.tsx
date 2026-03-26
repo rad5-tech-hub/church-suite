@@ -779,12 +779,17 @@ export function Programs() {
           break;
         }
 
-        if ((rule.startTime && !rule.endTime) || (!rule.startTime && rule.endTime)) {
-          errors.cWeeklyDays = `${label}: add both start and end time when overriding the default time`;
+        if (!rule.startTime) {
+          errors.cWeeklyDays = `${label}: start time is required`;
           break;
         }
 
-        if (rule.startTime && rule.endTime && rule.startTime >= rule.endTime) {
+        if (!rule.endTime) {
+          errors.cWeeklyDays = `${label}: end time is required`;
+          break;
+        }
+
+        if (rule.startTime >= rule.endTime) {
           errors.cWeeklyDays = `${label}: end time must be after start time`;
           break;
         }
@@ -811,12 +816,17 @@ export function Programs() {
           break;
         }
 
-        if ((rule.startTime && !rule.endTime) || (!rule.startTime && rule.endTime)) {
-          errors.cMonthlyRules = `${label}: add both start and end time when overriding the default time`;
+        if (!rule.startTime) {
+          errors.cMonthlyRules = `${label}: start time is required`;
           break;
         }
 
-        if (rule.startTime && rule.endTime && rule.startTime >= rule.endTime) {
+        if (!rule.endTime) {
+          errors.cMonthlyRules = `${label}: end time is required`;
+          break;
+        }
+
+        if (rule.startTime >= rule.endTime) {
           errors.cMonthlyRules = `${label}: end time must be after start time`;
           break;
         }
@@ -832,9 +842,9 @@ export function Programs() {
       errors.cRecurrenceEndDate = 'End date must be the same as or after the start date';
     }
     if (cType === 'custom' && cCustomDates.length === 0) errors.cCustomDates = 'Please select at least one date';
-    if (!cStartTime) errors.cStartTime = 'Start time is required';
-    if (!cEndTime) errors.cEndTime = 'End time is required';
-    if (cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
+    if (cType !== 'weekly' && cType !== 'monthly' && !cStartTime) errors.cStartTime = 'Start time is required';
+    if (cType !== 'weekly' && cType !== 'monthly' && !cEndTime) errors.cEndTime = 'End time is required';
+    if (cType !== 'weekly' && cType !== 'monthly' && cStartTime && cEndTime && cStartTime >= cEndTime) errors.cEndTime = 'End time must be after start time';
     if (cType === 'custom' && cCustomDates.length > 0) {
       for (const d of cCustomDates) {
         const dt = cCustomDateTimes[d];
@@ -1038,8 +1048,16 @@ export function Programs() {
       else if ((cType === 'weekly' || cType === 'monthly') && cRecurrenceStartDate) eventDate = cRecurrenceStartDate;
       else if (cType !== 'custom') eventDate = toDateInputValue(new Date());
 
-      const baseStartTime = cStartTime;
-      const baseEndTime = cEndTime;
+      const baseStartTime = cType === 'weekly'
+        ? (cWeeklyRules[0]?.startTime || cStartTime)
+        : cType === 'monthly'
+          ? (cMonthlyRules[0]?.startTime || cStartTime)
+          : cStartTime;
+      const baseEndTime = cType === 'weekly'
+        ? (cWeeklyRules[0]?.endTime || cEndTime)
+        : cType === 'monthly'
+          ? (cMonthlyRules[0]?.endTime || cEndTime)
+          : cEndTime;
 
       const byWeekday = cType === 'weekly'
         ? cWeeklyRules
@@ -1890,9 +1908,9 @@ export function Programs() {
               <div className="space-y-3" ref={el => { fieldRefs.current.cWeeklyDays = el; }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <Label>Weekly Rules<RequiredStar /></Label>
+                    <Label>Weekly Schedule<RequiredStar /></Label>
                     <p className="text-xs text-gray-500">
-                      Add one or more weekday rules. Leave rule times blank to use the default start and end time below, or set times per day to match the API request exactly.
+                      Set the day and time for each weekly occurrence.
                     </p>
                   </div>
                   <Button
@@ -1914,96 +1932,58 @@ export function Programs() {
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {cWeeklyRules.map((rule, index) => (
-                    <div key={rule.id} className="rounded-lg border border-gray-200 p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-gray-600">Rule {index + 1}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto px-2 py-1 text-gray-400 hover:text-red-600"
-                          onClick={() => {
-                            removeWeeklyRule(rule.id);
-                            if (formErrors.cWeeklyDays) {
-                              setFormErrors(prev => {
-                                const n = { ...prev };
-                                delete n.cWeeklyDays;
-                                return n;
-                              });
-                            }
-                          }}
-                          disabled={cWeeklyRules.length === 1}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Weekday<RequiredStar /></Label>
-                        <Select
-                          value={rule.weekday}
-                          onValueChange={(v) => {
-                            updateWeeklyRule(rule.id, { weekday: v });
-                            if (formErrors.cWeeklyDays) {
-                              setFormErrors(prev => {
-                                const n = { ...prev };
-                                delete n.cWeeklyDays;
-                                return n;
-                              });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className={formErrors.cWeeklyDays ? 'border-red-400' : ''}>
-                            <SelectValue placeholder="Select weekday" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FULL_DAY_NAMES.map((name, idx) => (
-                              <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Rule Start Time <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Input
-                            type="time"
-                            value={rule.startTime}
-                            onChange={(e) => {
-                              updateWeeklyRule(rule.id, { startTime: e.target.value });
-                              if (formErrors.cWeeklyDays) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cWeeklyDays;
-                                  return n;
-                                });
-                              }
-                            }}
-                            className={formErrors.cWeeklyDays ? 'border-red-400' : ''}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Rule End Time <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Input
-                            type="time"
-                            value={rule.endTime}
-                            onChange={(e) => {
-                              updateWeeklyRule(rule.id, { endTime: e.target.value });
-                              if (formErrors.cWeeklyDays) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cWeeklyDays;
-                                  return n;
-                                });
-                              }
-                            }}
-                            className={formErrors.cWeeklyDays ? 'border-red-400' : ''}
-                          />
-                        </div>
-                      </div>
+                    <div key={rule.id} className={`flex items-center gap-2 rounded-lg border p-3 ${formErrors.cWeeklyDays ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                      <span className="text-sm text-gray-500 shrink-0">Every</span>
+                      <Select
+                        value={rule.weekday}
+                        onValueChange={(v) => {
+                          updateWeeklyRule(rule.id, { weekday: v });
+                          if (formErrors.cWeeklyDays) setFormErrors(prev => { const n = { ...prev }; delete n.cWeeklyDays; return n; });
+                        }}
+                      >
+                        <SelectTrigger className="w-[130px] bg-white">
+                          <SelectValue placeholder="Day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FULL_DAY_NAMES.map((name, idx) => (
+                            <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-gray-500 shrink-0">from</span>
+                      <Input
+                        type="time"
+                        value={rule.startTime}
+                        onChange={(e) => {
+                          updateWeeklyRule(rule.id, { startTime: e.target.value });
+                          if (formErrors.cWeeklyDays) setFormErrors(prev => { const n = { ...prev }; delete n.cWeeklyDays; return n; });
+                        }}
+                        className="w-32 bg-white"
+                      />
+                      <span className="text-sm text-gray-500 shrink-0">to</span>
+                      <Input
+                        type="time"
+                        value={rule.endTime}
+                        onChange={(e) => {
+                          updateWeeklyRule(rule.id, { endTime: e.target.value });
+                          if (formErrors.cWeeklyDays) setFormErrors(prev => { const n = { ...prev }; delete n.cWeeklyDays; return n; });
+                        }}
+                        className="w-32 bg-white"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto h-7 w-7 p-0 text-gray-400 hover:text-red-600 shrink-0"
+                        onClick={() => {
+                          removeWeeklyRule(rule.id);
+                          if (formErrors.cWeeklyDays) setFormErrors(prev => { const n = { ...prev }; delete n.cWeeklyDays; return n; });
+                        }}
+                        disabled={cWeeklyRules.length === 1}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -2016,9 +1996,9 @@ export function Programs() {
               <div className="space-y-3" ref={el => { fieldRefs.current.cMonthlyRules = el; }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <Label>Monthly Rules<RequiredStar /></Label>
+                    <Label>Monthly Schedule<RequiredStar /></Label>
                     <p className="text-xs text-gray-500">
-                      Add one or more weekday rules like "Second Monday". Rule-specific times are optional and fall back to the default start and end time below.
+                      Set when this program occurs each month (e.g. "every first Sunday").
                     </p>
                   </div>
                   <Button
@@ -2040,128 +2020,74 @@ export function Programs() {
                   </Button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {cMonthlyRules.map((rule, index) => (
-                    <div key={rule.id} className="rounded-lg border border-gray-200 p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-gray-600">Rule {index + 1}</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto px-2 py-1 text-gray-400 hover:text-red-600"
-                          onClick={() => {
-                            removeMonthlyRule(rule.id);
-                            if (formErrors.cMonthlyRules) {
-                              setFormErrors(prev => {
-                                const n = { ...prev };
-                                delete n.cMonthlyRules;
-                                return n;
-                              });
-                            }
-                          }}
-                          disabled={cMonthlyRules.length === 1}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Week in Month<RequiredStar /></Label>
-                          <Select
-                            value={rule.nth}
-                            onValueChange={(v) => {
-                              updateMonthlyRule(rule.id, { nth: v });
-                              if (formErrors.cMonthlyRules) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cMonthlyRules;
-                                  return n;
-                                });
-                              }
-                            }}
-                          >
-                            <SelectTrigger className={formErrors.cMonthlyRules ? 'border-red-400' : ''}>
-                              <SelectValue placeholder="Select week" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {[1, 2, 3, 4, 5, -1].map((value) => (
-                                <SelectItem key={value} value={value.toString()}>{getNthLabel(value)}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Weekday<RequiredStar /></Label>
-                          <Select
-                            value={rule.weekday}
-                            onValueChange={(v) => {
-                              updateMonthlyRule(rule.id, { weekday: v });
-                              if (formErrors.cMonthlyRules) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cMonthlyRules;
-                                  return n;
-                                });
-                              }
-                            }}
-                          >
-                            <SelectTrigger className={formErrors.cMonthlyRules ? 'border-red-400' : ''}>
-                              <SelectValue placeholder="Select weekday" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {FULL_DAY_NAMES.map((name, idx) => (
-                                <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Rule Start Time <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Input
-                            type="time"
-                            value={rule.startTime}
-                            onChange={(e) => {
-                              updateMonthlyRule(rule.id, { startTime: e.target.value });
-                              if (formErrors.cMonthlyRules) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cMonthlyRules;
-                                  return n;
-                                });
-                              }
-                            }}
-                            className={formErrors.cMonthlyRules ? 'border-red-400' : ''}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Rule End Time <span className="text-gray-400 font-normal">(optional)</span></Label>
-                          <Input
-                            type="time"
-                            value={rule.endTime}
-                            onChange={(e) => {
-                              updateMonthlyRule(rule.id, { endTime: e.target.value });
-                              if (formErrors.cMonthlyRules) {
-                                setFormErrors(prev => {
-                                  const n = { ...prev };
-                                  delete n.cMonthlyRules;
-                                  return n;
-                                });
-                              }
-                            }}
-                            className={formErrors.cMonthlyRules ? 'border-red-400' : ''}
-                          />
-                        </div>
-                      </div>
-
-                      <p className="text-[11px] text-gray-400">
-                        Leave rule times blank to use the default start and end time below.
-                      </p>
+                    <div key={rule.id} className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 ${formErrors.cMonthlyRules ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                      <span className="text-sm text-gray-500 shrink-0">Every</span>
+                      <Select
+                        value={rule.nth}
+                        onValueChange={(v) => {
+                          updateMonthlyRule(rule.id, { nth: v });
+                          if (formErrors.cMonthlyRules) setFormErrors(prev => { const n = { ...prev }; delete n.cMonthlyRules; return n; });
+                        }}
+                      >
+                        <SelectTrigger className="w-[110px] bg-white">
+                          <SelectValue placeholder="Week" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, -1].map((value) => (
+                            <SelectItem key={value} value={value.toString()}>{getNthLabel(value)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={rule.weekday}
+                        onValueChange={(v) => {
+                          updateMonthlyRule(rule.id, { weekday: v });
+                          if (formErrors.cMonthlyRules) setFormErrors(prev => { const n = { ...prev }; delete n.cMonthlyRules; return n; });
+                        }}
+                      >
+                        <SelectTrigger className="w-[130px] bg-white">
+                          <SelectValue placeholder="Day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FULL_DAY_NAMES.map((name, idx) => (
+                            <SelectItem key={name} value={idx.toString()}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-gray-500 shrink-0">from</span>
+                      <Input
+                        type="time"
+                        value={rule.startTime}
+                        onChange={(e) => {
+                          updateMonthlyRule(rule.id, { startTime: e.target.value });
+                          if (formErrors.cMonthlyRules) setFormErrors(prev => { const n = { ...prev }; delete n.cMonthlyRules; return n; });
+                        }}
+                        className="w-32 bg-white"
+                      />
+                      <span className="text-sm text-gray-500 shrink-0">to</span>
+                      <Input
+                        type="time"
+                        value={rule.endTime}
+                        onChange={(e) => {
+                          updateMonthlyRule(rule.id, { endTime: e.target.value });
+                          if (formErrors.cMonthlyRules) setFormErrors(prev => { const n = { ...prev }; delete n.cMonthlyRules; return n; });
+                        }}
+                        className="w-32 bg-white"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto h-7 w-7 p-0 text-gray-400 hover:text-red-600 shrink-0"
+                        onClick={() => {
+                          removeMonthlyRule(rule.id);
+                          if (formErrors.cMonthlyRules) setFormErrors(prev => { const n = { ...prev }; delete n.cMonthlyRules; return n; });
+                        }}
+                        disabled={cMonthlyRules.length === 1}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -2243,8 +2169,8 @@ export function Programs() {
               </div>
             )}
 
-            {/* Time */}
-            {cType && (
+            {/* Time — hidden for weekly/monthly since times are set per-rule */}
+            {cType && cType !== 'weekly' && cType !== 'monthly' && (
               <>
                 {!editTarget && cType === 'custom' && (
                   <p className="text-xs text-gray-500 -mb-1">Default event time — each selected date can override these below.</p>
