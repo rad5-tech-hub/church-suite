@@ -46,6 +46,7 @@ import {
   fetchReportById,
   fetchReports,
   markReportRead,
+  replyToReport,
   saveReports,
   fetchReportRecipients,
   fetchMembers,
@@ -121,6 +122,8 @@ export function Reports() {
   const [showDataPicker, setShowDataPicker] = useState(false);
 
   const [viewReport, setViewReport] = useState<Report | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ title: string; content: string; format: 'txt' | 'html' | 'csv' } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -611,6 +614,27 @@ export function Reports() {
       setViewReport(updatedReport);
     }
     await saveReports(nextReports);
+  };
+
+  const handleSendReply = async () => {
+    if (!viewReport || !replyText.trim()) return;
+    setReplyLoading(true);
+    try {
+      await replyToReport(viewReport.id, replyText.trim());
+      setReplyText('');
+      // Refresh the report to get the new reply from server
+      const fresh = await fetchReportById(viewReport.id, viewReport.reportType === 'starred' ? 'received' : viewReport.reportType);
+      if (fresh) {
+        setViewReport(fresh);
+        setReports(prev => prev.map(r => r.id === fresh.id ? fresh : r));
+        await saveReports(reports.map(r => r.id === fresh.id ? fresh : r));
+      }
+      showToast('Reply sent successfully.');
+    } catch (err: any) {
+      showToast(err?.body?.message || err?.message || 'Failed to send reply.', 'error');
+    } finally {
+      setReplyLoading(false);
+    }
   };
 
   const openReport = async (report: Report) => {
@@ -1242,6 +1266,7 @@ export function Reports() {
       <Dialog open={!!viewReport} onOpenChange={() => {
         setViewReport(null);
         setViewLoading(false);
+        setReplyText('');
       }}
       >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1369,6 +1394,34 @@ export function Reports() {
                     ))}
                   </div>
                 )}
+
+                {/* Reply box */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-gray-500">
+                    <Reply className="w-3.5 h-3.5" /> Write a Reply
+                  </h4>
+                  <Textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder="Type your reply..."
+                    rows={3}
+                    className="bg-white text-sm resize-none"
+                    disabled={replyLoading}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      disabled={!replyText.trim() || replyLoading}
+                      onClick={handleSendReply}
+                    >
+                      {replyLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                        : <><Send className="w-3.5 h-3.5" /> Send Reply</>
+                      }
+                    </Button>
+                  </div>
+                </div>
 
                 <Separator />
 

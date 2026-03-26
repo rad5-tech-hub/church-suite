@@ -3337,6 +3337,13 @@ export async function markReportRead(reportId: string) {
   });
 }
 
+export async function replyToReport(reportId: string, replyText: string) {
+  return apiFetch<any>("/tenants/reply-report/" + reportId, {
+    method: "POST",
+    body: JSON.stringify({ replyText }),
+  });
+}
+
 export const saveReports = async (reports: Report[]) => {
   const existing = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
   const next: ReportUiState = { ...existing };
