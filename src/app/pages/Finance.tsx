@@ -879,16 +879,17 @@ export function Finance() {
         });
         showToast(`Fundraiser "${fundName.trim()}" updated.`);
       } else {
-        const scopeId = fundScope === 'church'
+        const resolvedScopeId = fundScope === 'church'
           ? (currentAdmin?.branchId || currentAdmin?.branchIds?.[0] || branches[0]?.id || '')
           : fundScopeId;
+        const resolvedScope = fundScope === 'church' ? 'branch' : fundScope;
         await createFundraiser({
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
           targetAmount,
           dueDate: dueDateIso,
-          scope: fundScope,
-          scopeId,
+          scope: resolvedScope,
+          scopeId: resolvedScopeId,
         });
         showToast(`Fundraiser "${fundName.trim()}" created successfully.`);
       }
