@@ -67,6 +67,7 @@ import type {
   SubscribeRequest,
   CreateFundraiserRequest,
   EditFundraiserRequest,
+  RecordFundContributionRequest,
 } from "./apiTypes";
 import type {
   AdminLevel,
@@ -2470,6 +2471,24 @@ export async function editFundraiser(id: string, data: EditFundraiserRequest) {
   return apiFetch<any>(`/fund/edit-fundraiser/${id}`, {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+/** POST /fund/record-fund/:fundId */
+export async function recordFundContribution(
+  fundId: string,
+  data: RecordFundContributionRequest,
+) {
+  return apiFetch<any>(`/fund/record-fund/${fundId}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** DELETE /fund/delete-fundraiser/:fundId */
+export async function deleteFundraiser(fundId: string) {
+  return apiFetch<any>(`/fund/delete-fundraiser/${fundId}`, {
+    method: "DELETE",
   });
 }
 

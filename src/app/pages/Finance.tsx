@@ -87,6 +87,8 @@ import {
   fetchFundraisers,
   createFundraiser,
   editFundraiser,
+  recordFundContribution,
+  deleteFundraiser,
 } from '../api';
 
 type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
@@ -201,6 +203,7 @@ export function Finance() {
   const [donateFundId, setDonateFundId] = useState('');
   const [donateName, setDonateName] = useState('');
   const [donateAmount, setDonateAmount] = useState('');
+  const [donateNotes, setDonateNotes] = useState('');
   const [donateDate, setDonateDate] = useState(new Date().toISOString().split('T')[0]);
   const [donateErrors, setDonateErrors] = useState<Record<string, string>>({});
   const donateFormRef = useRef<HTMLDivElement>(null);
@@ -930,39 +933,36 @@ export function Finance() {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SAVE DONATION â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSaveDonation = async () => {
     const errors: Record<string, string> = {};
-    if (!donateName.trim()) errors.name = 'Enter the donor\'s name.';
-    if (!donateAmount || parseFloat(donateAmount.replace(/,/g, '')) <= 0) errors.amount = 'Enter a valid donation amount.';
-    if (!donateDate) errors.date = 'Select the date of the donation.';
+    if (!donateName.trim()) errors.name = "Enter the contributor's name.";
+    if (!donateAmount || parseFloat(donateAmount.replace(/,/g, '')) <= 0) errors.amount = 'Enter a valid contribution amount.';
+    if (!donateDate) errors.date = 'Select the date of the contribution.';
 
     if (Object.keys(errors).length) {
       setDonateErrors(errors);
-      const firstKey = Object.keys(errors)[0];
-      scrollToError(donateFormRef, firstKey);
+      scrollToError(donateFormRef, Object.keys(errors)[0]);
       return;
     }
 
     setSaving(true);
     try {
-      const fund = fundraisers.find(f => f.id === donateFundId);
-      const collectionContext = resolveCollectionScopeContext(
-        (fund?.scope as 'church' | 'branch' | 'department' | 'unit') || 'church',
-        fund?.scopeId || ''
-      );
-      await updateAccount(
-        {
-          amount: parseFloat(donateAmount.replace(/,/g, '')),
-          description: `Donation from ${donateName.trim()} for "${fund?.name || 'Fundraiser'}"`,
-          type: 'credit',
-        },
-        collectionContext.branchId,
-        collectionContext.departmentId
-      );
-      await loadData();
+      const rawAmount = parseFloat(donateAmount.replace(/,/g, ''));
+      const res = await recordFundContribution(donateFundId, {
+        contributorName: donateName.trim(),
+        amount: rawAmount.toFixed(2),
+        notes: donateNotes.trim() || undefined,
+        date: donateDate,
+      });
+      // Update balance optimistically from API response
+      const newBalance = parseFloat(res?.newBalance ?? res?.contribution?.amount ?? '0') || rawAmount;
+      setFundraisers(prev => prev.map(f =>
+        f.id === donateFundId ? { ...f, balance: isNaN(newBalance) ? f.balance + rawAmount : newBalance } : f
+      ));
       setDonateOpen(false);
       resetDonateForm();
-      showToast(`Donation of ${currSymbol}${parseFloat(donateAmount.replace(/,/g, '')).toLocaleString()} from ${donateName.trim()} recorded.`);
-    } catch (err) {
-      console.error('Failed to save donation:', err);
+      showToast(`Contribution of ${currSymbol}${rawAmount.toLocaleString()} from ${donateName.trim()} recorded.`);
+    } catch (err: any) {
+      console.error('Failed to record contribution:', err);
+      showToast(err?.body?.message || err?.message || 'Failed to record contribution.', 'error');
     } finally {
       setSaving(false);
     }
@@ -971,6 +971,7 @@ export function Finance() {
   const resetDonateForm = () => {
     setDonateName('');
     setDonateAmount('');
+    setDonateNotes('');
     setDonateDate(new Date().toISOString().split('T')[0]);
     setDonateErrors({});
   };
@@ -987,7 +988,7 @@ export function Finance() {
         await hideCollectionTypeLocally(deleteTarget.id);
         setCollectionTypes(prev => prev.filter(c => c.id !== deleteTarget.id));
       } else if (deleteTarget.type === 'fund') {
-        await hideFundraiserLocally(deleteTarget.id);
+        await deleteFundraiser(deleteTarget.id);
         setFundraisers(prev => prev.filter(f => f.id !== deleteTarget.id));
       }
       setDeleteTarget(null);
@@ -1629,20 +1630,25 @@ export function Finance() {
 
                             <div className="flex gap-2">
                               <Button
-                                variant="outline"
                                 size="sm"
                                 className="flex-1"
-                                onClick={() => setViewFundId(fund.id)}
+                                onClick={() => { setDonateFundId(fund.id); resetDonateForm(); setDonateOpen(true); }}
                               >
-                                <Eye className="w-3.5 h-3.5 mr-1" /> View
+                                <Plus className="w-3.5 h-3.5 mr-1" /> Contribute
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="flex-1"
+                                onClick={() => setViewFundId(fund.id)}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => openEditFund(fund)}
                               >
-                                <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                                <Edit className="w-3.5 h-3.5" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -1970,18 +1976,18 @@ export function Finance() {
       <Dialog open={donateOpen} onOpenChange={v => { if (!v) setDonateOpen(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Record Donation</DialogTitle>
+            <DialogTitle>Record Contribution</DialogTitle>
             <DialogDescription>
-              Add a donation entry for "{fundraisers.find(f => f.id === donateFundId)?.name}".
+              Record a contribution for "{fundraisers.find(f => f.id === donateFundId)?.name}".
             </DialogDescription>
           </DialogHeader>
           <div ref={donateFormRef} className="space-y-4 pt-2">
             <div data-field="name">
-              <Label>Donor Name<RequiredStar /></Label>
+              <Label>Contributor Name<RequiredStar /></Label>
               <Input
                 value={donateName}
                 onChange={e => { setDonateName(e.target.value); setDonateErrors(p => ({ ...p, name: '' })); }}
-                placeholder="Full name of the donor"
+                placeholder="Full name of the contributor"
               />
               {donateErrors.name && <p className="text-xs text-red-500 mt-1">{donateErrors.name}</p>}
             </div>
@@ -2015,11 +2021,21 @@ export function Finance() {
               {donateErrors.date && <p className="text-xs text-red-500 mt-1">{donateErrors.date}</p>}
             </div>
 
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                value={donateNotes}
+                onChange={e => setDonateNotes(e.target.value)}
+                placeholder="e.g. Sunday service contribution (optional)"
+                rows={2}
+              />
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setDonateOpen(false)}>Cancel</Button>
               <Button className="flex-1" disabled={saving} onClick={handleSaveDonation}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Record Donation
+                Record Contribution
               </Button>
             </div>
           </div>
@@ -2080,10 +2096,16 @@ export function Finance() {
                   )}
 
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" className="flex-1" onClick={() => { setViewFundId(null); openEditFund(fund); }}>
-                      <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                    <Button
+                      className="flex-1"
+                      onClick={() => { setViewFundId(null); setDonateFundId(fund.id); resetDonateForm(); setDonateOpen(true); }}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Record Contribution
                     </Button>
-                    <Button variant="outline" className="flex-1" onClick={() => setViewFundId(null)}>
+                    <Button variant="outline" onClick={() => { setViewFundId(null); openEditFund(fund); }}>
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="outline" onClick={() => setViewFundId(null)}>
                       Close
                     </Button>
                   </div>

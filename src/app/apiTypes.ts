@@ -319,6 +319,13 @@ export interface EditFundraiserRequest {
   isActive?: boolean;
 }
 
+export interface RecordFundContributionRequest {
+  contributorName: string;
+  amount: string;
+  notes?: string;
+  date: string;
+}
+
 // ─── Church ──────────────────────────────────────────────────
 
 export interface ApiChurch {
