@@ -821,14 +821,16 @@ export function Finance() {
 
     setSaving(true);
     try {
+      const isChurchOrBranchScope = collectionContext.scopeType === 'church' || collectionContext.scopeType === 'branch';
       await createCollection({
         name: ctName.trim(),
         scopeType: collectionContext.scopeType,
         branchId: collectionContext.branchId,
         departmentId: collectionContext.departmentId,
-        // Include arrays so the API stores and returns them — needed for "Assigned To" display
-        branchIds: collectionContext.branchIds,
-        departmentIds: collectionContext.departmentIds,
+        // branchIds array is only accepted by the API for branch/church scope;
+        // for department/unit scope the query-string params already handle routing
+        branchIds: isChurchOrBranchScope ? collectionContext.branchIds : undefined,
+        departmentIds: undefined,
       }, routeBranchId, collectionContext.departmentId);
       await loadData();
       setCtOpen(false);
