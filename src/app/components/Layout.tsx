@@ -251,7 +251,7 @@ export function Layout({ children }: LayoutProps) {
           path: '/finance?tab=collections',
           permission: 'manage-collections',
         },
-        // { id: 'finance-fundraisers', label: 'Fundraisers', icon: <Target className="w-4 h-4" />, path: '/finance?tab=fundraisers', permission: 'manage-collections' }, // API not ready
+        { id: 'finance-fundraisers', label: 'Fundraisers', icon: <Target className="w-4 h-4" />, path: '/finance?tab=fundraisers', permission: 'manage-collections' },
       ],
     });
 
