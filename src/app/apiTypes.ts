@@ -561,6 +561,9 @@ export interface UpdateAccountRequest {
   amount: number;
   description: string;
   type: 'credit' | 'debit';
+  departmentId?: string;
+  unitId?: string;
+  programId?: string;
 }
 
 // ─── Growth / Analytics ──────────────────────────────────────

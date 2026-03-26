@@ -2926,6 +2926,8 @@ export const fetchLedgerEntries = async (
         amount: credit > 0 ? credit : debit,
         description: r.description || "",
         date: new Date(r.createdAt || r.date || Date.now()),
+        programId: r.programId || r.program?.id || undefined,
+        programInstanceId: r.programInstanceId || undefined,
         createdBy: r.creator?.name || r.createdBy || "",
         createdAt: new Date(r.createdAt || r.date || Date.now()),
         _raw: r,

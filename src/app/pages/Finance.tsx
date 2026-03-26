@@ -710,11 +710,6 @@ export function Finance() {
       const descriptionWithCollection = selectedCollectionName
         ? `${normalizedDescription} [Collection: ${selectedCollectionName}]`
         : normalizedDescription;
-      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
-        ? ledgerBranchId
-        : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
-          ? accessibleBranchIds[0]
-          : undefined;
       const cleanDeptId = ledgerDeptId && ledgerDeptId !== 'none'
         ? ledgerDeptId
         : adminLevel === 'department'
@@ -722,11 +717,22 @@ export function Finance() {
           : adminLevel === 'unit'
             ? accessibleDepartmentIds[0] || units.find((unit) => accessibleUnitIds.includes(unit.id))?.departmentId
             : undefined;
+      const selectedDept = cleanDeptId ? departments.find(d => d.id === cleanDeptId) : undefined;
+      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
+        ? ledgerBranchId
+        : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
+          ? accessibleBranchIds[0]
+          : selectedDept?.branchId || undefined;
+      const cleanUnitId = ledgerUnitId && ledgerUnitId !== 'none' ? ledgerUnitId : undefined;
+      const cleanProgramId = ledgerProgramId && ledgerProgramId !== 'none' ? ledgerProgramId : undefined;
       await updateAccount(
         {
           amount: parseFloat(ledgerAmount.replace(/,/g, '')),
           description: descriptionWithCollection,
           type: ledgerType === 'income' ? 'credit' : 'debit',
+          departmentId: cleanDeptId,
+          unitId: cleanUnitId,
+          programId: cleanProgramId,
         },
         cleanBranchId,
         cleanDeptId
