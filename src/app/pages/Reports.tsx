@@ -1269,9 +1269,10 @@ export function Reports() {
         setReplyText('');
       }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden p-0">
           {viewReport && (
             <>
+              <div className="flex-1 overflow-y-auto px-6 pt-6 pb-2">
               <DialogHeader>
                 <div className="flex items-center gap-2">
                   <button onClick={(event) => toggleStar(event, viewReport.id)} title="Toggle star">
@@ -1395,37 +1396,40 @@ export function Reports() {
                   </div>
                 )}
 
-                {/* Reply box */}
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
-                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-gray-500">
-                    <Reply className="w-3.5 h-3.5" /> Write a Reply
-                  </h4>
-                  <Textarea
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    placeholder="Type your reply..."
-                    rows={3}
-                    className="bg-white text-sm resize-none"
-                    disabled={replyLoading}
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      size="sm"
-                      className="gap-2"
-                      disabled={!replyText.trim() || replyLoading}
-                      onClick={handleSendReply}
-                    >
-                      {replyLoading
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
-                        : <><Send className="w-3.5 h-3.5" /> Send Reply</>
-                      }
-                    </Button>
-                  </div>
+              </div>
+              </div>{/* end scrollable area */}
+
+              {/* Reply box — always visible at bottom */}
+              <div className="border-t border-gray-100 bg-gray-50 px-6 py-3 space-y-2 flex-shrink-0">
+                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-gray-500">
+                  <Reply className="w-3.5 h-3.5" /> Write a Reply
+                </h4>
+                <Textarea
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  placeholder="Type your reply..."
+                  rows={3}
+                  className="bg-white text-sm resize-none"
+                  disabled={replyLoading}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    disabled={!replyText.trim() || replyLoading}
+                    onClick={handleSendReply}
+                  >
+                    {replyLoading
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                      : <><Send className="w-3.5 h-3.5" /> Send Reply</>
+                    }
+                  </Button>
                 </div>
+              </div>
 
-                <Separator />
+              <Separator />
 
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 px-6 py-3 flex-shrink-0">
                   <Button variant="outline" size="sm" onClick={() => printReport(viewReport)}>
                     <Printer className="w-4 h-4 mr-1" />
                     Print
@@ -1455,7 +1459,6 @@ export function Reports() {
                     .csv
                   </Button>
                 </div>
-              </div>
             </>
           )}
         </DialogContent>
