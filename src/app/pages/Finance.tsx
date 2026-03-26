@@ -735,8 +735,9 @@ export function Finance() {
       setLedgerOpen(false);
       resetLedgerForm();
       showToast(`${ledgerType === 'income' ? 'Income' : 'Expense'} entry recorded successfully.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save ledger entry:', err);
+      showToast(err?.body?.message || err?.message || 'Failed to record entry. Please try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -797,6 +798,10 @@ export function Finance() {
       return;
     }
 
+    // For church-wide scope the body has no branchId, but the API still needs one in the
+    // query string for tenant routing. Fall back to the first accessible branch.
+    const routeBranchId = collectionContext.branchId || accessibleBranchIds[0] || branches[0]?.id;
+
     setSaving(true);
     try {
       await createCollection({
@@ -804,7 +809,10 @@ export function Finance() {
         scopeType: collectionContext.scopeType,
         branchId: collectionContext.branchId,
         departmentId: collectionContext.departmentId,
-      }, collectionContext.branchId, collectionContext.departmentId);
+        // Include arrays so the API stores and returns them — needed for "Assigned To" display
+        branchIds: collectionContext.branchIds,
+        departmentIds: collectionContext.departmentIds,
+      }, routeBranchId, collectionContext.departmentId);
       await loadData();
       setCtOpen(false);
       resetCtForm();
