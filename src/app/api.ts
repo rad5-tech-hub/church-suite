@@ -65,6 +65,8 @@ import type {
   CreateCustomFormRequest,
   CreateReportRequest,
   SubscribeRequest,
+  CreateFundraiserRequest,
+  EditFundraiserRequest,
 } from "./apiTypes";
 import type {
   AdminLevel,
@@ -2421,6 +2423,55 @@ export async function fetchStandaloneCollections(): Promise<any[]> {
 export const saveStandaloneCollections = async (_collections: any[]) => ({
   success: true,
 });
+
+// FUND (FUNDRAISER) API
+
+/** GET /fund/all-funds */
+export async function fetchFundraisers(): Promise<any[]> {
+  try {
+    const hiddenIds = readHiddenIdSet(HIDDEN_FUNDRAISER_IDS_KEY);
+    const res = await apiFetch<any>("/fund/all-funds");
+    const items: any[] = Array.isArray(res?.fundraisers)
+      ? res.fundraisers
+      : Array.isArray(res)
+        ? res
+        : [];
+    return items
+      .filter((f: any) => !hiddenIds.has(f.id))
+      .map((f: any) => ({
+        id: f.id,
+        name: f.name || "",
+        description: f.description || undefined,
+        targetAmount: parseFloat(f.targetAmount) || 0,
+        balance: parseFloat(f.balance) || 0,
+        dueDate: new Date(f.dueDate),
+        scope: f.scope || "branch",
+        scopeId: f.scopeId || undefined,
+        isActive: f.isActive ?? true,
+        createdBy: f.createdBy || "",
+        createdAt: new Date(f.createdAt || Date.now()),
+        creator: f.creator,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** POST /fund/create-fund-raiser */
+export async function createFundraiser(data: CreateFundraiserRequest) {
+  return apiFetch<any>("/fund/create-fund-raiser", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** PATCH /fund/edit-fundraiser/:id */
+export async function editFundraiser(id: string, data: EditFundraiserRequest) {
+  return apiFetch<any>(`/fund/edit-fundraiser/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
 
 // WALLET & SMS
 

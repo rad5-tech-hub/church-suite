@@ -300,6 +300,25 @@ export interface EditMemberRequest {
   isWorker?: boolean;
 }
 
+// ─── Fundraiser ──────────────────────────────────────────────
+
+export interface CreateFundraiserRequest {
+  name: string;
+  description?: string;
+  targetAmount: number;
+  dueDate?: string;
+  scope: string;
+  scopeId: string;
+}
+
+export interface EditFundraiserRequest {
+  name?: string;
+  description?: string;
+  targetAmount?: number;
+  dueDate?: string;
+  isActive?: boolean;
+}
+
 // ─── Church ──────────────────────────────────────────────────
 
 export interface ApiChurch {

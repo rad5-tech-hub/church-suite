@@ -377,6 +377,22 @@ export interface LedgerEntry {
   createdAt: Date;
 }
 
+/** A fundraising campaign from the /fund API */
+export interface Fundraiser {
+  id: string;
+  name: string;
+  description?: string;
+  targetAmount: number;
+  balance: number;
+  dueDate: Date;
+  scope: 'church' | 'branch' | 'department' | 'unit';
+  scopeId?: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: Date;
+  creator?: { id: string; name: string; email: string };
+}
+
 /** A standalone (non-program) collection with a target goal, e.g. "Buy a new bus" */
 export interface StandaloneCollection {
   id: string;
