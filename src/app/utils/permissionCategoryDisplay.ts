@@ -45,7 +45,7 @@ const CATEGORY_DEFINITIONS: Record<AdminLevel, PermissionCategoryDefinition[]> =
     { key: 'Reports', label: 'Reports' },
   ],
   unit: [
-    { key: 'Programs', label: 'Programs', note: "Attendance is pending for unit roles" },
+    { key: 'Programs', label: 'Programs', note: "Note: Attendance tracking is not yet available for unit-level roles" },
     { key: 'Communication', label: 'Communication' },
     { key: 'Engagement', label: 'Engagement' },
     { key: 'Reports', label: 'Reports' },

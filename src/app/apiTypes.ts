@@ -260,6 +260,7 @@ export interface CreateMemberRequest {
   ageTo?: number;
   birthMonth?: string;
   birthDay?: string;
+  birthYear?: string;
   state?: string;
   LGA?: string;
   nationality?: string;
@@ -285,6 +286,7 @@ export interface EditMemberRequest {
   ageTo?: number;
   birthMonth?: string;
   birthDay?: string;
+  birthYear?: string;
   state?: string;
   LGA?: string;
   maritalStatus?: string;

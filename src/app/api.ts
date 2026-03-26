@@ -384,6 +384,7 @@ function mapApiMember(m: any): any {
     ageRange: m.ageFrom && m.ageTo ? `${m.ageFrom}-${m.ageTo}` : undefined,
     birthdayMonth: parseInt(m.birthMonth || "0", 10) || 0,
     birthdayDay: parseInt(m.birthDay || "0", 10) || 0,
+    birthdayYear: m.birthYear ? (parseInt(m.birthYear, 10) || undefined) : undefined,
     country: m.nationality || "",
     state: m.state || "",
     LGA: m.LGA || "",
