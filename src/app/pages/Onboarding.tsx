@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Church, Building2, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
+import { Church, Building2, User, CheckCircle2, ArrowRight, ArrowLeft, Loader2, Eye, EyeOff, Mail, MessageSquare } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -9,9 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp';
 import { useChurch } from '../context/ChurchContext';
 import { useAuth } from '../context/AuthContext';
-import { createChurch, verifyAdmin, resendVerificationEmail } from '../api';
+import { createChurch, verifyAdmin, resendVerificationEmail, requestSmsName } from '../api';
 
-type OnboardingStep = 'welcome' | 'church-type' | 'church-details' | 'admin-account' | 'verify-otp' | 'complete';
+type OnboardingStep = 'welcome' | 'church-type' | 'church-details' | 'admin-account' | 'verify-otp' | 'sms-sender' | 'complete';
 
 /**
  * Extract a human-readable error message from any API error shape.
@@ -61,7 +61,7 @@ function extractApiError(err: any, fallback: string): string {
 export function Onboarding() {
   const navigate = useNavigate();
   const { completeOnboarding, loadChurchFromServer } = useChurch();
-  const { signIn } = useAuth();
+  const { signIn, currentAdmin } = useAuth();
   const [step, setStep] = useState<OnboardingStep>('welcome');
   const [churchType, setChurchType] = useState<'single' | 'multi'>('single');
   const [churchName, setChurchName] = useState('');
@@ -76,6 +76,7 @@ export function Onboarding() {
   const [otp, setOtp] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [smsSenderName, setSmsSenderName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -172,7 +173,7 @@ export function Onboarding() {
 
       // currentAdmin is already set by signIn() above
 
-      setStep('complete');
+      setStep('sms-sender');
     } catch (err: any) {
       console.error('OTP verification error:', err);
       setError(extractApiError(err, 'Verification failed. Please try again.'));
@@ -192,6 +193,26 @@ export function Onboarding() {
       setError(err?.body?.message || err?.message || 'Failed to resend code.');
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleSmsSender = async (skip = false) => {
+    if (skip || !smsSenderName.trim()) {
+      setStep('complete');
+      return;
+    }
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const branchId = currentAdmin?.branchId || currentAdmin?.branchIds?.[0] || '';
+      if (branchId) {
+        await requestSmsName(smsSenderName.trim(), branchId);
+      }
+      setStep('complete');
+    } catch (err: any) {
+      setError(extractApiError(err, 'Failed to set sender name. You can update it later in the SMS settings.'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -219,11 +240,11 @@ export function Onboarding() {
         {step !== 'welcome' && step !== 'complete' && (
           <div className="mb-8">
             <div className="flex items-center justify-center gap-2">
-              {['church-type', 'church-details', 'admin-account'].map((s, index) => {
-                const stepsOrder = ['church-type', 'church-details', 'admin-account', 'verify-otp'];
+              {['church-type', 'church-details', 'admin-account', 'sms-sender'].map((s, index) => {
+                const stepsOrder = ['church-type', 'church-details', 'admin-account', 'verify-otp', 'sms-sender'];
                 const currentIndex = stepsOrder.indexOf(step);
                 const isCompleted = currentIndex > index;
-                const isActive = currentIndex === index;
+                const isActive = currentIndex === index || (s === 'sms-sender' && step === 'sms-sender');
                 return (
                   <div key={s} className="flex items-center">
                     <div
@@ -233,8 +254,8 @@ export function Onboarding() {
                     >
                       {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : index + 1}
                     </div>
-                    {index < 2 && (
-                      <div className={`w-16 h-1 ${isCompleted ? 'bg-blue-600' : 'bg-gray-200'}`} />
+                    {index < 3 && (
+                      <div className={`w-12 h-1 ${isCompleted ? 'bg-blue-600' : 'bg-gray-200'}`} />
                     )}
                   </div>
                 );
@@ -608,6 +629,75 @@ export function Onboarding() {
                   ) : (
                     <>
                       Complete Setup
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* SMS Sender Name Step */}
+        {step === 'sms-sender' && (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-center mb-2">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+              <CardTitle className="text-center">Set Your SMS Sender Name</CardTitle>
+              <CardDescription className="text-center">
+                This is the name recipients will see when your church sends SMS messages. You can change it later in the SMS settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                  {error}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="sms-sender-name">Sender Name</Label>
+                <div className="relative">
+                  <Input
+                    id="sms-sender-name"
+                    placeholder="e.g. MyChurch"
+                    value={smsSenderName}
+                    maxLength={9}
+                    onChange={(e) => { setSmsSenderName(e.target.value.slice(0, 9)); setError(''); }}
+                  />
+                  <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none ${smsSenderName.length >= 9 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                    {smsSenderName.length}/9
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Recipients will see this as the sender. Max 9 characters — the national SMS alphanumeric sender ID limit.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleSmsSender(true)}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isSubmitting}
+                >
+                  Skip for now
+                </Button>
+                <Button
+                  onClick={() => handleSmsSender(false)}
+                  className="flex-1"
+                  disabled={!smsSenderName.trim() || isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Continue
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}

@@ -2465,6 +2465,14 @@ export async function sendSms(data: SendSmsRequest) {
   });
 }
 
+/** POST /wallet/request-sms-name */
+export async function requestSmsName(senderName: string, branchId: string) {
+  return apiFetch<{ message: string }>("/wallet/request-sms-name", {
+    method: "POST",
+    body: JSON.stringify({ senderName, branchId }),
+  });
+}
+
 /** GET /wallet/sms-logs */
 export async function fetchSmsLogs(): Promise<any> {
   const res = await apiFetch<any>("/wallet/sms-logs");
