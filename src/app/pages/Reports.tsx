@@ -1452,59 +1452,61 @@ export function Reports() {
                   </div>
                 )}
 
-                {viewReport.replies && viewReport.replies.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="flex items-center gap-1 text-xs font-semibold uppercase text-gray-500">
-                      <Reply className="w-3.5 h-3.5" />
-                      Replies ({viewReport.replies.length})
-                    </h4>
-                    {viewReport.replies.map((reply) => (
-                      <div key={reply.id} className="rounded-r-lg border-l-[3px] border-indigo-300 bg-gray-50 p-3">
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-semibold text-gray-800">{reply.authorName}</span>
-                          <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(reply.authorId, reply.authorLevel)}</Badge>
-                          <span className="text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
-                        </div>
-                        {reply.content.split('\n').map((line, index) => (
-                          <p key={index} className="mt-1 text-sm text-gray-700">{line || '\u00A0'}</p>
-                        ))}
-                      </div>
-                    ))}
+                {/* Thread: replies + reply input unified */}
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                    <Reply className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-xs font-semibold uppercase text-gray-500">
+                      {viewReport.replies && viewReport.replies.length > 0 ? `Replies (${viewReport.replies.length})` : 'Replies'}
+                    </span>
                   </div>
-                )}
+
+                  {viewReport.replies && viewReport.replies.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                      {viewReport.replies.map((reply) => (
+                        <div key={reply.id} className="flex gap-3 px-3 py-3">
+                          <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {reply.authorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+                              <span className="font-semibold text-gray-800">{reply.authorName}</span>
+                              <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(reply.authorId, reply.authorLevel)}</Badge>
+                              <span className="text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
+                            </div>
+                            {reply.content.split('\n').map((line, index) => (
+                              <p key={index} className="text-sm text-gray-700">{line || '\u00A0'}</p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-4">No replies yet. Be the first to reply.</p>
+                  )}
+
+                  {/* Reply input — bottom of thread */}
+                  <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-2">
+                    <Textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      placeholder="Write a reply..."
+                      rows={2}
+                      className="bg-white text-sm resize-none border-gray-200"
+                      disabled={replyLoading}
+                    />
+                    <div className="flex justify-end">
+                      <Button size="sm" className="gap-2" disabled={!replyText.trim() || replyLoading} onClick={handleSendReply}>
+                        {replyLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</> : <><Send className="w-3.5 h-3.5" /> Send Reply</>}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
 
               </div>
               </div>{/* end scrollable area */}
 
-              {/* Reply box — always visible at bottom */}
-              <div className="border-t border-gray-100 bg-gray-50 px-6 py-3 space-y-2 flex-shrink-0">
-                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-gray-500">
-                  <Reply className="w-3.5 h-3.5" /> Write a Reply
-                </h4>
-                <Textarea
-                  value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
-                  placeholder="Type your reply..."
-                  rows={3}
-                  className="bg-white text-sm resize-none"
-                  disabled={replyLoading}
-                />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    className="gap-2"
-                    disabled={!replyText.trim() || replyLoading}
-                    onClick={handleSendReply}
-                  >
-                    {replyLoading
-                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
-                      : <><Send className="w-3.5 h-3.5" /> Send Reply</>
-                    }
-                  </Button>
-                </div>
-              </div>
-
-              {/* Forward panel */}
+              {/* Forward panel — slides in above action bar */}
               {forwardOpen && (
                 <div className="border-t border-blue-100 bg-blue-50 px-6 py-3 space-y-3 flex-shrink-0">
                   <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-blue-600">
