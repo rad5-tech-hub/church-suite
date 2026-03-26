@@ -482,6 +482,7 @@ export function Members() {
             ageTo,
             birthMonth: mergedSource.birthdayMonth ? String(mergedSource.birthdayMonth).padStart(2, '0') : undefined,
             birthDay: mergedSource.birthdayDay ? String(mergedSource.birthdayDay).padStart(2, '0') : undefined,
+            birthYear: mergedSource.birthdayYear ? String(mergedSource.birthdayYear) : undefined,
             state: mergedSource.state,
             LGA: mergedSource.LGA,
             nationality: mergedSource.country,
