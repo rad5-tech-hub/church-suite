@@ -382,29 +382,6 @@ export function SMS() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Quick Stats</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Total SMS sent</span>
-                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + l.recipientCount, 0)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Total units used</span>
-                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + parseFloat(l.unitsUsed || '0'), 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Total cost</span>
-                        <span className="font-medium">{smsLogs.reduce((sum, l) => sum + parseFloat(l.cost || '0'), 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Members with phone</span>
-                        <span className="font-medium">{members.filter(member => member.phone).length}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
             </TabsContent>
@@ -517,13 +494,21 @@ export function SMS() {
 
                       <div className="space-y-2">
                         <Label htmlFor="sms-sender-name">4. Sender Name</Label>
-                        <Input
-                          id="sms-sender-name"
-                          placeholder="e.g. Pastor John"
-                          value={senderName}
-                          onChange={e => setSenderName(e.target.value)}
-                        />
-                        <p className="text-xs text-gray-500">Recipients will see this as the sender.</p>
+                        <div className="relative">
+                          <Input
+                            id="sms-sender-name"
+                            placeholder="e.g. MyChurch"
+                            value={senderName}
+                            maxLength={9}
+                            onChange={e => setSenderName(e.target.value.slice(0, 9))}
+                          />
+                          <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs ${senderName.length >= 9 ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                            {senderName.length}/9
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Recipients will see this as the sender. Max 9 characters — the national SMS alphanumeric sender ID limit.
+                        </p>
                       </div>
 
                       <div className="space-y-3 rounded-lg border border-gray-200 p-4">
@@ -598,25 +583,6 @@ export function SMS() {
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Quick Stats</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Members with phone</span>
-                        <span className="font-medium">{members.filter(member => member.phone).length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Newcomers with phone</span>
-                        <span className="font-medium">{newcomers.filter(newcomer => newcomer.phone && !newcomer.movedToMemberId).length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Workforce members</span>
-                        <span className="font-medium">{workforce.length}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </div>
               </div>
             </TabsContent>
