@@ -337,6 +337,7 @@ export function FollowUp() {
         {
           name: `${nFirstName.trim()} ${nLastName.trim()}`,
           phoneNo: nPhone.trim() || undefined,
+          email: nEmail.trim() || undefined,
           address: nAddress.trim() || undefined,
           isVisitor: nVisitType === 'first-timer',
           adminComment: nNotes.trim() || undefined,
