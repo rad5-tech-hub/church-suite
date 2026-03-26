@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { resolvePrimaryBranchId } from '../utils/scope';
 import { useSearchParams } from 'react-router';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
@@ -375,7 +376,11 @@ export function Finance() {
         fetchCollections(),
         fetchDepartments(),
         fetchUnits(),
-        fetchPrograms(branches[0]?.id),
+        fetchPrograms({
+          branchId: resolvePrimaryBranchId(branches, currentAdmin),
+          startDate: new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }),
       ]);
 
       const resolvedDepartments = deps as unknown as Department[];
