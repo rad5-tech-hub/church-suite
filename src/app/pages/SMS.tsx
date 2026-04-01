@@ -70,7 +70,7 @@ export function SMS() {
   const { showToast } = useToast();
   const fundingScope = resolveWalletFundingScope(branches, currentAdmin);
   const fundingCtaLabel = wallet ? 'Top Up Credits' : 'Create & Fund Wallet';
-
+const [hey,setHey]=useState(false)
   const loadData = useCallback(async () => {
     setLoading(true);
     const [w, m, nc, wf, logs] = await Promise.allSettled([
