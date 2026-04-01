@@ -994,8 +994,13 @@ export const signupAdmin = createChurch;
 
 // ADMINS
 
-export function resolveFallbackBranchId(_branchId?: string) {
-  // branchId query param disabled — backend returns all data without it
+export function resolveFallbackBranchId(branchId?: string) {
+  if (branchId) return branchId;
+  const scope = getCachedAdminScope();
+  // Super admins / church-level admins see all data — no branchId filter
+  if (scope.isSuperAdmin || scope.level === "church") return undefined;
+  // All other admins are scoped to a branch — branchId is required by the API
+  if (scope.branchId) return scope.branchId;
   return undefined;
 }
 
@@ -2024,9 +2029,17 @@ function getCachedAdminScope() {
   };
 }
 
-function resolveDepartmentBranchId(_branchId?: string) {
-  // branchId query param disabled — backend returns all data without it
-  return undefined;
+function resolveDepartmentBranchId(branchId?: string) {
+  if (branchId) return branchId;
+  const scope = getCachedAdminScope();
+  // Super admins / church-level admins see all data — no branchId filter
+  if (scope.isSuperAdmin || scope.level === "church") return undefined;
+  const isDepartmentScoped =
+    scope.level === "department" ||
+    scope.level === "unit" ||
+    !!scope.departmentId ||
+    !!scope.unitId;
+  return isDepartmentScoped ? scope.branchId : scope.branchId;
 }
 
 function dedupeCollections(items: any[]): any[] {
