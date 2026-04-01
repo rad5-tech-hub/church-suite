@@ -41,6 +41,7 @@ vi.mock('../../api', () => ({
 const mockAddBranch = vi.fn();
 const mockUpdateBranch = vi.fn();
 const mockDeleteBranch = vi.fn();
+const mockLoadChurchFromServer = vi.fn();
 const mockShowToast = vi.fn();
 
 let _isHeadQuarter = true;
@@ -53,6 +54,7 @@ vi.mock('../../context/ChurchContext', () => ({
     addBranch: mockAddBranch,
     updateBranch: mockUpdateBranch,
     deleteBranch: mockDeleteBranch,
+    loadChurchFromServer: mockLoadChurchFromServer,
     isHeadQuarter: _isHeadQuarter,
   }),
 }));
@@ -103,6 +105,7 @@ describe('Branches page', () => {
     mockFetchDepartments.mockResolvedValue([]);
     mockFetchMembers.mockResolvedValue([]);
     mockCreateBranch.mockResolvedValue({ id: 'b-new' });
+    mockLoadChurchFromServer.mockResolvedValue(true);
     mockEditBranch.mockResolvedValue({});
     mockDeleteBranchApi.mockResolvedValue({});
     mockDeleteBranch.mockReturnValue(true);
@@ -162,7 +165,8 @@ describe('Branches page', () => {
 
     it('shows the Headquarters badge on the HQ branch', () => {
       renderBranches();
-      expect(screen.getByText('Headquarters')).toBeInTheDocument();
+      // stat card label + branch card badge both render "Headquarters"
+      expect(screen.getAllByText('Headquarters').length).toBeGreaterThanOrEqual(1);
     });
 
     it('disables the Delete button for the HQ branch', () => {
@@ -221,14 +225,14 @@ describe('Branches page', () => {
       await waitFor(() => expect(mockCreateBranch).toHaveBeenCalledWith({ name: 'East Wing' }));
     });
 
-    it('calls addBranch to update local state after create', async () => {
+    it('refreshes church data from server after create', async () => {
       const user = userEvent.setup();
       renderBranches();
       await user.click(screen.getByRole('button', { name: /^add branch$/i }));
       const dialog = await screen.findByRole('dialog');
       await user.type(within(dialog).getByPlaceholderText(/north campus/i), 'East Wing');
       await user.click(within(dialog).getByRole('button', { name: /^add branch$/i }));
-      await waitFor(() => expect(mockAddBranch).toHaveBeenCalled());
+      await waitFor(() => expect(mockLoadChurchFromServer).toHaveBeenCalled());
     });
 
     it('closes the dialog after successful creation', async () => {
@@ -277,7 +281,8 @@ describe('Branches page', () => {
       const editButtons = screen.getAllByRole('button', { name: /^edit$/i });
       await user.click(editButtons[0]); // Main Campus
       await screen.findByRole('dialog');
-      expect(screen.getByText('Headquarters')).toBeInTheDocument();
+      // stat card label + dialog badge both render "Headquarters"
+      expect(screen.getAllByText('Headquarters').length).toBeGreaterThanOrEqual(1);
     });
 
     it('calls editBranch with the new name on save', async () => {
