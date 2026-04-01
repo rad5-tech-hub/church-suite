@@ -994,18 +994,8 @@ export const signupAdmin = createChurch;
 
 // ADMINS
 
-export function resolveFallbackBranchId(branchId?: string) {
-  if (branchId) return branchId;
-  const scope = getCachedAdminScope();
-  if (scope.branchId) return scope.branchId;
-  const churchDataStr =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem("churchset_church_data")
-      : null;
-  const churchData = churchDataStr ? JSON.parse(churchDataStr) : null;
-  if (churchData?.branches?.length > 0) {
-    return churchData.branches[0].id;
-  }
+export function resolveFallbackBranchId(_branchId?: string) {
+  // branchId query param disabled — backend returns all data without it
   return undefined;
 }
 
@@ -1974,17 +1964,22 @@ function getCachedAdminScope() {
     ? churchData.branches
     : [];
 
-  const branchIds = Array.from(
-    new Set(
-      [
-        claims.branchId,
-        ...(Array.isArray(claims.branchIds) ? claims.branchIds : []),
-        cachedAdmin?.branchId,
-        ...(Array.isArray(cachedAdmin?.branchIds) ? cachedAdmin.branchIds : []),
-        ...storedBranches.map((branch: any) => branch?.id),
-      ].filter(Boolean),
-    ),
-  );
+  const isSuperAdmin = !!(claims.isSuperAdmin || cachedAdmin?.isSuperAdmin);
+
+  // Super admins see all data — give them no branchIds so nothing gets filtered
+  const branchIds = isSuperAdmin
+    ? []
+    : Array.from(
+        new Set(
+          [
+            claims.branchId,
+            ...(Array.isArray(claims.branchIds) ? claims.branchIds : []),
+            cachedAdmin?.branchId,
+            ...(Array.isArray(cachedAdmin?.branchIds) ? cachedAdmin.branchIds : []),
+            ...storedBranches.map((branch: any) => branch?.id),
+          ].filter(Boolean),
+        ),
+      );
 
   const departmentIds = Array.from(
     new Set(
@@ -2017,6 +2012,7 @@ function getCachedAdminScope() {
 
   return {
     level,
+    isSuperAdmin,
     branchId: branchIds[0],
     branchIds,
     departmentId: departmentIds[0],
@@ -2028,15 +2024,9 @@ function getCachedAdminScope() {
   };
 }
 
-function resolveDepartmentBranchId(branchId?: string) {
-  if (branchId) return branchId;
-  const scope = getCachedAdminScope();
-  const isDepartmentScoped =
-    scope.level === "department" ||
-    scope.level === "unit" ||
-    !!scope.departmentId ||
-    !!scope.unitId;
-  return isDepartmentScoped ? scope.branchId : undefined;
+function resolveDepartmentBranchId(_branchId?: string) {
+  // branchId query param disabled — backend returns all data without it
+  return undefined;
 }
 
 function dedupeCollections(items: any[]): any[] {

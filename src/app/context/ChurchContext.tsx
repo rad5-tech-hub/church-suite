@@ -169,9 +169,11 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
 
         const loadedBranches: Branch[] = rawBranches.map((b: any) => ({
           id: b.id ?? b._id,
-          churchId: b.churchId ?? config.id,
+          // /church/get-branches nests church info; fall back to flat churchId or config id
+          churchId: b.church?.id ?? b.churchId ?? config.id,
           name: b.name,
-          isHeadquarters: b.isHq ?? b.isHeadQuarter ?? b.isHeadquarters ?? false,
+          // No per-branch HQ flag in API — use legacy flat fields as fallback
+          isHeadquarters: b.isHq ?? b.isHeadquarters ?? false,
           createdAt: b.createdAt ? new Date(b.createdAt) : new Date(),
         }));
 

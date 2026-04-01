@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router';
 import { RootLayout } from './components/RootLayout';
 import { Onboarding } from './pages/Onboarding';
+import { OnboardNewChurch } from './pages/OnboardNewChurch';
 import { Login } from './pages/Login';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
       {
         path: '/onboarding',
         Component: Onboarding
+      },
+      {
+        path: '/onboard-new',
+        Component: OnboardNewChurch
       },
       {
         path: '/login',

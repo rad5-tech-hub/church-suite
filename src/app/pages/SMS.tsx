@@ -73,26 +73,25 @@ export function SMS() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    try {
-      const [w, m, nc, wf, logs] = await Promise.all([
-        fetchSMSWallet(),
-        fetchMembers(),
-        fetchNewcomers(branches[0]?.id),
-        fetchWorkforce(),
-        fetchSmsLogs(),
-      ]);
-      if (w) setWallet(w as SMSWallet);
-      else setWallet(null);
-      setMembers(m as Member[]);
-      setNewcomers(nc as Newcomer[]);
-      setWorkforce(wf as WorkforceMember[]);
-      setSmsLogs(logs?.smsLogs ?? []);
-      setSenderName(prev => prev || currentAdmin?.name || '');
-    } catch (err) {
-      console.error('Failed to load SMS data:', err);
-    } finally {
-      setLoading(false);
-    }
+    const [w, m, nc, wf, logs] = await Promise.allSettled([
+      fetchSMSWallet(),
+      fetchMembers(),
+      fetchNewcomers(branches[0]?.id),
+      fetchWorkforce(),
+      fetchSmsLogs(),
+    ]);
+    const val = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
+      r.status === 'fulfilled' ? r.value : fallback;
+
+    const wallet = val(w, null);
+    if (wallet) setWallet(wallet as SMSWallet);
+    else setWallet(null);
+    setMembers(val(m, []) as Member[]);
+    setNewcomers(val(nc, []) as Newcomer[]);
+    setWorkforce(val(wf, []) as WorkforceMember[]);
+    setSmsLogs((val(logs, null) as any)?.smsLogs ?? []);
+    setSenderName(prev => prev || currentAdmin?.name || '');
+    setLoading(false);
   }, [branches]);
 
   useEffect(() => {
@@ -314,7 +313,14 @@ export function SMS() {
                   {smsLogs.length === 0 ? (
                     <div className="py-16 text-center">
                       <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 text-sm">No SMS logs yet. Send your first message to see it here.</p>
+                      <p className="text-gray-500 text-sm mb-4">No SMS logs yet. Send your first message to see it here.</p>
+                      <button
+                        onClick={() => setActiveTab('send')}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                        Send Your First SMS
+                      </button>
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden bg-white">

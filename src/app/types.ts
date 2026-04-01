@@ -38,6 +38,7 @@ export interface Branch {
   createdAt: Date;
 }
 
+
 export interface Department {
   id: string;
   branchId: string | null;

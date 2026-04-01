@@ -348,7 +348,6 @@ export function Onboarding() {
                     </div>
                   </div>
                 </div>
-                {/*
                 <div
                   className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                     churchType === 'multi' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
@@ -367,7 +366,6 @@ export function Onboarding() {
                     </div>
                   </div>
                 </div>
-                */}
               </RadioGroup>
               <div className="flex gap-3">
                 <Button onClick={handleBack} variant="outline" className="flex-1">

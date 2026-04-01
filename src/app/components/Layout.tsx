@@ -81,6 +81,7 @@ export function Layout({ children }: LayoutProps) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isLogoutDialogOpen, isLoggingOut]);
 
+
   // Fallback admin for display if not authenticated
   const admin = currentAdmin || {
     name: 'Admin',
@@ -590,6 +591,7 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               </div>
             )}
+
           </nav>
         </aside>
 

@@ -125,15 +125,22 @@ export interface ViewAdminsResponse {
 export interface ApiBranch {
   id: string;
   name: string;
-  address: string;
-  phone: string;
-  email: string;
-  churchId: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
   tenantId: string;
-  isDeleted: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Nested church info returned by /church/get-branches */
+  church?: {
+    id: string;
+    name: string;
+    isHeadQuarter: boolean;
+  };
+  /** Legacy flat field — may not be present in newer responses */
+  churchId?: string;
+  isDeleted?: boolean;
 }
 
 export interface CreateBranchRequest {

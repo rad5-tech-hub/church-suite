@@ -89,6 +89,7 @@ import {
   editFundraiser,
   recordFundContribution,
   deleteFundraiser,
+  updateAccount,
 } from '../api';
 
 type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
