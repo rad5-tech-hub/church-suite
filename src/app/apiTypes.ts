@@ -646,6 +646,70 @@ export interface ImportResult {
   errors?: any[];
 }
 
+// ─── Training ───────────────────────────────────────────────
+
+export interface CreateTrainingRequest {
+  name: string;
+  description?: string;
+  durationInWeeks: number;
+  audienceType: 'anyone' | 'members';
+  branchId?: string;
+}
+
+export interface EditTrainingRequest {
+  name?: string;
+  description?: string;
+  durationInWeeks?: number;
+  audienceType?: 'anyone' | 'members';
+}
+
+export interface ApiTraining {
+  id: string;
+  name: string;
+  description: string;
+  durationInWeeks: number;
+  audienceType: string;
+  tenantId: string;
+  churchId: string;
+  branchId: string;
+  departmentId: string | null;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  branch?: {
+    id: string;
+    name: string;
+  };
+  _count?: {
+    enrollments?: number;
+  };
+}
+
+export interface EnrollTrainingRequest {
+  enrolleeId: string;
+  enrolleeType: 'admin' | 'member';
+}
+
+export interface ApiTrainingEnrollment {
+  id: string;
+  trainingId: string;
+  enrolleeId: string;
+  enrolleeType: string;
+  enrolledAt: string;
+  completedAt: string | null;
+  progressPercentage: number;
+  tenantId: string;
+  churchId: string;
+  createdAt: string;
+  updatedAt: string;
+  enrollee?: {
+    id: string;
+    name?: string;
+    fullName?: string;
+    email?: string;
+  };
+}
+
 
 
 

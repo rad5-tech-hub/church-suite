@@ -25,6 +25,7 @@ import { NotFound } from './pages/NotFound';
 import { Finance } from './pages/Finance';
 import { Analytics } from './pages/Analytics';
 import { ChoosePlan } from './pages/ChoosePlan';
+import { Training } from './pages/Training';
 
 export const router = createBrowserRouter([
   {
@@ -105,6 +106,10 @@ export const router = createBrowserRouter([
       {
         path: '/follow-up',
         Component: FollowUp
+      },
+      {
+        path: '/training',
+        Component: Training
       },
       {
         path: '/sms',

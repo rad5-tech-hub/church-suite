@@ -328,11 +328,9 @@ export function Workforce() {
   const [newMemberBirthdayMonth, setNewMemberBirthdayMonth] = useState('');
   const [newMemberBirthdayDay, setNewMemberBirthdayDay] = useState('');
   const [newMemberState, setNewMemberState] = useState('');
-  const [newMemberLGA, setNewMemberLGA] = useState('');
   const [newMemberNationality, setNewMemberNationality] = useState('');
   const [newMemberMaritalStatus, setNewMemberMaritalStatus] = useState('');
   const [newMemberSince, setNewMemberSince] = useState('');
-  const [newMemberComments, setNewMemberComments] = useState('');
   const [newMemberBranchId, setNewMemberBranchId] = useState('');
 
   const resetAddForm = () => {
@@ -352,11 +350,9 @@ export function Workforce() {
     setNewMemberBirthdayMonth('');
     setNewMemberBirthdayDay('');
     setNewMemberState('');
-    setNewMemberLGA('');
     setNewMemberNationality('');
     setNewMemberMaritalStatus('');
     setNewMemberSince('');
-    setNewMemberComments('');
     setNewMemberBranchId('');
     setMemberDropdownOpen(false);
   };
@@ -661,11 +657,9 @@ export function Workforce() {
           birthMonth: newMemberBirthdayMonth ? padTwo(newMemberBirthdayMonth) : undefined,
           birthDay: newMemberBirthdayDay ? padTwo(newMemberBirthdayDay) : undefined,
           state: newMemberState.trim() || undefined,
-          LGA: newMemberLGA.trim() || undefined,
           nationality: newMemberNationality.trim() || undefined,
           maritalStatus: newMemberMaritalStatus || undefined,
           memberSince: newMemberSince || undefined,
-          comments: newMemberComments.trim() || undefined,
           branchId: targetBranchId,
           departmentIds: [addDeptId],
           unitIds: addUnitId ? [addUnitId] : undefined,
@@ -1364,11 +1358,6 @@ export function Workforce() {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>LGA</Label>
-                    <Input value={newMemberLGA} onChange={e => setNewMemberLGA(e.target.value)} placeholder="e.g. Ikeja" />
-                  </div>
-
                   {/* Organization Details - 2 Columns */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -1382,11 +1371,6 @@ export function Workforce() {
                     </div>
                   </div>
 
-                  {/* Comments */}
-                  <div className="space-y-2">
-                    <Label>Comments</Label>
-                    <Input value={newMemberComments} onChange={e => setNewMemberComments(e.target.value)} placeholder="Optional notes about the member" />
-                  </div>
                 </div>
               </div>
             )}
@@ -1534,6 +1518,13 @@ export function Workforce() {
               member?.whatsapp ? 'WhatsApp: ' + member.whatsapp : '',
               member?.email,
             ].filter(Boolean);
+            const birthdayLabel = (() => {
+              const m = member?.birthdayMonth;
+              const d = member?.birthdayDay;
+              if (!m && !d) return null;
+              const monthLabel = m ? (MONTHS.find(mo => mo.value === Number(m))?.label ?? m) : '';
+              return d ? `${monthLabel} ${d}` : monthLabel;
+            })();
             const progress = getProgressPercentage(viewTarget);
             return (
               <div className="space-y-5 mt-2">
@@ -1566,6 +1557,12 @@ export function Workforce() {
                   {contactBits.length > 0 && (
                     <div className="flex items-center gap-2 pt-1 border-t border-gray-200 mt-2">
                       <span className="text-xs text-gray-500">{contactBits.join(' | ')}</span>
+                    </div>
+                  )}
+                  {birthdayLabel && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-700">Birthday:</span>
+                      <span>{birthdayLabel}</span>
                     </div>
                   )}
                   {memberDepartmentNames.length > 0 && (

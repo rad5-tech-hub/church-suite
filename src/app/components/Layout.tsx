@@ -28,6 +28,7 @@ import {
   Target,
   HelpCircle,
   Loader2,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
@@ -261,6 +262,14 @@ export function Layout({ children }: LayoutProps) {
       label: 'Newcomers',
       icon: <UserPlus className="w-5 h-5" />,
       path: '/follow-up',
+      permission: 'follow-up'
+    });
+
+    items.push({
+      id: 'training',
+      label: 'Training',
+      icon: <GraduationCap className="w-5 h-5" />,
+      path: '/training',
       permission: 'follow-up'
     });
 

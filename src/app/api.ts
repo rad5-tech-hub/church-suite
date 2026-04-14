@@ -68,6 +68,11 @@ import type {
   CreateFundraiserRequest,
   EditFundraiserRequest,
   RecordFundContributionRequest,
+  CreateTrainingRequest,
+  EditTrainingRequest,
+  ApiTraining,
+  EnrollTrainingRequest,
+  ApiTrainingEnrollment,
 } from "./apiTypes";
 import type {
   AdminLevel,
@@ -3680,6 +3685,91 @@ export const fetchTrainingPrograms = async () => [];
 export const saveTrainingPrograms = async (_programs: any[]) => ({
   success: true,
 });
+
+// ─── Training (Follow / Training API) ──────────────────────
+
+/** POST /follow/create-training */
+export async function createTraining(
+  data: CreateTrainingRequest,
+  branchId?: string,
+): Promise<ApiTraining> {
+  const body: any = { ...data };
+  if (branchId) body.branchId = branchId;
+  const res = await apiFetch<any>("/follow/create-training", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data ?? res;
+}
+
+/** PATCH /follow/edit-training/:trainingId */
+export async function editTraining(
+  trainingId: string,
+  data: EditTrainingRequest,
+): Promise<ApiTraining> {
+  const res = await apiFetch<any>(`/follow/edit-training/${trainingId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
+
+/** GET /follow/trainings */
+export async function fetchTrainings(
+  branchId?: string,
+): Promise<ApiTraining[]> {
+  const res = await apiFetch<any>(
+    `/follow/trainings${buildQuery({ branchId })}`,
+  );
+  return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+}
+
+/** GET /follow/training-enrollments/:trainingId */
+export async function fetchTrainingEnrollments(
+  trainingId: string,
+): Promise<ApiTrainingEnrollment[]> {
+  try {
+    const res = await apiFetch<any>(`/follow/training-enrollments/${trainingId}`);
+    return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
+}
+
+/** DELETE /follow/delete-training/:trainingId */
+export async function deleteTraining(trainingId: string): Promise<void> {
+  await apiFetch<any>(`/follow/delete-training/${trainingId}`, {
+    method: "DELETE",
+  });
+}
+
+/** PATCH /follow/training-progress/:trainingId/enrollment/:enrollmentId */
+export async function updateTrainingProgress(
+  trainingId: string,
+  enrollmentId: string,
+  progressPercentage: number,
+): Promise<ApiTrainingEnrollment> {
+  const res = await apiFetch<any>(
+    `/follow/training-progress/${trainingId}/enrollment/${enrollmentId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ progressPercentage }),
+    },
+  );
+  return res.data ?? res;
+}
+
+/** POST /follow/enroll-training/:trainingId */
+export async function enrollTraining(
+  trainingId: string,
+  data: EnrollTrainingRequest,
+): Promise<ApiTrainingEnrollment> {
+  const res = await apiFetch<any>(`/follow/enroll-training/${trainingId}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
 
 const NEWCOMER_CLASSES_KEY = "churchset_newcomer_training_classes";
 export const fetchNewcomerTrainingClasses = async (): Promise<any[]> => {

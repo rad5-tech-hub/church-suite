@@ -129,6 +129,13 @@ export function Members() {
   const [tcDuration, setTcDuration] = useState('');
   const [assignTrainingTargets, setAssignTrainingTargets] = useState<Member[]>([]);
   const [assignClassId, setAssignClassId] = useState('');
+  // Training class management modal
+  const [managingClass, setManagingClass] = useState<MemberTrainingClass | null>(null);
+  const [mcName, setMcName] = useState('');
+  const [mcDescription, setMcDescription] = useState('');
+  const [mcDuration, setMcDuration] = useState('');
+  const [mcAssignId, setMcAssignId] = useState('');
+  const [mcSaving, setMcSaving] = useState(false);
 
   const showMultiBranch = church.type === 'multi' && currentAdmin?.level === 'church' && branches.length > 0;
 
@@ -608,6 +615,27 @@ export function Members() {
     setMembers(updated.filter(m => m.churchId === church.id));
   };
 
+  const handleMcAssign = async () => {
+    if (!mcAssignId || !managingClass) return;
+    setMcSaving(true);
+    try {
+      const all = await fetchMembers();
+      const updated = (all as Member[]).map(m =>
+        m.id === mcAssignId
+          ? { ...m, trainingClassId: managingClass.id, trainingStatus: ('started' as NewcomerTrainingStatus) }
+          : m,
+      );
+      await saveMembers(updated);
+      setMembers(updated.filter(m => m.churchId === church.id));
+      setMcAssignId('');
+      showToast('Member added to training class.');
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'error');
+    } finally {
+      setMcSaving(false);
+    }
+  };
+
   const getBranchName = (id?: string) => {
     if (!id) return '';
     return branches.find(b => b.id === id)?.name || localBranches.find(b => b.id === id)?.name || '';
@@ -928,11 +956,21 @@ export function Members() {
                   const finished = assigned.filter(m => m.trainingStatus === 'finished').length;
                   const progress = assigned.length > 0 ? Math.round((finished / assigned.length) * 100) : 0;
                   return (
-                    <Card key={cls.id} className="hover:shadow-md transition-shadow">
+                    <Card
+                      key={cls.id}
+                      className="hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => {
+                        setManagingClass(cls);
+                        setMcName(cls.name);
+                        setMcDescription(cls.description || '');
+                        setMcDuration(cls.durationWeeks ? String(cls.durationWeeks) : '');
+                        setMcAssignId('');
+                      }}
+                    >
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-base">{cls.name}</CardTitle>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDeleteClass(cls)}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); handleDeleteClass(cls); }}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
                         </div>
                         {cls.description && <p className="text-xs text-gray-500">{cls.description}</p>}
                       </CardHeader>
@@ -946,19 +984,7 @@ export function Members() {
                           <Progress value={progress} className="h-1.5" />
                         </div>
                         {assigned.length > 0 && (
-                          <div className="space-y-1.5 mt-3 max-h-32 overflow-y-auto">
-                            {assigned.map(m => (
-                              <div key={m.id} className="flex items-center justify-between text-xs">
-                                <span className="text-gray-700">{m.fullName}</span>
-                                <Select value={m.trainingStatus || 'not-enrolled'} onValueChange={(v) => handleUpdateTrainingStatus(m.id, v as NewcomerTrainingStatus)}>
-                                  <SelectTrigger className="h-6 w-28 text-[10px]"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {TRAINING_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            ))}
-                          </div>
+                          <p className="text-xs text-gray-400 mt-2">Click to manage members</p>
                         )}
                       </CardContent>
                     </Card>
@@ -1029,6 +1055,84 @@ export function Members() {
       </Dialog>
 
       {/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CREATE / EDIT DIALOG Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */}
+      {/* ── MANAGE TRAINING CLASS DIALOG ── */}
+      {managingClass && (() => {
+        const enrolled = members.filter(m => m.trainingClassId === managingClass.id);
+        const unassigned = members.filter(m => !m.trainingClassId);
+        const completed = enrolled.filter(m => m.trainingStatus === 'completed').length;
+        const pct = enrolled.length > 0 ? Math.round((completed / enrolled.length) * 100) : 0;
+        return (
+          <Dialog open={!!managingClass} onOpenChange={(o) => { if (!o) { setManagingClass(null); setMcAssignId(''); } }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{managingClass.name}</DialogTitle>
+                <DialogDescription asChild>
+                  <div className="flex items-center gap-4">
+                    {managingClass.durationWeeks && (
+                      <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{managingClass.durationWeeks} week{managingClass.durationWeeks !== 1 ? 's' : ''}</span>
+                    )}
+                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{enrolled.length} enrolled</span>
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-1">
+                <div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Completion</span><span>{pct}%</span>
+                  </div>
+                  <Progress value={pct} className="h-1.5" />
+                </div>
+
+                <div className="flex gap-2">
+                  <Select value={mcAssignId} onValueChange={setMcAssignId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Add member..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unassigned.length === 0
+                        ? <SelectItem value="__none" disabled>No unassigned members</SelectItem>
+                        : unassigned.map(m => (
+                            <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
+                          ))
+                      }
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={handleMcAssign} disabled={!mcAssignId || mcSaving}>
+                    {mcSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  </Button>
+                </div>
+
+                {enrolled.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No members assigned yet.</p>
+                ) : (
+                  <ul className="space-y-1 max-h-64 overflow-y-auto">
+                    {enrolled.map(m => (
+                      <li key={m.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <span className="text-sm font-medium text-gray-800">{m.fullName}</span>
+                        <Select
+                          value={m.trainingStatus || 'started'}
+                          onValueChange={(val) => handleUpdateTrainingStatus(m.id, val as NewcomerTrainingStatus)}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="started">Started</SelectItem>
+                            <SelectItem value="in-progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+
       <Dialog open={dialogMode === 'create' || dialogMode === 'edit'} onOpenChange={() => { setDialogMode(null); setSelectedMember(null); resetForm(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

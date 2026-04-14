@@ -141,6 +141,7 @@ export interface Member {
   /** Training class assignment (same model as newcomers) */
   trainingClassId?: string;
   trainingStatus?: NewcomerTrainingStatus;
+  trainingProgress?: number;
   createdAt: Date;
 }
 
