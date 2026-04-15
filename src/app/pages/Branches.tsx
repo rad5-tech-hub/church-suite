@@ -40,6 +40,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Branch, Department, Member } from '../types';
 import { fetchDepartments, fetchMembers, createBranch, editBranch, deleteBranchApi } from '../api';
+import { friendlyError } from '../utils/friendlyError';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
 
@@ -118,8 +119,8 @@ export function Branches() {
       await loadChurchFromServer();
       closeDialog();
       showToast(`"${branchName.trim()}" branch created successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -133,8 +134,8 @@ export function Branches() {
       updateBranch(selectedBranch.id, { name: branchName.trim() });
       closeDialog();
       showToast(`"${branchName.trim()}" branch updated successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -148,8 +149,8 @@ export function Branches() {
       deleteBranch(deleteTarget.id);
       setDeleteTarget(null);
       showToast(`"${name}" branch deleted successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     }
   };
 

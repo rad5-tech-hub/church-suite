@@ -64,6 +64,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { CURRENCIES } from '../constants/currencies';
+import { friendlyError, isUuid } from '../utils/friendlyError';
 import {
   CollectionType,
   LedgerEntry,
@@ -90,6 +91,7 @@ import {
   recordFundContribution,
   deleteFundraiser,
   updateAccount,
+  editAccountRecord,
 } from '../api';
 
 type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
@@ -138,6 +140,8 @@ export function Finance() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const LEDGER_PAGE_SIZE = 20;
 
   // Filters  sync tab with URL query param so sidebar links work
   const [searchParams, setSearchParams] = useSearchParams();
@@ -214,6 +218,14 @@ export function Finance() {
 
   // â”€â”€â”€ Delete dialogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'ledger' | 'ct' | 'fund'; id: string; name: string } | null>(null);
+
+  // Edit ledger entry
+  const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
+  const [editCredit, setEditCredit] = useState('');
+  const [editDebit, setEditDebit] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const hasLoadedLedgerBaseRef = useRef(false);
   const skipNextLedgerRefreshRef = useRef(false);
 
@@ -444,6 +456,9 @@ export function Finance() {
       cancelled = true;
     };
   }, [loadLedgerEntriesForFilters, scopeFilter, scopeFilterId]);
+
+  // Reset ledger page when filters change
+  useEffect(() => { setLedgerPage(1); }, [scopeFilter, scopeFilterId, searchTerm, programFilter]);
 
   const { showToast } = useToast();
 
@@ -678,6 +693,15 @@ export function Finance() {
   const ledgerExpense = filteredLedger.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
   const ledgerBalance = ledgerIncome - ledgerExpense;
 
+  // Pagination
+  const ledgerTotalPages = Math.max(1, Math.ceil(filteredLedger.length / LEDGER_PAGE_SIZE));
+  const ledgerPageSafe = Math.min(ledgerPage, ledgerTotalPages);
+  const pagedLedger = filteredLedger.slice((ledgerPageSafe - 1) * LEDGER_PAGE_SIZE, ledgerPageSafe * LEDGER_PAGE_SIZE);
+  // Running balance offset: sum of entries older than the current page (they sit at higher indices in newest-first order)
+  const ledgerBalanceOffset = filteredLedger
+    .slice(ledgerPageSafe * LEDGER_PAGE_SIZE)
+    .reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0);
+
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FILTER COLLECTION TYPES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const filteredCTs = collectionTypes.filter(ct => {
     if (searchTerm && !ct.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -755,7 +779,7 @@ export function Finance() {
       showToast(`${ledgerType === 'income' ? 'Income' : 'Expense'} entry recorded successfully.`);
     } catch (err: any) {
       console.error('Failed to save ledger entry:', err);
-      showToast(err?.body?.message || err?.message || 'Failed to record entry. Please try again.', 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -837,10 +861,9 @@ export function Finance() {
       setCtOpen(false);
       resetCtForm();
       showToast(`Collection type "${ctName.trim()}" created successfully.`);
-    } catch (err: any) {
-      const msg = err?.body?.message || err?.message || 'Failed to create collection type';
+    } catch (err) {
       console.error('Failed to save collection type:', err);
-      showToast(msg, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -899,10 +922,9 @@ export function Finance() {
       await loadData();
       setFundOpen(false);
       resetFundForm();
-    } catch (err: any) {
-      const msg = err?.body?.message || err?.details?.[0]?.message || err?.message || 'Failed to save fundraiser';
+    } catch (err) {
       console.error('Failed to save fundraiser:', err);
-      showToast(msg, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -966,7 +988,7 @@ export function Finance() {
       showToast(`Contribution of ${currSymbol}${rawAmount.toLocaleString()} from ${donateName.trim()} recorded.`);
     } catch (err: any) {
       console.error('Failed to record contribution:', err);
-      showToast(err?.body?.message || err?.message || 'Failed to record contribution.', 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -1006,6 +1028,47 @@ export function Finance() {
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCOPE SELECTOR COMPONENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const openEditEntry = (entry: LedgerEntry) => {
+    if (!isUuid(entry.id)) {
+      showToast('This entry cannot be edited — it does not have a valid server reference.', 'error');
+      return;
+    }
+    setEditEntry(entry);
+    setEditCredit(entry.type === 'income' ? String(entry.amount) : '');
+    setEditDebit(entry.type === 'expense' ? String(entry.amount) : '');
+    setEditDescription(entry.description || '');
+    setEditReason('');
+  };
+
+  const handleEditSave = async () => {
+    if (!editEntry) return;
+    setEditSaving(true);
+    try {
+      const payload: { credit?: number; debit?: number; description?: string; reason?: string } = {};
+      if (editCredit) payload.credit = parseFloat(editCredit);
+      if (editDebit) payload.debit = parseFloat(editDebit);
+      if (editDescription.trim()) payload.description = editDescription.trim();
+      if (editReason.trim()) payload.reason = editReason.trim();
+      await editAccountRecord(editEntry.id, payload);
+      setLedgerEntries(prev => prev.map(e =>
+        e.id === editEntry.id
+          ? {
+              ...e,
+              amount: payload.credit ?? payload.debit ?? e.amount,
+              type: payload.credit ? 'income' : payload.debit ? 'expense' : e.type,
+              description: payload.description ?? e.description,
+            }
+          : e,
+      ));
+      showToast('Ledger entry updated successfully.');
+      setEditEntry(null);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const ScopeSelector = ({
     scope,
     setScope,
@@ -1300,6 +1363,9 @@ export function Finance() {
                                   <span className={`text-sm font-bold ${entry.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                     {entry.type === 'income' ? '+' : '-'}{currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </span>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </Button>
                                 </div>
                               </div>
                               <div className="flex items-center justify-between">
@@ -1340,6 +1406,7 @@ export function Finance() {
                             <TableHead className="text-right">Income</TableHead>
                             <TableHead className="text-right">Expense</TableHead>
                             <TableHead className="text-right">Balance</TableHead>
+                            <TableHead className="w-8"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1386,6 +1453,11 @@ export function Finance() {
                                   <TableCell className={`text-right font-semibold ${runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                                     {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </TableCell>
+                                  <TableCell className="p-1">
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TableCell>
                                 </TableRow>
                               );
                             }).reverse();
@@ -1395,6 +1467,30 @@ export function Finance() {
                     </CardContent>
                   </Card>
                 )}
+              {/* Ledger pagination */}
+              {ledgerTotalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-gray-500">
+                    Page {ledgerPageSafe} of {ledgerTotalPages} &middot; {filteredLedger.length} entries
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                      disabled={ledgerPageSafe <= 1}
+                      className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
+                      disabled={ledgerPageSafe >= ledgerTotalPages}
+                      className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
               </TabsContent>
 
               {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COLLECTIONS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -2121,6 +2217,67 @@ export function Finance() {
       </Dialog>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DELETE CONFIRM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ── EDIT LEDGER ENTRY DIALOG ── */}
+      <Dialog open={!!editEntry} onOpenChange={(o) => { if (!o) setEditEntry(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Ledger Entry</DialogTitle>
+            <DialogDescription>
+              Update the record details below. Leave a field blank to keep its current value.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Credit (Income)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="e.g. 1500.00"
+                  value={editCredit}
+                  onChange={e => { setEditCredit(e.target.value); if (e.target.value) setEditDebit(''); }}
+                />
+              </div>
+              <div>
+                <Label>Debit (Expense)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="e.g. 200.00"
+                  value={editDebit}
+                  onChange={e => { setEditDebit(e.target.value); if (e.target.value) setEditCredit(''); }}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                placeholder="Entry description"
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Reason for Edit <RequiredStar /></Label>
+              <Input
+                placeholder="e.g. Adjustment for overpayment"
+                value={editReason}
+                onChange={e => setEditReason(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setEditEntry(null)}>Cancel</Button>
+              <Button className="flex-1" disabled={editSaving || !editReason.trim()} onClick={handleEditSave}>
+                {editSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

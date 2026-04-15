@@ -54,6 +54,7 @@ import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme, lightenColor, DEFAULT_PRIMARY, DEFAULT_PRIMARY_LIGHT } from '../context/ThemeContext';
 import { editAdmin, saveChurchConfig, uploadLogoWithProgress } from '../api';
+import { friendlyError } from '../utils/friendlyError';
 import { CURRENCIES } from '../constants/currencies';
 
 type ProfileTab = 'personal' | 'church' | 'appearance' | 'help';
@@ -287,8 +288,8 @@ export function Profile() {
       };
       setCurrentAdmin(updatedAdmin);
       showSaved();
-    } catch (err: any) {
-      showToast(err?.body?.message || 'Failed to save personal info.', 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -314,8 +315,8 @@ export function Profile() {
       // Keep local context in sync
       updateChurch(updates);
       showSaved();
-    } catch (err: any) {
-      showToast(err?.body?.message || 'Failed to save church info.', 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -417,10 +418,10 @@ export function Profile() {
         const serverLogoUrl = await uploadLogoWithProgress(file, setLogoUploadProgress);
         if (serverLogoUrl) updateChurch({ logoUrl: serverLogoUrl });
         showSaved();
-      } catch (err: any) {
+      } catch (err) {
         // Restore the previous logo instead of clearing it
         updateChurch({ logoUrl: previousLogoUrl });
-        showToast(err?.body?.message || err?.message || 'Failed to upload logo. Please try again.', 'error');
+        showToast(friendlyError(err), 'error');
       } finally {
         setLogoUploading(false);
         setLogoUploadProgress(0);

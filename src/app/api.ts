@@ -2866,6 +2866,18 @@ export async function updateAccount(
   );
 }
 
+/** PATCH /wallet/edit-account-record/:recordId */
+export async function editAccountRecord(
+  recordId: string,
+  data: { credit?: number; debit?: number; description?: string; reason?: string },
+): Promise<any> {
+  const res = await apiFetch<any>(`/wallet/edit-account-record/${recordId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
+
 /** GET /wallet/get-account-record?branchId=... */
 export async function fetchAccountRecords(
   branchId?: string,

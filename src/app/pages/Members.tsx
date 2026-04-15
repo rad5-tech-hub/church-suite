@@ -39,6 +39,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { Member, WorkforceMember, Department, Unit, MemberTrainingClass, NewcomerTrainingStatus } from '../types';
 import { fetchMembers, fetchMember, createMember, createWorkforceMember, editMember, suspendMember, saveMembers, saveWorkforce, fetchWorkforce, fetchDepartments, fetchUnits, fetchMemberTrainingClasses, saveMemberTrainingClasses, fetchBranches as fetchBranchesApi, createBranch } from '../api';
+import { friendlyError } from '../utils/friendlyError';
 import { COUNTRIES, MONTHS, AGE_RANGES } from '../data/countries';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
@@ -347,7 +348,7 @@ export function Members() {
       setDialogMode(null);
       resetForm();
       showToast(`"${fFullName.trim()}" has been added as a church member.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -412,7 +413,7 @@ export function Members() {
       setSelectedMember(null);
       resetForm();
       showToast('Member updated.');
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -519,9 +520,9 @@ export function Members() {
           // Now suspend the old non-worker duplicate.
           await suspendMember(m.id, mergedSource.branchId || m.branchId || '');
           createdCount++;
-        } catch (err: any) {
+        } catch (err) {
           console.error(`Failed to move ${m.fullName}:`, err);
-          showToast(`Error moving ${m.fullName}: ${err.message || 'Permission denied'}`, 'error');
+          showToast(`Could not move ${m.fullName}: ${friendlyError(err)}`, 'error');
         }
       }
       
@@ -529,7 +530,7 @@ export function Members() {
       setMoveDeptId(''); setMoveUnitId(''); setMoveBranchId(''); setSelectedIds([]);
       showToast(`${createdCount} member(s) moved to the workforce.`);
       setMoveTargets([]);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -576,7 +577,7 @@ export function Members() {
       setTrainingClasses(updated.filter(t => t.churchId === church.id));
       setCreateClassOpen(false); setTcName(''); setTcDescription(''); setTcDuration('');
       showToast(`Training class "${cls.name}" created.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -604,7 +605,7 @@ export function Members() {
       setMembers(updated.filter(m => m.churchId === church.id));
       setAssignTrainingTargets([]); setAssignClassId(''); setSelectedIds([]);
       showToast(`${ids.length} member(s) assigned to training.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -629,8 +630,8 @@ export function Members() {
       setMembers(updated.filter(m => m.churchId === church.id));
       setMcAssignId('');
       showToast('Member added to training class.');
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setMcSaving(false);
     }

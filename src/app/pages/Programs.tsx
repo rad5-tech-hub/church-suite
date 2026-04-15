@@ -86,6 +86,7 @@ import {
   fetchCollectionTypes,
 } from '../api';
 import type { EditEventOccurrenceRequest } from '../apiTypes';
+import { friendlyError } from '../utils/friendlyError';
 
 type ViewMode = 'calendar' | 'grid';
 
@@ -1191,9 +1192,9 @@ export function Programs() {
 
       setCreateOpen(false);
       resetCreateForm();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to save program:', err);
-      showToast(`Error: ${err.message}`, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -1457,9 +1458,9 @@ export function Programs() {
 
       closeManageDialog();
       showToast('Program managed successfully.');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to manage program:', err);
-      showToast(`Error: ${err.message}`, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }

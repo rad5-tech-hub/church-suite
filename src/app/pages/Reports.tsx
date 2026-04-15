@@ -61,6 +61,7 @@ import {
   fetchUnits,
 } from '../api';
 import { resolvePrimaryBranchId } from '../utils/scope';
+import { friendlyError } from '../utils/friendlyError';
 
 const LEVEL_LABELS: Record<AdminLevel, string> = {
   unit: 'Unit Head',
@@ -569,9 +570,9 @@ export function Reports() {
         console.error('Failed to refresh reports after create:', refreshError);
         showToast('Report created successfully, but refreshing the report list failed.', 'error');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to create report:', error);
-      showToast(`Error: ${error.message || 'Unable to create report.'}`, 'error');
+      showToast(friendlyError(error), 'error');
     } finally {
       setSaving(false);
     }
@@ -637,8 +638,8 @@ export function Reports() {
         await saveReports(reports.map(r => r.id === fresh.id ? fresh : r));
       }
       showToast('Reply sent successfully.');
-    } catch (err: any) {
-      showToast(err?.body?.message || err?.message || 'Failed to send reply.', 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setReplyLoading(false);
     }
@@ -653,8 +654,8 @@ export function Reports() {
       setForwardRecipientIds([]);
       setForwardMessage('');
       showToast('Report forwarded successfully.');
-    } catch (err: any) {
-      showToast(err?.body?.message || err?.message || 'Failed to forward report.', 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setForwardLoading(false);
     }
@@ -675,9 +676,9 @@ export function Reports() {
         const readReport = await markAsRead(freshReport);
         setViewReport(readReport);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch report details:', error);
-      showToast(`Error: ${error.message || 'Unable to refresh this report.'}`, 'error');
+      showToast(friendlyError(error), 'error');
 
       if (report.authorId !== currentAdmin?.id && !report.isRead) {
         const readReport = await markAsRead(report);

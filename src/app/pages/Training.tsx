@@ -48,6 +48,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { resolvePrimaryBranchId } from '../utils/scope';
 import type { ApiTraining, ApiTrainingEnrollment } from '../apiTypes';
+import { friendlyError } from '../utils/friendlyError';
 import {
   fetchTrainings,
   createTraining,
@@ -250,8 +251,8 @@ export function Training() {
       setDialogOpen(false);
       resetForm();
       await loadData();
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -317,8 +318,8 @@ export function Training() {
       }
       showToast('Member assigned to training.');
       await loadLocalMembersForTraining(membersDialogTraining);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setAssigning(false);
     }
@@ -333,8 +334,8 @@ export function Training() {
         await saveMembers([{ ...member, trainingStatus: status }]);
       }
       setLocalMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, status } : m));
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     }
   };
 
@@ -388,8 +389,8 @@ export function Training() {
       });
       showToast('Successfully enrolled in training.');
       setEnrollDialogOpen(false);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -786,8 +787,8 @@ export function Training() {
                                 : en,
                               ),
                             );
-                          } catch (err: any) {
-                            showToast(`Error: ${err.message}`, 'error');
+                          } catch (err) {
+                            showToast(friendlyError(err), 'error');
                           }
                         }}
                       >
@@ -893,8 +894,8 @@ export function Training() {
                   showToast(`"${deleteTarget.name}" deleted.`);
                   setDeleteTarget(null);
                   await loadData();
-                } catch (err: any) {
-                  showToast(`Error: ${err.message}`, 'error');
+                } catch (err) {
+                  showToast(friendlyError(err), 'error');
                 }
               }}
             >

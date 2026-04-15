@@ -32,6 +32,7 @@ import {
 } from '../api';
 import { BibleLoader } from '../components/BibleLoader';
 import { resolvePrimaryBranchId } from '../utils/scope';
+import { friendlyError } from '../utils/friendlyError';
 
 function RequiredStar() { return <span className="text-red-500 ml-0.5">*</span>; }
 
@@ -349,7 +350,7 @@ export function FollowUp() {
       setAddOpen(false);
       resetAddForm();
       showToast(`${nFirstName.trim()} ${nLastName.trim()} added as a newcomer.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -367,7 +368,7 @@ export function FollowUp() {
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
       setMoveTarget(null);
       showToast(`${moveTarget.firstName} ${moveTarget.lastName} has been moved to the Members directory. You can update their full details in the Members section.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -390,9 +391,9 @@ export function FollowUp() {
       setSelectedNewcomer(null);
       showToast('Follow-up logged.');
     }
-    catch (err: any) {
+    catch (err) {
       console.error(err);
-      showToast(`Error: ${err?.message || 'Failed to update follow-up.'}`, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -438,7 +439,7 @@ export function FollowUp() {
       setSelectedIds([]);
       setFollowUpNowMode(false);
       showToast(`SMS sent to ${recipientsWithPhone.length} newcomer${recipientsWithPhone.length > 1 ? 's' : ''}.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSmsSending(false); }
   };
 
@@ -451,7 +452,7 @@ export function FollowUp() {
       setBulkDeleteOpen(false);
       showToast(`${selectedIds.length} newcomer(s) deleted.`);
       setSelectedIds([]);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -475,7 +476,7 @@ export function FollowUp() {
       setBulkMoveOpen(false);
       showToast(`${targets.length} newcomer(s) moved to members.`);
       setSelectedIds([]);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -488,7 +489,7 @@ export function FollowUp() {
       setTrainingClasses(prev => [...prev, cls]);
       setCreateClassOpen(false); setTcName(''); setTcDescription(''); setTcDuration('');
       showToast(`Training class "${cls.name}" created.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -500,7 +501,7 @@ export function FollowUp() {
       setNewcomers(prev => prev.map(n => ids.has(n.id) ? { ...n, trainingClassId: assignClassId, trainingStatus: (n.trainingStatus === 'not-enrolled' || !n.trainingStatus) ? 'started' as NewcomerTrainingStatus : n.trainingStatus } : n));
       setAssignTrainingTargets([]); setAssignClassId(''); setSelectedIds([]);
       showToast(`${ids.size} newcomer(s) assigned to training.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -527,7 +528,7 @@ export function FollowUp() {
       setCreateFormOpen(false);
       setFormName(''); setFormDescription(''); setFormVisitType('first-timer');
       showToast(`Form "${formName.trim()}" created.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
