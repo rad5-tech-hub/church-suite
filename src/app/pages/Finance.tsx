@@ -363,14 +363,11 @@ export function Finance() {
       }
     }
 
-    const allLedgerEntries = await fetchLedgerEntries();
-    if (allLedgerEntries.length > 0) {
-      return dedupeLedgerEntries(allLedgerEntries as LedgerEntry[]);
-    }
-
-    return dedupeLedgerEntries((await Promise.all(
-      ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId))
-    )).flat() as LedgerEntry[]);
+    const [churchEntries, ...branchResults] = await Promise.all([
+      fetchLedgerEntries(),
+      ...ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId)),
+    ]);
+    return dedupeLedgerEntries([...churchEntries, ...branchResults.flat()] as LedgerEntry[]);
   }, [
     adminLevel,
     accessibleBranchIds,
@@ -1030,7 +1027,7 @@ export function Finance() {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCOPE SELECTOR COMPONENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const openEditEntry = (entry: LedgerEntry) => {
     if (!isUuid(entry.id)) {
-      showToast('This entry cannot be edited — it does not have a valid server reference.', 'error');
+      showToast('This entry cannot be edited.', 'error');
       return;
     }
     setEditEntry(entry);
@@ -1347,8 +1344,8 @@ export function Finance() {
                     {/* Mobile card list */}
                     <CardContent className="p-3 md:hidden space-y-2">
                       {(() => {
-                        let runningBalance = 0;
-                        return filteredLedger.slice().reverse().map((entry) => {
+                        let runningBalance = ledgerBalanceOffset;
+                        return pagedLedger.slice().reverse().map((entry) => {
                           runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
                           const scopeTypeLabel = getLedgerScopeTypeLabel(entry);
                           const scopeValue = getLedgerScopeValue(entry);
@@ -1411,8 +1408,8 @@ export function Finance() {
                         </TableHeader>
                         <TableBody>
                           {(() => {
-                            let runningBalance = 0;
-                            return filteredLedger.slice().reverse().map((entry) => {
+                            let runningBalance = ledgerBalanceOffset;
+                            return pagedLedger.slice().reverse().map((entry) => {
                               runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
                               return (
                                 <TableRow key={entry.id}>
@@ -1468,10 +1465,10 @@ export function Finance() {
                   </Card>
                 )}
               {/* Ledger pagination */}
-              {ledgerTotalPages > 1 && (
+              {filteredLedger.length > 0 && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-sm text-gray-500">
-                    Page {ledgerPageSafe} of {ledgerTotalPages} &middot; {filteredLedger.length} entries
+                    Showing {((ledgerPageSafe - 1) * LEDGER_PAGE_SIZE) + 1}–{Math.min(ledgerPageSafe * LEDGER_PAGE_SIZE, filteredLedger.length)} of {filteredLedger.length} entries
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -1481,6 +1478,9 @@ export function Finance() {
                     >
                       Previous
                     </button>
+                    <span className="text-sm text-gray-600 px-1">
+                      {ledgerPageSafe} / {ledgerTotalPages}
+                    </span>
                     <button
                       onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
                       disabled={ledgerPageSafe >= ledgerTotalPages}

@@ -22,7 +22,7 @@ export function friendlyError(err: unknown): string {
 
   // ── Database / input ─────────────────────────────────────────────────────
   if (lower.includes('invalid input syntax for type uuid'))
-    return 'This record cannot be edited — it does not have a valid server reference.';
+    return 'This record cannot be edited at this time.';
   if (lower.includes('duplicate') || lower.includes('unique constraint') || lower.includes('already exists'))
     return 'A record with these details already exists.';
   if (lower.includes('foreign key') || lower.includes('violates'))
