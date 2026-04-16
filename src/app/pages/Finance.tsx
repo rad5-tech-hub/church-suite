@@ -141,7 +141,8 @@ export function Finance() {
   const [saving, setSaving] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [ledgerPage, setLedgerPage] = useState(1);
-  const LEDGER_PAGE_SIZE = 20;
+  const LEDGER_PAGE_SIZE = 8;
+  const EDIT_WINDOW_MINUTES = 30;
 
   // Filters  sync tab with URL query param so sidebar links work
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1025,11 +1026,12 @@ export function Finance() {
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCOPE SELECTOR COMPONENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const canEditEntry = (entry: LedgerEntry) =>
+    isUuid(entry.id) &&
+    !!entry.createdAt &&
+    Date.now() - new Date(entry.createdAt).getTime() < EDIT_WINDOW_MINUTES * 60 * 1000;
+
   const openEditEntry = (entry: LedgerEntry) => {
-    if (!isUuid(entry.id)) {
-      showToast('This entry cannot be edited.', 'error');
-      return;
-    }
     setEditEntry(entry);
     setEditCredit(entry.type === 'income' ? String(entry.amount) : '');
     setEditDebit(entry.type === 'expense' ? String(entry.amount) : '');
@@ -1360,9 +1362,11 @@ export function Finance() {
                                   <span className={`text-sm font-bold ${entry.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                     {entry.type === 'income' ? '+' : '-'}{currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </span>
-                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
-                                    <Edit className="w-3.5 h-3.5" />
-                                  </Button>
+                                  {canEditEntry(entry) && (
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between">
@@ -1451,9 +1455,11 @@ export function Finance() {
                                     {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </TableCell>
                                   <TableCell className="p-1">
-                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
-                                      <Edit className="w-3.5 h-3.5" />
-                                    </Button>
+                                    {canEditEntry(entry) && (
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                        <Edit className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               );
@@ -1470,25 +1476,27 @@ export function Finance() {
                   <p className="text-sm text-gray-500">
                     Showing {((ledgerPageSafe - 1) * LEDGER_PAGE_SIZE) + 1}–{Math.min(ledgerPageSafe * LEDGER_PAGE_SIZE, filteredLedger.length)} of {filteredLedger.length} entries
                   </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
-                      disabled={ledgerPageSafe <= 1}
-                      className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-sm text-gray-600 px-1">
-                      {ledgerPageSafe} / {ledgerTotalPages}
-                    </span>
-                    <button
-                      onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
-                      disabled={ledgerPageSafe >= ledgerTotalPages}
-                      className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Next
-                    </button>
-                  </div>
+                  {ledgerTotalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                        disabled={ledgerPageSafe <= 1}
+                        className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600 px-1">
+                        {ledgerPageSafe} / {ledgerTotalPages}
+                      </span>
+                      <button
+                        onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
+                        disabled={ledgerPageSafe >= ledgerTotalPages}
+                        className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               </TabsContent>
