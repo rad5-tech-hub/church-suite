@@ -1,11 +1,7 @@
-/**
- * Animated flipping bible loading indicator.
- * Uses pure CSS keyframe animations for the page-turning effect.
- */
 export function BibleLoader({ message = 'Loading...' }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="relative w-16 h-20 mb-4">
+      <div className="relative w-16 h-20 mb-4" style={{ perspective: '200px' }}>
         {/* Book base */}
         <div className="absolute inset-0 bg-amber-800 rounded-sm shadow-lg" />
         {/* Spine */}
@@ -51,7 +47,7 @@ export function BibleLoader({ message = 'Loading...' }: { message?: string }) {
         </div>
         {/* Cross on cover */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-amber-400 rounded-full opacity-80" style={{ marginLeft: '1px' }} />
-        <div className="absolute top-3.5 left-1/2 -translate-x-1/2 w-2.5 h-0.5 bg-amber-400 rounded-full opacity-80" style={{ marginLeft: '1px' }} />
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-2.5 h-0.5 bg-amber-400 rounded-full opacity-80" style={{ marginLeft: '1px' }} />
       </div>
       <p className="text-sm text-gray-500 animate-pulse">{message}</p>
 
