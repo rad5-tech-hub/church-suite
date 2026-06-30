@@ -3836,7 +3836,13 @@ export interface PlanData {
 export async function fetchAllPlans(): Promise<PlanData[]> {
   const res = await apiFetch('/plan/all-plans', { method: 'GET', skipAuth: true });
   const data = (res as any)?.data ?? res;
-  return Array.isArray(data) ? data : [];
+  const plans: PlanData[] = Array.isArray(data) ? data : [];
+  return plans.map(p => {
+    if (p.name && /monies/i.test(p.name)) {
+      return { ...p, name: 'Premium' };
+    }
+    return p;
+  });
 }
 
 export interface SubscribePlanResponse {

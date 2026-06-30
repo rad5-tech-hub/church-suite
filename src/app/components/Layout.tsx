@@ -584,18 +584,16 @@ export function Layout({ children }: LayoutProps) {
               </Link>
             </div>
 
+
             {/* Upgrade CTA for Single Church */}
-            {!isHeadQuarter && admin.level === 'church' && (
+            {admin.level === 'church' && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <Link to="/subscription" onClick={() => setIsSidebarOpen(false)}>
                   <div className="p-3 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg text-white hover:shadow-lg transition-shadow cursor-pointer">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2">
                       <Crown className="w-5 h-5" />
-                      <span className="font-semibold text-sm">Upgrade Plan</span>
+                      <span className="font-semibold text-sm">My plan</span>
                     </div>
-                    <p className="text-xs text-white/90">
-                      Unlock multi-branch features
-                    </p>
                   </div>
                 </Link>
               </div>
