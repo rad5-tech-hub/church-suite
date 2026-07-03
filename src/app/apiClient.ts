@@ -168,6 +168,7 @@ export async function apiFetch<T = any>(
     ...options,
     headers,
     credentials: 'include', // for cookies (refresh token)
+    cache: 'no-cache', // Prevent browser from caching GET requests (fixes stale data after mutations)
   });
 
   const elapsed = Math.round(performance.now() - t0);

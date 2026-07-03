@@ -295,7 +295,7 @@ export function Branches() {
                   className="hover:shadow-lg transition-shadow group"
                 >
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between min-w-0 w-full">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
                           <Building2 className="w-5 h-5 text-blue-600" />

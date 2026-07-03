@@ -342,7 +342,7 @@ export function Members() {
         comments: fComments || undefined,
         departmentIds: fDepartmentIds.length > 0 ? fDepartmentIds : undefined,
         unitIds: fUnitIds.length > 0 ? fUnitIds : undefined,
-      }, church.id, resolvedBranchId);
+      } as any, church.id, resolvedBranchId);
 
       await loadData();
       setDialogMode(null);
