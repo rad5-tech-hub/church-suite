@@ -426,9 +426,9 @@ export function Layout({ children }: LayoutProps) {
             ) : (
               <Church className="w-8 h-8" style={{ color: accentColor }} />
             )}
-            <div>
-              <h1 className="font-bold text-xl">Churchset</h1>
-              <p className="text-xs text-gray-500">{church.name}</p>
+            <div className="min-w-0 max-w-[150px] sm:max-w-[200px] md:max-w-[300px]">
+              <h1 className="font-bold text-xl truncate">Churchset</h1>
+              <p className="text-xs text-gray-500 truncate">{church.name}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -443,25 +443,25 @@ export function Layout({ children }: LayoutProps) {
             </Button>
             <button
               onClick={() => navigate('/profile')}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer min-w-0"
             >
               {currentAdmin?.profilePicture ? (
                 <img
                   src={currentAdmin.profilePicture}
                   alt={admin.name}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-gray-200"
+                  className="w-9 h-9 rounded-full object-cover border-2 border-gray-200 shrink-0"
                 />
               ) : (
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
                   style={{ backgroundColor: accentColor }}
                 >
                   {admin.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
               )}
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{admin.name}</p>
-                <p className="text-xs text-gray-500">
+              <div className="text-right hidden sm:block min-w-0 max-w-[100px] lg:max-w-[150px]">
+                <p className="text-sm font-medium text-gray-900 truncate">{admin.name}</p>
+                <p className="text-xs text-gray-500 truncate">
                   {admin.isSuperAdmin ? 'Super Admin' : 'Admin'} &middot; {admin.level}
                 </p>
               </div>

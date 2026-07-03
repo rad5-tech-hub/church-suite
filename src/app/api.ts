@@ -452,7 +452,7 @@ function buildChurchMemberPagePath(
 ) {
   if (!nextPagePath) {
     const queryObj: Record<string, string | boolean | undefined> = {
-      branchId,
+      BranchId: branchId,
     };
     if (isWorker !== undefined) queryObj.isWorker = isWorker;
     return `/member/all-church-member${buildQuery(queryObj)}`;
@@ -462,8 +462,8 @@ function buildChurchMemberPagePath(
 
   try {
     const parsed = new URL(normalizedPath, "https://churchset.local");
-    if (branchId && !parsed.searchParams.has("branchId")) {
-      parsed.searchParams.set("branchId", branchId);
+    if (branchId && !parsed.searchParams.has("BranchId")) {
+      parsed.searchParams.set("BranchId", branchId);
     }
     if (isWorker !== undefined && !parsed.searchParams.has("isWorker")) {
       parsed.searchParams.set("isWorker", String(isWorker));
