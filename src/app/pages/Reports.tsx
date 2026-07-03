@@ -35,7 +35,9 @@ import {
   EyeOff,
   UserCircle2,
   Reply,
+  Forward,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
@@ -46,6 +48,8 @@ import {
   fetchReportById,
   fetchReports,
   markReportRead,
+  replyToReport,
+  forwardReport,
   saveReports,
   fetchReportRecipients,
   fetchMembers,
@@ -57,6 +61,7 @@ import {
   fetchUnits,
 } from '../api';
 import { resolvePrimaryBranchId } from '../utils/scope';
+import { friendlyError } from '../utils/friendlyError';
 
 const LEVEL_LABELS: Record<AdminLevel, string> = {
   unit: 'Unit Head',
@@ -121,6 +126,12 @@ export function Reports() {
   const [showDataPicker, setShowDataPicker] = useState(false);
 
   const [viewReport, setViewReport] = useState<Report | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [forwardRecipientIds, setForwardRecipientIds] = useState<string[]>([]);
+  const [forwardMessage, setForwardMessage] = useState('');
+  const [forwardLoading, setForwardLoading] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ title: string; content: string; format: 'txt' | 'html' | 'csv' } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -559,9 +570,9 @@ export function Reports() {
         console.error('Failed to refresh reports after create:', refreshError);
         showToast('Report created successfully, but refreshing the report list failed.', 'error');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to create report:', error);
-      showToast(`Error: ${error.message || 'Unable to create report.'}`, 'error');
+      showToast(friendlyError(error), 'error');
     } finally {
       setSaving(false);
     }
@@ -613,6 +624,46 @@ export function Reports() {
     await saveReports(nextReports);
   };
 
+  const handleSendReply = async () => {
+    if (!viewReport || !replyText.trim()) return;
+    setReplyLoading(true);
+    try {
+      await replyToReport(viewReport.id, replyText.trim());
+      setReplyText('');
+      // Refresh the report to get the new reply from server
+      const fresh = await fetchReportById(viewReport.id, viewReport.reportType === 'starred' ? 'received' : viewReport.reportType);
+      if (fresh) {
+        setViewReport(fresh);
+        setReports(prev => prev.map(r => r.id === fresh.id ? fresh : r));
+        await saveReports(reports.map(r => r.id === fresh.id ? fresh : r));
+      }
+      showToast('Reply sent successfully.');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
+  const handleSendForward = async () => {
+    if (!viewReport || forwardRecipientIds.length === 0) return;
+    setForwardLoading(true);
+    try {
+      await forwardReport(viewReport.id, forwardRecipientIds, forwardMessage);
+      setForwardOpen(false);
+      setForwardRecipientIds([]);
+      setForwardMessage('');
+      showToast('Report forwarded successfully.');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setForwardLoading(false);
+    }
+  };
+
+  const toggleForwardRecipient = (id: string) =>
+    setForwardRecipientIds(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
+
   const openReport = async (report: Report) => {
     setViewReport(report);
     setViewLoading(true);
@@ -625,9 +676,9 @@ export function Reports() {
         const readReport = await markAsRead(freshReport);
         setViewReport(readReport);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch report details:', error);
-      showToast(`Error: ${error.message || 'Unable to refresh this report.'}`, 'error');
+      showToast(friendlyError(error), 'error');
 
       if (report.authorId !== currentAdmin?.id && !report.isRead) {
         const readReport = await markAsRead(report);
@@ -751,9 +802,16 @@ export function Reports() {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h4 className={`truncate text-sm ${!report.isRead && !isCreatedByCurrentUser ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
-                  {report.title}
-                </h4>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {report.isForwarded && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 flex-shrink-0">
+                      <Forward className="w-2.5 h-2.5" /> Fwd
+                    </span>
+                  )}
+                  <h4 className={`truncate text-sm ${!report.isRead && !isCreatedByCurrentUser ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                    {report.title}
+                  </h4>
+                </div>
                 <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                   <span>{isCreatedByCurrentUser ? 'Created by you' : `From: ${report.authorName}`}</span>
                   <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(report.authorId, report.authorLevel)}</Badge>
@@ -1242,11 +1300,16 @@ export function Reports() {
       <Dialog open={!!viewReport} onOpenChange={() => {
         setViewReport(null);
         setViewLoading(false);
+        setReplyText('');
+        setForwardOpen(false);
+        setForwardRecipientIds([]);
+        setForwardMessage('');
       }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden p-0">
           {viewReport && (
             <>
+              <div className="flex-1 overflow-y-auto px-6 pt-6 pb-2">
               <DialogHeader>
                 <div className="flex items-center gap-2">
                   <button onClick={(event) => toggleStar(event, viewReport.id)} title="Toggle star">
@@ -1294,6 +1357,14 @@ export function Reports() {
                   <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Refreshing report details...
+                  </div>
+                )}
+
+                {/* Forwarded-from banner */}
+                {viewReport.isForwarded && viewReport.referenceTitle && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                    <Forward className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Forwarded from: <strong>{viewReport.referenceTitle}</strong></span>
                   </div>
                 )}
 
@@ -1349,30 +1420,162 @@ export function Reports() {
                   </div>
                 )}
 
-                {viewReport.replies && viewReport.replies.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="flex items-center gap-1 text-xs font-semibold uppercase text-gray-500">
-                      <Reply className="w-3.5 h-3.5" />
-                      Replies ({viewReport.replies.length})
+                {/* Recipient delivery status */}
+                {viewReport.recipientEntries && viewReport.recipientEntries.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase text-gray-500 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" /> Recipients ({viewReport.recipientEntries.length})
                     </h4>
-                    {viewReport.replies.map((reply) => (
-                      <div key={reply.id} className="rounded-r-lg border-l-[3px] border-indigo-300 bg-gray-50 p-3">
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-semibold text-gray-800">{reply.authorName}</span>
-                          <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(reply.authorId, reply.authorLevel)}</Badge>
-                          <span className="text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
+                    <div className="space-y-1">
+                      {viewReport.recipientEntries.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-1.5">
+                          <span className="font-medium text-gray-700">{entry.recipientName}</span>
+                          <div className="flex items-center gap-2">
+                            {entry.isForwarded && (
+                              <span className="flex items-center gap-0.5 text-blue-600">
+                                <Forward className="w-3 h-3" />
+                                {entry.forwarderName ? `Fwd by ${entry.forwarderName}` : 'Forwarded'}
+                              </span>
+                            )}
+                            {entry.isRead ? (
+                              <span className="flex items-center gap-0.5 text-green-600">
+                                <Eye className="w-3 h-3" /> Read
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-gray-400">
+                                <EyeOff className="w-3 h-3" /> Unread
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {reply.content.split('\n').map((line, index) => (
-                          <p key={index} className="mt-1 text-sm text-gray-700">{line || '\u00A0'}</p>
-                        ))}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                <Separator />
+                {/* Thread: replies + reply input unified */}
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="flex items-center gap-1.5 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                    <Reply className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-xs font-semibold uppercase text-gray-500">
+                      {viewReport.replies && viewReport.replies.length > 0 ? `Replies (${viewReport.replies.length})` : 'Replies'}
+                    </span>
+                  </div>
 
-                <div className="flex flex-wrap gap-2">
+                  {viewReport.replies && viewReport.replies.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                      {viewReport.replies.map((reply) => (
+                        <div key={reply.id} className="flex gap-3 px-3 py-3">
+                          <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {reply.authorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+                              <span className="font-semibold text-gray-800">{reply.authorName}</span>
+                              <Badge variant="outline" className="text-[10px]">{getAuthorLevelLabel(reply.authorId, reply.authorLevel)}</Badge>
+                              <span className="text-gray-400">{new Date(reply.createdAt).toLocaleString()}</span>
+                            </div>
+                            {reply.content.split('\n').map((line, index) => (
+                              <p key={index} className="text-sm text-gray-700">{line || '\u00A0'}</p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-4">No replies yet. Be the first to reply.</p>
+                  )}
+
+                  {/* Reply input — bottom of thread */}
+                  <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-2">
+                    <Textarea
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      placeholder="Write a reply..."
+                      rows={2}
+                      className="bg-white text-sm resize-none border-gray-200"
+                      disabled={replyLoading}
+                    />
+                    <div className="flex justify-end">
+                      <Button size="sm" className="gap-2" disabled={!replyText.trim() || replyLoading} onClick={handleSendReply}>
+                        {replyLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</> : <><Send className="w-3.5 h-3.5" /> Send Reply</>}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+              </div>{/* end scrollable area */}
+
+              {/* Forward panel — slides in above action bar */}
+              {forwardOpen && (
+                <div className="border-t border-blue-100 bg-blue-50 px-6 py-3 space-y-3 flex-shrink-0">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-blue-600">
+                    <Forward className="w-3.5 h-3.5" /> Forward Report
+                  </h4>
+
+                  {/* Recipient checkboxes */}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Select recipients <span className="text-red-500">*</span></p>
+                    <div className="max-h-36 overflow-y-auto space-y-1 rounded-lg border border-gray-200 bg-white p-2">
+                      {eligibleRecipients.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-2">No recipients available</p>
+                      ) : eligibleRecipients.map(r => (
+                        <label key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-blue-600"
+                            checked={forwardRecipientIds.includes(r.id)}
+                            onChange={() => toggleForwardRecipient(r.id)}
+                          />
+                          <span className="text-sm text-gray-700 flex items-center gap-1">
+                            {r.name}
+                            {forwardRecipientIds.includes(r.id) && <Check className="w-3 h-3 text-blue-500" />}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {forwardRecipientIds.length > 0 && (
+                      <p className="text-xs text-blue-600 mt-1">{forwardRecipientIds.length} recipient{forwardRecipientIds.length > 1 ? 's' : ''} selected</p>
+                    )}
+                  </div>
+
+                  {/* Optional message */}
+                  <Textarea
+                    value={forwardMessage}
+                    onChange={e => setForwardMessage(e.target.value)}
+                    placeholder="Add a message (optional)..."
+                    rows={2}
+                    className="bg-white text-sm resize-none"
+                    disabled={forwardLoading}
+                  />
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setForwardOpen(false); setForwardRecipientIds([]); setForwardMessage(''); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={forwardRecipientIds.length === 0 || forwardLoading}
+                      onClick={handleSendForward}
+                    >
+                      {forwardLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Forwarding...</>
+                        : <><Forward className="w-3.5 h-3.5" /> Forward</>
+                      }
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="flex flex-wrap gap-2 px-6 py-3 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setForwardOpen(v => !v)}>
+                    <Forward className="w-4 h-4 mr-1" />
+                    Forward
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => printReport(viewReport)}>
                     <Printer className="w-4 h-4 mr-1" />
                     Print
@@ -1402,7 +1605,6 @@ export function Reports() {
                     .csv
                   </Button>
                 </div>
-              </div>
             </>
           )}
         </DialogContent>

@@ -32,6 +32,7 @@ import {
   MapPin,
   AlertTriangle,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { useChurch } from '../context/ChurchContext';
@@ -39,15 +40,18 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Branch, Department, Member } from '../types';
 import { fetchDepartments, fetchMembers, createBranch, editBranch, deleteBranchApi } from '../api';
+import { friendlyError } from '../utils/friendlyError';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
 
 export function Branches() {
-  const { church, branches, addBranch, updateBranch, deleteBranch, isHeadQuarter } = useChurch();
+  const { church, branches, addBranch, updateBranch, deleteBranch, isHeadQuarter, loadChurchFromServer } = useChurch();
 
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null);
+
+  const [saving, setSaving] = useState(false);
 
   // Form fields
   const [branchName, setBranchName] = useState('');
@@ -58,10 +62,12 @@ export function Branches() {
 
 
 
-  // Load API data
+  // Load API data — fetch fresh branches first so IDs are real GUIDs from the server
   useEffect(() => {
     const load = async () => {
       try {
+        // Refresh branches in context from the real API before loading anything else
+        await loadChurchFromServer();
         const [deps, mems] = await Promise.all([fetchDepartments(), fetchMembers()]);
         setAllDepartments(deps as Department[]);
         setAllMembers(mems as Member[]);
@@ -70,6 +76,7 @@ export function Branches() {
       }
     };
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [church.id]);
 
   const { showToast } = useToast();
@@ -105,31 +112,32 @@ export function Branches() {
 
   const handleCreate = async () => {
     if (!branchName.trim()) return;
+    setSaving(true);
     try {
       await createBranch({ name: branchName.trim() });
-      addBranch({
-        id: `branch-${Date.now()}`,
-        churchId: church.id,
-        name: branchName.trim(),
-        isHeadquarters: false,
-        createdAt: new Date(),
-      });
+      // Refresh from server so branch IDs are real GUIDs
+      await loadChurchFromServer();
       closeDialog();
       showToast(`"${branchName.trim()}" branch created successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdate = async () => {
     if (!branchName.trim() || !selectedBranch) return;
+    setSaving(true);
     try {
       await editBranch(selectedBranch.id, { name: branchName.trim() });
       updateBranch(selectedBranch.id, { name: branchName.trim() });
       closeDialog();
       showToast(`"${branchName.trim()}" branch updated successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -141,8 +149,8 @@ export function Branches() {
       deleteBranch(deleteTarget.id);
       setDeleteTarget(null);
       showToast(`"${name}" branch deleted successfully!`);
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
     }
   };
 
@@ -447,10 +455,17 @@ export function Branches() {
               </Button>
               <Button
                 className="flex-1"
-                disabled={!branchName.trim()}
+                disabled={!branchName.trim() || saving}
                 onClick={dialogMode === 'create' ? handleCreate : handleUpdate}
               >
-                {dialogMode === 'create' ? 'Add Branch' : 'Save Changes'}
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {dialogMode === 'create' ? 'Adding...' : 'Saving...'}
+                  </>
+                ) : (
+                  dialogMode === 'create' ? 'Add Branch' : 'Save Changes'
+                )}
               </Button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { resolvePrimaryBranchId } from '../utils/scope';
 import { useSearchParams } from 'react-router';
 import { Layout } from '../components/Layout';
 import { PageHeader } from '../components/PageHeader';
@@ -63,11 +64,11 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { CURRENCIES } from '../constants/currencies';
+import { friendlyError, isUuid } from '../utils/friendlyError';
 import {
   CollectionType,
   LedgerEntry,
-  StandaloneCollection,
-  StandaloneCollectionEntry,
+  Fundraiser,
   Collection,
   Department,
   Unit,
@@ -76,16 +77,21 @@ import {
 import {
   fetchCollectionTypes,
   fetchLedgerEntries,
-  fetchStandaloneCollections,
   fetchCollections,
   fetchDepartments,
   fetchUnits,
   fetchPrograms,
-  updateAccount,
   createCollection,
   hideLedgerEntryLocally,
   hideCollectionTypeLocally,
   hideFundraiserLocally,
+  fetchFundraisers,
+  createFundraiser,
+  editFundraiser,
+  recordFundContribution,
+  deleteFundraiser,
+  updateAccount,
+  editAccountRecord,
 } from '../api';
 
 type FinanceTab = 'ledger' | 'collections' | 'fundraisers';
@@ -126,7 +132,7 @@ export function Finance() {
   // Data
   const [collectionTypes, setCollectionTypes] = useState<CollectionType[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
-  const [standaloneColls, setStandaloneColls] = useState<StandaloneCollection[]>([]);
+  const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
   const [programColls, setProgramColls] = useState<Collection[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -134,6 +140,9 @@ export function Finance() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const LEDGER_PAGE_SIZE = 8;
+  const EDIT_WINDOW_MINUTES = 30;
 
   // Filters  sync tab with URL query param so sidebar links work
   const [searchParams, setSearchParams] = useSearchParams();
@@ -183,12 +192,15 @@ export function Finance() {
 
   // â”€â”€â”€ Fundraiser Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [fundOpen, setFundOpen] = useState(false);
+  const [fundMode, setFundMode] = useState<'create' | 'edit'>('create');
+  const [fundEditId, setFundEditId] = useState<string | null>(null);
   const [fundName, setFundName] = useState('');
   const [fundDesc, setFundDesc] = useState('');
   const [fundTarget, setFundTarget] = useState('');
   const [fundDueDate, setFundDueDate] = useState('');
   const [fundScope, setFundScope] = useState<'church' | 'branch' | 'department' | 'unit'>('church');
   const [fundScopeId, setFundScopeId] = useState('');
+  const [fundIsActive, setFundIsActive] = useState(true);
   const [fundErrors, setFundErrors] = useState<Record<string, string>>({});
   const fundFormRef = useRef<HTMLDivElement>(null);
 
@@ -197,6 +209,7 @@ export function Finance() {
   const [donateFundId, setDonateFundId] = useState('');
   const [donateName, setDonateName] = useState('');
   const [donateAmount, setDonateAmount] = useState('');
+  const [donateNotes, setDonateNotes] = useState('');
   const [donateDate, setDonateDate] = useState(new Date().toISOString().split('T')[0]);
   const [donateErrors, setDonateErrors] = useState<Record<string, string>>({});
   const donateFormRef = useRef<HTMLDivElement>(null);
@@ -206,6 +219,14 @@ export function Finance() {
 
   // â”€â”€â”€ Delete dialogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'ledger' | 'ct' | 'fund'; id: string; name: string } | null>(null);
+
+  // Edit ledger entry
+  const [editEntry, setEditEntry] = useState<LedgerEntry | null>(null);
+  const [editCredit, setEditCredit] = useState('');
+  const [editDebit, setEditDebit] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const hasLoadedLedgerBaseRef = useRef(false);
   const skipNextLedgerRefreshRef = useRef(false);
 
@@ -343,14 +364,11 @@ export function Finance() {
       }
     }
 
-    const allLedgerEntries = await fetchLedgerEntries();
-    if (allLedgerEntries.length > 0) {
-      return dedupeLedgerEntries(allLedgerEntries as LedgerEntry[]);
-    }
-
-    return dedupeLedgerEntries((await Promise.all(
-      ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId))
-    )).flat() as LedgerEntry[]);
+    const [churchEntries, ...branchResults] = await Promise.all([
+      fetchLedgerEntries(),
+      ...ledgerQueries.map((query) => fetchLedgerEntries(query.branchId, query.departmentId)),
+    ]);
+    return dedupeLedgerEntries([...churchEntries, ...branchResults.flat()] as LedgerEntry[]);
   }, [
     adminLevel,
     accessibleBranchIds,
@@ -369,13 +387,17 @@ export function Finance() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cts, scs, pcs, deps, uns, progs] = await Promise.all([
+      const [cts, frs, pcs, deps, uns, progs] = await Promise.all([
         fetchCollectionTypes(),
-        fetchStandaloneCollections(),
+        fetchFundraisers(),
         fetchCollections(),
         fetchDepartments(),
         fetchUnits(),
-        fetchPrograms(branches[0]?.id),
+        fetchPrograms({
+          branchId: resolvePrimaryBranchId(branches, currentAdmin),
+          startDate: new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        }),
       ]);
 
       const resolvedDepartments = deps as unknown as Department[];
@@ -384,7 +406,7 @@ export function Finance() {
 
       setCollectionTypes(cts as CollectionType[]);
       setLedgerEntries(nextLedgerEntries as LedgerEntry[]);
-      setStandaloneColls(scs as StandaloneCollection[]);
+      setFundraisers(frs as Fundraiser[]);
       setProgramColls(pcs as Collection[]);
       setDepartments(resolvedDepartments);
       setUnits(resolvedUnits);
@@ -432,6 +454,9 @@ export function Finance() {
       cancelled = true;
     };
   }, [loadLedgerEntriesForFilters, scopeFilter, scopeFilterId]);
+
+  // Reset ledger page when filters change
+  useEffect(() => { setLedgerPage(1); }, [scopeFilter, scopeFilterId, searchTerm, programFilter]);
 
   const { showToast } = useToast();
 
@@ -666,6 +691,15 @@ export function Finance() {
   const ledgerExpense = filteredLedger.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
   const ledgerBalance = ledgerIncome - ledgerExpense;
 
+  // Pagination
+  const ledgerTotalPages = Math.max(1, Math.ceil(filteredLedger.length / LEDGER_PAGE_SIZE));
+  const ledgerPageSafe = Math.min(ledgerPage, ledgerTotalPages);
+  const pagedLedger = filteredLedger.slice((ledgerPageSafe - 1) * LEDGER_PAGE_SIZE, ledgerPageSafe * LEDGER_PAGE_SIZE);
+  // Running balance offset: sum of entries older than the current page (they sit at higher indices in newest-first order)
+  const ledgerBalanceOffset = filteredLedger
+    .slice(ledgerPageSafe * LEDGER_PAGE_SIZE)
+    .reduce((sum, e) => sum + (e.type === 'income' ? e.amount : -e.amount), 0);
+
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FILTER COLLECTION TYPES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const filteredCTs = collectionTypes.filter(ct => {
     if (searchTerm && !ct.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -673,9 +707,9 @@ export function Finance() {
   });
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• FILTER FUNDRAISERS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  const filteredFundraisers = standaloneColls.filter(sc => {
-    if (searchTerm && !sc.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    return canAccessCollectionScope(sc);
+  const filteredFundraisers = fundraisers.filter(f => {
+    if (searchTerm && !f.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return canAccessCollectionScope(f);
   });
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCROLL TO ERROR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -710,11 +744,6 @@ export function Finance() {
       const descriptionWithCollection = selectedCollectionName
         ? `${normalizedDescription} [Collection: ${selectedCollectionName}]`
         : normalizedDescription;
-      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
-        ? ledgerBranchId
-        : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
-          ? accessibleBranchIds[0]
-          : undefined;
       const cleanDeptId = ledgerDeptId && ledgerDeptId !== 'none'
         ? ledgerDeptId
         : adminLevel === 'department'
@@ -722,11 +751,22 @@ export function Finance() {
           : adminLevel === 'unit'
             ? accessibleDepartmentIds[0] || units.find((unit) => accessibleUnitIds.includes(unit.id))?.departmentId
             : undefined;
+      const selectedDept = cleanDeptId ? departments.find(d => d.id === cleanDeptId) : undefined;
+      const cleanBranchId = ledgerBranchId && ledgerBranchId !== 'none'
+        ? ledgerBranchId
+        : adminLevel === 'branch' || adminLevel === 'department' || adminLevel === 'unit'
+          ? accessibleBranchIds[0]
+          : selectedDept?.branchId || undefined;
+      const cleanUnitId = ledgerUnitId && ledgerUnitId !== 'none' ? ledgerUnitId : undefined;
+      const cleanProgramId = ledgerProgramId && ledgerProgramId !== 'none' ? ledgerProgramId : undefined;
       await updateAccount(
         {
           amount: parseFloat(ledgerAmount.replace(/,/g, '')),
           description: descriptionWithCollection,
           type: ledgerType === 'income' ? 'credit' : 'debit',
+          departmentId: cleanDeptId,
+          unitId: cleanUnitId,
+          programId: cleanProgramId,
         },
         cleanBranchId,
         cleanDeptId
@@ -735,8 +775,9 @@ export function Finance() {
       setLedgerOpen(false);
       resetLedgerForm();
       showToast(`${ledgerType === 'income' ? 'Income' : 'Expense'} entry recorded successfully.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save ledger entry:', err);
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -797,22 +838,30 @@ export function Finance() {
       return;
     }
 
+    // For church-wide scope the body has no branchId, but the API still needs one in the
+    // query string for tenant routing. Fall back to the first accessible branch.
+    const routeBranchId = collectionContext.branchId || accessibleBranchIds[0] || branches[0]?.id;
+
     setSaving(true);
     try {
+      const isChurchOrBranchScope = collectionContext.scopeType === 'church' || collectionContext.scopeType === 'branch';
       await createCollection({
         name: ctName.trim(),
         scopeType: collectionContext.scopeType,
         branchId: collectionContext.branchId,
         departmentId: collectionContext.departmentId,
-      }, collectionContext.branchId, collectionContext.departmentId);
+        // branchIds array is only accepted by the API for branch/church scope;
+        // for department/unit scope the query-string params already handle routing
+        branchIds: isChurchOrBranchScope ? collectionContext.branchIds : undefined,
+        departmentIds: undefined,
+      }, routeBranchId, collectionContext.departmentId);
       await loadData();
       setCtOpen(false);
       resetCtForm();
       showToast(`Collection type "${ctName.trim()}" created successfully.`);
-    } catch (err: any) {
-      const msg = err?.body?.message || err?.message || 'Failed to create collection type';
+    } catch (err) {
       console.error('Failed to save collection type:', err);
-      showToast(msg, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -831,46 +880,49 @@ export function Finance() {
     const errors: Record<string, string> = {};
     if (!fundName.trim()) errors.name = 'Enter a name for this fundraiser (e.g. "New Church Bus").';
     if (!fundTarget || parseFloat(fundTarget.replace(/,/g, '')) <= 0) errors.target = 'Enter the target amount for this fundraiser.';
-    if (!fundDueDate) errors.dueDate = 'Select a due date for this fundraiser.';
-    if (fundScope !== 'church' && !fundScopeId) errors.scopeId = 'Select which area this fundraiser applies to.';
+    if (fundMode === 'create' && fundScope !== 'church' && !fundScopeId) errors.scopeId = 'Select which area this fundraiser applies to.';
 
     if (Object.keys(errors).length) {
       setFundErrors(errors);
-      const firstKey = Object.keys(errors)[0];
-      scrollToError(fundFormRef, firstKey);
-      return;
-    }
-
-    const collectionContext = resolveCollectionScopeContext(fundScope, fundScopeId);
-    if (collectionContext.scopeType === 'department' && fundScope !== 'church' && !collectionContext.departmentId) {
-      showToast('The selected scope could not be matched to a department.', 'error');
+      scrollToError(fundFormRef, Object.keys(errors)[0]);
       return;
     }
 
     setSaving(true);
     try {
-      const endTimeIso = fundDueDate ? new Date(fundDueDate).toISOString() : undefined;
-      await createCollection(
-        {
+      const dueDateIso = fundDueDate ? new Date(fundDueDate).toISOString() : undefined;
+      const targetAmount = parseFloat(fundTarget.replace(/,/g, ''));
+
+      if (fundMode === 'edit' && fundEditId) {
+        await editFundraiser(fundEditId, {
           name: fundName.trim(),
           description: fundDesc.trim() || undefined,
-          scopeType: collectionContext.scopeType,
-          type: 'donation',
-          branchId: collectionContext.branchId,
-          departmentId: collectionContext.departmentId,
-          endTime: endTimeIso,
-        },
-        collectionContext.branchId,
-        collectionContext.departmentId
-      );
+          targetAmount,
+          dueDate: dueDateIso,
+          isActive: fundIsActive,
+        });
+        showToast(`Fundraiser "${fundName.trim()}" updated.`);
+      } else {
+        const resolvedScopeId = fundScope === 'church'
+          ? (currentAdmin?.branchId || currentAdmin?.branchIds?.[0] || branches[0]?.id || '')
+          : fundScopeId;
+        const resolvedScope = fundScope === 'church' ? 'branch' : fundScope;
+        await createFundraiser({
+          name: fundName.trim(),
+          description: fundDesc.trim() || undefined,
+          targetAmount,
+          dueDate: dueDateIso,
+          scope: resolvedScope,
+          scopeId: resolvedScopeId,
+        });
+        showToast(`Fundraiser "${fundName.trim()}" created successfully.`);
+      }
       await loadData();
       setFundOpen(false);
       resetFundForm();
-      showToast(`Fundraiser "${fundName.trim()}" created successfully.`);
-    } catch (err: any) {
-      const msg = err?.details?.[0]?.message || err?.message || 'Failed to create fundraiser';
+    } catch (err) {
       console.error('Failed to save fundraiser:', err);
-      showToast(msg, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -878,51 +930,63 @@ export function Finance() {
 
   const resetFundForm = () => {
     const defaultScope = getDefaultCreatableScope();
+    setFundMode('create');
+    setFundEditId(null);
     setFundName('');
     setFundDesc('');
     setFundTarget('');
     setFundDueDate('');
     setFundScope(defaultScope);
     setFundScopeId(getDefaultScopeId(defaultScope));
+    setFundIsActive(true);
     setFundErrors({});
+  };
+
+  const openEditFund = (fund: Fundraiser) => {
+    setFundMode('edit');
+    setFundEditId(fund.id);
+    setFundName(fund.name);
+    setFundDesc(fund.description || '');
+    setFundTarget(String(fund.targetAmount));
+    setFundDueDate(fund.dueDate instanceof Date ? fund.dueDate.toISOString().split('T')[0] : String(fund.dueDate).split('T')[0]);
+    setFundIsActive(fund.isActive);
+    setFundErrors({});
+    setFundOpen(true);
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SAVE DONATION â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   const handleSaveDonation = async () => {
     const errors: Record<string, string> = {};
-    if (!donateName.trim()) errors.name = 'Enter the donor\'s name.';
-    if (!donateAmount || parseFloat(donateAmount.replace(/,/g, '')) <= 0) errors.amount = 'Enter a valid donation amount.';
-    if (!donateDate) errors.date = 'Select the date of the donation.';
+    if (!donateName.trim()) errors.name = "Enter the contributor's name.";
+    if (!donateAmount || parseFloat(donateAmount.replace(/,/g, '')) <= 0) errors.amount = 'Enter a valid contribution amount.';
+    if (!donateDate) errors.date = 'Select the date of the contribution.';
 
     if (Object.keys(errors).length) {
       setDonateErrors(errors);
-      const firstKey = Object.keys(errors)[0];
-      scrollToError(donateFormRef, firstKey);
+      scrollToError(donateFormRef, Object.keys(errors)[0]);
       return;
     }
 
     setSaving(true);
     try {
-      const fund = standaloneColls.find(s => s.id === donateFundId);
-      const collectionContext = resolveCollectionScopeContext(
-        (fund?.scope as 'church' | 'branch' | 'department' | 'unit') || 'church',
-        fund?.scopeId || ''
-      );
-      await updateAccount(
-        {
-          amount: parseFloat(donateAmount.replace(/,/g, '')),
-          description: `Donation from ${donateName.trim()} for "${fund?.name || 'Fundraiser'}"`,
-          type: 'credit',
-        },
-        collectionContext.branchId,
-        collectionContext.departmentId
-      );
-      await loadData();
+      const rawAmount = parseFloat(donateAmount.replace(/,/g, ''));
+      const res = await recordFundContribution(donateFundId, {
+        contributorName: donateName.trim(),
+        amount: rawAmount.toFixed(2),
+        notes: donateNotes.trim() || undefined,
+        date: donateDate,
+      });
+      // Update balance optimistically from API response
+      const newBalance = parseFloat(res?.newBalance ?? res?.contribution?.amount ?? '0') || rawAmount;
+      setFundraisers(prev => prev.map(f =>
+        f.id === donateFundId ? { ...f, balance: isNaN(newBalance) ? f.balance + rawAmount : newBalance } : f
+      ));
       setDonateOpen(false);
       resetDonateForm();
-      showToast(`Donation of ${currSymbol}${parseFloat(donateAmount.replace(/,/g, '')).toLocaleString()} from ${donateName.trim()} recorded.`);
-    } catch (err) {
-      console.error('Failed to save donation:', err);
+      showToast(`Contribution of ${currSymbol}${rawAmount.toLocaleString()} from ${donateName.trim()} recorded.`);
+    } catch (err: any) {
+      console.error('Failed to record contribution:', err);
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -931,6 +995,7 @@ export function Finance() {
   const resetDonateForm = () => {
     setDonateName('');
     setDonateAmount('');
+    setDonateNotes('');
     setDonateDate(new Date().toISOString().split('T')[0]);
     setDonateErrors({});
   };
@@ -947,8 +1012,8 @@ export function Finance() {
         await hideCollectionTypeLocally(deleteTarget.id);
         setCollectionTypes(prev => prev.filter(c => c.id !== deleteTarget.id));
       } else if (deleteTarget.type === 'fund') {
-        await hideFundraiserLocally(deleteTarget.id);
-        setStandaloneColls(prev => prev.filter(s => s.id !== deleteTarget.id));
+        await deleteFundraiser(deleteTarget.id);
+        setFundraisers(prev => prev.filter(f => f.id !== deleteTarget.id));
       }
       setDeleteTarget(null);
       showToast(`"${deleteTarget.name}" deleted successfully.`);
@@ -961,6 +1026,48 @@ export function Finance() {
   };
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCOPE SELECTOR COMPONENT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  const canEditEntry = (entry: LedgerEntry) =>
+    isUuid(entry.id) &&
+    !!entry.createdAt &&
+    Date.now() - new Date(entry.createdAt).getTime() < EDIT_WINDOW_MINUTES * 60 * 1000;
+
+  const openEditEntry = (entry: LedgerEntry) => {
+    setEditEntry(entry);
+    setEditCredit(entry.type === 'income' ? String(entry.amount) : '');
+    setEditDebit(entry.type === 'expense' ? String(entry.amount) : '');
+    setEditDescription(entry.description || '');
+    setEditReason('');
+  };
+
+  const handleEditSave = async () => {
+    if (!editEntry) return;
+    setEditSaving(true);
+    try {
+      const payload: { credit?: number; debit?: number; description?: string; reason?: string } = {};
+      if (editCredit) payload.credit = parseFloat(editCredit);
+      if (editDebit) payload.debit = parseFloat(editDebit);
+      if (editDescription.trim()) payload.description = editDescription.trim();
+      if (editReason.trim()) payload.reason = editReason.trim();
+      await editAccountRecord(editEntry.id, payload);
+      setLedgerEntries(prev => prev.map(e =>
+        e.id === editEntry.id
+          ? {
+              ...e,
+              amount: payload.credit ?? payload.debit ?? e.amount,
+              type: payload.credit ? 'income' : payload.debit ? 'expense' : e.type,
+              description: payload.description ?? e.description,
+            }
+          : e,
+      ));
+      showToast('Ledger entry updated successfully.');
+      setEditEntry(null);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const ScopeSelector = ({
     scope,
     setScope,
@@ -1169,9 +1276,9 @@ export function Finance() {
                 <TabsTrigger value="collections" className="gap-2">
                   <Tag className="w-4 h-4" /> Collections
                 </TabsTrigger>
-                {/* <TabsTrigger value="fundraisers" className="gap-2">
+                <TabsTrigger value="fundraisers" className="gap-2">
                   <Target className="w-4 h-4" /> Fundraisers
-                </TabsTrigger> */}
+                </TabsTrigger>
               </TabsList>
 
               {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• LEDGER TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -1239,8 +1346,8 @@ export function Finance() {
                     {/* Mobile card list */}
                     <CardContent className="p-3 md:hidden space-y-2">
                       {(() => {
-                        let runningBalance = 0;
-                        return filteredLedger.slice().reverse().map((entry) => {
+                        let runningBalance = ledgerBalanceOffset;
+                        return pagedLedger.slice().reverse().map((entry) => {
                           runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
                           const scopeTypeLabel = getLedgerScopeTypeLabel(entry);
                           const scopeValue = getLedgerScopeValue(entry);
@@ -1255,6 +1362,11 @@ export function Finance() {
                                   <span className={`text-sm font-bold ${entry.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                     {entry.type === 'income' ? '+' : '-'}{currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </span>
+                                  {canEditEntry(entry) && (
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between">
@@ -1295,12 +1407,13 @@ export function Finance() {
                             <TableHead className="text-right">Income</TableHead>
                             <TableHead className="text-right">Expense</TableHead>
                             <TableHead className="text-right">Balance</TableHead>
+                            <TableHead className="w-8"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {(() => {
-                            let runningBalance = 0;
-                            return filteredLedger.slice().reverse().map((entry) => {
+                            let runningBalance = ledgerBalanceOffset;
+                            return pagedLedger.slice().reverse().map((entry) => {
                               runningBalance += entry.type === 'income' ? entry.amount : -entry.amount;
                               return (
                                 <TableRow key={entry.id}>
@@ -1341,6 +1454,13 @@ export function Finance() {
                                   <TableCell className={`text-right font-semibold ${runningBalance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
                                     {runningBalance < 0 ? '-' : ''}{currSymbol}{Math.abs(runningBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                   </TableCell>
+                                  <TableCell className="p-1">
+                                    {canEditEntry(entry) && (
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600" onClick={() => openEditEntry(entry)}>
+                                        <Edit className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </TableCell>
                                 </TableRow>
                               );
                             }).reverse();
@@ -1350,6 +1470,35 @@ export function Finance() {
                     </CardContent>
                   </Card>
                 )}
+              {/* Ledger pagination */}
+              {filteredLedger.length > 0 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-gray-500">
+                    Showing {((ledgerPageSafe - 1) * LEDGER_PAGE_SIZE) + 1}–{Math.min(ledgerPageSafe * LEDGER_PAGE_SIZE, filteredLedger.length)} of {filteredLedger.length} entries
+                  </p>
+                  {ledgerTotalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setLedgerPage(p => Math.max(1, p - 1))}
+                        disabled={ledgerPageSafe <= 1}
+                        className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600 px-1">
+                        {ledgerPageSafe} / {ledgerTotalPages}
+                      </span>
+                      <button
+                        onClick={() => setLedgerPage(p => Math.min(ledgerTotalPages, p + 1))}
+                        disabled={ledgerPageSafe >= ledgerTotalPages}
+                        className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               </TabsContent>
 
               {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• COLLECTIONS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
@@ -1513,13 +1662,13 @@ export function Finance() {
                 </div>
               </TabsContent>
 
-              {/* ═══════════════ FUNDRAISERS TAB (API NOT READY — commented out) ═══════════════ */}
-              {/* <TabsContent value="fundraisers" className="space-y-4">
+              {/* ═══════════════ FUNDRAISERS TAB ═══════════════ */}
+              <TabsContent value="fundraisers" className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">Fundraisers</h3>
                     <p className="text-sm text-gray-500">
-                      Standalone fundraising campaigns with target amounts and donor tracking (e.g. "Buy a New Church Bus").
+                      Fundraising campaigns with target amounts (e.g. "Buy a New Church Bus").
                     </p>
                   </div>
                   <Button onClick={() => { resetFundForm(); setFundOpen(true); }}>
@@ -1533,25 +1682,27 @@ export function Finance() {
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50 mb-4">
                         <Target className="w-8 h-8 text-amber-400" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No fundraisers created yet</h3>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No fundraisers yet</h3>
                       <p className="text-gray-500 max-w-md mx-auto">
-                        Create a fundraiser for special projects like building renovations, equipment purchases, or mission trips. Set a target amount, due date, and track individual donations.
+                        Create a fundraiser for special projects like building renovations, equipment purchases, or mission trips. Set a target amount and due date to track progress.
                       </p>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredFundraisers.map(fund => {
-                      const raised = fund.entries.reduce((s, e) => s + e.amount, 0);
-                      const pct = fund.targetAmount > 0 ? Math.min((raised / fund.targetAmount) * 100, 100) : 0;
-                      const isOverdue = new Date(fund.dueDate) < new Date() && pct < 100;
+                      const pct = fund.targetAmount > 0 ? Math.min((fund.balance / fund.targetAmount) * 100, 100) : 0;
+                      const isOverdue = fund.dueDate && new Date(fund.dueDate) < new Date() && pct < 100;
                       const isComplete = pct >= 100;
                       return (
-                        <Card key={fund.id} className={`${isComplete ? 'border-green-200 bg-green-50/30' : isOverdue ? 'border-orange-200 bg-orange-50/30' : ''}`}>
+                        <Card key={fund.id} className={`${!fund.isActive ? 'opacity-60' : ''} ${isComplete ? 'border-green-200 bg-green-50/30' : isOverdue ? 'border-orange-200 bg-orange-50/30' : ''}`}>
                           <CardContent className="p-5">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-gray-900 truncate">{fund.name}</h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900 truncate">{fund.name}</h4>
+                                  {!fund.isActive && <Badge variant="outline" className="text-xs text-gray-400">Inactive</Badge>}
+                                </div>
                                 {fund.description && (
                                   <p className="text-sm text-gray-500 line-clamp-2 mt-0.5">{fund.description}</p>
                                 )}
@@ -1562,49 +1713,51 @@ export function Finance() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
                               <Badge variant="outline" className="text-xs capitalize">{getAssignedScopeLabel(fund)}</Badge>
-                              <Badge variant="outline" className={`text-xs ${isOverdue ? 'text-orange-600 border-orange-300' : ''}`}>
-                                <CalendarDays className="w-3 h-3 mr-1" />
-                                Due: {new Date(fund.dueDate).toLocaleDateString()}
-                              </Badge>
+                              {fund.dueDate && (
+                                <Badge variant="outline" className={`text-xs ${isOverdue ? 'text-orange-600 border-orange-300' : ''}`}>
+                                  <CalendarDays className="w-3 h-3 mr-1" />
+                                  Due: {new Date(fund.dueDate).toLocaleDateString()}
+                                </Badge>
+                              )}
                             </div>
 
                             <div className="mb-3">
                               <div className="flex justify-between text-sm mb-1.5">
                                 <span className="text-gray-600">
-                                  {currSymbol}{raised.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
+                                  {currSymbol}{fund.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
                                 </span>
                                 <span className="font-semibold text-gray-900">
                                   {currSymbol}{fund.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} goal
                                 </span>
                               </div>
                               <Progress value={pct} className="h-2.5" />
-                              <p className="text-xs text-gray-500 mt-1">{pct.toFixed(1)}%  {fund.entries.length} donation{fund.entries.length !== 1 ? 's' : ''}</p>
+                              <p className="text-xs text-gray-500 mt-1">{pct.toFixed(1)}% of goal</p>
                             </div>
 
                             <div className="flex gap-2">
                               <Button
-                                variant="outline"
                                 size="sm"
                                 className="flex-1"
+                                onClick={() => { setDonateFundId(fund.id); resetDonateForm(); setDonateOpen(true); }}
+                              >
+                                <Plus className="w-3.5 h-3.5 mr-1" /> Contribute
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => setViewFundId(fund.id)}
                               >
-                                <Eye className="w-3.5 h-3.5 mr-1" /> View
+                                <Eye className="w-3.5 h-3.5" />
                               </Button>
-                              {!isComplete && (
-                                <Button
-                                  size="sm"
-                                  className="flex-1"
-                                  onClick={() => {
-                                    setDonateFundId(fund.id);
-                                    resetDonateForm();
-                                    setDonateOpen(true);
-                                  }}
-                                >
-                                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Donation
-                                </Button>
-                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditFund(fund)}
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1620,7 +1773,7 @@ export function Finance() {
                     })}
                   </div>
                 )}
-              </TabsContent> */}
+              </TabsContent>
             </Tabs>
           </>
         )}
@@ -1829,9 +1982,11 @@ export function Finance() {
       <Dialog open={fundOpen} onOpenChange={v => { if (!v) setFundOpen(false); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Fundraiser</DialogTitle>
+            <DialogTitle>{fundMode === 'edit' ? 'Edit Fundraiser' : 'Create Fundraiser'}</DialogTitle>
             <DialogDescription>
-              Set up a fundraising campaign with a target amount and due date. Track individual donations from members and contributors.
+              {fundMode === 'edit'
+                ? 'Update the fundraiser details, target amount, or active status.'
+                : 'Set up a fundraising campaign with a target amount and due date.'}
             </DialogDescription>
           </DialogHeader>
           <div ref={fundFormRef} className="space-y-4 pt-2">
@@ -1875,7 +2030,7 @@ export function Finance() {
                 {fundErrors.target && <p className="text-xs text-red-500 mt-1">{fundErrors.target}</p>}
               </div>
               <div data-field="dueDate">
-                <Label>Due Date<RequiredStar /></Label>
+                <Label>Due Date</Label>
                 <Input
                   type="date"
                   value={fundDueDate}
@@ -1885,20 +2040,40 @@ export function Finance() {
               </div>
             </div>
 
-            <ScopeSelector
-              scope={fundScope}
-              setScope={setFundScope}
-              scopeId={fundScopeId}
-              setScopeId={setFundScopeId}
-              errors={fundErrors}
-              fieldPrefix="fund"
-            />
+            {fundMode === 'create' && (
+              <ScopeSelector
+                scope={fundScope}
+                setScope={setFundScope}
+                scopeId={fundScopeId}
+                setScopeId={setFundScopeId}
+                errors={fundErrors}
+                fieldPrefix="fund"
+              />
+            )}
+
+            {fundMode === 'edit' && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Active</p>
+                  <p className="text-xs text-gray-500">Inactive fundraisers are visible but not accepting contributions.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={fundIsActive}
+                  onClick={() => setFundIsActive(v => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 ${fundIsActive ? 'bg-blue-600' : 'bg-gray-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${fundIsActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setFundOpen(false)}>Cancel</Button>
               <Button className="flex-1" disabled={saving} onClick={handleSaveFund}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Create Fundraiser
+                {fundMode === 'edit' ? 'Save Changes' : 'Create Fundraiser'}
               </Button>
             </div>
           </div>
@@ -1909,18 +2084,18 @@ export function Finance() {
       <Dialog open={donateOpen} onOpenChange={v => { if (!v) setDonateOpen(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Record Donation</DialogTitle>
+            <DialogTitle>Record Contribution</DialogTitle>
             <DialogDescription>
-              Add a donation entry for "{standaloneColls.find(s => s.id === donateFundId)?.name}".
+              Record a contribution for "{fundraisers.find(f => f.id === donateFundId)?.name}".
             </DialogDescription>
           </DialogHeader>
           <div ref={donateFormRef} className="space-y-4 pt-2">
             <div data-field="name">
-              <Label>Donor Name<RequiredStar /></Label>
+              <Label>Contributor Name<RequiredStar /></Label>
               <Input
                 value={donateName}
                 onChange={e => { setDonateName(e.target.value); setDonateErrors(p => ({ ...p, name: '' })); }}
-                placeholder="Full name of the donor"
+                placeholder="Full name of the contributor"
               />
               {donateErrors.name && <p className="text-xs text-red-500 mt-1">{donateErrors.name}</p>}
             </div>
@@ -1954,11 +2129,21 @@ export function Finance() {
               {donateErrors.date && <p className="text-xs text-red-500 mt-1">{donateErrors.date}</p>}
             </div>
 
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                value={donateNotes}
+                onChange={e => setDonateNotes(e.target.value)}
+                placeholder="e.g. Sunday service contribution (optional)"
+                rows={2}
+              />
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setDonateOpen(false)}>Cancel</Button>
               <Button className="flex-1" disabled={saving} onClick={handleSaveDonation}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Record Donation
+                Record Contribution
               </Button>
             </div>
           </div>
@@ -1969,31 +2154,37 @@ export function Finance() {
       <Dialog open={!!viewFundId} onOpenChange={() => setViewFundId(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           {(() => {
-            const fund = standaloneColls.find(s => s.id === viewFundId);
+            const fund = fundraisers.find(f => f.id === viewFundId);
             if (!fund) return null;
-            const raised = fund.entries.reduce((s, e) => s + e.amount, 0);
-            const pct = fund.targetAmount > 0 ? Math.min((raised / fund.targetAmount) * 100, 100) : 0;
+            const pct = fund.targetAmount > 0 ? Math.min((fund.balance / fund.targetAmount) * 100, 100) : 0;
+            const isOverdue = fund.dueDate && new Date(fund.dueDate) < new Date() && pct < 100;
             return (
               <>
                 <DialogHeader>
                   <DialogTitle>{fund.name}</DialogTitle>
                   <DialogDescription>
-                    {fund.description || 'Fundraising campaign details and donation history.'}
+                    {fund.description || 'Fundraising campaign details.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="capitalize">{getAssignedScopeLabel(fund)}</Badge>
-                    <Badge variant="outline">
-                      <CalendarDays className="w-3 h-3 mr-1" />
-                      Due: {new Date(fund.dueDate).toLocaleDateString()}
+                    {!fund.isActive && <Badge variant="outline" className="text-gray-400">Inactive</Badge>}
+                    {fund.dueDate && (
+                      <Badge variant="outline" className={isOverdue ? 'text-orange-600 border-orange-300' : ''}>
+                        <CalendarDays className="w-3 h-3 mr-1" />
+                        Due: {new Date(fund.dueDate).toLocaleDateString()}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs text-gray-500">
+                      Created: {new Date(fund.createdAt).toLocaleDateString()}
                     </Badge>
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex justify-between text-sm mb-2">
                       <span className="font-medium text-gray-700">
-                        {currSymbol}{raised.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
+                        {currSymbol}{fund.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })} raised
                       </span>
                       <span className="font-semibold text-gray-900">
                         of {currSymbol}{fund.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -2003,46 +2194,28 @@ export function Finance() {
                     <p className="text-xs text-gray-500 mt-1.5">{pct.toFixed(1)}% of goal reached</p>
                   </div>
 
-                  <Separator />
-
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-gray-900">Donations ({fund.entries.length})</h4>
-                      {pct < 100 && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setDonateFundId(fund.id);
-                            resetDonateForm();
-                            setDonateOpen(true);
-                            setViewFundId(null);
-                          }}
-                        >
-                          <Plus className="w-3.5 h-3.5 mr-1" /> Add
-                        </Button>
-                      )}
-                    </div>
-
-                    {fund.entries.length === 0 ? (
-                      <p className="text-sm text-gray-500 text-center py-4">No donations recorded yet.</p>
-                    ) : (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {fund.entries
-                          .slice()
-                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                          .map((entry, idx) => (
-                            <div key={entry.id || idx} className="flex items-center justify-between px-3 py-2 bg-white border border-gray-100 rounded-lg">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{entry.donorName}</p>
-                                <p className="text-xs text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
-                              </div>
-                              <p className="text-sm font-semibold text-green-600">
-                                {currSymbol}{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
-                          ))}
+                  {fund.creator && (
+                    <>
+                      <Separator />
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Created by:</span> {fund.creator.name}
                       </div>
-                    )}
+                    </>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      className="flex-1"
+                      onClick={() => { setViewFundId(null); setDonateFundId(fund.id); resetDonateForm(); setDonateOpen(true); }}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Record Contribution
+                    </Button>
+                    <Button variant="outline" onClick={() => { setViewFundId(null); openEditFund(fund); }}>
+                      <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="outline" onClick={() => setViewFundId(null)}>
+                      Close
+                    </Button>
                   </div>
                 </div>
               </>
@@ -2052,6 +2225,67 @@ export function Finance() {
       </Dialog>
 
       {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DELETE CONFIRM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ── EDIT LEDGER ENTRY DIALOG ── */}
+      <Dialog open={!!editEntry} onOpenChange={(o) => { if (!o) setEditEntry(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Ledger Entry</DialogTitle>
+            <DialogDescription>
+              Update the record details below. Leave a field blank to keep its current value.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Credit (Income)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="e.g. 1500.00"
+                  value={editCredit}
+                  onChange={e => { setEditCredit(e.target.value); if (e.target.value) setEditDebit(''); }}
+                />
+              </div>
+              <div>
+                <Label>Debit (Expense)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="e.g. 200.00"
+                  value={editDebit}
+                  onChange={e => { setEditDebit(e.target.value); if (e.target.value) setEditCredit(''); }}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                placeholder="Entry description"
+                value={editDescription}
+                onChange={e => setEditDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Reason for Edit <RequiredStar /></Label>
+              <Input
+                placeholder="e.g. Adjustment for overpayment"
+                value={editReason}
+                onChange={e => setEditReason(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setEditEntry(null)}>Cancel</Button>
+              <Button className="flex-1" disabled={editSaving || !editReason.trim()} onClick={handleEditSave}>
+                {editSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

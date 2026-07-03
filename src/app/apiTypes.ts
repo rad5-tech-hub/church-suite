@@ -125,15 +125,22 @@ export interface ViewAdminsResponse {
 export interface ApiBranch {
   id: string;
   name: string;
-  address: string;
-  phone: string;
-  email: string;
-  churchId: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
   tenantId: string;
-  isDeleted: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Nested church info returned by /church/get-branches */
+  church?: {
+    id: string;
+    name: string;
+    isHeadQuarter: boolean;
+  };
+  /** Legacy flat field — may not be present in newer responses */
+  churchId?: string;
+  isDeleted?: boolean;
 }
 
 export interface CreateBranchRequest {
@@ -260,6 +267,7 @@ export interface CreateMemberRequest {
   ageTo?: number;
   birthMonth?: string;
   birthDay?: string;
+  birthYear?: string;
   state?: string;
   LGA?: string;
   nationality?: string;
@@ -285,6 +293,7 @@ export interface EditMemberRequest {
   ageTo?: number;
   birthMonth?: string;
   birthDay?: string;
+  birthYear?: string;
   state?: string;
   LGA?: string;
   maritalStatus?: string;
@@ -296,6 +305,32 @@ export interface EditMemberRequest {
   departmentIds?: string[];
   unitIds?: string[];
   isWorker?: boolean;
+}
+
+// ─── Fundraiser ──────────────────────────────────────────────
+
+export interface CreateFundraiserRequest {
+  name: string;
+  description?: string;
+  targetAmount: number;
+  dueDate?: string;
+  scope: string;
+  scopeId: string;
+}
+
+export interface EditFundraiserRequest {
+  name?: string;
+  description?: string;
+  targetAmount?: number;
+  dueDate?: string;
+  isActive?: boolean;
+}
+
+export interface RecordFundContributionRequest {
+  contributorName: string;
+  amount: string;
+  notes?: string;
+  date: string;
 }
 
 // ─── Church ──────────────────────────────────────────────────
@@ -559,6 +594,9 @@ export interface UpdateAccountRequest {
   amount: number;
   description: string;
   type: 'credit' | 'debit';
+  departmentId?: string;
+  unitId?: string;
+  programId?: string;
 }
 
 // ─── Growth / Analytics ──────────────────────────────────────
@@ -606,6 +644,70 @@ export interface ImportResult {
   imported: number;
   failed: number;
   errors?: any[];
+}
+
+// ─── Training ───────────────────────────────────────────────
+
+export interface CreateTrainingRequest {
+  name: string;
+  description?: string;
+  durationInWeeks: number;
+  audienceType: 'anyone' | 'members';
+  branchId?: string;
+}
+
+export interface EditTrainingRequest {
+  name?: string;
+  description?: string;
+  durationInWeeks?: number;
+  audienceType?: 'anyone' | 'members';
+}
+
+export interface ApiTraining {
+  id: string;
+  name: string;
+  description: string;
+  durationInWeeks: number;
+  audienceType: string;
+  tenantId: string;
+  churchId: string;
+  branchId: string;
+  departmentId: string | null;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  branch?: {
+    id: string;
+    name: string;
+  };
+  _count?: {
+    enrollments?: number;
+  };
+}
+
+export interface EnrollTrainingRequest {
+  enrolleeId: string;
+  enrolleeType: 'admin' | 'member';
+}
+
+export interface ApiTrainingEnrollment {
+  id: string;
+  trainingId: string;
+  enrolleeId: string;
+  enrolleeType: string;
+  enrolledAt: string;
+  completedAt: string | null;
+  progressPercentage: number;
+  tenantId: string;
+  churchId: string;
+  createdAt: string;
+  updatedAt: string;
+  enrollee?: {
+    id: string;
+    name?: string;
+    fullName?: string;
+    email?: string;
+  };
 }
 
 

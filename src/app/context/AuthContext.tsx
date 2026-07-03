@@ -9,7 +9,7 @@ interface AuthContextType {
   isLoading: boolean;
   /** True when the church signed up with the multi-branch option (derived from JWT) */
   isHeadQuarter: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string; needsEmailVerification?: boolean }>;
+  signIn: (email: string, password: string) => Promise<{ error?: string; warning?: string; needsEmailVerification?: boolean; requiresSubscription?: boolean }>;
   signOut: (options?: { confirmed?: boolean }) => Promise<boolean>;
   /** Called after onboarding to set the current admin without going through login page */
   setCurrentAdmin: (admin: Admin) => void;
@@ -393,9 +393,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentAdminState(resolvedAdmin);
       persistAdmin(resolvedAdmin);
 
-      // Surface subscription warning - non-blocking, user still gets in
+      // No active subscription — signal caller to redirect to plan selection
       if ((response as any).requiresSubscription) {
-        return { warning: 'Your church subscription is inactive. Some features may be limited.' };
+        return { requiresSubscription: true };
       }
 
       return {};

@@ -18,20 +18,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   UserPlus, Phone, Mail, MessageSquare, Plus, Search, Calendar, AlertCircle, CheckCircle, Loader2, X,
   GraduationCap, ArrowRight, Users, LayoutGrid, List, Trash2, Clock, TrendingUp, MapPin, ExternalLink, RefreshCw, Send,
-  FileText, Copy, Link,
+
 } from 'lucide-react';
-import { Newcomer, NewcomerForm, Program, Member, NewcomerTrainingClass, NewcomerTrainingStatus, SMSWallet } from '../types';
+import { Newcomer, Program, Member, NewcomerTrainingClass, NewcomerTrainingStatus, SMSWallet } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useChurch } from '../context/ChurchContext';
 import { useToast } from '../context/ToastContext';
 import {
-  fetchNewcomers, createFollowUp, editFollowUp, fetchNewcomerForms, fetchPrograms, fetchMembers, createMember,
+  fetchNewcomers, createFollowUp, editFollowUp, fetchPrograms, fetchMembers, createMember,
   fetchNewcomerTrainingClasses, saveNewcomers, markNewcomerMovedToMember, hideNewcomersLocally,
   fetchSMSWallet, sendSms,
-  createCustomForm, createCustomQuestions,
 } from '../api';
 import { BibleLoader } from '../components/BibleLoader';
 import { resolvePrimaryBranchId } from '../utils/scope';
+import { friendlyError } from '../utils/friendlyError';
 
 function RequiredStar() { return <span className="text-red-500 ml-0.5">*</span>; }
 
@@ -55,7 +55,6 @@ export function FollowUp() {
   const navigate = useNavigate();
 
   const [newcomers, setNewcomers] = useState<Newcomer[]>([]);
-  const [newcomerForms, setNewcomerForms] = useState<NewcomerForm[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [trainingClasses, setTrainingClasses] = useState<NewcomerTrainingClass[]>([]);
@@ -111,12 +110,6 @@ export function FollowUp() {
   const [tcDescription, setTcDescription] = useState('');
   const [tcDuration, setTcDuration] = useState('');
 
-  // Create form dialog
-  const [createFormOpen, setCreateFormOpen] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formVisitType, setFormVisitType] = useState<'first-timer' | 'second-timer'>('first-timer');
-
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -129,9 +122,8 @@ export function FollowUp() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [newcomersResult, formsResult, programsResult, membersResult, trainingClassesResult] = await Promise.allSettled([
+      const [newcomersResult, programsResult, membersResult, trainingClassesResult] = await Promise.allSettled([
         fetchNewcomers(primaryBranchId),
-        fetchNewcomerForms(primaryBranchId),
         fetchPrograms(primaryBranchId),
         fetchMembers(primaryBranchId),
         fetchNewcomerTrainingClasses(),
@@ -141,12 +133,6 @@ export function FollowUp() {
         setNewcomers(newcomersResult.value as Newcomer[]);
       } else {
         console.error('Failed to load follow-up newcomers:', newcomersResult.reason);
-      }
-
-      if (formsResult.status === 'fulfilled') {
-        setNewcomerForms(formsResult.value as NewcomerForm[]);
-      } else {
-        console.error('Failed to load newcomer forms:', formsResult.reason);
       }
 
       if (programsResult.status === 'fulfilled') {
@@ -337,6 +323,7 @@ export function FollowUp() {
         {
           name: `${nFirstName.trim()} ${nLastName.trim()}`,
           phoneNo: nPhone.trim() || undefined,
+          email: nEmail.trim() || undefined,
           address: nAddress.trim() || undefined,
           isVisitor: nVisitType === 'first-timer',
           adminComment: nNotes.trim() || undefined,
@@ -348,7 +335,7 @@ export function FollowUp() {
       setAddOpen(false);
       resetAddForm();
       showToast(`${nFirstName.trim()} ${nLastName.trim()} added as a newcomer.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -366,7 +353,7 @@ export function FollowUp() {
       setNewcomers(prev => prev.map(n => n.id === moveTarget.id ? { ...n, movedToMemberId: 'moved' } : n));
       setMoveTarget(null);
       showToast(`${moveTarget.firstName} ${moveTarget.lastName} has been moved to the Members directory. You can update their full details in the Members section.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -389,9 +376,9 @@ export function FollowUp() {
       setSelectedNewcomer(null);
       showToast('Follow-up logged.');
     }
-    catch (err: any) {
+    catch (err) {
       console.error(err);
-      showToast(`Error: ${err?.message || 'Failed to update follow-up.'}`, 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -437,7 +424,7 @@ export function FollowUp() {
       setSelectedIds([]);
       setFollowUpNowMode(false);
       showToast(`SMS sent to ${recipientsWithPhone.length} newcomer${recipientsWithPhone.length > 1 ? 's' : ''}.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSmsSending(false); }
   };
 
@@ -450,7 +437,7 @@ export function FollowUp() {
       setBulkDeleteOpen(false);
       showToast(`${selectedIds.length} newcomer(s) deleted.`);
       setSelectedIds([]);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -474,7 +461,7 @@ export function FollowUp() {
       setBulkMoveOpen(false);
       showToast(`${targets.length} newcomer(s) moved to members.`);
       setSelectedIds([]);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -487,7 +474,7 @@ export function FollowUp() {
       setTrainingClasses(prev => [...prev, cls]);
       setCreateClassOpen(false); setTcName(''); setTcDescription(''); setTcDuration('');
       showToast(`Training class "${cls.name}" created.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -499,7 +486,7 @@ export function FollowUp() {
       setNewcomers(prev => prev.map(n => ids.has(n.id) ? { ...n, trainingClassId: assignClassId, trainingStatus: (n.trainingStatus === 'not-enrolled' || !n.trainingStatus) ? 'started' as NewcomerTrainingStatus : n.trainingStatus } : n));
       setAssignTrainingTargets([]); setAssignClassId(''); setSelectedIds([]);
       showToast(`${ids.size} newcomer(s) assigned to training.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
+    } catch (err) { console.error(err); showToast(friendlyError(err), 'error'); }
     finally { setSaving(false); }
   };
 
@@ -511,30 +498,6 @@ export function FollowUp() {
     setTrainingClasses(prev => prev.filter(c => c.id !== cls.id));
     setNewcomers(prev => prev.map(n => n.trainingClassId === cls.id ? { ...n, trainingClassId: undefined, trainingStatus: 'not-enrolled' as NewcomerTrainingStatus } : n));
     showToast(`"${cls.name}" deleted.`);
-  };
-
-  // ──────── CREATE FORM ────────
-  const handleCreateForm = async () => {
-    if (!formName.trim()) return;
-    setSaving(true);
-    try {
-      await createCustomForm({
-        name: formName.trim(),
-        description: formDescription.trim() || undefined,
-      }, primaryBranchId);
-      await loadData();
-      setCreateFormOpen(false);
-      setFormName(''); setFormDescription(''); setFormVisitType('first-timer');
-      showToast(`Form "${formName.trim()}" created.`);
-    } catch (err: any) { console.error(err); showToast(`Error: ${err.message}`, 'error'); }
-    finally { setSaving(false); }
-  };
-
-  const handleCopyShareLink = (form: NewcomerForm) => {
-    if (form.shareableLink) {
-      navigator.clipboard.writeText(form.shareableLink);
-      showToast('Form link copied to clipboard.');
-    }
   };
 
   // Bulk toggle
@@ -680,7 +643,6 @@ export function FollowUp() {
           <TabsList>
             <TabsTrigger value="newcomers">Newcomers</TabsTrigger>
             {/* <TabsTrigger value="training">Training</TabsTrigger> */}
-            <TabsTrigger value="forms">Collection Forms</TabsTrigger>
           </TabsList>
 
           {/* ═══ NEWCOMERS TAB ═══ */}
@@ -844,63 +806,6 @@ export function FollowUp() {
             )}
           </TabsContent> */}
 
-          {/* ═══ FORMS TAB ═══ */}
-          <TabsContent value="forms" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">Create and share forms with newcomers to collect their information digitally.</p>
-              <Button size="sm" onClick={() => { setFormName(''); setFormDescription(''); setFormVisitType('first-timer'); setCreateFormOpen(true); }}>
-                <Plus className="w-4 h-4 mr-1" />Create Form
-              </Button>
-            </div>
-            {newcomerForms.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 mb-1">No collection forms yet</p>
-                  <p className="text-sm text-gray-400">Create a form to collect visitor information digitally. You'll get a shareable link you can send out or display as a QR code.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {newcomerForms.map((form) => (
-                  <Card key={form.id}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle>{form.name}</CardTitle>
-                          <Badge variant={form.visitType === 'first-timer' ? 'default' : 'secondary'} className="mt-2">{form.visitType === 'first-timer' ? 'First Timer' : 'Second Timer'}</Badge>
-                        </div>
-                        <Badge variant={form.isActive ? 'default' : 'secondary'}>{form.isActive ? 'Active' : 'Inactive'}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Form Fields ({form.fields.length})</p>
-                        <div className="space-y-1">
-                          {form.fields.slice(0, 3).map((field) => (
-                            <div key={field.id} className="text-sm text-gray-600 flex items-center gap-2"><div className="w-1 h-1 bg-gray-400 rounded-full" />{field.label}{field.required && <span className="text-red-500">*</span>}</div>
-                          ))}
-                          {form.fields.length > 3 && <p className="text-xs text-gray-500">+{form.fields.length - 3} more</p>}
-                        </div>
-                      </div>
-                      {form.shareableLink && (
-                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleCopyShareLink(form)}>
-                            <Copy className="w-3.5 h-3.5 mr-1.5" />Copy Link
-                          </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={form.shareableLink} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />Open
-                            </a>
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
         </Tabs>
         )}
       </div>
@@ -1298,36 +1203,6 @@ export function FollowUp() {
         </DialogContent>
       </Dialog>
 
-      {/* ═══ CREATE FORM DIALOG ═══ */}
-      <Dialog open={createFormOpen} onOpenChange={(o) => { if (!o) setCreateFormOpen(false); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Collection Form</DialogTitle>
-            <DialogDescription>Build a form to collect newcomer information. Once created, you'll get a shareable link to distribute.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div><Label>Form Name<RequiredStar /></Label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="e.g., First Timer Registration" /></div>
-            <div><Label>Description <span className="text-gray-400 font-normal">(optional)</span></Label><Input value={formDescription} onChange={e => setFormDescription(e.target.value)} placeholder="What is this form for?" /></div>
-            <div>
-              <Label>Visitor Type</Label>
-              <Select value={formVisitType} onValueChange={(v: 'first-timer' | 'second-timer') => setFormVisitType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="first-timer">First Timer</SelectItem>
-                  <SelectItem value="second-timer">Second Timer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Separator />
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setCreateFormOpen(false)}>Cancel</Button>
-              <Button className="flex-1" disabled={!formName.trim() || saving} onClick={handleCreateForm}>
-                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Create Form
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }

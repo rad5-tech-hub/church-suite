@@ -106,13 +106,21 @@ export function Units() {
   // Visible units based on admin scope
   const visibleUnits = useMemo(() => {
     if (adminLevel === 'unit') {
-      return units.filter(u => u.id === effectiveAdmin.unitId);
+      const assignedIds = new Set([
+        ...(effectiveAdmin.unitIds || []),
+        ...(effectiveAdmin.unitId ? [effectiveAdmin.unitId] : []),
+      ].filter(Boolean));
+      return assignedIds.size > 0 ? units.filter(u => assignedIds.has(u.id)) : units;
     }
     if (isDepartmentAdmin && effectiveAdmin.departmentId) {
-      return units.filter(u => u.departmentId === effectiveAdmin.departmentId);
+      const assignedDeptIds = new Set([
+        ...(effectiveAdmin.departmentIds || []),
+        ...(effectiveAdmin.departmentId ? [effectiveAdmin.departmentId] : []),
+      ].filter(Boolean));
+      return units.filter(u => assignedDeptIds.has(u.departmentId));
     }
     return units;
-  }, [units, adminLevel, isDepartmentAdmin, effectiveAdmin.departmentId, effectiveAdmin.unitId]);
+  }, [units, adminLevel, isDepartmentAdmin, effectiveAdmin.departmentId, effectiveAdmin.departmentIds, effectiveAdmin.unitId, effectiveAdmin.unitIds]);
 
   const resetForm = () => {
     setName('');

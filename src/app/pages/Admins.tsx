@@ -86,6 +86,7 @@ import {
   type PermissionCatalogGroup,
 } from '../utils/rolePermissionMapping';
 import { groupPermissionsForDisplay } from '../utils/permissionCategoryDisplay';
+import { friendlyError } from '../utils/friendlyError';
 
 type DialogMode = 'create' | 'edit' | null;
 type ActionMode = 'delete' | 'suspend' | 'activate' | 'reset-password' | null;
@@ -664,9 +665,9 @@ export function Admins() {
       resetForm();
       // API sends a verification email - no temp password returned
       showSuccess('Leader created successfully. A verification email has been sent.');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to create admin:', err);
-      showSuccess(`Error: ${err.message}`, 'error');
+      showSuccess(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -770,9 +771,9 @@ export function Admins() {
       }
       closeDialog();
       showSuccess(`"${formName.trim()}" updated successfully.`);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to update admin:', err);
-      showSuccess(`Error updating leader: ${err.message}`, 'error');
+      showSuccess(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -796,9 +797,9 @@ export function Admins() {
       setActionMode(null);
       setSelectedAdmin(null);
       showSuccess(`"${name}" has been removed.`);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete admin:', err);
-      showSuccess(`Error deleting leader: ${err.message}`, 'error');
+      showSuccess(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -824,9 +825,9 @@ export function Admins() {
           ? `"${name}" has been suspended. They can no longer access the platform.`
           : `"${name}" has been reactivated.`
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to toggle suspend:', err);
-      showSuccess(`Error updating leader: ${err.message}`, 'error');
+      showSuccess(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -864,9 +865,9 @@ export function Admins() {
       setCopiedPassword(false);
       setTempPasswordDialog(true);
       setTempPasswordContext('reset');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to reset password:', err);
-      showSuccess(`Error resetting password: ${err.message}`, 'error');
+      showSuccess(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }

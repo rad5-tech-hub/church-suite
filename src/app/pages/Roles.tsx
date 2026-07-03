@@ -47,6 +47,7 @@ import { resolvePrimaryBranchId } from '../utils/scope';
 import { deriveAssignablePermissions, buildRolePermissionPayload, mapBackendRolePermissions, type PermissionCatalogGroup } from '../utils/rolePermissionMapping';
 import { hasPermission } from '../utils/adminPermissions';
 import { groupPermissionsForDisplay } from '../utils/permissionCategoryDisplay';
+import { friendlyError } from '../utils/friendlyError';
 
 type DialogMode = 'create' | 'edit' | 'view' | null;
 type PendingPermissionChange = {
@@ -530,9 +531,9 @@ export function Roles() {
       showToast(`"${roleName.trim()}" role created successfully!`);
       const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to create role:', err);
-      showToast(err?.body?.message || err?.message || 'Failed to create role.', 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -566,9 +567,9 @@ export function Roles() {
       showToast(`"${roleName.trim()}" role updated successfully!`);
       const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to update role:', err);
-      showToast(err?.body?.message || err?.message || 'Failed to update role.', 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }
@@ -588,9 +589,9 @@ export function Roles() {
       showToast(`"${name}" role deleted successfully!`);
       const rolesData = await fetchRoles(primaryBranchId);
       setRoles(rolesData as Role[]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete role:', err);
-      showToast(err?.body?.message || err?.message || 'Failed to delete role.', 'error');
+      showToast(friendlyError(err), 'error');
     } finally {
       setSaving(false);
     }

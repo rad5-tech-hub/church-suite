@@ -65,6 +65,14 @@ import type {
   CreateCustomFormRequest,
   CreateReportRequest,
   SubscribeRequest,
+  CreateFundraiserRequest,
+  EditFundraiserRequest,
+  RecordFundContributionRequest,
+  CreateTrainingRequest,
+  EditTrainingRequest,
+  ApiTraining,
+  EnrollTrainingRequest,
+  ApiTrainingEnrollment,
 } from "./apiTypes";
 import type {
   AdminLevel,
@@ -384,6 +392,7 @@ function mapApiMember(m: any): any {
     ageRange: m.ageFrom && m.ageTo ? `${m.ageFrom}-${m.ageTo}` : undefined,
     birthdayMonth: parseInt(m.birthMonth || "0", 10) || 0,
     birthdayDay: parseInt(m.birthDay || "0", 10) || 0,
+    birthdayYear: m.birthYear ? (parseInt(m.birthYear, 10) || undefined) : undefined,
     country: m.nationality || "",
     state: m.state || "",
     LGA: m.LGA || "",
@@ -993,15 +1002,10 @@ export const signupAdmin = createChurch;
 export function resolveFallbackBranchId(branchId?: string) {
   if (branchId) return branchId;
   const scope = getCachedAdminScope();
+  // Super admins / church-level admins see all data — no branchId filter
+  if (scope.isSuperAdmin || scope.level === "church") return undefined;
+  // All other admins are scoped to a branch — branchId is required by the API
   if (scope.branchId) return scope.branchId;
-  const churchDataStr =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem("churchset_church_data")
-      : null;
-  const churchData = churchDataStr ? JSON.parse(churchDataStr) : null;
-  if (churchData?.branches?.length > 0) {
-    return churchData.branches[0].id;
-  }
   return undefined;
 }
 
@@ -1970,17 +1974,22 @@ function getCachedAdminScope() {
     ? churchData.branches
     : [];
 
-  const branchIds = Array.from(
-    new Set(
-      [
-        claims.branchId,
-        ...(Array.isArray(claims.branchIds) ? claims.branchIds : []),
-        cachedAdmin?.branchId,
-        ...(Array.isArray(cachedAdmin?.branchIds) ? cachedAdmin.branchIds : []),
-        ...storedBranches.map((branch: any) => branch?.id),
-      ].filter(Boolean),
-    ),
-  );
+  const isSuperAdmin = !!(claims.isSuperAdmin || cachedAdmin?.isSuperAdmin);
+
+  // Super admins see all data — give them no branchIds so nothing gets filtered
+  const branchIds = isSuperAdmin
+    ? []
+    : Array.from(
+        new Set(
+          [
+            claims.branchId,
+            ...(Array.isArray(claims.branchIds) ? claims.branchIds : []),
+            cachedAdmin?.branchId,
+            ...(Array.isArray(cachedAdmin?.branchIds) ? cachedAdmin.branchIds : []),
+            ...storedBranches.map((branch: any) => branch?.id),
+          ].filter(Boolean),
+        ),
+      );
 
   const departmentIds = Array.from(
     new Set(
@@ -2013,6 +2022,7 @@ function getCachedAdminScope() {
 
   return {
     level,
+    isSuperAdmin,
     branchId: branchIds[0],
     branchIds,
     departmentId: departmentIds[0],
@@ -2027,12 +2037,14 @@ function getCachedAdminScope() {
 function resolveDepartmentBranchId(branchId?: string) {
   if (branchId) return branchId;
   const scope = getCachedAdminScope();
+  // Super admins / church-level admins see all data — no branchId filter
+  if (scope.isSuperAdmin || scope.level === "church") return undefined;
   const isDepartmentScoped =
     scope.level === "department" ||
     scope.level === "unit" ||
     !!scope.departmentId ||
     !!scope.unitId;
-  return isDepartmentScoped ? scope.branchId : undefined;
+  return isDepartmentScoped ? scope.branchId : scope.branchId;
 }
 
 function dedupeCollections(items: any[]): any[] {
@@ -2421,6 +2433,73 @@ export const saveStandaloneCollections = async (_collections: any[]) => ({
   success: true,
 });
 
+// FUND (FUNDRAISER) API
+
+/** GET /fund/all-funds */
+export async function fetchFundraisers(): Promise<any[]> {
+  try {
+    const hiddenIds = readHiddenIdSet(HIDDEN_FUNDRAISER_IDS_KEY);
+    const res = await apiFetch<any>("/fund/all-funds");
+    const items: any[] = Array.isArray(res?.fundraisers)
+      ? res.fundraisers
+      : Array.isArray(res)
+        ? res
+        : [];
+    return items
+      .filter((f: any) => !hiddenIds.has(f.id))
+      .map((f: any) => ({
+        id: f.id,
+        name: f.name || "",
+        description: f.description || undefined,
+        targetAmount: parseFloat(f.targetAmount) || 0,
+        balance: parseFloat(f.balance) || 0,
+        dueDate: new Date(f.dueDate),
+        scope: f.scope || "branch",
+        scopeId: f.scopeId || undefined,
+        isActive: f.isActive ?? true,
+        createdBy: f.createdBy || "",
+        createdAt: new Date(f.createdAt || Date.now()),
+        creator: f.creator,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** POST /fund/create-fund-raiser */
+export async function createFundraiser(data: CreateFundraiserRequest) {
+  return apiFetch<any>("/fund/create-fund-raiser", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** PATCH /fund/edit-fundraiser/:id */
+export async function editFundraiser(id: string, data: EditFundraiserRequest) {
+  return apiFetch<any>(`/fund/edit-fundraiser/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** POST /fund/record-fund/:fundId */
+export async function recordFundContribution(
+  fundId: string,
+  data: RecordFundContributionRequest,
+) {
+  return apiFetch<any>(`/fund/record-fund/${fundId}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** DELETE /fund/delete-fundraiser/:fundId */
+export async function deleteFundraiser(fundId: string) {
+  return apiFetch<any>(`/fund/delete-fundraiser/${fundId}`, {
+    method: "DELETE",
+  });
+}
+
 // WALLET & SMS
 
 /** POST /wallet/fund-wallet/:branchId */
@@ -2461,6 +2540,14 @@ export async function sendSms(data: SendSmsRequest) {
   return apiFetch<any>("/wallet/send-sms", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+/** POST /wallet/request-sms-name */
+export async function requestSmsName(senderName: string, branchId: string) {
+  return apiFetch<{ message: string }>("/wallet/request-sms-name", {
+    method: "POST",
+    body: JSON.stringify({ senderName, branchId }),
   });
 }
 
@@ -2779,6 +2866,18 @@ export async function updateAccount(
   );
 }
 
+/** PATCH /wallet/edit-account-record/:recordId */
+export async function editAccountRecord(
+  recordId: string,
+  data: { credit?: number; debit?: number; description?: string; reason?: string },
+): Promise<any> {
+  const res = await apiFetch<any>(`/wallet/edit-account-record/${recordId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
+
 /** GET /wallet/get-account-record?branchId=... */
 export async function fetchAccountRecords(
   branchId?: string,
@@ -2917,6 +3016,8 @@ export const fetchLedgerEntries = async (
         amount: credit > 0 ? credit : debit,
         description: r.description || "",
         date: new Date(r.createdAt || r.date || Date.now()),
+        programId: r.programId || r.program?.id || undefined,
+        programInstanceId: r.programInstanceId || undefined,
         createdBy: r.creator?.name || r.createdBy || "",
         createdAt: new Date(r.createdAt || r.date || Date.now()),
         _raw: r,
@@ -3081,6 +3182,10 @@ function mapApiReportRecipientEntries(raw: any): ReportRecipientEntry[] {
       undefined,
     isRead: Boolean(recipient?.isRead),
     readAt: recipient?.readAt ? new Date(recipient.readAt) : undefined,
+    isForwarded: Boolean(recipient?.isForwarded),
+    forwardedBy: recipient?.forwardedBy || recipient?.forwarder?.id || undefined,
+    forwardedAt: recipient?.forwardedAt ? new Date(recipient.forwardedAt) : undefined,
+    forwarderName: recipient?.forwarder?.name || undefined,
   }));
 }
 
@@ -3211,6 +3316,9 @@ function mapApiReport(raw: any, fallbackType?: ReportFilter): Report {
     replies: Array.isArray(raw?.replies)
       ? raw.replies.map((reply: any) => mapApiReportReply(reply, authorLevel))
       : [],
+    referenceId: raw?.referenceId || undefined,
+    referenceTitle: raw?.reference?.title || undefined,
+    isForwarded: Boolean(raw?.referenceId),
     createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
     updatedAt: raw?.updatedAt ? new Date(raw.updatedAt) : undefined,
   };
@@ -3337,6 +3445,20 @@ export async function markReportRead(reportId: string) {
   });
 }
 
+export async function replyToReport(reportId: string, replyText: string) {
+  return apiFetch<any>("/tenants/reply-report/" + reportId, {
+    method: "POST",
+    body: JSON.stringify({ replyText }),
+  });
+}
+
+export async function forwardReport(reportId: string, recipients: string[], message?: string) {
+  return apiFetch<any>("/tenants/forward-report/" + reportId, {
+    method: "POST",
+    body: JSON.stringify({ recipients, ...(message?.trim() ? { message: message.trim() } : {}) }),
+  });
+}
+
 export const saveReports = async (reports: Report[]) => {
   const existing = readLocalJson<ReportUiState>(REPORT_UI_STATE_KEY, {});
   const next: ReportUiState = { ...existing };
@@ -3381,9 +3503,15 @@ export async function markNotificationRead(data: {
 
 // SUBSCRIPTION / PLANS
 
+export interface SubscribePlanRequest {
+  planId: string;
+  billingCycle?: 'monthly' | 'annual';
+  branchCount?: number;
+}
+
 /** POST /plan/subscribe */
-export async function subscribeToPlan(data: SubscribeRequest) {
-  return apiFetch<any>("/plan/subscribe", {
+export async function subscribeToPlan(data: SubscribePlanRequest): Promise<SubscribePlanResponse> {
+  return apiFetch<SubscribePlanResponse>("/plan/subscribe", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -3392,6 +3520,11 @@ export async function subscribeToPlan(data: SubscribeRequest) {
 /** GET /plan/pricing-configs */
 export async function fetchPricingConfigs() {
   return apiFetch<any>("/plan/pricing-configs");
+}
+
+/** GET /plan/my-subscription — returns the church's active subscription details */
+export async function fetchMySubscription(): Promise<any> {
+  return apiFetch<any>('/plan/my-subscription').catch(() => null);
 }
 
 // BACKWARD COMPAT STUBS
@@ -3565,6 +3698,91 @@ export const saveTrainingPrograms = async (_programs: any[]) => ({
   success: true,
 });
 
+// ─── Training (Follow / Training API) ──────────────────────
+
+/** POST /follow/create-training */
+export async function createTraining(
+  data: CreateTrainingRequest,
+  branchId?: string,
+): Promise<ApiTraining> {
+  const body: any = { ...data };
+  if (branchId) body.branchId = branchId;
+  const res = await apiFetch<any>("/follow/create-training", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return res.data ?? res;
+}
+
+/** PATCH /follow/edit-training/:trainingId */
+export async function editTraining(
+  trainingId: string,
+  data: EditTrainingRequest,
+): Promise<ApiTraining> {
+  const res = await apiFetch<any>(`/follow/edit-training/${trainingId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
+
+/** GET /follow/trainings */
+export async function fetchTrainings(
+  branchId?: string,
+): Promise<ApiTraining[]> {
+  const res = await apiFetch<any>(
+    `/follow/trainings${buildQuery({ branchId })}`,
+  );
+  return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+}
+
+/** GET /follow/training-enrollments/:trainingId */
+export async function fetchTrainingEnrollments(
+  trainingId: string,
+): Promise<ApiTrainingEnrollment[]> {
+  try {
+    const res = await apiFetch<any>(`/follow/training-enrollments/${trainingId}`);
+    return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+  } catch {
+    return [];
+  }
+}
+
+/** DELETE /follow/delete-training/:trainingId */
+export async function deleteTraining(trainingId: string): Promise<void> {
+  await apiFetch<any>(`/follow/delete-training/${trainingId}`, {
+    method: "DELETE",
+  });
+}
+
+/** PATCH /follow/training-progress/:trainingId/enrollment/:enrollmentId */
+export async function updateTrainingProgress(
+  trainingId: string,
+  enrollmentId: string,
+  progressPercentage: number,
+): Promise<ApiTrainingEnrollment> {
+  const res = await apiFetch<any>(
+    `/follow/training-progress/${trainingId}/enrollment/${enrollmentId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ progressPercentage }),
+    },
+  );
+  return res.data ?? res;
+}
+
+/** POST /follow/enroll-training/:trainingId */
+export async function enrollTraining(
+  trainingId: string,
+  data: EnrollTrainingRequest,
+): Promise<ApiTrainingEnrollment> {
+  const res = await apiFetch<any>(`/follow/enroll-training/${trainingId}`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return res.data ?? res;
+}
+
 const NEWCOMER_CLASSES_KEY = "churchset_newcomer_training_classes";
 export const fetchNewcomerTrainingClasses = async (): Promise<any[]> => {
   try {
@@ -3598,3 +3816,49 @@ export const saveMemberTrainingClasses = async (classes: any[]) => {
   }
   return { success: true };
 };
+
+// ─────────────────────────────────────────────────────
+// PLAN TYPES & FETCH
+// ─────────────────────────────────────────────────────
+
+export interface PlanData {
+  id: string;
+  name: string;
+  description: string;
+  isTrial: boolean;
+  trialDurationDays: number;
+  pricingConfig: {
+    id: string;
+    basePlanPrice: string;
+  };
+}
+
+export async function fetchAllPlans(): Promise<PlanData[]> {
+  const res = await apiFetch('/plan/all-plans', { method: 'GET', skipAuth: true });
+  const data = (res as any)?.data ?? res;
+  const plans: PlanData[] = Array.isArray(data) ? data : [];
+  return plans.map(p => {
+    if (p.name && /monies/i.test(p.name)) {
+      return { ...p, name: 'Premium' };
+    }
+    return p;
+  });
+}
+
+export interface SubscribePlanResponse {
+  message?: string;
+  access?: string;
+  accessToken?: string;
+  paymentUrl?: {
+    payment: { tx_ref: string; amount: number | string; currency: string };
+    customer: { email: string; name: string };
+    meta?: Record<string, any>;
+    pricingBreakdown?: {
+      monthlyPrice: number | string | null;
+      annualPrice: number | string | null;
+      discountApplied: number;
+      totalPayable: number | string;
+    };
+    publicKey?: string;
+  };
+}

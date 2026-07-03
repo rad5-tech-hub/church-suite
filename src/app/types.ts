@@ -38,6 +38,7 @@ export interface Branch {
   createdAt: Date;
 }
 
+
 export interface Department {
   id: string;
   branchId: string | null;
@@ -140,6 +141,7 @@ export interface Member {
   /** Training class assignment (same model as newcomers) */
   trainingClassId?: string;
   trainingStatus?: NewcomerTrainingStatus;
+  trainingProgress?: number;
   createdAt: Date;
 }
 
@@ -377,6 +379,22 @@ export interface LedgerEntry {
   createdAt: Date;
 }
 
+/** A fundraising campaign from the /fund API */
+export interface Fundraiser {
+  id: string;
+  name: string;
+  description?: string;
+  targetAmount: number;
+  balance: number;
+  dueDate: Date;
+  scope: 'church' | 'branch' | 'department' | 'unit';
+  scopeId?: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: Date;
+  creator?: { id: string; name: string; email: string };
+}
+
 /** A standalone (non-program) collection with a target goal, e.g. "Buy a new bus" */
 export interface StandaloneCollection {
   id: string;
@@ -440,6 +458,12 @@ export interface Report {
   replies?: ReportReply[];
   /** If this report is a reply, the ID of the parent report */
   parentReportId?: string;
+  /** For forwarded reports — the original report's ID */
+  referenceId?: string;
+  /** For forwarded reports — the original report's title */
+  referenceTitle?: string;
+  /** True when this report was forwarded from another */
+  isForwarded?: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -451,6 +475,10 @@ export interface ReportRecipientEntry {
   recipientEmail?: string;
   isRead: boolean;
   readAt?: Date;
+  isForwarded?: boolean;
+  forwardedBy?: string;
+  forwardedAt?: Date;
+  forwarderName?: string;
 }
 
 export interface ReportReply {
