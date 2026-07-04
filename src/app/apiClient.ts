@@ -164,6 +164,18 @@ export async function apiFetch<T = any>(
     console.groupEnd();
   }
 
+  if (method === 'GET') {
+    try {
+      const urlObj = new URL(url);
+      if (!urlObj.searchParams.has('_t')) {
+        urlObj.searchParams.set('_t', Date.now().toString());
+        url = urlObj.toString();
+      }
+    } catch {
+      // Ignore if url is not parsable
+    }
+  }
+
   const res = await fetch(url, {
     ...options,
     headers,

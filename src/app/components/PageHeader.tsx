@@ -37,7 +37,7 @@ export function PageHeader({ title, description, action, breadcrumbs }: PageHead
           <p className="text-sm md:text-base text-gray-600 max-w-3xl">{description}</p>
         </div>
         {action && (
-          <Button onClick={action.onClick} className="flex-shrink-0 text-sm">
+          <Button type="button" onClick={action.onClick} className="flex-shrink-0 text-sm relative z-10 cursor-pointer">
             {action.icon}
             <span className="hidden sm:inline">{action.label}</span>
             <span className="sm:hidden">{action.icon ? '' : action.label}</span>
