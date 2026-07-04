@@ -703,20 +703,10 @@ export function Workforce() {
         const targetBranchId = isMultiBranch ? addBranchId || existingMember.branchId || currentAdmin?.branchId : currentAdmin?.branchId || existingMember.branchId;
 
         if (targetBranchId) {
-          await createWorkforceMember({
-            name: existingMember.fullName,
-            phoneNo: existingMember.phone,
-            email: existingMember.email,
-            sex: existingMember.gender,
-            address: existingMember.address,
-            maritalStatus: existingMember.maritalStatus,
-            nationality: existingMember.country,
-            state: existingMember.state,
-            LGA: existingMember.LGA,
-            branchId: targetBranchId,
+          await editMember(existingMember.id, {
             departmentIds: newDepartmentIds,
             unitIds: newUnitIds,
-          }, church.id);
+          });
         }
       }
 

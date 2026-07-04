@@ -1181,7 +1181,7 @@ export function Profile() {
                   <p className="text-sm text-gray-500 mb-4">
                     If you can't find what you're looking for, reach out to our support team.
                   </p>
-                  <Button variant="outline">
+                  <Button variant="outline" type="button" onClick={() => window.open('mailto:support@bookbank.com.ng')}>
                     <Mail className="w-4 h-4 mr-2" />
                     Contact Support
                   </Button>

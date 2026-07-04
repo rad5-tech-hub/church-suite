@@ -1439,14 +1439,14 @@ export async function fetchMember(memberId: string) {
   };
 }
 
-/** POST /member/non-worker?churchId=...&branchId=... */
+/** POST /member/add-member?churchId=...&branchId=... */
 export async function createMember(
   data: CreateNonWorkerMemberRequest,
   churchId?: string,
   branchId?: string,
 ) {
   return apiFetch<any>(
-    `/member/non-worker${buildQuery({ churchId, branchId })}`,
+    `/member/add-member${buildQuery({ churchId, branchId })}`,
     {
       method: "POST",
       body: JSON.stringify(data),
@@ -2846,7 +2846,8 @@ export async function fetchDashboard(params?: {
   compareStartDate?: string;
   compareEndDate?: string;
 }) {
-  return apiFetch<any>(`/member/get-dashboard${buildQuery(params || {})}`);
+  const queryParams = { ...(params || {}), _t: Date.now() };
+  return apiFetch<any>(`/member/get-dashboard${buildQuery(queryParams)}`);
 }
 
 // ACCOUNT / FINANCE
@@ -3700,87 +3701,100 @@ export const saveTrainingPrograms = async (_programs: any[]) => ({
 
 // ─── Training (Follow / Training API) ──────────────────────
 
-/** POST /follow/create-training */
+const TRAININGS_KEY = "churchset_trainings_mock";
+const ENROLLMENTS_KEY = "churchset_training_enrollments_mock";
+
 export async function createTraining(
   data: CreateTrainingRequest,
   branchId?: string,
 ): Promise<ApiTraining> {
-  const body: any = { ...data };
-  if (branchId) body.branchId = branchId;
-  const res = await apiFetch<any>("/follow/create-training", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  return res.data ?? res;
+  const trainings = readLocalJson<ApiTraining[]>(TRAININGS_KEY, []);
+  const newTraining: ApiTraining = {
+    id: `tr-${Date.now()}`,
+    tenantId: "mock",
+    branchId: branchId || "",
+    name: data.name || "",
+    description: data.description || "",
+    startDate: data.startDate || new Date().toISOString(),
+    endDate: data.endDate || new Date().toISOString(),
+    capacity: data.capacity || 0,
+    status: data.status || "upcoming",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  writeLocalJson(TRAININGS_KEY, [...trainings, newTraining]);
+  return newTraining;
 }
 
-/** PATCH /follow/edit-training/:trainingId */
 export async function editTraining(
   trainingId: string,
   data: EditTrainingRequest,
 ): Promise<ApiTraining> {
-  const res = await apiFetch<any>(`/follow/edit-training/${trainingId}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-  return res.data ?? res;
+  const trainings = readLocalJson<ApiTraining[]>(TRAININGS_KEY, []);
+  const index = trainings.findIndex((t) => t.id === trainingId);
+  if (index >= 0) {
+    trainings[index] = { ...trainings[index], ...data, updatedAt: new Date().toISOString() };
+    writeLocalJson(TRAININGS_KEY, trainings);
+    return trainings[index];
+  }
+  throw new Error("Training not found");
 }
 
-/** GET /follow/trainings */
 export async function fetchTrainings(
   branchId?: string,
 ): Promise<ApiTraining[]> {
-  const res = await apiFetch<any>(
-    `/follow/trainings${buildQuery({ branchId })}`,
-  );
-  return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
+  const trainings = readLocalJson<ApiTraining[]>(TRAININGS_KEY, []);
+  if (branchId) return trainings.filter((t) => t.branchId === branchId);
+  return trainings;
 }
 
-/** GET /follow/training-enrollments/:trainingId */
 export async function fetchTrainingEnrollments(
   trainingId: string,
 ): Promise<ApiTrainingEnrollment[]> {
-  try {
-    const res = await apiFetch<any>(`/follow/training-enrollments/${trainingId}`);
-    return Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : [];
-  } catch {
-    return [];
-  }
+  const enrollments = readLocalJson<ApiTrainingEnrollment[]>(ENROLLMENTS_KEY, []);
+  return enrollments.filter((e) => e.trainingId === trainingId);
 }
 
-/** DELETE /follow/delete-training/:trainingId */
 export async function deleteTraining(trainingId: string): Promise<void> {
-  await apiFetch<any>(`/follow/delete-training/${trainingId}`, {
-    method: "DELETE",
-  });
+  const trainings = readLocalJson<ApiTraining[]>(TRAININGS_KEY, []);
+  writeLocalJson(TRAININGS_KEY, trainings.filter((t) => t.id !== trainingId));
 }
 
-/** PATCH /follow/training-progress/:trainingId/enrollment/:enrollmentId */
 export async function updateTrainingProgress(
   trainingId: string,
   enrollmentId: string,
   progressPercentage: number,
 ): Promise<ApiTrainingEnrollment> {
-  const res = await apiFetch<any>(
-    `/follow/training-progress/${trainingId}/enrollment/${enrollmentId}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ progressPercentage }),
-    },
-  );
-  return res.data ?? res;
+  const enrollments = readLocalJson<ApiTrainingEnrollment[]>(ENROLLMENTS_KEY, []);
+  const idx = enrollments.findIndex(e => e.id === enrollmentId);
+  if (idx >= 0) {
+    enrollments[idx].progressPercentage = progressPercentage;
+    if (progressPercentage === 100) enrollments[idx].status = "graduated";
+    writeLocalJson(ENROLLMENTS_KEY, enrollments);
+    return enrollments[idx];
+  }
+  throw new Error("Enrollment not found");
 }
 
-/** POST /follow/enroll-training/:trainingId */
 export async function enrollTraining(
   trainingId: string,
   data: EnrollTrainingRequest,
 ): Promise<ApiTrainingEnrollment> {
-  const res = await apiFetch<any>(`/follow/enroll-training/${trainingId}`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-  return res.data ?? res;
+  const enrollments = readLocalJson<ApiTrainingEnrollment[]>(ENROLLMENTS_KEY, []);
+  const newEnrollment: ApiTrainingEnrollment = {
+    id: `enr-${Date.now()}`,
+    tenantId: "mock",
+    trainingId,
+    memberId: data.memberId,
+    newcomerId: data.newcomerId,
+    enrollmentDate: new Date().toISOString(),
+    status: "enrolled",
+    progressPercentage: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  writeLocalJson(ENROLLMENTS_KEY, [...enrollments, newEnrollment]);
+  return newEnrollment;
 }
 
 const NEWCOMER_CLASSES_KEY = "churchset_newcomer_training_classes";
