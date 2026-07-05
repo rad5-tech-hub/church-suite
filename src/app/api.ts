@@ -1373,10 +1373,41 @@ export async function fetchMembers(
   departmentId?: string,
   isWorker?: boolean,
 ): Promise<any[]> {
-  const { branchId: resolvedBranchId, records } = await fetchChurchMemberPages(
-    branchId,
-    isWorker,
-  );
+  const resolvedBranchId = resolveFallbackBranchId(branchId);
+  const branchesToFetch: string[] = [];
+
+  if (resolvedBranchId) {
+    branchesToFetch.push(resolvedBranchId);
+  } else {
+    try {
+      const branches = await fetchBranches();
+      if (branches && branches.length > 0) {
+        branchesToFetch.push(...branches.map((b: any) => b.id));
+      } else {
+        branchesToFetch.push("");
+      }
+    } catch {
+      branchesToFetch.push("");
+    }
+  }
+
+  const records: any[] = [];
+  for (const bId of branchesToFetch) {
+    try {
+      const pageData = await fetchChurchMemberPages(bId, isWorker);
+      records.push(
+        ...pageData.records.map((r: any) => ({
+          ...r,
+          _queriedBranchId: bId,
+        }))
+      );
+    } catch (e: any) {
+      // Ignore 400s if it's the empty fallback branch
+      if (!bId && e?.status === 400) continue;
+      throw e;
+    }
+  }
+
   const resolvedDepartmentId = resolveScopedDepartmentId(departmentId);
   const canFilterByDepartment = records.some(
     (member: any) =>
@@ -1403,7 +1434,7 @@ export async function fetchMembers(
     .map(mapApiMember)
     .map((member: any) => ({
       ...member,
-      branchId: member.branchId || resolvedBranchId || "",
+      branchId: member.branchId || member._raw?._queriedBranchId || "",
     }))
     .filter(
       (member: any) =>
