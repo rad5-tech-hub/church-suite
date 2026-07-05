@@ -1441,15 +1441,20 @@ export async function fetchMember(memberId: string) {
 
 /** POST /member/add-member?churchId=...&branchId=... */
 export async function createMember(
-  data: CreateNonWorkerMemberRequest,
+  data: CreateNonWorkerMemberRequest & { departmentIds?: string[]; unitIds?: string[] },
   churchId?: string,
   branchId?: string,
 ) {
+  const payload = {
+    ...data,
+    branchId: branchId,
+    departmentIds: data.departmentIds || [],
+  };
   return apiFetch<any>(
     `/member/add-member${buildQuery({ churchId, branchId })}`,
     {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     },
   );
 }
@@ -1459,9 +1464,13 @@ export async function createWorkforceMember(
   data: CreateMemberRequest,
   churchId?: string,
 ) {
+  const payload = {
+    ...data,
+    departmentIds: data.departmentIds || [],
+  };
   return apiFetch<any>(`/member/add-member${buildQuery({ churchId })}`, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 }
 
