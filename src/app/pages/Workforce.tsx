@@ -412,13 +412,20 @@ export function Workforce() {
       const memberDetailsResults = await Promise.allSettled(uniqueWorkforceMemberIds.map(memberId => fetchMember(memberId)));
       const nextWorkforceMemberDetails = uniqueWorkforceMemberIds.reduce((acc, memberId, index) => {
         const result = memberDetailsResults[index];
-        if (
-          result.status === 'fulfilled' &&
-          result.value?.id &&
-          (result.value as any).isDeleted !== true &&
-          (result.value as any).isActive !== false
-        ) {
-          acc[memberId] = result.value as Member;
+        if (result.status === 'fulfilled') {
+          if (
+            result.value?.id &&
+            (result.value as any).isDeleted !== true &&
+            (result.value as any).isActive !== false
+          ) {
+            acc[memberId] = result.value as Member;
+          }
+        } else {
+          // If fetch fails, don't drop the member, assume they are still active
+          const existing = visibleWorkforce.find(w => w.memberId === memberId);
+          if (existing) {
+             acc[memberId] = existing as unknown as Member;
+          }
         }
         return acc;
       }, {} as Record<string, Member>);
