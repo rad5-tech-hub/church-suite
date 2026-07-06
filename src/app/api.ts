@@ -373,6 +373,7 @@ function mapApiAdmin(a: any): any {
 function mapApiMember(m: any): any {
   return {
     id: m.id || m._id || m.memberId,
+    _raw: m,
     churchId: m.churchId || "",
     branchId: m.branchId || "",
     departmentId: m.departments?.[0]?.id || m.departments?.[0]?._id,
@@ -454,19 +455,18 @@ function buildChurchMemberPagePath(
     const queryObj: Record<string, string | boolean | undefined> = {
       branchId: branchId,
     };
-    if (isWorker !== undefined) queryObj.isWorker = isWorker;
-    return `/member/all-church-member${buildQuery(queryObj)}`;
+    return `/member/all-members${buildQuery(queryObj)}`;
   }
 
   const normalizedPath = normalizeRelativeApiPath(nextPagePath) || nextPagePath;
 
   try {
     const parsed = new URL(normalizedPath, "https://churchset.local");
+    if (parsed.pathname === "/member/all-church-member") {
+      parsed.pathname = "/member/all-members";
+    }
     if (branchId && !parsed.searchParams.has("branchId")) {
       parsed.searchParams.set("branchId", branchId);
-    }
-    if (isWorker !== undefined && !parsed.searchParams.has("isWorker")) {
-      parsed.searchParams.set("isWorker", String(isWorker));
     }
 
     const query = parsed.searchParams.toString();
@@ -1470,19 +1470,16 @@ export async function fetchMember(memberId: string) {
   };
 }
 
-/** POST /member/add-member?churchId=...&branchId=... */
+/** POST /member/non-worker?churchId=...&branchId=... */
 export async function createMember(
   data: CreateNonWorkerMemberRequest & { departmentIds?: string[]; unitIds?: string[] },
   churchId?: string,
   branchId?: string,
 ) {
-  const payload = {
-    ...data,
-    branchId: branchId,
-    departmentIds: data.departmentIds || [],
-  };
+  const { branchId: _unused, ...payload } = data as any;
+  
   return apiFetch<any>(
-    `/member/add-member${buildQuery({ churchId, branchId })}`,
+    `/member/non-worker${buildQuery({ churchId, branchId })}`,
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -1512,11 +1509,15 @@ export async function editMember(
   data: EditMemberRequest,
   departmentId?: string,
 ) {
+  const payload = {
+    ...data,
+    branchId: branchId,
+  };
   return apiFetch<any>(
     `/member/edit-member/${memberId}/branch/${branchId}${buildQuery({ departmentId: resolveScopedDepartmentId(departmentId) })}`,
     {
       method: "PATCH",
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     },
   );
 }

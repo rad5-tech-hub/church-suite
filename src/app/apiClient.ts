@@ -116,7 +116,7 @@ export async function apiFetch<T = any>(
   path: string,
   options?: RequestInit & { skipAuth?: boolean }
 ): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  let url = `${API_BASE_URL}${path}`;
   const token = getAccessToken();
   const tenantId = getTenantId();
   const method = (options?.method ?? 'GET').toUpperCase();
@@ -162,18 +162,6 @@ export async function apiFetch<T = any>(
     if (logBody !== undefined) console.log('Body:', logBody);
     console.log('Headers:', { ...headers, Authorization: headers.Authorization ? '***' : undefined });
     console.groupEnd();
-  }
-
-  if (method === 'GET') {
-    try {
-      const urlObj = new URL(url);
-      if (!urlObj.searchParams.has('_t')) {
-        urlObj.searchParams.set('_t', Date.now().toString());
-        url = urlObj.toString();
-      }
-    } catch {
-      // Ignore if url is not parsable
-    }
   }
 
   const res = await fetch(url, {

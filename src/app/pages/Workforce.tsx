@@ -710,7 +710,7 @@ export function Workforce() {
         const targetBranchId = isMultiBranch ? addBranchId || existingMember.branchId || currentAdmin?.branchId : currentAdmin?.branchId || existingMember.branchId;
 
         if (targetBranchId) {
-          await editMember(existingMember.id, {
+          await editMember(existingMember.id, targetBranchId, {
             departmentIds: newDepartmentIds,
             unitIds: newUnitIds,
           });
